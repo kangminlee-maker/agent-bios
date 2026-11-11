@@ -270,6 +270,50 @@ def _carrier(proposal):
     return (proposal.get("destination") or {}).get("carrier")
 
 
+# When each §7.4 rule applies: one reader per declared scope, named by the table. A scope the table
+# names and this module does not is refused (SCOPE_UNCHECKED), in both directions, like CONDITIONS.
+SCOPES = {
+    "always": lambda p: True,
+    "placing_a_guide": lambda p: _layer(p) == "guides" and p.get("disposition") == "place",
+    "carries_an_instruction": lambda p: bool(_operations(p)),
+    "placing_a_gate": lambda p: _layer(p) == "gates",
+    "placing_a_hook": lambda p: _layer(p) == "hooks",
+    "a_c_principle": lambda p: bool(_operations(p)),
+}
+
+
+def scope_problems():
+    """Scopes the table names with no reader here, and readers the table never names. Both directions."""
+    named = {rule.get("scope") for rule in table("placement")["rules"]}
+    problems = [f"SCOPE_UNCHECKED {name!r}: the placement table names this scope and no reader here "
+                f"decides it" for name in sorted(named - set(SCOPES)) if name]
+    problems += [f"SCOPE_UNNAMED {name!r}: this module reads a scope the placement table does not name"
+                 for name in sorted(set(SCOPES) - named)]
+    return problems
+
+
+def input_problems(proposal):
+    """Inputs a rule needs, for every rule whose scope this proposal is in, missing by name.
+
+    This is the guard against a rule that passes over a field nobody filled. It was not hypothetical:
+    the flat proposal S7 handed this module carried none of §7.4's inputs, so five of the six rules
+    read None and found nothing, while their own controls - built from hand-written dicts - passed."""
+    problems = []
+    for rule in table("placement")["rules"]:
+        scope = rule.get("scope")
+        if scope not in SCOPES:
+            problems.append(f"SCOPE_UNCHECKED {scope!r} for {rule['id']}: no reader decides it")
+            continue
+        if not SCOPES[scope](proposal):
+            continue
+        for field in rule.get("requires") or []:
+            if proposal.get(field) is None:
+                problems.append(f"PLACEMENT_INPUT_ABSENT {rule['code']} {proposal.get('item_id')}."
+                                f"{field}: this proposal is in the rule's scope ({scope}) and carries "
+                                f"no {field}, so the rule would pass over a field nobody filled")
+    return problems
+
+
 def placement_problems(proposal):
     """§7.4's decidable rules, from `tables/placement_rules.json`, in its order.
 
@@ -329,8 +373,12 @@ def placement_problems(proposal):
 
 
 def problems(proposal, active_keep=None):
-    """Every problem of one proposal: §7.2's, §7.3's and §7.4's decidable rules, in the tables' order."""
-    return structural_problems(proposal, active_keep) + placement_problems(proposal)
+    """Every problem of one proposal: §7.2's, §7.3's and §7.4's decidable rules, in the tables' order.
+
+    The inputs §7.4's rules need come first: a rule that cannot see its own field has not judged, and
+    reporting the rules' silence as agreement is what this ordering refuses."""
+    return (pair_problems(proposal) + structural_problems(proposal, active_keep)
+            + input_problems(proposal) + placement_problems(proposal))
 
 
 # ---- the tables against the design ---------------------------------------------------------------
@@ -509,6 +557,7 @@ def self_test():
              "disposition": "place", "admitted": True, "promotion_eligible": True,
              "requires_test": True, "reason": "the window shows the gap three times",
              "operations": [{"type": "create", "target": "claude/guides/g.md", "before_sha256": None}],
+             "destination": {"layer": "guides", "carrier": "claude/guides/g.md"},
              "expected_observation": {"occasion": "a run of the gate", "expiry": "2027-01-01"}}
     keep = {"item_id": "i-2", "candidate_id": "k-2", "kind": "confirmed", "diagnosis": "covered",
             "disposition": "keep", "promotion_eligible": True, "requires_test": False,
@@ -527,9 +576,34 @@ def self_test():
               "requires_test": False, "operations": [], "reason": "the entry's history is unavailable",
               "expected_observation": {"occasion": "the situation recurs in a later window",
                                        "expiry": "2027-03-01"}}
+    # Every clean pair carries §7.4's inputs for the scopes its own destination puts it in. Before
+    # `input_problems` these dicts carried none, and five of §7.4's six rules read None here while
+    # the suite reported them clean - the same silence S7's flat proposal had in production.
+    claims = {"consumer": "session", "artifact_form": "instruction", "blocking": None,
+              "criterion": None, "judges": None, "situation_promoted_items": 7,
+              "situation_covered_by_guide": False, "names_situation_of_guide": None,
+              "owner_only": None, "typology": "D"}
+    place, keep, incubate = {**place, **claims}, {**keep, **claims}, {**incubate, **claims}
+    merge, legacy = {**merge, **claims}, {**legacy, **claims}
     for label, proposal in (("a place", place), ("a keep", keep), ("an incubate", incubate),
                             ("a reduce by merge", merge), ("a legacy incubate", legacy)):
         clean(f"{label} proposal that satisfies §7.2 and §7.3 has no problem", problems(proposal))
+    clean("and §7.4's inputs are present for every scope each of those proposals is in, which is why "
+          "its rules can judge them at all",
+          [p for proposal in (place, keep, incubate, merge, legacy)
+           for p in input_problems(proposal)])
+    control("while the same place proposal with its situation claims removed is refused by the rule "
+            "whose input it dropped",
+            "; ".join(input_problems({**place, "situation_promoted_items": None})),
+            "PLACEMENT_INPUT_ABSENT GUIDE_PREMATURE")
+    clean("the scopes the table names and the readers here are the same set, both ways",
+          scope_problems())
+    control("and `problems` itself carries the input guard, so a caller that asks the one question "
+            "gets it: a place proposal missing a claim its scope needs is named",
+            "; ".join(problems({**place, "situation_promoted_items": None})),
+            "PLACEMENT_INPUT_ABSENT")
+    control("`problems` carries §7.2's pair check too, so one call is the whole contract",
+            "; ".join(problems({**place, "disposition": "correct"})), "PAIR_DISALLOWED")
     clean("and the reduce passes while its keep record is named",
           problems(merge, {"u-1": "kr-1"}))
     # The union's precedence rule, over a PLANTED table: no pair in the real table has an

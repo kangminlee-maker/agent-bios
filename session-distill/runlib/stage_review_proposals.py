@@ -20,7 +20,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import packet, placement, records  # noqa: E402
+from runlib import packet, placement, records, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -121,16 +121,24 @@ def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incu
     return problems
 
 
+_VALIDATOR = []
+
+
+def validator():
+    """The review's validator, through `runlib/validate.py`: the pinned dependency and the lint.
+
+    No fallback, for the reason `stage_propose.validator` states: a validation that falls back to
+    the schema's required keys accepts a wrong type, a wrong enum and an extra field, and every
+    control over it passes."""
+    if not _VALIDATOR:
+        _VALIDATOR.append(validate.compile_schema(json.loads(schema_bytes())))
+    return _VALIDATOR[0]
+
+
 def _shape_problems(review):
-    """The review against its schema, through whichever validator this tree has."""
-    try:
-        import jsonschema
-    except ImportError:  # the sandbox may lack it; the shape is then judged by the required keys
-        schema = json.loads(schema_bytes())
-        return [f"REVIEW_FIELD_ABSENT {name}" for name in schema["required"] if name not in review]
-    validator = jsonschema.Draft202012Validator(json.loads(schema_bytes()))
-    return [f"REVIEW_INVALID {'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
-            for e in sorted(validator.iter_errors(review), key=lambda e: list(e.absolute_path))]
+    """The review against its schema: every violation, by json path."""
+    return [f"REVIEW_INVALID {problem}" for problem in
+            validate.validate_instance(validator(), review)]
 
 
 def row_of(review, proposal_row):

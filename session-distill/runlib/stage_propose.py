@@ -25,7 +25,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import packet, placement, ranking, records  # noqa: E402
+from runlib import derive, packet, placement, ranking, records, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -51,6 +51,14 @@ UNKNOWN_SOURCES = (
      "effect_on": "what the release reference point says about this candidate"},
 )
 DERIVED_FIELDS = ("kind", "diagnosis")
+# The sections of `derive.unit_outcome`'s return this stage reads, named once. Lane E found the
+# reader and the writer disagreeing here: this module read `promotion`, which that function has
+# never returned, so `promotion_eligible` was None on every real row and the promotion bar never
+# fired. The suite holds these names against a row the real producer path builds.
+ELIGIBLE_SECTION = "eligible"
+# S6's test state in release 1, read from the table's domain so this module cannot drift from it.
+TEST_STATE = derive.table()["domains"]["test"][0]
+OUTCOME_SECTIONS = (ELIGIBLE_SECTION, "admission", "kind", "candidate_diagnosis")
 
 
 # ---- the legacy intake, under the row the owner decided -------------------------------------------
@@ -199,7 +207,9 @@ def candidate_facts(candidate, derivation_row):
             "diagnosis": ((outcome.get("candidate_diagnosis") or {}).get("current") or {}).get("diagnosis"),
             "admission": (outcome.get("admission") or {}).get("admission"),
             "lineages": (derivation_row or {}).get("lineages"),
-            "promotion": (outcome.get("promotion") or {}).get("eligible")}
+            # `eligible`, not `promotion`: see ELIGIBLE_SECTION below and the control that holds this
+            # reader against what `derive.unit_outcome` returns.
+            "promotion": (outcome.get(ELIGIBLE_SECTION) or {}).get("eligible")}
 
 
 def packet_for(candidate, derivation, derivation_row, units=(), intake_entry=None, call_id="c1",
@@ -224,13 +234,33 @@ def packet_for(candidate, derivation, derivation_row, units=(), intake_entry=Non
     return packet.build(call_id, STAGE, seat, payload, schema=schema_bytes(), repo=HERE.parent)
 
 
+# What the flat proposal carries, and where each field comes from. An explicit list, because the
+# first form of `proposal_of` copied the answer wholesale and then updated the derived fields over
+# it: that works until an answer carries a key with a derived name, and it hid a second defect -
+# §7.4's inputs were never carried at all, so five of its six rules read None on every proposal.
+# `from_answer` are the model's own claims; `derived` are computed here from S6 and the candidate and
+# may NOT be taken from the answer.
+FROM_ANSWER = ("disposition", "consequence", "operations", "artifact_set", "behavior_contract",
+               "expected_observation", "destination", "reasons", "unknowns", "harmful", "requires_R")
+FROM_PLACEMENT_CLAIMS = ("consumer", "artifact_form", "blocking", "criterion", "judges",
+                         "situation_promoted_items", "situation_covered_by_guide",
+                         "names_situation_of_guide", "owner_only")
+DERIVED_INTO_PROPOSAL = ("item_id", "candidate_id", "kind", "diagnosis", "typology",
+                         "legacy_incubating", "lineages", "requires_test", "admitted",
+                         "promotion_eligible", "reason", "keep_records_named")
+
+
 def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
     """The flat proposal `placement.py` and `ranking.py` read, assembled from the answer and S6.
 
-    The kind and the diagnosis come from the derivation here, which is the single place the two
-    sources could have diverged."""
+    Built field by field from `FROM_ANSWER`, `FROM_PLACEMENT_CLAIMS` and the derived names, so an
+    answer key can neither shadow a derived field nor arrive unread. The kind, the diagnosis, the
+    typology, the admission and the promotion eligibility come from S6 and the candidate: that is the
+    single place the two sources could have diverged."""
     facts = candidate_facts(candidate, derivation_row)
-    held = {k: v for k, v in answer.items()}
+    claims = answer.get("placement") or {}
+    held = {name: answer[name] for name in FROM_ANSWER if name in answer}
+    held.update({name: claims.get(name) for name in FROM_PLACEMENT_CLAIMS})
     held.update({"item_id": candidate["candidate_id"], "candidate_id": candidate["candidate_id"],
                  "kind": facts["kind"], "diagnosis": facts["diagnosis"],
                  "legacy_incubating": bool(legacy_incubating),
@@ -245,7 +275,20 @@ def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
                  # `reason` is the Korean reason the person reads (§7.3's reason fields), and `harmful`
                  # is the one flag a `reduce` needs that no other field carries.
                  "reason": (answer.get("reasons") or {}).get("reason"),
-                 "harmful": answer.get("harmful")})
+                 # §7.3's keep rule reads this name (plural), and the answer's field is singular: the
+                 # mismatch meant KEEP_GUARDED could never see a named record, so a reduce over a
+                 # keep record was refused however carefully the proposal named it.
+                 "keep_records_named": ([answer["keep_record_named"]]
+                                        if answer.get("keep_record_named") else []),
+                 # The candidate's own type, from the candidate. §7.4's C-route rule keys on it, and
+                 # an answer that carried it would give the field two sources.
+                 "typology": candidate.get("type")})
+    unexpected = sorted(set(answer) - set(FROM_ANSWER) - {"placement", "keep_record_named"}
+                        - set(DERIVED_FIELDS))
+    if unexpected:
+        raise Refused(f"ANSWER_FIELD_UNREAD {', '.join(unexpected)}: the flat proposal is built from a "
+                      f"declared list, so a field the schema admits and this list does not would "
+                      f"reach no rule")
     return held
 
 
@@ -313,16 +356,27 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
     return problems
 
 
+_VALIDATOR = []
+
+
+def validator():
+    """The answer's validator, through `runlib/validate.py`: the pinned dependency and the lint.
+
+    There is no fallback. The first form of this function fell back to checking the schema's
+    `required` keys when jsonschema was missing, which accepted an answer wrong in type, wrong in
+    enum, or carrying an extra field - a validation that fails OPEN is worse than none, because
+    every control over it passes and the stage reports a clean answer. `validate` raises when the
+    dependency is absent or mispinned, and that is the right failure for a stage whose whole job is
+    judging a shape."""
+    if not _VALIDATOR:
+        _VALIDATOR.append(validate.compile_schema(json.loads(schema_bytes())))
+    return _VALIDATOR[0]
+
+
 def _shape_problems(answer):
-    """The answer against its schema, through whichever validator this tree has."""
-    try:
-        import jsonschema
-    except ImportError:  # the sandbox may lack it; the shape is then judged by the required keys
-        schema = json.loads(schema_bytes())
-        return [f"ANSWER_FIELD_ABSENT {name}" for name in schema["required"] if name not in answer]
-    validator = jsonschema.Draft202012Validator(json.loads(schema_bytes()))
-    return [f"ANSWER_INVALID {'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
-            for e in sorted(validator.iter_errors(answer), key=lambda e: list(e.absolute_path))]
+    """The answer against its schema: every violation, by json path."""
+    return [f"ANSWER_INVALID {problem}" for problem in
+            validate.validate_instance(validator(), answer)]
 
 
 def review_row(answer, candidate, derivation_row, status="proposed"):
@@ -394,13 +448,43 @@ def run(run_dir, answers, active_keep=None, legacy=()):
 # the mechanism WP-10's and WP-11b's libraries use, for the same reason: a fixture that drifts with
 # the code it judges proves the code agrees with itself.
 
+# The requirement names both judges answer, from the judge schema rather than from memory: a real
+# derivation cannot be built without them, and `derive.admission` refuses a mark it does not have.
+REQUIREMENT_NAMES = ("actionable", "audience", "bounded", "causal_support", "consequence",
+                     "observed_event", "positioned", "recognizable_in_advance")
+
+
+def derived_row(cid="k-real", ctype="D", lineages=3, marks="met", units=None):
+    """A derivation row built by the REAL producer path: `derive.unit_outcome`, wrapped as S6 wraps it.
+
+    This exists because the fixtures and the reader shared one wrong key. `candidate_facts` read
+    `outcome["promotion"]`, which `derive.unit_outcome` has never returned, and every fixture was
+    built with the same spelling - so the suite agreed with the bug and only a real row disagreed.
+    The wrapping is `stage_judge.derivations`': `{outcome, requirements, lineages}`."""
+    judgment = {"candidate": {"candidate_id": cid, "type": ctype, "lifecycle": None},
+                "judges": {who: {"requirements": {name: marks for name in REQUIREMENT_NAMES},
+                                 "consequence_class": "quality", "no_longer_arises": False}
+                           for who in ("A", "B")},
+                "points": {"release": None,
+                           "current": {"complete": True, "layers": {}, "units": units or {}}},
+                "checks_pass": True, "lineages": lineages}
+    outcome = derive.unit_outcome(judgment, {}, TEST_STATE)
+    return {"outcome": outcome,
+            "requirements": {who: judgment["judges"][who]["requirements"] for who in ("A", "B")},
+            "lineages": lineages}
+
+
 def _candidate(cid="k1", kind="gap", diagnosis="gap", admission="admitted", eligible=True,
                lineages=3, ctype="D"):
     return ({"candidate_id": cid, "type": ctype, "admission": {"admission": admission}},
             {"outcome": {"kind": {"kind": kind},
                          "candidate_diagnosis": {"current": {"diagnosis": diagnosis}},
                          "admission": {"admission": admission},
-                         "promotion": {"eligible": eligible}},
+                         # `eligible`, the section derive.unit_outcome really returns. These fixtures
+                         # wrote `promotion` while the reader read `promotion`, so the library agreed
+                         # with the bug: F-O5-15 stopped being refused the moment the reader was
+                         # fixed, which is how the shared spelling was found.
+                         ELIGIBLE_SECTION: {"eligible": eligible}},
              "lineages": lineages, "requirements": {}})
 
 
@@ -416,6 +500,12 @@ def _answered(**over):
                                   "roles_and_routes": ["coding"], "failure_criteria": ["f"]},
             "expected_observation": None,
             "destination": {"layer": "guides", "carrier": "claude/guides/g.md", "situation": "s"},
+            # §7.4's inputs, as the answer's own claims. Every field is present; a null is "not
+            # applicable here" and `placement.py` refuses a null inside a rule's scope.
+            "placement": {"consumer": "session", "artifact_form": "instruction", "blocking": None,
+                          "criterion": None, "judges": None, "situation_promoted_items": 7,
+                          "situation_covered_by_guide": False, "names_situation_of_guide": None,
+                          "owner_only": None},
             "reasons": {"what_happened": "무엇이 있었는가", "proposal": "제안", "reason": "이유",
                         "cost": "비용", "serves": "누구에게", "falsifier": "반증"},
             "unknowns": []}
@@ -517,6 +607,15 @@ def fixture_cases():
                                                    "expected_behavior": "the agent does it",
                                                    "retrieval_terms": ["the term"],
                                                    "expiry": "2027-02-01", "counter": None})},
+        {"id": "F-O5-REAL", "plant": "a derivation row built by the real producer path "
+                                      "(derive.unit_outcome, wrapped as S6 wraps it)",
+         "candidate": {"candidate_id": "k-real", "type": "D",
+                       "admission": {"admission": "admitted"}},
+         "row": derived_row("k-real"), "derivation": ANSWERED,
+         # Its derived kind is `unclassified` and §7.2 allows only `none` there, which is itself the
+         # point: a fixture built from a real row cannot choose its own kind to suit its answer.
+         "answer": _answered(disposition="none", operations=[],
+                             destination={"layer": "incubator", "carrier": None})},
         {"id": "F-O5-RELEASE1", "plant": "release 1's three named states, carried forward",
          "candidate": _candidate("k-r1")[0], "row": _candidate("k-r1")[1], "derivation": RELEASE_1,
          "answer": _answered(unknowns=_carry(RELEASE_1))},
@@ -621,6 +720,23 @@ def self_test():
         if problems:
             failures.append((name, f"expected nothing, got {problems}"))
 
+    def _unread_field():
+        """The refusal with its case planted: a field in the schema that the field list does not read.
+
+        Planted in FROM_ANSWER rather than in the schema, because the schema and the list are the two
+        sides this guard exists to keep together, and removing a name from the list is the side a
+        reader is likelier to get wrong."""
+        held = globals()["FROM_ANSWER"]
+        globals()["FROM_ANSWER"] = tuple(n for n in held if n != "consequence")
+        try:
+            try:
+                proposal_of(_answered(), *_candidate())
+            except Refused as exc:
+                return str(exc)
+            return ""
+        finally:
+            globals()["FROM_ANSWER"] = held
+
     def _said_without_default():
         """The loader's refusal with its case PLANTED: a legacy row stripped of its owner_default.
 
@@ -640,16 +756,53 @@ def self_test():
 
     def said(answer, candidate=None, derivation=None, row=None, keep=None, legacy=False):
         cand, drow = _candidate()
-        return "; ".join(answer_problems(answer, candidate or cand, derivation or ANSWERED,
-                                         row if row is not None else drow, keep, legacy))
+        try:
+            return "; ".join(answer_problems(answer, candidate or cand, derivation or ANSWERED,
+                                             row if row is not None else drow, keep, legacy))
+        except Refused as exc:
+            # A refusal is a problem too. Without this, a revert that let a malformed answer through
+            # the shape check raised out of `proposal_of` here and killed every control after it.
+            return str(exc)
 
     # The library, both ways.
+    own_text = pathlib.Path(__file__).read_text(encoding="utf-8")
     clean("every O5 plant this stage owns answers what its frozen fixture says", fixture_problems())
-    control("and the library holds the ten plants, not a subset",
-            str(len(json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))["cases"])), "10")
+    held_cases = json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))
+    control("the library holds every plant of both kinds, not a subset",
+            f'{len(held_cases["cases"])}/{len(held_cases["legacy_cases"])}',
+            f'{len(fixture_cases())}/{len(legacy_fixture_cases())}')
+    clean("and there are at least the eleven O5 plants and four legacy ones this package owns, so a "
+          "library that shrank is not merely self-consistent",
+          [f"{len(fixture_cases())} O5 and {len(legacy_fixture_cases())} legacy plants"]
+          if len(fixture_cases()) < 11 or len(legacy_fixture_cases()) < 4 else [])
     for case in fixture_cases():
         clean(f"{case['id']} runs the real function on a real-shaped answer ({case['plant']})",
               [] if isinstance(run_fixture(case)["problems"], list) else ["not a list"])
+
+    # The reader against the writer, on a row the real producer path built. This is lane E's finding:
+    # the stage read `outcome["promotion"]`, which `derive.unit_outcome` has never returned, so
+    # `promotion_eligible` was None on every real row and the promotion bar never fired - while every
+    # fixture here was built with the same wrong spelling and agreed.
+    real = derived_row("k-real")
+    clean("every outcome section this stage reads is a section derive.unit_outcome really returns",
+          sorted(set(OUTCOME_SECTIONS) - set(real["outcome"])))
+    control("and the eligibility section is the one that function names",
+            ", ".join(sorted(real["outcome"])), ELIGIBLE_SECTION)
+    clean("so no fact read from a real row is None, which is what the wrong key produced",
+          [name for name, value in candidate_facts({"candidate_id": "k-real", "type": "D"}, real).items()
+           if value is None])
+    control("the promotion bar on a real row reads a boolean rather than nothing",
+            str(candidate_facts({"candidate_id": "k-real", "type": "D"}, real)["promotion"]), "True")
+    control("and a row whose lineages are below the bar reads False, so the field is really being read",
+            str(candidate_facts({"candidate_id": "k-low", "type": "G"},
+                                derived_row("k-low", ctype="G", lineages=1))["promotion"]), "False")
+    control("the test state comes from derive's own domain, not from a literal here",
+            next(line for line in own_text.splitlines() if line.startswith("TEST_STATE")),
+            'derive.table()["domains"]["test"]')
+    control("and the value it reads is S6's own", TEST_STATE, "untested")
+    clean("and the real row's kind, diagnosis and admission are all present as well",
+          [name for name in ("kind", "diagnosis", "admission")
+           if candidate_facts({"candidate_id": "k-real", "type": "D"}, real)[name] is None])
 
     # F-O5-01..04: the four dispositions evidence supports, each clean on its own pair and refused on
     # a pair §7.2 does not allow, so neither reading is a coincidence of the fixture.
@@ -795,6 +948,87 @@ def self_test():
     control("and tells the reader that the entry's own history is not this window's evidence",
             packet_text, "it is the record of an earlier default")
 
+    # §7.4 THROUGH `proposal_of`. Each of the six rules is fired on an answer, because the rules'
+    # own suite calls them with hand-built dicts and could not see that this stage carried none of
+    # their inputs: five of six read None on every real proposal while every control stayed green.
+    def through(answer, candidate=None, row=None):
+        cand, drow = _candidate()
+        flat = proposal_of(answer, candidate or cand, row if row is not None else drow)
+        return "; ".join(placement.problems(flat))
+
+    def claims(**over):
+        held = dict(_answered()["placement"])
+        held.update(over)
+        return held
+
+    control("GUIDE_PREMATURE fires through proposal_of: a guide placed where four items share the "
+            "situation", through(_answered(placement=claims(situation_promoted_items=4))),
+            "GUIDE_PREMATURE")
+    clean("and does not fire at the threshold of five",
+          [p for p in placement.problems(proposal_of(
+              _answered(placement=claims(situation_promoted_items=5)), *_candidate()))
+           if "GUIDE_PREMATURE" in p])
+    control("CONSUMER_MISMATCH fires through it: an instruction aimed at a consumer that reads only "
+            "code", through(_answered(placement=claims(consumer="script"))), "CONSUMER_MISMATCH")
+    control("GATE_ON_JUDGMENT fires through it: a blocking gate on a semantic criterion",
+            through(_answered(destination={"layer": "gates", "carrier": "gates/check-x.sh"},
+                              placement=claims(blocking=True, criterion="semantic"))),
+            "GATE_ON_JUDGMENT")
+    control("GLOBAL_ADDITION fires through it: an addition to the always-loaded global file",
+            through(_answered(destination={"layer": "guides", "carrier": "claude/CLAUDE.md"})),
+            "GLOBAL_ADDITION")
+    control("C_ROUTE fires through it: a recognition principle placed in a guide whose situation it "
+            "does not name",
+            through(_answered(placement=claims(names_situation_of_guide=False)),
+                    candidate=_candidate(ctype="C")[0], row=_candidate(ctype="C")[1]),
+            "C_ROUTE")
+    control("HOOK_CHARTER fires through it: a hook that judges",
+            through(_answered(destination={"layer": "hooks", "carrier": "hooks/on-prompt.sh"},
+                              placement=claims(blocking=False, judges=True))),
+            "HOOK_CHARTER")
+    control("the typology C_ROUTE keys on comes from the CANDIDATE, so a D candidate's proposal is "
+            "not judged as a C principle",
+            str("C_ROUTE" in through(_answered(placement=claims(names_situation_of_guide=False)))),
+            "False")
+
+    # And the guard that makes those six reachable at all: a rule in scope whose input is absent.
+    control("a guide placement that claims nothing about its situation is refused by the rule's own "
+            "name rather than passing",
+            through(_answered(placement=claims(situation_promoted_items=None))),
+            "PLACEMENT_INPUT_ABSENT GUIDE_PREMATURE")
+    control("a gate placement with no blocking claim too",
+            through(_answered(destination={"layer": "gates", "carrier": "gates/check-x.sh"},
+                              placement=claims(blocking=None, criterion="decidable"))),
+            "PLACEMENT_INPUT_ABSENT GATE_ON_JUDGMENT")
+    control("and a hook placement with no judges claim",
+            through(_answered(destination={"layer": "hooks", "carrier": "hooks/on-prompt.sh"},
+                              placement=claims(blocking=False, judges=None))),
+            "PLACEMENT_INPUT_ABSENT HOOK_CHARTER")
+    clean("while a null outside every rule's scope is an honest not-applicable",
+          [p for p in placement.problems(proposal_of(
+              _answered(disposition="keep", operations=[],
+                        destination={"layer": "incubator", "carrier": None},
+                        reasons={**_answered()["reasons"], "reason": "그대로"},
+                        placement=claims(consumer=None, artifact_form=None,
+                                         situation_promoted_items=None,
+                                         situation_covered_by_guide=None)),
+              *_candidate("k-keep", "confirmed", "covered"))) if "PLACEMENT_INPUT_ABSENT" in p])
+
+    # The explicit field list: an answer key may neither shadow a derived field nor go unread.
+    control("an answer carrying a derived name is refused rather than shadowing it",
+            said({**_answered(), "promotion_eligible": True}), "ANSWER_INVALID")
+    control("the flat proposal's admitted and promotion_eligible come from S6, not from the answer",
+            json.dumps({k: proposal_of(_answered(), *_candidate(eligible=False))[k]
+                        for k in ("admitted", "promotion_eligible")}),
+            '"promotion_eligible": false')
+    control("and its item_id is the candidate's, whatever the answer says",
+            proposal_of(_answered(), *_candidate("k-9"))["item_id"], "k-9")
+    control("a field the schema admits and the list does not read is refused by name",
+            _unread_field(), "ANSWER_FIELD_UNREAD")
+    control("§7.3's keep rule receives the record the answer named, under the name that rule reads",
+            json.dumps(proposal_of({**_answered(), "keep_record_named": "KEEP-7"},
+                                   *_candidate())["keep_records_named"]), '"KEEP-7"')
+
     # The two sources rule, §10.4, and the shape.
     control("an answer that carries its own kind is refused: S6 derived it",
             said({**_answered(), "kind": "gap"}), "ANSWER_REDERIVES_DERIVED")
@@ -813,6 +1047,23 @@ def self_test():
             "before_state_sha256")
     control("a disposition outside §7.2's vocabulary is refused by the schema, not by a guess",
             said(_answered(disposition="rewrite")), "ANSWER_INVALID")
+    control("the validator is built through validate.compile_schema, which is the pinned path and the "
+            "schema policy", next(line for line in own_text.splitlines()
+                                  if "_VALIDATOR.append" in line), "validate.compile_schema")
+    import ast as _ast
+    own_tree = _ast.parse(own_text)
+    imported_here = {name.name.split(".")[0] for node in _ast.walk(own_tree)
+                     if isinstance(node, _ast.Import) for name in node.names} | \
+                    {(node.module or "").split(".")[0] for node in _ast.walk(own_tree)
+                     if isinstance(node, _ast.ImportFrom)}
+    clean("and this module imports no validator of its own, so there is no path that falls back when "
+          "the pinned one is missing - the fail-open form accepted a wrong type, a wrong enum and an "
+          "extra field, and every control over it passed",
+          sorted(imported_here & {"jsonschema"}))
+    clean("nor does it catch an import error anywhere, which is where that fallback lived",
+          [_ast.dump(node)[:60] for node in _ast.walk(own_tree)
+           if isinstance(node, _ast.ExceptHandler)
+           and "ImportError" in _ast.dump(node.type or _ast.Constant(value=None))])
 
     # The packet: the contract travels whole, with its digest, and the derived fields are given.
     built = packet_for(_candidate()[0], ANSWERED, _candidate()[1])
