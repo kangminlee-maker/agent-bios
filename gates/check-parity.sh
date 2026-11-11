@@ -522,6 +522,13 @@ if [ -f session-distill/runlib/placement.py ]; then
   leg -q "FAIL: session-distill proposal contract self-test (session-distill/runlib/placement.py)" \
     python3 session-distill/runlib/placement.py --self-test
 fi
+# The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
+# belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
+# by the pre-commit hook and a leg that ran the hook would recurse.
+if [ -f session-distill/runlib/sequencing.py ]; then
+  leg -q "FAIL: session-distill commit sequencing self-test (session-distill/runlib/sequencing.py)" \
+    python3 session-distill/runlib/sequencing.py --self-test
+fi
 # The schema-2 ledger library itself. Its `--self-test` came from the ship-driver history and the gate
 # that notices an unlegged self-test from the other, so the pair first meets here.
 if [ -f session-distill/runlib/ledger.py ]; then
