@@ -228,6 +228,9 @@ def selected_items(shared, store):
 # a drop is a resolution failure, and a block that lost every row to one would read like a block that
 # was never published — which is a different answer about the same session.
 UNRESOLVED = "coverage_ref_unresolved"
+# A pair one of the judge's inputs is missing for. The reasons already name WHICH input, so this is
+# the statement that the state beside them is this stage's and not §6.3's.
+UNJUDGED = "delivery_unjudged"
 
 
 def coverage_facts(shared, units):
@@ -529,6 +532,16 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
                 "selected": selected, "history_selected": history,
                 "native_events": native,
                 "release": release_of(release_doc, session_row.get("session_ref"))}
+    # The instant the selected instructions were put in front of the session, on the record-ordinal
+    # scale: the FIRST recorded injection, because the ladder asks whether the session had been given
+    # the selection before the decision, and the earliest recorded one is the earliest this run can
+    # say. Absent when no injection is recorded, which leaves the judge to answer
+    # `injection_unrecorded_before_decision` rather than read an unrecorded injection as none. The
+    # fixture library is what found this missing: without it every always-surface unit stopped at
+    # `selected`, whatever the coverage facts said.
+    injections = [row["at"] for row in native if row.get("kind") == "session_injection"]
+    if injections:
+        evidence["injection_at"] = min(injections)
     if pin_reason:
         evidence["pin_reason"] = pin_reason
     counts = {"native_events": len(native), "events_without_a_line": undated}
@@ -653,16 +666,46 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
         if (session_counts.get("coverage_refs_unresolved")
                 and (evidence or {}).get("instruction_coverage", {}).get(pair["unit_id"]) is None):
             reasons.append(UNRESOLVED)
-        reasons.append(PENDING)
+        # The judge answers the pair when the four things it reads are all there: the unit with its
+        # own text, the session's evidence, and the decision's ordinal. Any one missing is a pair
+        # this stage can only name, never judge, so the reasons above stand on their own and the
+        # state is the unknown they explain. The judge is never handed a stand-in for a missing
+        # input — that is how a miss gets claimed from evidence nobody read.
+        answer = None
+        if not reasons and unit is not None and evidence is not None and pair.get("decision_at") is not None:
+            # The ladder §6.3 judges a unit on is the surface the SESSION's snapshot selected its item
+            # at, which is a fact about that session and not a property of the unit — two sessions can
+            # hold the same unit at different surfaces, and the native layers are judged by their layer
+            # with no surface at all. So the surface is attached per pair, from the session's own
+            # selection, and a session that states none leaves the judge to answer
+            # `surface_unclassified` rather than be handed a guess.
+            surface = ((evidence.get("selected") or {}).get(unit.get("item_ref"))
+                       or (evidence.get("history_selected") or {}).get(unit.get("item_ref")))
+            subject = {**unit, "surface": surface} if surface else unit
+            answer = delivery_evidence.delivery(subject, units, evidence, pair["decision_at"])
+        else:
+            reasons.append(UNJUDGED)
+        held = (answer or {}).get("requirements") or []
         rows.append({**{k: v for k, v in pair.items() if k != "reason"},
-                     "state": "unknown", "level": None, "reasons": reasons,
+                     "state": (answer or {}).get("state", "unknown"),
+                     "level": (answer or {}).get("level"),
+                     "reasons": (answer or {}).get("reasons") or reasons,
+                     "surface": (answer or {}).get("surface"),
+                     "selection": (answer or {}).get("selection"),
                      "decision_ordinal": "event.at_record" if pair.get("decision_at") is not None else None,
                      "requirements": len(unit["operative_context"]) if unit else None,
                      "native_events": len((evidence or {}).get("native_events") or []),
                      "reads": None if evidence is None or "reads" not in evidence
                               else len(evidence["reads"]),
                      "release_complete": ((evidence or {}).get("release") or {}).get("complete"),
-                     "coverage": None,
+                     # The per-requirement coverage, as counts of what each requirement's own status
+                     # was. Never the lines themselves and never the bytes: a count is what a reader
+                     # of this file is owed, and the judge's own rows hold the rest.
+                     "coverage": None if answer is None else {
+                         "requirements": len(held),
+                         "met": sum(1 for row in held if row.get("status") == "met"),
+                         "unmet": sum(1 for row in held if row.get("status") == "unmet"),
+                         "unknown": sum(1 for row in held if row.get("status") == "unknown")},
                      "coverage_refs_unresolved": len(session_counts.get("coverage_refs_unresolved") or ())})
     states = {}
     for row in rows:
@@ -672,18 +715,37 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
     unresolved_by_session = {ref: counts.get("coverage_refs_unresolved") or []
                              for ref, (_built, counts) in counts_by_ref.items()
                              if counts.get("coverage_refs_unresolved")}
-    return {"stage": STAGE, "complete": False,
-            "pending_reason": "the session evidence readers land in the commit after this one; every pair is "
-                              "answered `unknown` with its reason rather than left out, so a reader can tell a "
-                              "missing assembly from an assembly that found nothing. This is the per-pair state "
-                              "inside a file that exists, not S6's `delivery_assembly_waiting`, which is its "
-                              "state when no such file exists at all",
+    unjudged = sum(1 for row in rows if UNJUDGED in row["reasons"])
+    # The installer surface is not a unit's: §6.3 answers it from the installation binding and its
+    # receipt, through `installer_exposure` rather than through a ladder. This run holds neither —
+    # the binding is a verdict over the owner's state root and the receipt lives beside it, and S2
+    # publishes no part of either today — so the judge is called with the inputs as they are and
+    # answers `unknown: unbound`. The inputs are NOT invented here, and the absent producer is named
+    # in the document, because an installer row that read `delivered` from nothing would be the one
+    # claim §6.3 forbids. Raised with the lead as the same boundary question the compiled text had.
+    installer = {**delivery_evidence.installer_exposure(None, None, None),
+                 "inputs": {"binding": "no_producer_in_the_run", "receipt": "no_producer_in_the_run",
+                            "snapshot_artifacts": "no_producer_in_the_run"},
+                 "producer_absent": "the installation binding is a verdict over the owner's state root "
+                                    "and S2 publishes no part of it; acquiring it here would move the "
+                                    "boundary this package was told to keep at S2"}
+    return {"stage": STAGE, "complete": not unjudged,
+            # A pair this stage could not hand to the judge is `unknown` with the input it lacked
+            # named, and is counted here. It is a state INSIDE a file that exists, never S6's
+            # `delivery_assembly_waiting`, which is S6's state when no such file exists at all —
+            # the two must stay distinguishable, because one says the evidence was assembled and
+            # answered nothing for this pair and the other says nobody assembled any.
+            "pending_reason": None if not unjudged else
+                              f"{unjudged} of {len(rows)} pairs lack one of the judge's inputs and are "
+                              f"`unknown` naming it ({PENDING}); this is the per-pair state inside a file "
+                              f"that exists, not S6's `delivery_assembly_waiting`",
             "sources": {"count": len(sources), "dir": SOURCES_DIR},
             "context_source": "inventory.edges",
             "ordinal_source": {"decision": "the first component of an event record's at_record",
                                "events": "the inventory event's line; its `at` is an ISO instant and "
                                          "is not on this scale"},
             "rows": rows,
+            "installer": installer,
             "summary": {"pairs": len(rows), "states": states,
                         "sessions": len({row["session_ref"] for row in rows if row["session_ref"]}),
                         "units": len({row["unit_id"] for row in rows if row["unit_id"]}),
@@ -691,7 +753,9 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
                         "pairs_without_a_decision": sum(1 for row in rows if row["decision_at"] is None),
                         "coverage_refs_unresolved": sum(len(refs) for refs in unresolved_by_session.values()),
                         "sessions_with_an_unresolved_coverage_ref": len(unresolved_by_session),
-                        "pairs_named_" + UNRESOLVED: sum(1 for row in rows if UNRESOLVED in row["reasons"])},
+                        "pairs_named_" + UNRESOLVED: sum(1 for row in rows if UNRESOLVED in row["reasons"]),
+                        "pairs_judged": len(rows) - unjudged,
+                        "pairs_" + UNJUDGED: unjudged},
             "coverage_refs_unresolved": {ref: refs for ref, refs in sorted(unresolved_by_session.items())}}
 
 
@@ -733,6 +797,171 @@ def report_lines(summary):
     return [f"S5b delivery evidence: {summary['pairs']} pair(s) over {summary['sessions']} session(s) and "
             f"{summary['units']} unit(s); states {summary['states']}",
             f"S5b: complete={summary['complete']} (the evidence readers land in the following commits)"]
+
+
+# ---- the §6.3 fixture library, at the RECORDS level ---------------------------------------------
+
+FIXTURES_PATH = HERE / "tables" / "stage_delivery_fixtures.json"
+# One fixture per state path this stage can write. W2 froze the judge's own fixtures per TABLE ROW
+# (`tables/delivery_evidence_fixtures.json`); these are the same states reached the long way, from
+# run-shaped artifacts through `document`, which is the only way to tell a judge that answers from a
+# producer that assembles the right evidence. The two stage-level paths are this stage's own states,
+# not §6.3's, and are named as such.
+STATE_PATHS = ("delivered", "exposed_not_read", "not_delivered", "selected_unavailable",
+               "unknown/absent_from_compiled_text", f"unknown/{UNRESOLVED}", f"unknown/{UNJUDGED}")
+
+
+def _records_fixture(path_id):
+    """The run-shaped artifacts that drive `document` to one state path, and what it must answer.
+
+    Every fixture is a whole set of artifacts in the spellings their producers write, because that is
+    what this stage reads: a fixture written in the judge's input shape would test the judge again
+    and say nothing about the assembly. The session, the unit and the decision are the same in all of
+    them; what differs is the evidence, which is the point.
+    """
+    unit = {"unit_id": "u-1", "path": "claude/guides/g.md", "text": "- the rule", "version_sha256": "a" * 64,
+            "layer": "catalog", "item_ref": "claude:guides/g", "carrier_id": "c-" + "0" * 24, "n": 1,
+            "unit_ref": "r-" + "1" * 24, "block": {"start": 100},
+            "operative_context": ["u-1"], "edges": {"direct": ["u-1"], "reached": []}}
+    session_ref = "p-" + "1" * 24
+    base = {
+        "events": [{"event_id": "v-1", "at_record": "500/message/content", "kind": "request"}],
+        "checks": {"candidates": [{"candidate_id": "k-1", "named_units_absent": [],
+                                   "retrieved_units": [{"unit_id": "u-1", "layer": "catalog", "rank": 1,
+                                                        "score": 1.0, "named": True, "copies": 1}]}]},
+        "candidates": {"candidates": [{"candidate_id": "k-1", "sessions": ["claude:t-1"],
+                                       "event_ids": ["v-1"]}]},
+        "current": {"units": [unit]},
+        "sessions": {"sessions": [{"session_ref": session_ref, "session": "claude:t-1",
+                                   "transcript": {"host": "claude", "id": "t-1", "source": "claude_projects"},
+                                   "pin": {"status": "read", "content_ref": "b" * 64, "baseline_ref": None,
+                                           "include_global_instructions": True, "reason": None},
+                                   "selection": {"status": "read", "reason": None,
+                                                 "inventory_ref": "i-" + "a" * 24},
+                                   "delivery": {"status": "unknown", "reason": None, "event_refs": []}}],
+                     "events": [{"event_id": "e-1", "kind": "session_injection", "session_ref": session_ref,
+                                 "line": 10, "at": "2026-09-16T07:44:40+00:00", "members": []}]},
+        "release": {"sessions": [{"session_ref": session_ref, "segments": [],
+                                  "unsegmented": {"complete": True, "items": ["claude:guides/g"],
+                                                  "incomplete_reasons": []}}]},
+        "store": {"versions": {"c-" + "0" * 24: {"a" * 64: {"item_ref": "claude:guides/g"}}}, "units": {}},
+        "shared": {"carriers": [{"carrier_id": "c-" + "0" * 24, "version_sha256": "a" * 64}],
+                   "items": [{"ref": "claude:guides/g", "surface": "always"}],
+                   "instruction_text_sha256": "d" * 64,
+                   "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 1, "total": 1}],
+                   "unavailable": []},
+        "copy": [],
+    }
+    if path_id == "delivered":
+        # The always surface, whose top level is the compiled text holding the unit's lines: the
+        # injection is recorded before the decision and the counts say every line was there.
+        return base, {"state": "delivered", "level": "exposed"}
+    if path_id == "unknown/absent_from_compiled_text":
+        return ({**base, "shared": {**base["shared"],
+                                    "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 0,
+                                                              "total": 1}]}},
+                {"state": "unknown", "reason": "absent_from_compiled_text"})
+    if path_id == "selected_unavailable":
+        return ({**base, "shared": {**base["shared"],
+                                    "unavailable": [{"ref": "claude:guides/g", "surface": "always",
+                                                     "reason": "route_absent"}]}},
+                {"state": "selected_unavailable", "level": "selected"})
+    if path_id == "not_delivered":
+        # Reached through the NATIVE layer, which is the only place an absence is a finding from what
+        # a run holds: a native unit's ladder is classified by its layer and needs no surface, and a
+        # recorded injection before the decision that does not carry the unit, over a complete
+        # release, is `not_in_recorded_injection`.
+        #
+        # The catalogue route cannot reach this state from records, and the reason is worth keeping:
+        # `_absence` is for an item the selection does not hold, while a unit's SURFACE — the ladder
+        # it is judged on — is published only for the items the snapshot DID select. An item the
+        # session was not given therefore has no classified ladder here, and the judge answers
+        # `surface_unclassified` rather than an absence. Raised with the lead beside the pointer
+        # question: S2 publishing each unit's catalogue surface, not only the selected ones, would
+        # open it.
+        native_unit = {**unit, "layer": "native_global", "path": "CLAUDE.md", "item_ref": "native:global"}
+        return ({**base,
+                 "current": {"units": [native_unit]},
+                 "sessions": {**base["sessions"],
+                              "events": [{"event_id": "e-1", "kind": "native", "session_ref": session_ref,
+                                          "line": 10, "at": "2026-09-16T07:44:40+00:00",
+                                          "members": [{"carrier_id": "c-" + "9" * 24,
+                                                       "version_sha256": "f" * 64, "ordinal": 0}]}]}},
+                {"state": "not_delivered", "reason": "not_in_recorded_injection"})
+    if path_id == f"unknown/{UNRESOLVED}":
+        return ({**base, "shared": {**base["shared"],
+                                    "instruction_coverage": [{"unit_ref": "r-" + "9" * 24, "covered": 1,
+                                                              "total": 1}]}},
+                {"state": "unknown", "reason": UNRESOLVED})
+    if path_id == f"unknown/{UNJUDGED}":
+        # No decision event at all: one of the judge's four inputs is missing, so this stage answers
+        # and says that it did.
+        return ({**base, "candidates": {"candidates": [{"candidate_id": "k-1", "sessions": ["claude:t-1"],
+                                                        "event_ids": []}]}},
+                {"state": "unknown", "reason": UNJUDGED})
+    if path_id == "exposed_not_read":
+        # NOT REACHABLE from records under the fact-only boundary, and declared so rather than faked.
+        # `exposed_not_read` needs a level between selection and a read of the unit's own bytes, and
+        # the only such level belongs to the guide surfaces, whose `pointer exposed` asks whether the
+        # compiled text holds the item's emitted path (`delivery_evidence._pointer`). That is a
+        # predicate OVER THE TEXT, and S2 publishes line counts rather than the text, so no set of
+        # run artifacts can answer it today. The always surface cannot stand in: its ladder delivers
+        # at `exposed`, so the state does not exist there. Raised with the lead as the same boundary
+        # question the coverage counts were — S2 publishing, per item, whether the text holds its
+        # pointer, and the router path, would make this fixture writable.
+        return None, {"unreachable": "pointer_exposure_is_a_text_predicate_s2_does_not_publish"}
+    raise Refused(f"FIXTURE_UNKNOWN {path_id}: no records fixture is written for this state path")
+
+
+def generate_fixtures(path=FIXTURES_PATH):
+    """Write the records fixtures once; a second call refuses, as W2's generator does."""
+    path = pathlib.Path(path)
+    if path.exists():
+        raise Refused(f"FIXTURES_FROZEN {path}: generated once and committed; delete it by hand to regenerate")
+    fixtures = []
+    for path_id in STATE_PATHS:
+        artifacts, expected = _records_fixture(path_id)
+        fixtures.append({"id": path_id, "artifacts": artifacts, "expected": expected})
+    doc = {"$comment": "design §6.3 at the records level: one frozen fixture per state path "
+                       "`runlib/stage_delivery.py` can write, each a whole set of run-shaped artifacts "
+                       "driven through `document`. Written once by `stage_delivery.py "
+                       "--generate-fixtures`; the self-test never regenerates them.",
+           "fixtures": fixtures}
+    path.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return len(fixtures)
+
+
+def run_fixture(root, fixture):
+    """`document` over one frozen fixture's artifacts, against what it must answer.
+
+    A fixture declared unreachable carries its reason and no artifacts; it is executed as that
+    declaration, so the library still accounts for every state path and the reason is in the file
+    rather than in somebody's memory."""
+    if fixture.get("artifacts") is None:
+        why = (fixture.get("expected") or {}).get("unreachable")
+        return [] if why else [f"FIXTURE_UNREACHABLE_UNEXPLAINED {fixture['id']}: a state path with no "
+                               f"artifacts and no reason"]
+    artifacts = fixture["artifacts"]
+    run_dir = pathlib.Path(root) / f"fx-{fixture['id'].replace('/', '-')}"
+    (run_dir / EVENTS_DIR).mkdir(parents=True)
+    (run_dir / EVENTS_DIR / "claude_t-1.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in artifacts["events"]), encoding="utf-8")
+    session = dict(artifacts["sessions"])
+    doc = document(run_dir, artifacts["checks"], artifacts["candidates"], artifacts["current"], session,
+                   artifacts["release"], artifacts["store"], lambda ref: artifacts["shared"],
+                   artifacts["copy"] or ["aa.jsonl"])
+    rows = [row for row in doc["rows"] if row["unit_id"] == "u-1"]
+    if not rows:
+        return [f"FIXTURE_NO_ROW {fixture['id']}: the artifacts owe no pair for the unit"]
+    row = rows[0]
+    got = {"state": row["state"]}
+    want = dict(fixture["expected"])
+    if "level" in want:
+        got["level"] = row["level"]
+    if "reason" in want:
+        got["reason"] = want["reason"] if want["reason"] in (row["reasons"] or []) else (row["reasons"] or [None])[0]
+    return [] if got == want else [f"FIXTURE_FAILED {fixture['id']}: expected {want}, got {got} "
+                                   f"(reasons {row['reasons']})"]
 
 
 # ---- self-test ----------------------------------------------------------------------------------
@@ -829,11 +1058,18 @@ def self_test():
                 '"unit_id": null')
         control("a unit the inventory does not carry is named, not dropped",
                 json.dumps([r for r in doc["rows"] if r["unit_id"] == "u-gone"]), "unit_absent_from_inventory")
-        control("a pending answer is written as an unknown with its reason",
-                json.dumps((doc.get("rows") or [{}])[0]), PENDING)
+        control("a pair one of the judge's inputs is missing for is an unknown naming that input",
+                json.dumps((doc.get("rows") or [{}])[0]), "selection_input_failed")
+        control("and saying the state beside it is this stage's, not the judge's",
+                json.dumps((doc.get("rows") or [{}])[0]), UNJUDGED)
+        clean("such a pair carries no judge fields it never got",
+              [key for key in ("surface", "selection", "coverage")
+               if ((doc.get("rows") or [{}])[0] or {}).get(key) is not None])
         control("and the document says so of itself", json.dumps({"complete": doc["complete"]}), '"complete": false')
-        control("the pending state is not S6's waiting state", doc["pending_reason"],
+        control("the pending state is not S6's waiting state", str(doc["pending_reason"]),
                 "not S6's `delivery_assembly_waiting`")
+        control("and it counts the pairs it could not hand over", json.dumps(doc["summary"]),
+                '"pairs_delivery_unjudged": 5')
         clean("no row carries bytes or session text",
               [key for row in doc["rows"] for key in row if key in ("returned", "text", "bytes")])
 
@@ -931,6 +1167,70 @@ def self_test():
               + ([] if answered_doc["summary"]["coverage_refs_unresolved"] == 1
                  else ["the fixture's session has no unresolved reference, so the clause is untested"]))
 
+        # ---- the judge's own answer (commit 7). The session here has a read pin, a selection
+        # inventory and the facts, so every input §6.3 reads is present and the row is ITS answer
+        # rather than this stage's unknown.
+        judged_row = answered_rows.get("u-1") or {}
+        clean("a pair with every input present is handed to the judge",
+              [UNJUDGED] if UNJUDGED in (judged_row.get("reasons") or []) else [])
+        control("and the row carries the surface the judge answered on", json.dumps(judged_row),
+                '"surface": "always_rule"')
+        control("with the selection basis it read", json.dumps(judged_row), '"selection": "pin"')
+        control("and the per-requirement coverage as counts", json.dumps(judged_row.get("coverage")),
+                '"requirements"')
+        clean("the judged row carries no line of any unit and no byte any session read",
+              [key for key in judged_row if key in ("text", "returned", "bytes", "instruction_text")])
+        # The installer surface, which no ladder answers.
+        # ---- the §6.3 fixture library at the records level (done-when 1). The ids are the state
+        # paths, the frozen file is the authority, and the three sets must be one bijection:
+        # a path with no fixture, a fixture for no path, and a fixture the run never executed are
+        # each named by `derive.coverage_problems`, so the library cannot drift from the code.
+        frozen = records.read_json(FIXTURES_PATH)
+        # `frozen_case`, not `fixture`: this suite's `fixture` is its run directory, and a loop
+        # variable of that name rebinds it for every line after this block (the shadowing trap this
+        # file's suite has paid for once already).
+        frozen_ids = [case["id"] for case in frozen.get("fixtures") or []]
+        executed, fixture_problems = [], []
+        for frozen_case in frozen.get("fixtures") or []:
+            fixture_problems += run_fixture(root, frozen_case)
+            executed.append(frozen_case["id"])
+        clean("every frozen §6.3 fixture answers from the records what it was frozen with",
+              fixture_problems)
+        clean("and the state paths, the frozen fixtures and the executed cases are one set",
+              derive.coverage_problems(STATE_PATHS, frozen_ids, executed))
+        control("a state path with no frozen fixture is named",
+                "; ".join(derive.coverage_problems(
+                    tuple(STATE_PATHS) + ("delivered/by_another_route",), frozen_ids, executed)),
+                "ROW_UNFIXTURED")
+        control("and the generator refuses to overwrite the frozen file",
+                refusal(lambda: generate_fixtures(FIXTURES_PATH)), "FIXTURES_FROZEN")
+        control("a fixture declared unreachable with no reason is named",
+                "; ".join(run_fixture(root, {"id": "x", "artifacts": None, "expected": {}})),
+                "FIXTURE_UNREACHABLE_UNEXPLAINED")
+        control("and a fixture whose artifacts owe no pair for its unit is named",
+                "; ".join(run_fixture(root, {"id": "y", "artifacts": {
+                    **(frozen["fixtures"][0]["artifacts"]),
+                    "candidates": {"candidates": [{"candidate_id": "k-1", "sessions": ["claude:t-1"],
+                                                   "event_ids": ["v-1"]}]},
+                    "checks": {"candidates": [{"candidate_id": "k-1", "retrieved_units": [],
+                                               "named_units_absent": []}]}},
+                    "expected": {"state": "delivered"}})),
+                "FIXTURE_NO_ROW")
+        control("the installer surface is answered by the judge's own reader, not by a ladder",
+                json.dumps(doc["installer"]), "receipt_live_waiting_wp15")
+        control("and it is unknown by name while the run holds no binding",
+                json.dumps(doc["installer"]), '"reasons": ["unbound"]')
+        control("with the absent producer named rather than an input invented for it",
+                json.dumps(doc["installer"]), "no_producer_in_the_run")
+        clean("no installer answer claims a delivery from inputs this run does not hold",
+              [doc["installer"]["state"]] if doc["installer"]["state"] != "unknown" else [])
+        control("the summary says how many pairs the judge answered", json.dumps(answered_doc["summary"]),
+                '"pairs_judged": 2')
+        # End to end: the unroutable row S2 published is why this pair's state is what it is, which no
+        # part of this stage decides on its own.
+        control("and the unroutable row S2 published is what the state rests on", json.dumps(judged_row),
+                '"state": "selected_unavailable"')
+        control("with the reason the judge gives for it", json.dumps(judged_row), "route_unavailable")
         control("the document counts the unresolved references for a reader to see",
                 json.dumps(missed_doc["summary"]), '"coverage_refs_unresolved": 1')
         control("and says which session they belong to", json.dumps(missed_doc["coverage_refs_unresolved"]),

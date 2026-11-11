@@ -1,0 +1,1000 @@
+{
+ "$comment": "design §6.3 at the records level: one frozen fixture per state path `runlib/stage_delivery.py` can write, each a whole set of run-shaped artifacts driven through `document`. Written once by `stage_delivery.py --generate-fixtures`; the self-test never regenerates them.",
+ "fixtures": [
+  {
+   "id": "delivered",
+   "artifacts": {
+    "events": [
+     {
+      "event_id": "v-1",
+      "at_record": "500/message/content",
+      "kind": "request"
+     }
+    ],
+    "checks": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "named_units_absent": [],
+       "retrieved_units": [
+        {
+         "unit_id": "u-1",
+         "layer": "catalog",
+         "rank": 1,
+         "score": 1.0,
+         "named": true,
+         "copies": 1
+        }
+       ]
+      }
+     ]
+    },
+    "candidates": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "sessions": [
+        "claude:t-1"
+       ],
+       "event_ids": [
+        "v-1"
+       ]
+      }
+     ]
+    },
+    "current": {
+     "units": [
+      {
+       "unit_id": "u-1",
+       "path": "claude/guides/g.md",
+       "text": "- the rule",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "carrier_id": "c-000000000000000000000000",
+       "n": 1,
+       "unit_ref": "r-111111111111111111111111",
+       "block": {
+        "start": 100
+       },
+       "operative_context": [
+        "u-1"
+       ],
+       "edges": {
+        "direct": [
+         "u-1"
+        ],
+        "reached": []
+       }
+      }
+     ]
+    },
+    "sessions": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "session": "claude:t-1",
+       "transcript": {
+        "host": "claude",
+        "id": "t-1",
+        "source": "claude_projects"
+       },
+       "pin": {
+        "status": "read",
+        "content_ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "baseline_ref": null,
+        "include_global_instructions": true,
+        "reason": null
+       },
+       "selection": {
+        "status": "read",
+        "reason": null,
+        "inventory_ref": "i-aaaaaaaaaaaaaaaaaaaaaaaa"
+       },
+       "delivery": {
+        "status": "unknown",
+        "reason": null,
+        "event_refs": []
+       }
+      }
+     ],
+     "events": [
+      {
+       "event_id": "e-1",
+       "kind": "session_injection",
+       "session_ref": "p-111111111111111111111111",
+       "line": 10,
+       "at": "2026-09-16T07:44:40+00:00",
+       "members": []
+      }
+     ]
+    },
+    "release": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "segments": [],
+       "unsegmented": {
+        "complete": true,
+        "items": [
+         "claude:guides/g"
+        ],
+        "incomplete_reasons": []
+       }
+      }
+     ]
+    },
+    "store": {
+     "versions": {
+      "c-000000000000000000000000": {
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+        "item_ref": "claude:guides/g"
+       }
+      }
+     },
+     "units": {}
+    },
+    "shared": {
+     "carriers": [
+      {
+       "carrier_id": "c-000000000000000000000000",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+     ],
+     "items": [
+      {
+       "ref": "claude:guides/g",
+       "surface": "always"
+      }
+     ],
+     "instruction_text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+     "instruction_coverage": [
+      {
+       "unit_ref": "r-111111111111111111111111",
+       "covered": 1,
+       "total": 1
+      }
+     ],
+     "unavailable": []
+    },
+    "copy": []
+   },
+   "expected": {
+    "state": "delivered",
+    "level": "exposed"
+   }
+  },
+  {
+   "id": "exposed_not_read",
+   "artifacts": null,
+   "expected": {
+    "unreachable": "pointer_exposure_is_a_text_predicate_s2_does_not_publish"
+   }
+  },
+  {
+   "id": "not_delivered",
+   "artifacts": {
+    "events": [
+     {
+      "event_id": "v-1",
+      "at_record": "500/message/content",
+      "kind": "request"
+     }
+    ],
+    "checks": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "named_units_absent": [],
+       "retrieved_units": [
+        {
+         "unit_id": "u-1",
+         "layer": "catalog",
+         "rank": 1,
+         "score": 1.0,
+         "named": true,
+         "copies": 1
+        }
+       ]
+      }
+     ]
+    },
+    "candidates": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "sessions": [
+        "claude:t-1"
+       ],
+       "event_ids": [
+        "v-1"
+       ]
+      }
+     ]
+    },
+    "current": {
+     "units": [
+      {
+       "unit_id": "u-1",
+       "path": "CLAUDE.md",
+       "text": "- the rule",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "native_global",
+       "item_ref": "native:global",
+       "carrier_id": "c-000000000000000000000000",
+       "n": 1,
+       "unit_ref": "r-111111111111111111111111",
+       "block": {
+        "start": 100
+       },
+       "operative_context": [
+        "u-1"
+       ],
+       "edges": {
+        "direct": [
+         "u-1"
+        ],
+        "reached": []
+       }
+      }
+     ]
+    },
+    "sessions": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "session": "claude:t-1",
+       "transcript": {
+        "host": "claude",
+        "id": "t-1",
+        "source": "claude_projects"
+       },
+       "pin": {
+        "status": "read",
+        "content_ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "baseline_ref": null,
+        "include_global_instructions": true,
+        "reason": null
+       },
+       "selection": {
+        "status": "read",
+        "reason": null,
+        "inventory_ref": "i-aaaaaaaaaaaaaaaaaaaaaaaa"
+       },
+       "delivery": {
+        "status": "unknown",
+        "reason": null,
+        "event_refs": []
+       }
+      }
+     ],
+     "events": [
+      {
+       "event_id": "e-1",
+       "kind": "native",
+       "session_ref": "p-111111111111111111111111",
+       "line": 10,
+       "at": "2026-09-16T07:44:40+00:00",
+       "members": [
+        {
+         "carrier_id": "c-999999999999999999999999",
+         "version_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+         "ordinal": 0
+        }
+       ]
+      }
+     ]
+    },
+    "release": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "segments": [],
+       "unsegmented": {
+        "complete": true,
+        "items": [
+         "claude:guides/g"
+        ],
+        "incomplete_reasons": []
+       }
+      }
+     ]
+    },
+    "store": {
+     "versions": {
+      "c-000000000000000000000000": {
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+        "item_ref": "claude:guides/g"
+       }
+      }
+     },
+     "units": {}
+    },
+    "shared": {
+     "carriers": [
+      {
+       "carrier_id": "c-000000000000000000000000",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+     ],
+     "items": [
+      {
+       "ref": "claude:guides/g",
+       "surface": "always"
+      }
+     ],
+     "instruction_text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+     "instruction_coverage": [
+      {
+       "unit_ref": "r-111111111111111111111111",
+       "covered": 1,
+       "total": 1
+      }
+     ],
+     "unavailable": []
+    },
+    "copy": []
+   },
+   "expected": {
+    "state": "not_delivered",
+    "reason": "not_in_recorded_injection"
+   }
+  },
+  {
+   "id": "selected_unavailable",
+   "artifacts": {
+    "events": [
+     {
+      "event_id": "v-1",
+      "at_record": "500/message/content",
+      "kind": "request"
+     }
+    ],
+    "checks": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "named_units_absent": [],
+       "retrieved_units": [
+        {
+         "unit_id": "u-1",
+         "layer": "catalog",
+         "rank": 1,
+         "score": 1.0,
+         "named": true,
+         "copies": 1
+        }
+       ]
+      }
+     ]
+    },
+    "candidates": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "sessions": [
+        "claude:t-1"
+       ],
+       "event_ids": [
+        "v-1"
+       ]
+      }
+     ]
+    },
+    "current": {
+     "units": [
+      {
+       "unit_id": "u-1",
+       "path": "claude/guides/g.md",
+       "text": "- the rule",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "carrier_id": "c-000000000000000000000000",
+       "n": 1,
+       "unit_ref": "r-111111111111111111111111",
+       "block": {
+        "start": 100
+       },
+       "operative_context": [
+        "u-1"
+       ],
+       "edges": {
+        "direct": [
+         "u-1"
+        ],
+        "reached": []
+       }
+      }
+     ]
+    },
+    "sessions": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "session": "claude:t-1",
+       "transcript": {
+        "host": "claude",
+        "id": "t-1",
+        "source": "claude_projects"
+       },
+       "pin": {
+        "status": "read",
+        "content_ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "baseline_ref": null,
+        "include_global_instructions": true,
+        "reason": null
+       },
+       "selection": {
+        "status": "read",
+        "reason": null,
+        "inventory_ref": "i-aaaaaaaaaaaaaaaaaaaaaaaa"
+       },
+       "delivery": {
+        "status": "unknown",
+        "reason": null,
+        "event_refs": []
+       }
+      }
+     ],
+     "events": [
+      {
+       "event_id": "e-1",
+       "kind": "session_injection",
+       "session_ref": "p-111111111111111111111111",
+       "line": 10,
+       "at": "2026-09-16T07:44:40+00:00",
+       "members": []
+      }
+     ]
+    },
+    "release": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "segments": [],
+       "unsegmented": {
+        "complete": true,
+        "items": [
+         "claude:guides/g"
+        ],
+        "incomplete_reasons": []
+       }
+      }
+     ]
+    },
+    "store": {
+     "versions": {
+      "c-000000000000000000000000": {
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+        "item_ref": "claude:guides/g"
+       }
+      }
+     },
+     "units": {}
+    },
+    "shared": {
+     "carriers": [
+      {
+       "carrier_id": "c-000000000000000000000000",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+     ],
+     "items": [
+      {
+       "ref": "claude:guides/g",
+       "surface": "always"
+      }
+     ],
+     "instruction_text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+     "instruction_coverage": [
+      {
+       "unit_ref": "r-111111111111111111111111",
+       "covered": 1,
+       "total": 1
+      }
+     ],
+     "unavailable": [
+      {
+       "ref": "claude:guides/g",
+       "surface": "always",
+       "reason": "route_absent"
+      }
+     ]
+    },
+    "copy": []
+   },
+   "expected": {
+    "state": "selected_unavailable",
+    "level": "selected"
+   }
+  },
+  {
+   "id": "unknown/absent_from_compiled_text",
+   "artifacts": {
+    "events": [
+     {
+      "event_id": "v-1",
+      "at_record": "500/message/content",
+      "kind": "request"
+     }
+    ],
+    "checks": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "named_units_absent": [],
+       "retrieved_units": [
+        {
+         "unit_id": "u-1",
+         "layer": "catalog",
+         "rank": 1,
+         "score": 1.0,
+         "named": true,
+         "copies": 1
+        }
+       ]
+      }
+     ]
+    },
+    "candidates": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "sessions": [
+        "claude:t-1"
+       ],
+       "event_ids": [
+        "v-1"
+       ]
+      }
+     ]
+    },
+    "current": {
+     "units": [
+      {
+       "unit_id": "u-1",
+       "path": "claude/guides/g.md",
+       "text": "- the rule",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "carrier_id": "c-000000000000000000000000",
+       "n": 1,
+       "unit_ref": "r-111111111111111111111111",
+       "block": {
+        "start": 100
+       },
+       "operative_context": [
+        "u-1"
+       ],
+       "edges": {
+        "direct": [
+         "u-1"
+        ],
+        "reached": []
+       }
+      }
+     ]
+    },
+    "sessions": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "session": "claude:t-1",
+       "transcript": {
+        "host": "claude",
+        "id": "t-1",
+        "source": "claude_projects"
+       },
+       "pin": {
+        "status": "read",
+        "content_ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "baseline_ref": null,
+        "include_global_instructions": true,
+        "reason": null
+       },
+       "selection": {
+        "status": "read",
+        "reason": null,
+        "inventory_ref": "i-aaaaaaaaaaaaaaaaaaaaaaaa"
+       },
+       "delivery": {
+        "status": "unknown",
+        "reason": null,
+        "event_refs": []
+       }
+      }
+     ],
+     "events": [
+      {
+       "event_id": "e-1",
+       "kind": "session_injection",
+       "session_ref": "p-111111111111111111111111",
+       "line": 10,
+       "at": "2026-09-16T07:44:40+00:00",
+       "members": []
+      }
+     ]
+    },
+    "release": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "segments": [],
+       "unsegmented": {
+        "complete": true,
+        "items": [
+         "claude:guides/g"
+        ],
+        "incomplete_reasons": []
+       }
+      }
+     ]
+    },
+    "store": {
+     "versions": {
+      "c-000000000000000000000000": {
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+        "item_ref": "claude:guides/g"
+       }
+      }
+     },
+     "units": {}
+    },
+    "shared": {
+     "carriers": [
+      {
+       "carrier_id": "c-000000000000000000000000",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+     ],
+     "items": [
+      {
+       "ref": "claude:guides/g",
+       "surface": "always"
+      }
+     ],
+     "instruction_text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+     "instruction_coverage": [
+      {
+       "unit_ref": "r-111111111111111111111111",
+       "covered": 0,
+       "total": 1
+      }
+     ],
+     "unavailable": []
+    },
+    "copy": []
+   },
+   "expected": {
+    "state": "unknown",
+    "reason": "absent_from_compiled_text"
+   }
+  },
+  {
+   "id": "unknown/coverage_ref_unresolved",
+   "artifacts": {
+    "events": [
+     {
+      "event_id": "v-1",
+      "at_record": "500/message/content",
+      "kind": "request"
+     }
+    ],
+    "checks": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "named_units_absent": [],
+       "retrieved_units": [
+        {
+         "unit_id": "u-1",
+         "layer": "catalog",
+         "rank": 1,
+         "score": 1.0,
+         "named": true,
+         "copies": 1
+        }
+       ]
+      }
+     ]
+    },
+    "candidates": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "sessions": [
+        "claude:t-1"
+       ],
+       "event_ids": [
+        "v-1"
+       ]
+      }
+     ]
+    },
+    "current": {
+     "units": [
+      {
+       "unit_id": "u-1",
+       "path": "claude/guides/g.md",
+       "text": "- the rule",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "carrier_id": "c-000000000000000000000000",
+       "n": 1,
+       "unit_ref": "r-111111111111111111111111",
+       "block": {
+        "start": 100
+       },
+       "operative_context": [
+        "u-1"
+       ],
+       "edges": {
+        "direct": [
+         "u-1"
+        ],
+        "reached": []
+       }
+      }
+     ]
+    },
+    "sessions": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "session": "claude:t-1",
+       "transcript": {
+        "host": "claude",
+        "id": "t-1",
+        "source": "claude_projects"
+       },
+       "pin": {
+        "status": "read",
+        "content_ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "baseline_ref": null,
+        "include_global_instructions": true,
+        "reason": null
+       },
+       "selection": {
+        "status": "read",
+        "reason": null,
+        "inventory_ref": "i-aaaaaaaaaaaaaaaaaaaaaaaa"
+       },
+       "delivery": {
+        "status": "unknown",
+        "reason": null,
+        "event_refs": []
+       }
+      }
+     ],
+     "events": [
+      {
+       "event_id": "e-1",
+       "kind": "session_injection",
+       "session_ref": "p-111111111111111111111111",
+       "line": 10,
+       "at": "2026-09-16T07:44:40+00:00",
+       "members": []
+      }
+     ]
+    },
+    "release": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "segments": [],
+       "unsegmented": {
+        "complete": true,
+        "items": [
+         "claude:guides/g"
+        ],
+        "incomplete_reasons": []
+       }
+      }
+     ]
+    },
+    "store": {
+     "versions": {
+      "c-000000000000000000000000": {
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+        "item_ref": "claude:guides/g"
+       }
+      }
+     },
+     "units": {}
+    },
+    "shared": {
+     "carriers": [
+      {
+       "carrier_id": "c-000000000000000000000000",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+     ],
+     "items": [
+      {
+       "ref": "claude:guides/g",
+       "surface": "always"
+      }
+     ],
+     "instruction_text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+     "instruction_coverage": [
+      {
+       "unit_ref": "r-999999999999999999999999",
+       "covered": 1,
+       "total": 1
+      }
+     ],
+     "unavailable": []
+    },
+    "copy": []
+   },
+   "expected": {
+    "state": "unknown",
+    "reason": "coverage_ref_unresolved"
+   }
+  },
+  {
+   "id": "unknown/delivery_unjudged",
+   "artifacts": {
+    "events": [
+     {
+      "event_id": "v-1",
+      "at_record": "500/message/content",
+      "kind": "request"
+     }
+    ],
+    "checks": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "named_units_absent": [],
+       "retrieved_units": [
+        {
+         "unit_id": "u-1",
+         "layer": "catalog",
+         "rank": 1,
+         "score": 1.0,
+         "named": true,
+         "copies": 1
+        }
+       ]
+      }
+     ]
+    },
+    "candidates": {
+     "candidates": [
+      {
+       "candidate_id": "k-1",
+       "sessions": [
+        "claude:t-1"
+       ],
+       "event_ids": []
+      }
+     ]
+    },
+    "current": {
+     "units": [
+      {
+       "unit_id": "u-1",
+       "path": "claude/guides/g.md",
+       "text": "- the rule",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "carrier_id": "c-000000000000000000000000",
+       "n": 1,
+       "unit_ref": "r-111111111111111111111111",
+       "block": {
+        "start": 100
+       },
+       "operative_context": [
+        "u-1"
+       ],
+       "edges": {
+        "direct": [
+         "u-1"
+        ],
+        "reached": []
+       }
+      }
+     ]
+    },
+    "sessions": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "session": "claude:t-1",
+       "transcript": {
+        "host": "claude",
+        "id": "t-1",
+        "source": "claude_projects"
+       },
+       "pin": {
+        "status": "read",
+        "content_ref": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "baseline_ref": null,
+        "include_global_instructions": true,
+        "reason": null
+       },
+       "selection": {
+        "status": "read",
+        "reason": null,
+        "inventory_ref": "i-aaaaaaaaaaaaaaaaaaaaaaaa"
+       },
+       "delivery": {
+        "status": "unknown",
+        "reason": null,
+        "event_refs": []
+       }
+      }
+     ],
+     "events": [
+      {
+       "event_id": "e-1",
+       "kind": "session_injection",
+       "session_ref": "p-111111111111111111111111",
+       "line": 10,
+       "at": "2026-09-16T07:44:40+00:00",
+       "members": []
+      }
+     ]
+    },
+    "release": {
+     "sessions": [
+      {
+       "session_ref": "p-111111111111111111111111",
+       "segments": [],
+       "unsegmented": {
+        "complete": true,
+        "items": [
+         "claude:guides/g"
+        ],
+        "incomplete_reasons": []
+       }
+      }
+     ]
+    },
+    "store": {
+     "versions": {
+      "c-000000000000000000000000": {
+       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+        "item_ref": "claude:guides/g"
+       }
+      }
+     },
+     "units": {}
+    },
+    "shared": {
+     "carriers": [
+      {
+       "carrier_id": "c-000000000000000000000000",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+     ],
+     "items": [
+      {
+       "ref": "claude:guides/g",
+       "surface": "always"
+      }
+     ],
+     "instruction_text_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+     "instruction_coverage": [
+      {
+       "unit_ref": "r-111111111111111111111111",
+       "covered": 1,
+       "total": 1
+      }
+     ],
+     "unavailable": []
+    },
+    "copy": []
+   },
+   "expected": {
+    "state": "unknown",
+    "reason": "delivery_unjudged"
+   }
+  }
+ ]
+}
