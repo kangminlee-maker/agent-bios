@@ -116,7 +116,7 @@ def run_checks() -> int:
         assert launch.format_model_effort("model", None, separator) == "model"
     expected = {
         "claude": {
-            "frontier": ("claude-fable-5-1", "max"),
+            "frontier": ("claude-fable-5-2", "max"),
             "helm": ("claude-opus-5-5", "high"),
             "workhorse": ("claude-sonnet-5-5", "high"),
             "sweep": ("claude-haiku-5-5", "medium"),
@@ -278,7 +278,7 @@ def run_checks() -> int:
             os.environ["AGENT_BIOS_PRIVATE_INSTRUCTIONS"] = original_private
     assert any("[max]" in prompt for prompt in picker_prompts), picker_prompts
     assert picker_plan["tiers"]["frontier"] == {
-        "model": "claude-fable-5-1", "effort": "max"
+        "model": "claude-fable-5-2", "effort": "max"
     }
     assert picker_plan["frontier_effort"] == "max"
 

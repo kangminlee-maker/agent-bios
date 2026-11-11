@@ -1,7 +1,7 @@
 ---
 name: frontier
 description: FRONTIER tier — bounded hardest decisions, first-of-kind design, triage gates, and final verdicts. Spawn when the Escalation gate fires — an irreversible or authority-changing action ahead, two failed attempts, or two persisting design alternatives — with a blind packet (evidence, constraints, rubric, neutral alternatives; no draft conclusion) and a pre-noted change condition.
-model: claude-fable-5-1
+model: claude-fable-5-2
 effort: max
 disallowedTools: [Edit, Write, NotebookEdit]
 ---
