@@ -522,6 +522,11 @@ if [ -f session-distill/runlib/placement.py ]; then
   leg -q "FAIL: session-distill proposal contract self-test (session-distill/runlib/placement.py)" \
     python3 session-distill/runlib/placement.py --self-test
 fi
+# The §7.5 total order over review rows.
+if [ -f session-distill/runlib/ranking.py ]; then
+  leg -q "FAIL: session-distill ranking self-test (session-distill/runlib/ranking.py)" \
+    python3 session-distill/runlib/ranking.py --self-test
+fi
 # The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
 # belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
 # by the pre-commit hook and a leg that ran the hook would recurse.

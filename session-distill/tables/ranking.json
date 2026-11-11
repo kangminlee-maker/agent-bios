@@ -1,0 +1,162 @@
+{
+  "$comment": "The §7.5 total order over review rows, as DATA. The module computes a key from these rows and judges nothing they do not say. Each ordered list is copied from the design sentence quoted in `design`, and `runlib/stage_propose.py` holds the same sentence as DESIGN_7_5 and compares the two, so a one-sided edit fails rather than drifts.",
+  "design": "A total order over all review rows, computed by code and printed per row: status group (§9), consequence class (irreversible, security, verification-corrupting, cost, quality, none), affirmed independent lineages (descending), kind (misfire, gap, not delivered, obsolete, confirmed, already resolved, unclassified), diagnosis (trigger problem, wrong or insufficient, gap, redundant, covered, unknown), change before no-change, candidate id.",
+  "keys": [
+    {
+      "id": "status_group",
+      "direction": "ascending",
+      "source": "groups",
+      "$comment": "§9's grouping, which is the first key because the report is grouped by it."
+    },
+    {
+      "id": "consequence",
+      "direction": "ascending",
+      "source": "consequence_classes"
+    },
+    {
+      "id": "lineages",
+      "direction": "descending",
+      "source": "affirmed independent lineages",
+      "$comment": "The one numeric key, and the only descending one: more affirmed lineages first."
+    },
+    {
+      "id": "kind",
+      "direction": "ascending",
+      "source": "kind_order"
+    },
+    {
+      "id": "diagnosis",
+      "direction": "ascending",
+      "source": "diagnosis_order"
+    },
+    {
+      "id": "change",
+      "direction": "ascending",
+      "source": "change_order",
+      "$comment": "\"change before no-change\": whether the disposition changes the library."
+    },
+    {
+      "id": "candidate_id",
+      "direction": "ascending",
+      "source": "the candidate's own id",
+      "$comment": "The last key, and the only one that cannot tie, which is what makes the order total."
+    }
+  ],
+  "consequence_classes": [
+    "irreversible",
+    "security",
+    "verification-corrupting",
+    "cost",
+    "quality",
+    "none"
+  ],
+  "kind_order": [
+    "misfire",
+    "gap",
+    "not delivered",
+    "obsolete",
+    "confirmed",
+    "already resolved",
+    "unclassified"
+  ],
+  "diagnosis_order": [
+    "trigger problem",
+    "wrong or insufficient",
+    "gap",
+    "redundant",
+    "covered",
+    "unknown"
+  ],
+  "change_order": [
+    "change",
+    "no-change"
+  ],
+  "groups": [
+    {
+      "id": "proposed_and_tested",
+      "members": [
+        {
+          "field": "status",
+          "value": "proposed"
+        },
+        {
+          "field": "status",
+          "value": "tested"
+        }
+      ]
+    },
+    {
+      "id": "disputed",
+      "members": [
+        {
+          "field": "status",
+          "value": "disputed"
+        }
+      ],
+      "$comment": "§9 writes it \"disputed (adjudicate)\": the parenthesis names what the owner does with the group, not a second status."
+    },
+    {
+      "id": "confirmed_and_keep",
+      "members": [
+        {
+          "field": "status",
+          "value": "confirmed"
+        },
+        {
+          "field": "kind",
+          "value": "confirmed"
+        },
+        {
+          "field": "disposition",
+          "value": "keep"
+        }
+      ]
+    },
+    {
+      "id": "already_resolved_and_unclassified",
+      "members": [
+        {
+          "field": "kind",
+          "value": "already resolved"
+        },
+        {
+          "field": "kind",
+          "value": "unclassified"
+        }
+      ]
+    },
+    {
+      "id": "rejected",
+      "members": [
+        {
+          "field": "status",
+          "value": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "quarantined_or_failed",
+      "members": [
+        {
+          "field": "status",
+          "value": "quarantined"
+        },
+        {
+          "field": "status",
+          "value": "delivery_failed"
+        }
+      ]
+    }
+  ],
+  "groups_design": "Rows appear in the single total order of §7.5, grouped by status: proposed and tested; disputed (adjudicate); confirmed and keep; already resolved and unclassified; rejected; quarantined or failed.",
+  "groups_note": "§9 calls this grouping \"by status\", and four of the six groups are indeed named by statuses of §7.2. Two are not: \"confirmed and keep\" names a status, a KIND (confirmed) and a DISPOSITION (keep), and \"already resolved and unclassified\" names two kinds only. So each member carries the field it belongs to, and the module places a row in two passes: a status a group names decides first, since §9 says the rows are grouped by status; a row whose status no group holds is then placed by its kind or its disposition. Without the second pass those two groups would be unreachable for the rows they exist for, because an approved keep carries a status §9 never mentions. A row no pass places is a named problem (ROW_GROUP_UNDECLARED), never a silent last bucket. This reading is recorded as an interpretation with the sentence it rests on.",
+  "unplaced_statuses": [
+    "untested",
+    "admitted",
+    "approved",
+    "applied",
+    "delivery_verified",
+    "returned"
+  ],
+  "unplaced_note": "The statuses of §7.2 that no group sentence holds. A row carrying one is placed by its kind or disposition in the second pass, and refused by name only when neither places it either - so the gap is visible and countable rather than discovered by a row falling through. When §9 is extended, a status moves into a group and leaves this list in the same change."
+}

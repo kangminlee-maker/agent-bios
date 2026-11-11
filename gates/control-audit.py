@@ -79,6 +79,7 @@ SUBJECTS = [
     "session-distill/runlib/census.py",
     "session-distill/runlib/placement.py",
     "session-distill/runlib/sequencing.py",
+    "session-distill/runlib/ranking.py",
     "session-distill/runlib/ledger.py",
     "session-distill/runlib/ledger_compat.py",
     "session-distill/migrate-ledger.py",
