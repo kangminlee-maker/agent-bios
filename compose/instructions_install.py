@@ -217,9 +217,19 @@ def _is_bytecode(relative: str) -> bool:
 
     Skipped rather than refused: the author cannot be asked to clear a cache before every install,
     the source beside it is the payload, and a stale `.pyc` shadowing source it no longer matches is
-    the worst shape to hand a user."""
+    the worst shape to hand a user.
+
+    `.pyo` is here because SUPPORTED_NEGATIONS already admits `!*.pyo` and `!**/*.pyo`: an
+    allowlist that accepts a spelling this predicate cannot recognise is a pair that disagrees, and
+    `gates/check-package.sh` asks npm whether the two agree.
+
+    Uppercase `.PYC` is NOT covered, deliberately. Nothing in this toolchain writes one — CPython
+    writes lowercase names into `__pycache__` — and npm matches a `files[]` pattern
+    case-sensitively, so `!**/*.pyc` would not exclude one either. Both sides therefore give the
+    same answer about it, which is what the npm leg checks; teaching one side alone would be the
+    divergence. The day something produces such a file, both sides learn it together."""
     parts = PurePosixPath(relative).parts
-    return relative.endswith(".pyc") or "__pycache__" in parts
+    return relative.endswith((".pyc", ".pyo")) or "__pycache__" in parts
 
 
 def _inside(path: Path, root: Path) -> bool:

@@ -42,11 +42,24 @@ INVENTORY = "DEPENDENCIES.md"
 # path. Neither is a dependency anyone installs.
 LOCAL = {"runlib", "distill"}
 
-# The runner calls whose first literal argument is a command name. Qualified on purpose: a bare
-# `run("S6", ...)` of some object's own method is not a program, and an unqualified scan read one
-# as `S6`.
-RUNNER_QUALIFIERS = {"subprocess", "shutil"}
-RUNNERS = {"run", "Popen", "check_output", "check_call", "call", "which"}
+# The runner calls whose first literal argument is a command name, as (module, names) PAIRS rather
+# than two independent sets. Qualified on purpose: a bare `run("S6", ...)` of some object's own
+# method is not a program, and an unqualified scan read one as `S6`. Pairs rather than the product
+# of two sets, because the product admits calls nobody makes (`os.run`, `subprocess.system`) and
+# because each module's runners take their command differently, which the scan has to know.
+RUNNER_PAIRS = {
+    "subprocess": {"run", "Popen", "check_output", "check_call", "call"},
+    "shutil": {"which"},
+    # `os.system` and `os.popen` hand one STRING to a shell. They were outside the scan entirely:
+    # the driver could have run anything through either and this gate reported a clean tree,
+    # because it looked only for an argv vector.
+    "os": {"system", "popen"},
+}
+# The modules whose runners take a string command rather than an argv vector: the program is its
+# first word.
+STRING_COMMAND_MODULES = {"os"}
+RUNNER_QUALIFIERS = set(RUNNER_PAIRS)
+RUNNERS = {name for names in RUNNER_PAIRS.values() for name in names}
 
 # A binary whose inventory row names the product. The row is the declaration; this maps the name
 # the code uses to the words the row uses, and nothing else.
@@ -63,27 +76,33 @@ def subjects(root: pathlib.Path) -> list[pathlib.Path]:
 
 
 def _runner_bindings(tree):
-    """(names bound to a watched module, names bound to a runner function) in this file.
+    """(bound name -> the module it IS, bound name -> the (module, runner) it is) in this file.
 
     Spelled out because ordinary Python hides a program three ways and the scan saw none of them
     (review Y #3): `import subprocess as sp` binds the module under another name, `from subprocess
     import run` binds the function with no qualifier at all, and either can be renamed with `as`.
     A scan matching only the literal text `subprocess.run` reports a clean tree while the driver
-    runs whatever it likes."""
-    modules, functions = set(), set()
+    runs whatever it likes.
+
+    Each binding keeps the module it came from, rather than being collected into one anonymous set:
+    with runners declared per module, `sp.system(...)` and `os.run(...)` must read as nothing, and a
+    set of names cannot tell them from the pairs that do exist."""
+    modules, functions = {}, {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name.split(".")[0] in RUNNER_QUALIFIERS:
-                    modules.add(alias.asname or alias.name.split(".")[0])
+                root = alias.name.split(".")[0]
+                if root in RUNNER_QUALIFIERS:
+                    modules[alias.asname or root] = root
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            if node.module.split(".")[0] not in RUNNER_QUALIFIERS:
+            root = node.module.split(".")[0]
+            if root not in RUNNER_QUALIFIERS:
                 continue
             for alias in node.names:
-                if alias.name in RUNNERS:
-                    functions.add(alias.asname or alias.name)
+                if alias.name in RUNNER_PAIRS[root]:
+                    functions[alias.asname or alias.name] = (root, alias.name)
                 else:
-                    modules.add(alias.asname or alias.name)
+                    modules[alias.asname or alias.name] = root
     return modules, functions
 
 
@@ -100,22 +119,34 @@ def _argv_of(call):
     return None
 
 
-def _is_runner(call, modules, functions):
-    """Whether this call starts a program, under any spelling this file's imports allow."""
+def _runner_of(call, modules, functions):
+    """The MODULE whose runner this call is, or None: `subprocess`, `shutil`, `os`.
+
+    The module, not a yes/no, because it decides how the command is written — an argv vector for
+    `subprocess`, one shell string for `os`."""
     func = call.func
-    if isinstance(func, ast.Attribute) and func.attr in RUNNERS:
+    if isinstance(func, ast.Attribute):
         base = func.value
         qualifier = base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")
-        return qualifier in modules
+        module = modules.get(qualifier)
+        if module is not None and func.attr in RUNNER_PAIRS[module]:
+            return module
+        return None
     if isinstance(func, ast.Name):
-        return func.id in functions
-    return False
+        found = functions.get(func.id)
+        return found[0] if found is not None else None
+    return None
 
 
-def derive(paths: list[pathlib.Path], root: pathlib.Path) -> tuple[dict, dict]:
-    """(third-party imports, literal program names), each name -> the files that reach for it."""
+def derive(paths: list[pathlib.Path], root: pathlib.Path) -> tuple[dict, dict, dict]:
+    """(third-party imports, literal program names, unresolved shell commands).
+
+    The first two map each name to the files that reach for it. The third maps a site to the call
+    it could not read: a shell runner whose command is not a literal string names a program this
+    scan cannot derive, and silence there would be the same hole the string runners were in."""
     imports: dict[str, set[str]] = {}
     programs: dict[str, set[str]] = {}
+    unresolved: dict[str, str] = {}
     standard = set(sys.stdlib_module_names)
     for path in paths:
         rel = str(path.relative_to(root))
@@ -131,15 +162,32 @@ def derive(paths: list[pathlib.Path], root: pathlib.Path) -> tuple[dict, dict]:
             for name in names:
                 if name not in standard and name not in LOCAL:
                     imports.setdefault(name, set()).add(rel)
-            if isinstance(node, ast.Call) and _is_runner(node, modules, functions):
-                first = _argv_of(node)
-                if isinstance(first, (ast.List, ast.Tuple)) and first.elts:
-                    first = first.elts[0]
-                if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                    command = first.value.split("/")[-1]
+            if not isinstance(node, ast.Call):
+                continue
+            module = _runner_of(node, modules, functions)
+            if module is None:
+                continue
+            if module in STRING_COMMAND_MODULES:
+                # One shell string: the program is its first word. A command this scan cannot read
+                # is REPORTED rather than passed over — an f-string or a variable here is exactly
+                # how a program would stay undeclared once the spelling is in scope at all.
+                written = node.args[0] if node.args else None
+                if isinstance(written, ast.Constant) and isinstance(written.value, str):
+                    words = written.value.split()
+                    command = words[0].split("/")[-1] if words else ""
                     if command and command not in NOT_A_DEPENDENCY:
                         programs.setdefault(command, set()).add(rel)
-    return imports, programs
+                else:
+                    unresolved[f"{rel}:{node.lineno}"] = ast.unparse(node)[:80]
+                continue
+            first = _argv_of(node)
+            if isinstance(first, (ast.List, ast.Tuple)) and first.elts:
+                first = first.elts[0]
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                command = first.value.split("/")[-1]
+                if command and command not in NOT_A_DEPENDENCY:
+                    programs.setdefault(command, set()).add(rel)
+    return imports, programs, unresolved
 
 
 def declared(inventory_text: str, name: str) -> bool:
@@ -159,7 +207,11 @@ def check(root: pathlib.Path = REPO) -> list[str]:
     if not inventory.is_file():
         return [f"{INVENTORY} is missing, so nothing can be held against it"]
     text = inventory.read_text(encoding="utf-8")
-    imports, programs = derive(paths, root)
+    imports, programs, unresolved = derive(paths, root)
+    for site, written in sorted(unresolved.items()):
+        problems.append(f"{site} hands a shell a command this scan cannot read ({written}): the "
+                        f"program it runs cannot be checked against {INVENTORY}, so write the "
+                        f"command as a literal or run it through an argv vector")
     if not imports and not programs:
         problems.append("the derivation found neither a third-party import nor a program name in "
                         f"{len(paths)} driver files, which no version of this driver has been "
@@ -250,6 +302,60 @@ def self_test() -> int:
         planted.write_text("import shutil\nshutil.which('nosuchtool')\n", encoding="utf-8")
         control("and a `which` probe counts as reaching for a program",
                 " ".join(check(root)), "the driver runs 'nosuchtool'")
+
+        # The shell runners, which the scan did not look at at all until now. Their command is one
+        # string, so the program is its first word — and the three spellings above apply here too.
+        planted.write_text("import os\nos.system('nosuchtool --x')\n", encoding="utf-8")
+        control("a shell command run through os.system names a program like any other",
+                " ".join(check(root)), "the driver runs 'nosuchtool'")
+        planted.write_text("import os\nos.popen('/opt/homebrew/bin/nosuchtool -q').read()\n",
+                           encoding="utf-8")
+        control("os.popen counts too, and its program is read by basename",
+                " ".join(check(root)), "the driver runs 'nosuchtool'")
+        planted.write_text("from os import system as sh\nsh('nosuchtool --x')\n", encoding="utf-8")
+        control("an imported shell runner, renamed, does not hide it either",
+                " ".join(check(root)), "the driver runs 'nosuchtool'")
+        # A command the scan cannot read is REPORTED. Passing over it silently is the hole the
+        # string runners were already in: the spelling is in scope, so the unreadable case has to
+        # be named rather than treated as "no program here".
+        planted.write_text("import os\ntool = 'nosuchtool'\nos.system(f'{tool} --x')\n",
+                           encoding="utf-8")
+        control("a shell command that is not a literal is reported, not passed over",
+                " ".join(check(root)), "hands a shell a command this scan cannot read")
+        planted.write_text("import os\nos.system()\n", encoding="utf-8")
+        control("and so is a shell runner called with no command at all",
+                " ".join(check(root)), "hands a shell a command this scan cannot read")
+
+        # Pair discipline, both directions: a runner belongs to a module, and the names are not
+        # interchangeable. Each of these trees also runs a DECLARED program, so a clean verdict
+        # here is the pair being unrecognised rather than the deriver finding nothing.
+        (root / INVENTORY).write_text("| Tool | Required by |\n| --- | --- |\n| `git` | x |\n",
+                                      encoding="utf-8")
+        planted.write_text("import os\nimport subprocess\nsubprocess.run(['git', 'show'])\n"
+                           "os.run(['nosuchtool'])\n", encoding="utf-8")
+        clean("a runner name that module does not have is not a program (os.run)", check(root))
+        planted.write_text("import os\nimport subprocess\nsubprocess.run(['git', 'show'])\n"
+                           "subprocess.system(['nosuchtool', '--x'])\n", encoding="utf-8")
+        clean("nor the other way round (subprocess.system)", check(root))
+        # ... and that the absence can fail: declare the pair the code wrote, on the module whose
+        # runners take an argv vector, and the same tree reports the program it runs.
+        RUNNER_PAIRS["subprocess"].add("system")
+        try:
+            control("the pair control is real: declare subprocess.system and the same tree fails",
+                    " ".join(check(root)), "the driver runs 'nosuchtool'")
+        finally:
+            RUNNER_PAIRS["subprocess"].discard("system")
+        # The os.run absence, proven the same way. What it reports is the unreadable-command
+        # message rather than a program name — `os` reads a string, and the planted call hands it a
+        # list — which is the honest observable and still a failure on a tree that passes today.
+        planted.write_text("import os\nimport subprocess\nsubprocess.run(['git', 'show'])\n"
+                           "os.run(['nosuchtool'])\n", encoding="utf-8")
+        RUNNER_PAIRS["os"].add("run")
+        try:
+            control("and the os.run absence is real: declare it and the same tree fails",
+                    " ".join(check(root)), "hands a shell a command this scan cannot read")
+        finally:
+            RUNNER_PAIRS["os"].discard("run")
         # ... and the two proofs that the clean controls above can fail: break the recognition each
         # one rests on, and watch it report a problem.
         planted.write_text("import subprocess\nsubprocess.run(['/opt/homebrew/bin/git', 'show'])\n",
@@ -257,9 +363,9 @@ def self_test() -> int:
         kept_basename = globals()["derive"]
         try:
             def whole_path(paths, where):
-                imports, programs = kept_basename(paths, where)
+                imports, programs, unresolved = kept_basename(paths, where)
                 return imports, {f"/opt/homebrew/bin/{name}" if name == "git" else name: sites
-                                 for name, sites in programs.items()}
+                                 for name, sites in programs.items()}, unresolved
             globals()["derive"] = whole_path
             control("the basename control is real: without basename recognition the same tree fails",
                     " ".join(check(root)), "/opt/homebrew/bin/git")
@@ -295,7 +401,8 @@ def self_test() -> int:
         return 1
     print(f"check-driver-dependencies --self-test: OK (positive control + {len(ran)} controls: "
           f"every planted violation failing by name, every absence asserted as an empty problem "
-          f"list, and the two absence controls each shown to fail when their recognition is broken)")
+          f"list, and each absence control shown to fail when the recognition it rests on is "
+          f"changed)")
     return 0
 
 
@@ -313,7 +420,7 @@ def main(argv=None) -> int:
             print(f"check-driver-dependencies: FAIL: {line}", file=sys.stderr)
         return 1
     paths = subjects(REPO)
-    imports, programs = derive(paths, REPO)
+    imports, programs, _unresolved = derive(paths, REPO)
     print(f"check-driver-dependencies: OK — {len(paths)} shipped driver files, "
           f"{len(imports)} third-party import(s) ({', '.join(sorted(imports))}), "
           f"{len(programs)} literal program name(s) ({', '.join(sorted(programs))}), "

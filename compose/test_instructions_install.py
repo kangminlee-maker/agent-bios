@@ -86,22 +86,47 @@ class InstructionsInstallTests(_InstallerFixture):
         cache.mkdir()
         (cache / "records.cpython-312.pyc").write_bytes(b"\x00stale")
         (driver / "legacy.pyc").write_bytes(b"\x00stale")
+        # Both suffixes the negation allowlist admits. `.pyo` was in SUPPORTED_NEGATIONS while the
+        # predicate knew only `.pyc`, so the allowlist accepted a spelling nothing implemented.
+        (driver / "legacy.pyo").write_bytes(b"\x00stale")
         manifest["files"] += ["session-distill/runlib/legacy.pyc",
+                              "session-distill/runlib/legacy.pyo",
                               "session-distill/runlib/__pycache__/records.cpython-312.pyc",
-                              "!**/__pycache__", "!**/*.pyc"]
+                              "!**/__pycache__", "!**/*.pyc", "!**/*.pyo"]
         (self.repo / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
         packed = self.installer()._package_files()
         self.assertIn("session-distill/distill.py", packed)
         self.assertIn("session-distill/runlib/records.py", packed)
         # Both ways in: expanded from a directory entry, and named outright. The explicit spelling
         # bypassed the filter, so a `.pyc` reached the release inventory and the release digest.
-        self.assertEqual([], [rel for rel in packed if "__pycache__" in rel or rel.endswith(".pyc")])
+        self.assertEqual([], [rel for rel in packed
+                              if "__pycache__" in rel or rel.endswith((".pyc", ".pyo"))],
+                         "compiled Python is payload: the author's bytecode entered the package "
+                         "under one of the two suffixes files[] negates")
+        # The case this pair deliberately does NOT cover, asserted on the predicate itself: npm
+        # matches a files[] pattern case-sensitively, so `!**/*.pyc` would not exclude an uppercase
+        # name and neither does the predicate — both sides answer the same, which is what the npm
+        # leg holds them to, and nothing in this toolchain writes such a file. It is asserted here
+        # rather than through a release copy because this test's filesystem folds case, so
+        # `LEGACY.PYC` and `legacy.pyc` would be one file and the fixture could prove neither.
+        self.assertFalse(instructions_install._is_bytecode("session-distill/runlib/LEGACY.PYC"),
+                         "an uppercase .PYC is excluded by the predicate while npm, which matches "
+                         "case-sensitively, would pack it: the two sides must answer alike")
+        self.assertTrue(instructions_install._is_bytecode("session-distill/runlib/legacy.pyo"),
+                        "the predicate does not recognise .pyo, which SUPPORTED_NEGATIONS admits: "
+                        "the allowlist accepts a spelling nothing implements")
         # And the negated entries npm needs are not read as payload paths of their own.
         self.assertEqual([], [rel for rel in packed if rel.startswith("!")])
         release, entries, digest = self.installer()._copy_release(packed, dry_run=False)
         rows = [row["path"] for row in entries]
-        self.assertEqual([], [rel for rel in rows if "__pycache__" in rel or rel.endswith(".pyc")])
+        self.assertEqual([], [rel for rel in rows
+                              if "__pycache__" in rel or rel.endswith((".pyc", ".pyo"))],
+                         "compiled Python reached the release inventory under one of the two "
+                         "suffixes files[] negates")
         self.assertFalse((release / "session-distill" / "runlib" / "legacy.pyc").exists())
+        self.assertFalse((release / "session-distill" / "runlib" / "legacy.pyo").exists(),
+                         "a .pyo reached the release tree: the author's compiled bytecode is not "
+                         "payload under either suffix")
         base = json.loads((self.repo / "package.json").read_text(encoding="utf-8"))["files"]
         # Both spellings per tree: the DIRECTORY entry is the one npm uses and the one the rule
         # could not see, and a file inside it is the spelling that always refused.

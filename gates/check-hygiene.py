@@ -713,13 +713,39 @@ def self_test() -> int:
         if not any("!README.md" in p and "not one the payload supports" in p for p in problems):
             fail(f"self-test: an unsupported files[] negation was not reported by name: {problems[:2]}")
         # And the supported ones still exclude: bytecode is the author's, never a subject.
-        bytecode = "compose/__pycache__/pkgid.cpython-314.pyc"
-        with_cache, problems = derive_subjects(REPO, package, tracked + [bytecode])
-        if bytecode in with_cache:
-            fail("self-test: a compiled Python file entered the subject set, which the files[] "
-                 "negations exist to keep out of the tarball")
-        if any(bytecode in p for p in problems):
-            fail(f"self-test: excluding bytecode was reported as a problem: {problems[:2]}")
+        #
+        # The path and the file are both load-bearing, and this control had neither. It named
+        # `compose/__pycache__/pkgid.cpython-314.pyc`, and `compose`'s files are listed one by one,
+        # so no files[] entry covers that path; it also named a file nobody has, and this derivation
+        # ends by dropping any subject that is not a file in the worktree. The cache was absent for
+        # two reasons that are not the negation rule, and replacing that rule with `pass` left this
+        # assertion passing (WP-22a). So: real files, planted under a DIRECTORY entry, and a second
+        # control proving the path is a candidate at all.
+        cache_dir = REPO / "session-distill" / "runlib" / "__pycache__"
+        bytecode = "session-distill/runlib/__pycache__/pkgid.cpython-314.pyc"
+        existed = cache_dir.is_dir()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            (REPO / bytecode).write_bytes(b"\x00\x0c\r\n")
+            with_cache, problems = derive_subjects(REPO, package, tracked + [bytecode])
+            if bytecode in with_cache:
+                fail("self-test: a compiled Python file entered the subject set, which the files[] "
+                     "negations exist to keep out of the tarball")
+            if any(bytecode in p for p in problems):
+                fail(f"self-test: excluding bytecode was reported as a problem: {problems[:2]}")
+            # The vacuity guard: the SAME path, derived with the negations taken out. It must come
+            # back a subject, or the exclusion above is the work of something else — which is
+            # exactly what the old spelling of this control could not tell.
+            without = dict(package, files=[entry for entry in package["files"]
+                                           if not (isinstance(entry, str) and entry.startswith("!"))])
+            candidate, _ = derive_subjects(REPO, without, tracked + [bytecode])
+            if bytecode not in candidate:
+                fail("self-test: the planted cache is not a subject even with no negation in "
+                     "files[], so the control above proves nothing about the negation rule")
+        finally:
+            (REPO / bytecode).unlink(missing_ok=True)
+            if not existed:
+                shutil.rmtree(cache_dir, ignore_errors=True)
         globbed = dict(package, files=list(package["files"]) + ["docs/*.md"])
         _, problems = derive_subjects(REPO, globbed, tracked)
         if not any("glob" in p for p in problems):

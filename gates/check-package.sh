@@ -1321,6 +1321,7 @@ else:
             "session-distill/runlib/__pycache__/records.cpython-312.pyc",   # expanded from a dir entry
             "session-distill/runlib/legacy.pyc",                            # a bare .pyc beside its source
             "compose/__pycache__/instructions_install.cpython-312.pyc",     # a second listed tree
+            "session-distill/runlib/legacy.pyo",                            # the other bytecode suffix
         ]
         for rel in planted:
             (copy / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -1367,8 +1368,13 @@ else:
         # rather than counted as a disagreement.
         forced = {name for name in npm_files if always_packed(name)}
         leg("npm expansion rows", npm_files)
-        npm_bytecode = sorted(n for n in npm_files if n.endswith(".pyc") or "__pycache__" in n.split("/"))
-        own_bytecode = sorted(n for n in own if n.endswith(".pyc") or "__pycache__" in n.split("/"))
+        def is_cache(name):
+            # Both suffixes, because files[] now negates both and the installer's predicate knows
+            # both: a comparison that reads only `.pyc` would pass over the pair it is here to hold.
+            return name.endswith((".pyc", ".pyo")) or "__pycache__" in name.split("/")
+
+        npm_bytecode = sorted(n for n in npm_files if is_cache(n))
+        own_bytecode = sorted(n for n in own if is_cache(n))
         if npm_bytecode or own_bytecode:
             sys.exit("check-package: FAILED — compiled bytecode is still payload: npm packs "
                      f"{npm_bytecode}, the installer stores {own_bytecode}. A negated files[] entry "
