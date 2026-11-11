@@ -569,6 +569,18 @@ if [ -f session-distill/runlib/measures.py ]; then
   leg -q "FAIL: session-distill follow-up resolution self-test (session-distill/runlib/measures.py)" \
     python3 session-distill/runlib/measures.py --self-test
 fi
+# The §6.4 derivations (plan WP-10 done-whens 1, 2 and 5): tables/unit_outcome.json read as data, its frozen fixtures
+# against the table's rows and the executed cases, and the table against design §6.4's copied rows; no model is called.
+if [ -f session-distill/runlib/derive.py ]; then
+  leg -q "FAIL: session-distill §6.4 derivation self-test (session-distill/runlib/derive.py)" \
+    python3 session-distill/runlib/derive.py --self-test
+fi
+# The §6.3 delivery evidence (plan WP-10 done-whens 2 and 5): tables/delivery_evidence.json read as data, the O3
+# delivery verdicts each flipped, its frozen fixtures and the table against design §6.3's levels; no model is called.
+if [ -f session-distill/runlib/delivery.py ]; then
+  leg -q "FAIL: session-distill §6.3 delivery evidence self-test (session-distill/runlib/delivery.py)" \
+    python3 session-distill/runlib/delivery.py --self-test
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
