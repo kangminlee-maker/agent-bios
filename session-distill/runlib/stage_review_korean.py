@@ -119,17 +119,35 @@ def failing_of(verdict):
     return sorted(f["field"] for f in verdict["fields"] if not (f["faithful"] and f["plain"]))
 
 
-def document(rows_doc, proposals, candidates, derivations, reviews, regenerations=None, second=None):
-    """`(review_s9b, regenerated, problems)` for one review version. `problems` names an answer for a row S9b was not
-    asked about; with any, nothing is written."""
+def document(rows_doc, proposals, candidates, derivations, reviews, regenerations=None, second=None, previous=None,
+             previous_regenerated=None):
+    """`(review_s9b, regenerated, problems)` for one review version. A row an earlier S9b run judged, whose English
+    payload has not moved since, is carried from it unreviewed, its regenerated proposal with it: a row is regenerated
+    once, across versions too. `problems` names an answer for a row S9b was not asked about, or one it judged before;
+    with any, nothing is written."""
     regenerations, second = dict(regenerations or {}), dict(second or {})
     by_id = {r["item_id"]: r for r in reviewable(rows_doc)}
+    before = {e["item_id"]: e for e in (previous or {}).get("rows") or []}
+    carried = {i for i, row in by_id.items() if (before.get(i) or {}).get("payload_sha256") == row["payload_sha256"]}
     answers = {p["candidate_id"]: p for p in (proposals or {}).get("proposals") or []}
     cands = {c["candidate_id"]: c for c in (candidates or {}).get("candidates") or []}
     verdicts = (derivations or {}).get("verdicts") or {}
     problems = [f"S9B_UNACCOUNTED {i}: a review for a row S9b was not asked about" for i in sorted(set(reviews) - set(by_id))]
+    problems += [f"REVIEW_CARRIED {i}: S9b judged it at v{previous['version']} and its English payload has not moved"
+                 for i in sorted(set(reviews) & carried)]
     rows, unreviewed, returned, regenerated, asked = [], [], [], {}, set()
     for ident, row in by_id.items():
+        if ident in carried:
+            entry = before[ident]
+            rows.append({**entry, "carried_from": entry.get("carried_from") or previous["version"]})
+            if entry.get("regenerated"):
+                held = ((previous_regenerated or {}).get("proposals") or {}).get(ident)
+                if held is None:
+                    problems.append(f"CARRY_INCOMPLETE {ident}: v{previous['version']} says it was regenerated and "
+                                    "its regenerated proposals do not hold it")
+                else:
+                    regenerated[ident] = held
+            continue
         review = reviews.get(ident)
         if review is None:
             unreviewed.append({"item_id": ident, "why": "S9b returned no review for this row"})
@@ -138,7 +156,8 @@ def document(rows_doc, proposals, candidates, derivations, reviews, regeneration
         if found:
             returned.append({"item_id": ident, "pass": "first", "codes": [code_of(x) for x in found]})
             continue
-        held = {"item_id": ident, "verdict": review["verdict"], "failing": failing_of(review), "regenerated": False,
+        held = {"item_id": ident, "payload_sha256": row["payload_sha256"], "verdict": review["verdict"],
+                "failing": failing_of(review), "regenerated": False,
                 "regeneration": None, "second": None, "mark": False, "notes": review["notes"]}
         if review["verdict"] == "fail":
             asked.add(ident)
@@ -152,11 +171,13 @@ def document(rows_doc, proposals, candidates, derivations, reviews, regeneration
                  for i in sorted(set(second) - set(regenerated))]
     tally = collections.Counter
     review_doc = {"stage": STAGE, "version": rows_doc["version"], "render_sha256": rows_doc["render_sha256"],
+                  "previous": ({"version": previous["version"]} if previous else None),
                   "rows": rows, "unreviewed": unreviewed, "returned": returned,
                   "counts": {"reviewable": len(by_id), "reviewed": len(rows), "unreviewed": len(unreviewed),
                              "returned": len(returned), "verdict": dict(tally(r["verdict"] for r in rows)),
                              "regenerated": sum(1 for r in rows if r["regenerated"]),
-                             "marked": sum(1 for r in rows if r["mark"])}}
+                             "marked": sum(1 for r in rows if r["mark"]),
+                             "carried": sum(1 for r in rows if r.get("carried_from"))}}
     return review_doc, {"stage": STAGE, "version": rows_doc["version"], "proposals": regenerated}, problems
 
 
@@ -187,6 +208,22 @@ def failure_after_retry(row, proposal_row, candidate, derivations, derivation_ro
             "mark": second["verdict"] == "fail"}
 
 
+def previous_of(run_dir, version):
+    """`(review, regenerated)` of the highest earlier version S9b reviewed, the two held to each other by the sha256 the
+    review recorded of the regenerated file (S9B_CHANGED); `(None, None)` when S9b has reviewed no earlier version."""
+    run_dir = pathlib.Path(run_dir)
+    done = sorted(int(m.group(1)) for p in run_dir.glob("review-s9b.v*.json")
+                  for m in [re.fullmatch(r"review-s9b\.v(\d+)\.json", p.name)] if m and int(m.group(1)) < version)
+    if not done:
+        return None, None
+    review_rel, regen_rel = outputs_of(done[-1])
+    review = records.read_json(run_dir / review_rel)
+    if not (run_dir / regen_rel).is_file() or records.sha256_file(run_dir / regen_rel) != review.get("regenerated_sha256"):
+        raise Refused(f"S9B_CHANGED {regen_rel}: its bytes are not the ones {review_rel} recorded; S9b's outputs are "
+                      "written once")
+    return review, records.read_json(run_dir / regen_rel)
+
+
 def latest_version(run_dir):
     rec = records.stage_records(pathlib.Path(run_dir)).get("S9") or {}
     held = [int(m.group(1)) for o in rec.get("outputs") or []
@@ -207,12 +244,15 @@ def run(run_dir, reviews, regenerations=None, second=None):
             if (run_dir / rel).exists():
                 raise Refused(f"S9B_VERSION_REVIEWED {rel}: a version's Korean is reviewed once")
         read = lambda rel: records.read_json(run_dir / rel)  # noqa: E731
+        previous, previous_regenerated = previous_of(run_dir, version)
         review_doc, regen_doc, problems = document(read(f"review.v{version}.json"), read(stage_propose.OUTPUT),
                                                    read("checked-candidates.json"), read("judgments/derivations.json"),
-                                                   reviews, regenerations, second)
+                                                   reviews, regenerations, second, previous, previous_regenerated)
         if problems:
             raise Refused("\n".join(problems))
+        # the regenerated proposals first, so the review can bind them by sha256 and a later run can hold them to it
         records.write_json(run_dir, run_dir / regen_rel, regen_doc)
+        review_doc["regenerated_sha256"] = records.sha256_file(run_dir / regen_rel)
         records.write_json(run_dir, run_dir / review_rel, review_doc)
         for rel in (regen_rel, review_rel):
             stage.output(rel)
@@ -341,6 +381,50 @@ def self_test():
     equal("a second review that does not hold leaves the row marked, with its codes",
           (row_in(broken, "k-g").get("mark"), row_in(broken, "k-g").get("second")),
           (True, {"state": "returned", "codes": ["S9B_SCHEMA_INVALID"]}))
+
+    # ---- a later version: what S9b judged is carried, so a row is regenerated once across versions ---------------
+    _o, regen_once, _p = doc({**{i: verdict() for i in ids}, "k-g": verdict(failing=["what_happened"])},
+                             {"k-g": better}, {"k-g": verdict()})
+    later_rows = {**rows_doc, "version": 2}
+
+    def later(reviews, previous=once, previous_regenerated=None, rows=None):
+        return document(rows or later_rows, docs["proposals"], docs["candidates"], docs["derivations"], reviews,
+                        None, None, previous, regen_once if previous_regenerated is None else previous_regenerated)
+    carried_doc, carried_regen, problems = later({})
+    clean("a later version whose rows S9b judged before needs no review", problems)
+    equal("each is carried from the version that judged it, its regenerated proposal with it",
+          (sorted((r["item_id"], r.get("carried_from")) for r in carried_doc["rows"]),
+           sorted(carried_regen["proposals"]), carried_doc["counts"]["carried"]),
+          (sorted((i, 1) for i in ids), ["k-g"], 3))
+    control("a review given for a carried row is refused: it was judged, and regenerated, already",
+            "\n".join(later({"k-g": verdict()})[2]), "REVIEW_CARRIED k-g")
+    moved_rows = copy.deepcopy(later_rows)
+    next(r for r in moved_rows["rows"] if r["item_id"] == "k-a")["payload_sha256"] = "f" * 64
+    fresh, _r, _p = later({}, rows=moved_rows)
+    equal("a row whose English payload moved since is asked again", [u["item_id"] for u in fresh["unreviewed"]],
+          ["k-a"])
+    control("a carried regeneration its file does not hold is named",
+            "\n".join(later({}, previous_regenerated={"proposals": {}})[2]), "CARRY_INCOMPLETE k-g")
+    import tempfile as _tempfile
+    import shutil as _shutil
+    held_dir = pathlib.Path(_tempfile.mkdtemp(prefix="s9b-prev-"))
+    try:
+        review_rel, regen_rel = outputs_of(1)
+        records.write_json(held_dir, held_dir / regen_rel, regen_once)
+        records.write_json(held_dir, held_dir / review_rel,
+                           {**once, "regenerated_sha256": records.sha256_file(held_dir / regen_rel)})
+        got_prev, got_regen = previous_of(held_dir, 2)
+        equal("the previous review is found and held to its regenerated proposals",
+              ((got_prev or {}).get("version"), sorted((got_regen or {}).get("proposals") or {})), (1, ["k-g"]))
+        records.write_json(held_dir, held_dir / regen_rel, {"proposals": {}})
+        try:
+            changed = f"returned {previous_of(held_dir, 2)[0] is not None}"
+        except Refused as exc:
+            changed = str(exc)
+        control("regenerated proposals changed since their review are refused by name", changed,
+                "S9B_CHANGED regenerated-reasons.v1.json")
+    finally:
+        _shutil.rmtree(held_dir, ignore_errors=True)
 
     # ---- rows S9b did not judge, and answers it was not asked for ------------------------------------------------
     partial, _r, problems = doc({"k-a": verdict()})

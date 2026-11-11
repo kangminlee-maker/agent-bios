@@ -67,6 +67,9 @@ S7B_NONE = {"state": "none", "why": "S7b reviews proposals, and this row carries
 # S7b offers at most one alternative per proposal and gives it no id, so the review shows it under this one; the
 # owner takes it with `결정: 수정 대안 s7b`, and S10b resolves it from review-s7b.json (lead decision, K2c).
 ALTERNATIVE_ID = "s7b"
+# S9b's visible mark on a row whose Korean still fails after its one regeneration (design §9): shown, never withheld.
+MARK = "번역 검토 실패"
+S9B_OUTPUTS = (r"review-s9b\.v(\d+)\.json", r"regenerated-reasons\.v(\d+)\.json")
 S7B_ROW_FIELDS = ("verdict", "disposition_holds", "destination_holds", "bars_failing", "faithful_merge",
                   "alternative", "disagreement", "owner_resolves", "notes")
 CLASS_ORDER = ("irreversible", "security", "verification-corrupting", "cost", "quality", "none")
@@ -95,7 +98,24 @@ def item_of(candidate_id):
 
 # ---- the run's documents ------------------------------------------------------------------------------------------
 
-def load(run_dir, ledger=None):
+def s9b_inputs(run_dir):
+    """S9b's outputs as S9's inputs when S9b has run (overlay decision (a), K4b): its review and its regenerated
+    proposals, each through the shared record checks. A record that is not complete is refused (S9B_UNSETTLED), since
+    the review it would overlay is not there to read; a run S9b never reviewed renders as before."""
+    rec = records.stage_records(pathlib.Path(run_dir)).get("S9b")
+    if rec is None:
+        return ()
+    if rec.get("status") != "complete":
+        raise Refused(f"S9B_UNSETTLED: S9b's record is {rec.get('status')!r}, so the review it would overlay is not "
+                      "there; run S9b to completion before rendering again")
+    names = [o["artifact"] for o in rec.get("outputs") or []]
+    held = [next((n for n in names if re.fullmatch(pattern, n)), None) for pattern in S9B_OUTPUTS]
+    if None in held:
+        raise Refused(f"S9B_UNSETTLED: S9b's record names {names}, not one review and one regenerated proposals")
+    return tuple({"artifact": n, "producer_stage": "S9b"} for n in held)
+
+
+def load(run_dir, ledger=None, overlays=()):
     """Every document the rows are made from, read once: `{population, intake, census, controls, checks, judge,
     derivations, proposals, judgments, quarantined, ledger}`. `ledger` is the pinned schema 2 document S4 read
     (`lifecycle_intake.ledger_of`), passed by the caller that names its reference."""
@@ -105,6 +125,9 @@ def load(run_dir, ledger=None):
             "controls": read("controls.json"), "checks": read("checks.json"), "judge": read("judgments/judge.json"),
             "derivations": read("judgments/derivations.json"), "proposals": read("proposals.json"),
             "s7b": read(stage_review_proposals.OUTPUT), "ledger": ledger, "judgments": {}, "quarantined": {}}
+    for spec in overlays:
+        key = "s9b_review" if spec["artifact"].startswith("review-s9b.") else "s9b_regenerated"
+        docs[key] = read(spec["artifact"])
     for row in docs["judge"].get("calls") or []:
         held = {}
         for who in JUDGES:
@@ -252,14 +275,41 @@ def s7b_states(doc):
     return states, problems
 
 
-def proposal_row(cid, p, test_state, base, s7b, row_kind="candidate"):
+def s9b_states(doc, proposed, problems):
+    """`{item_id: state}` from S9b's review: passed, regenerated and passed, marked, unreviewed or returned. An entry
+    for an item S7 did not propose is named (OVERLAY_UNACCOUNTED)."""
+    states = {}
+    for r in doc.get("rows") or []:
+        states[r["item_id"]] = {"state": "marked" if r["mark"] else "regenerated" if r["regenerated"] else "passed",
+                                "mark": bool(r["mark"]), "notes": r.get("notes"),
+                                "carried_from": r.get("carried_from")}
+    for r in doc.get("unreviewed") or []:
+        states[r["item_id"]] = {"state": "unreviewed", "mark": False, "why": r.get("why")}
+    for r in doc.get("returned") or []:
+        states[r["item_id"]] = {"state": "returned", "mark": False, "codes": list(r.get("codes") or [])}
+    problems += [f"OVERLAY_UNACCOUNTED {i}: S9b's review names an item S7 did not propose"
+                 for i in sorted(set(states) - set(proposed))]
+    return states
+
+
+def s9b_of_row(states, cid):
+    """The row's S9b state when S9b has run (None otherwise, so a run S9b never reviewed renders as before); a proposal
+    S9b's version did not hold yet is named as such."""
+    if states is None:
+        return None
+    return states.get(cid) or {"state": "not_yet", "mark": False,
+                               "why": "S9b reviewed an earlier version, before this proposal was in it"}
+
+
+def proposal_row(cid, p, test_state, base, s7b, row_kind="candidate", s9b=None):
     """A row S7 proposed for: its status, its proposal, S7's Korean reasons as the row's O6, and what S7b recorded
     for it. A legacy entry keeps its row kind, since S6 did not judge it and the left-out count holds it as
     unjudged."""
     answer = p["proposal"]
     keep = answer.get("keep_record_named")
     return _row(cid, row_kind, p["status"], test_state, dict(answer["reasons"]),
-                **{**base, "s7b": s7b, "consequence": p["consequence"], "disposition": p["disposition"],
+                **{**base, "s7b": s7b, **({"s9b": s9b} if s9b is not None else {}), "consequence": p["consequence"],
+                   "disposition": p["disposition"],
                    "changes_library": p["changes_library"], "proposal": answer,
                    "awaiting_R": p["awaiting_R"], "awaiting_R_reason": p["awaiting_R_reason"],
                    "legacy_incubating": p.get("legacy_incubating", False),
@@ -290,6 +340,17 @@ def rows_of(docs):
     intake = {c["candidate_id"]: c for c in (docs["intake"] or {}).get("candidates") or []}
     entries = {e["id"]: e for e in ((docs.get("ledger") or {}).get("entries") or [])}
     rows, problems, groups = [], [], collections.OrderedDict()
+    # the overlays, in stage order (decision (a)): S9b's regenerated proposals over S7's, each held to S7's own rule
+    for ident, answer in sorted(((docs.get("s9b_regenerated") or {}).get("proposals") or {}).items()):
+        if ident not in proposed:
+            problems.append(f"OVERLAY_UNACCOUNTED {ident}: S9b regenerated a proposal S7 did not make")
+            continue
+        moved = stage_propose.regenerated_problems(proposed[ident]["proposal"], answer)
+        if moved:
+            problems.append(f"OVERLAY_INVALID {ident}: {'; '.join(moved)}")
+            continue
+        proposed[ident] = {**proposed[ident], "proposal": answer}
+    s9b_of = s9b_states(docs.get("s9b_review"), proposed, problems) if docs.get("s9b_review") is not None else None
     for cand in pop["candidates"]:
         cid, source = cand["candidate_id"], cand["source"]
         events = list(cand.get("event_ids") or [])
@@ -322,7 +383,8 @@ def rows_of(docs):
                 # in code, no call), are one group per first word of decision1
                 p = proposed.get(cid)
                 if entry.get("classification") is not None or (p and p["disposition"] != "none"):
-                    rows.append(proposal_row(cid, p, test_state, held, s7b_of.get(cid), "legacy") if p else
+                    rows.append(proposal_row(cid, p, test_state, held, s7b_of.get(cid), "legacy",
+                                             s9b_of_row(s9b_of, cid)) if p else
                                 _row(cid, "legacy", None, test_state, o6_legacy(1, None), **held))
                     continue
                 groups.setdefault(("legacy", stage_propose.decision1_kind(entry)), []).append(cid)
@@ -350,7 +412,7 @@ def rows_of(docs):
                              disputed=disputed, **base))
             continue
         if cid in proposed:
-            rows.append(proposal_row(cid, proposed[cid], test_state, base, s7b_of.get(cid)))
+            rows.append(proposal_row(cid, proposed[cid], test_state, base, s7b_of.get(cid), s9b=s9b_of_row(s9b_of, cid)))
             continue
         if cid in returned:
             rows.append(returned_row(cid, returned[cid], test_state, base))
@@ -385,8 +447,9 @@ RANK_FIELDS = ("rank", "status_group", "status_label")
 def english_of(row):
     """The row's English source: the row without its Korean, which is the O6 text; inside S7's answer, its `reasons`
     (the person reads them, so they are Korean: `schemas/propose.schema.json`) and `artifact_set.korean`; and S7b's
-    `notes` and its alternative's `reason`, which S7b writes in Korean for the owner (`packets/s7b.md`)."""
-    held = {k: v for k, v in row.items() if k not in ("o6", "item_sha", "payload_sha256") + RANK_FIELDS}
+    `notes` and its alternative's `reason`, which S7b writes in Korean for the owner (`packets/s7b.md`). S9b's record
+    of the row is no part of it either: it judges the Korean against this payload."""
+    held = {k: v for k, v in row.items() if k not in ("o6", "s9b", "item_sha", "payload_sha256") + RANK_FIELDS}
     if isinstance(held.get("proposal"), dict):
         answer = {k: v for k, v in held["proposal"].items() if k != "reasons"}
         if isinstance(answer.get("artifact_set"), dict):
@@ -527,8 +590,8 @@ def row_problems(rows):
 
 
 def document(docs):
-    """`{rows, appendix, counts, problems}`: the rows in §7.5's order with their hashes, or the problems that make them
-    no review. A row ranking cannot place is reported by ranking's own code, never placed by a guess."""
+    """`{rows, appendix, counts, problems, marked}`: the rows in §7.5's order with their hashes, or the problems that
+    make them no review. A row ranking cannot place is reported by ranking's own code, never placed by a guess."""
     rows, appendix, problems = rows_of(docs)
     problems += population_problems(rows, appendix, docs)
     counts = counts_of(rows, appendix)
@@ -541,7 +604,11 @@ def document(docs):
     unplaced = ranking.value_problems(keyed_rows)
     if unplaced:
         return {"rows": [], "appendix": appendix, "counts": counts, "problems": [f"RANK_REFUSED {p}" for p in unplaced]}
-    return {"rows": ranking.ranked(keyed_rows), "appendix": appendix, "counts": counts, "problems": []}
+    # the items S9b's own review marked, read from its document rather than the rows, so render_text can hold the
+    # rendered headings to S9b and not to a state rows_of may have worked out wrong (MARK_MISSING)
+    marked = sorted(r["item_id"] for r in (docs.get("s9b_review") or {}).get("rows") or [] if r.get("mark"))
+    return {"rows": ranking.ranked(keyed_rows), "appendix": appendix, "counts": counts, "problems": [],
+            "marked": marked}
 
 
 # ---- the Markdown (K2b) -------------------------------------------------------------------------------------------
@@ -640,10 +707,36 @@ def s7b_lines(state):
     return [f"- S7b: 해당 없음 ({S7B_NONE['why']})"]
 
 
+def s9b_lines(state):
+    """What S9b found of the row's Korean. A marked row says so in its heading too (`row_lines`)."""
+    kind = state.get("state")
+    if kind == "marked":
+        return [f"- S9b: {MARK} — 한 번 다시 만든 뒤에도 영어 원문과 맞지 않거나 쉽지 않습니다. 영어 원문을 함께 보고 "
+                "결정하세요.", f"- S9b 메모: {inline(state.get('notes'))}"]
+    if kind == "regenerated":
+        return ["- S9b: 한국어를 한 번 다시 만든 뒤 통과"]
+    if kind == "passed":
+        return ["- S9b: 통과"]
+    if kind == "returned":
+        return [f"- S9b: 돌려보냄 ({', '.join(state.get('codes') or []) or '코드 없음'})"]
+    return [f"- S9b: 검토 없음 ({inline(state.get('why'))})"]
+
+
+def mark_problems(doc, text):
+    """An item S9b's own review marked whose heading in `text` does not carry the mark (MARK_MISSING). It reads the
+    marked ids `document` took from S9b's review, not the rows' states, so a state worked out wrong is caught too: the
+    mark is the one thing S9b's result must change in the review, and a render that dropped it would show a failing
+    row as clean."""
+    headings = {line.split("`")[1]: line for line in text.split("\n") if line.startswith("### ") and "`" in line}
+    return [f"MARK_MISSING {ident}: S9b marked it and its heading does not say {MARK}"
+            for ident in doc.get("marked") or [] if MARK not in headings.get(ident, "")]
+
+
 def row_lines(row, fields):
     """One row as the review prints it, its owner block last."""
     o6 = row["o6"]
-    out = [f"### {row['rank']}. `{row['item_id']}`",
+    marked = (row.get("s9b") or {}).get("mark")
+    out = [f"### {row['rank']}. `{row['item_id']}`" + (f" · {MARK}" if marked else ""),
            f"- 상태: {STATUS_LABELS.get(row['status'], row['status'])} · 종류 {row['kind']} · 진단 {row['diagnosis']} · "
            f"처분 {row['disposition']} · 결과 등급 {row['consequence']} · 독립 계보 {row['lineages']}"]
     labels = {"what_happened": "무엇이 있었나", "proposal": "제안", "reason": "이유", "cost": "비용",
@@ -656,6 +749,8 @@ def row_lines(row, fields):
     if row.get("proposal"):
         out += proposal_lines(row["proposal"])
     out += s7b_lines(row["s7b"])
+    if row.get("s9b") is not None:
+        out += s9b_lines(row["s9b"])
     out.append(f"- 시험: {row['test']}")
     if row.get("awaiting_R"):
         out.append(f"- {AWAITING_R}")
@@ -737,7 +832,11 @@ def render_text(doc, meta, locators):
         if not rows:
             out.append("- 없음")
     out += [""] + appendix_lines(doc, locators)
-    return "\n".join(out) + "\n"
+    text = "\n".join(out) + "\n"
+    missing = mark_problems(doc, text)
+    if missing:
+        raise Refused("RENDER_REFUSED " + "\n".join(missing))
+    return text
 
 
 def spec_of(doc):
@@ -870,11 +969,12 @@ def run(run_dir, ledger=None):
     """S9 through the shared mechanism: the review, its owner copy and its rows, as version n+1. Nothing is written on
     refusal, and an existing version is never written again."""
     run_dir = pathlib.Path(run_dir)
-    with records.run_stage(run_dir, STAGE, INPUTS) as stage:
+    overlays = s9b_inputs(run_dir)
+    with records.run_stage(run_dir, STAGE, INPUTS + overlays) as stage:
         if ledger is None:
             from runlib import lifecycle_intake
             ledger = lifecycle_intake.ledger_of(stage.declaration)[0]
-        docs = load(run_dir, ledger)
+        docs = load(run_dir, ledger, overlays)
         doc = document(docs)
         if doc["problems"]:
             raise Refused("RENDER_REFUSED " + "\n".join(doc["problems"]))
@@ -1316,6 +1416,74 @@ def self_test():
     equal("a changed S7b review moves the item's sha, so a decision made before it is decided again",
           row_of(moved, "k-a").get("item_sha") != row_of(good, "k-a").get("item_sha") and bool(row_of(moved, "k-a")),
           True)
+    # ---- K4b: S9b's regenerated Korean and its marks, overlaid in stage order (decision (a)) ---------------------
+    from runlib import stage_review_korean as s9b_stage
+
+    def s9b_verdict(failing=()):
+        return {"verdict": "fail" if failing else "pass", "notes": "예외를 빠뜨렸다" if failing else "그대로다",
+                "fields": [{"field": f, "faithful": f not in failing, "plain": True, "finding": "f"}
+                           for f in s9b_stage.FIELDS]}
+    base_docs = fixture_docs()
+    unlaid = document(base_docs)
+    answer_kg = next(p["proposal"] for p in base_docs["proposals"]["proposals"] if p["candidate_id"] == "k-g")
+    better = {**copy.deepcopy(answer_kg), "reasons": {**answer_kg["reasons"], "what_happened": "다시 쓴 무엇이 있었나"}}
+    s9b_review, s9b_regen, s9b_probs = s9b_stage.document(
+        {"version": 1, "render_sha256": "r" * 64, "rows": unlaid["rows"]}, base_docs["proposals"],
+        base_docs["candidates"], base_docs["derivations"],
+        {"k-a": s9b_verdict(["cost"]), "k-g": s9b_verdict(["what_happened"]), "due_decision:P-1@r1": s9b_verdict()},
+        {"k-g": better}, {"k-g": s9b_verdict()})
+
+    def overlaid(edit=None):
+        held = {**copy.deepcopy(base_docs), "s9b_review": copy.deepcopy(s9b_review),
+                "s9b_regenerated": copy.deepcopy(s9b_regen)}
+        if edit:
+            edit(held)
+        return document(held)
+    over = overlaid()
+    clean("S9b's review and regenerated proposals overlay S7's with nothing refused", s9b_probs + over["problems"])
+    equal("a regenerated row shows its new Korean over the same English payload, and its sha moves",
+          ((row_of(over, "k-g").get("o6") or {}).get("what_happened"),
+           row_of(over, "k-g").get("payload_sha256") == row_of(unlaid, "k-g").get("payload_sha256"),
+           row_of(over, "k-g").get("item_sha") != row_of(unlaid, "k-g").get("item_sha")),
+          ("다시 쓴 무엇이 있었나", True, True))
+    equal("each proposal's row carries S9b's state, and no other row does",
+          {r["item_id"]: (r.get("s9b") or {}).get("state") for r in over["rows"] if "s9b" in r},
+          {"k-a": "marked", "k-g": "regenerated", "due_decision:P-1@r1": "passed"})
+    try:
+        over_text = render_text(over, meta, {})
+    except Refused as exc:  # a heading that lost its mark is refused by render_text itself; the controls below name it
+        over_text = str(exc)
+    control("a marked row says so in its heading", over_text, f"`k-a` · {MARK}")
+    control("and a regenerated row says it was rewritten once", over_text, "- S9b: 한국어를 한 번 다시 만든 뒤 통과")
+    clean("the rendered marks are all there", mark_problems(over, over_text))
+    equal("the marked ids are S9b's own", over.get("marked"), ["k-a"])
+    lost = copy.deepcopy(over)
+    next(r for r in lost["rows"] if r["item_id"] == "k-a")["s9b"]["mark"] = False
+    try:
+        dropped = f"rendered {len(render_text(lost, meta, {}))} bytes"
+    except Refused as exc:
+        dropped = str(exc)
+    control("a row S9b marked, rendered without its mark, is refused by name", dropped, "MARK_MISSING k-a")
+    control("an overlay for an item S7 did not propose is refused by name",
+            "\n".join(overlaid(lambda d: d["s9b_regenerated"]["proposals"].update({"k-zz": better}))["problems"]),
+            "OVERLAY_UNACCOUNTED k-zz")
+    control("an S9b review entry for an item S7 did not propose is refused by name",
+            "\n".join(overlaid(lambda d: d["s9b_review"]["unreviewed"].append({"item_id": "k-zz", "why": "x"}))
+                      ["problems"]), "OVERLAY_UNACCOUNTED k-zz")
+    control("an overlay that moves a non-Korean field is refused through S7's own regenerated_problems",
+            "\n".join(overlaid(lambda d: d["s9b_regenerated"]["proposals"]["k-g"].update(disposition="drop"))
+                      ["problems"]), "OVERLAY_INVALID k-g: REGENERATION_CHANGED disposition")
+    first_frozen = frozen_after(None, unlaid["rows"], 1, "t1")
+    equal("the frozen first proposal is unaffected by an overlay",
+          frozen_after(first_frozen, over["rows"], 2, "t2")["items"].get("k-g"), first_frozen["items"].get("k-g"))
+    plain = document({**copy.deepcopy(base_docs), "s9b_review": None, "s9b_regenerated": None})
+    equal("a run S9b never reviewed renders exactly as before: the same rows, and no S9b line",
+          (plain["rows"] == unlaid["rows"], any("s9b" in r for r in unlaid["rows"]),
+           any(line.startswith("- S9b") for line in render_text(unlaid, meta, {}).split("\n"))), (True, False, False))
+    equal("a proposal S9b's version did not hold yet is named as not yet reviewed",
+          (row_of(overlaid(lambda d: d["s9b_review"].update(
+              rows=[r for r in d["s9b_review"]["rows"] if r["item_id"] != "k-a"])), "k-a").get("s9b") or {}).get("state"),
+          "not_yet")
     reworded = doc_of(lambda d: next(r for r in d["s7b"]["reviews"] if r["item_id"] == "k-g")["alternative"].update(
         reason="다른 이유"))
     equal("a rendered row's two hashes are reproduced from the row itself, whatever ranking added",
@@ -1485,6 +1653,30 @@ def self_test():
                               capture_output=True, text=True, timeout=600)
         control("the driver's `render` runs S9 as a process and prints the version and the row count",
                 f"rc={done.returncode} {done.stdout}{done.stderr[-400:]}", "rc=0 S9 render: version 1, ")
+        # S9b over the current version, and the next render reading it through the shared checks
+        (run_dir / "decisions.ko.v3.md").unlink(missing_ok=True)
+        from runlib import stage_review_korean as s9b_stage
+        def s9b_taken():
+            return sorted(i["artifact"] for i in records.read_json(run_dir / "stages" / "S9" / "record.json")["inputs"]
+                          if i["producer_stage"] == "S9b")
+        try:
+            v3 = run(run_dir)["version"]
+            untaken = s9b_taken()
+            s9b_stage.run(run_dir, {})
+            v4 = run(run_dir)["version"]
+            took = s9b_taken()
+        except Refused as exc:
+            v3, untaken, v4, took = None, None, None, str(exc)
+        equal("a render before S9b declares exactly S9's own inputs; one after takes S9b's two outputs as inputs",
+              (v3, untaken, v4, took), (3, [], 4, ["regenerated-reasons.v3.json", "review-s9b.v3.json"]))
+        held = records.read_json(run_dir / "stages" / "S9b" / "record.json")
+        records.write_json(run_dir, run_dir / "stages" / "S9b" / "record.json", {**held, "status": "failed"})
+        try:
+            unsettled = f"written {run(run_dir)['version']}"
+        except Refused as exc:
+            unsettled = str(exc)
+        control("a render over an S9b record that is not complete is refused by name", unsettled, "S9B_UNSETTLED")
+        records.write_json(run_dir, run_dir / "stages" / "S9b" / "record.json", held)
         (run_dir / "stages" / "S7b" / "record.json").unlink(missing_ok=True)
         try:
             without = f"written {run(run_dir).get('version')}"
