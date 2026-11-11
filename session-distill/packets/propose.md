@@ -79,6 +79,23 @@ has.
   or `merge` touching a unit with an active keep record names that record, and is eligible only after the person's
   decision supersedes it.
 
+## A legacy entry from the lifecycle intake
+
+When `intake_entry` above holds a ledger entry, this candidate is a legacy incubating entry rather than a learning from
+this window's sessions, and one row of the contract governs it. The owner has decided that row, and the decision is
+this:
+
+> A legacy incubating entry stays in the intake unless it earns something on its own evidence. The default is `none`:
+> not a judgment that the entry is worthless, but the absence of a new one. An entry that later reaches admission and
+> promotion eligibility on this window's evidence is proposed as `place` like any other candidate, and one the owner
+> retires is `drop` with its reason. `incubate` remains open and remains owner-approved, and it carries a prospective
+> observation and an expiry, because an incubation nobody will check is a default wearing a decision's clothes.
+
+So for such an entry: propose `none` unless THIS window's evidence supports more. The entry's own history is not that
+evidence - it is the record of an earlier default - and its age is not an argument in either direction. An `incubate`
+you propose must carry the observation and the expiry that would let someone check it later; code refuses one that does
+not.
+
 ## Where the evidence supports nothing
 
 `disposition: none` with the reason is a complete answer, and for several kinds it is the only allowed one. A proposal

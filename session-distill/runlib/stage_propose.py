@@ -20,12 +20,13 @@ module that read it as "no unit is affected" would propose changes on evidence n
 """
 import collections
 import json
+import os
 import pathlib
 import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import packet, placement, ranking, records  # noqa: E402
+from runlib import derive, packet, placement, ranking, records, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -51,6 +52,126 @@ UNKNOWN_SOURCES = (
      "effect_on": "what the release reference point says about this candidate"},
 )
 DERIVED_FIELDS = ("kind", "diagnosis")
+# The sections of `derive.unit_outcome`'s return this stage reads, named once. Lane E found the
+# reader and the writer disagreeing here: this module read `promotion`, which that function has
+# never returned, so `promotion_eligible` was None on every real row and the promotion bar never
+# fired. The suite holds these names against a row the real producer path builds.
+ELIGIBLE_SECTION = "eligible"
+# S6's test state in release 1, read from the table's domain so this module cannot drift from it.
+TEST_STATE = derive.table()["domains"]["test"][0]
+OUTCOME_SECTIONS = (ELIGIBLE_SECTION, "admission", "kind", "candidate_diagnosis")
+
+
+# ---- the legacy intake, under the row the owner decided -------------------------------------------
+# The owner's answer lives in `tables/allowed_pairs.json`'s legacy row as DATA (`owner_default`), and
+# this module reads it. A default that lived only in a comment would be a default nobody applies.
+
+def legacy_default():
+    """The owner's decided default for a legacy incubating entry, from the table."""
+    rows = [row for row in placement.table("pairs")["rows"] if row.get("legacy_incubating")]
+    if len(rows) != 1:
+        raise Refused(f"LEGACY_ROW_NOT_ONE {len(rows)}: §7.2 has exactly one legacy row, and the "
+                      f"default is read from it")
+    held = rows[0].get("owner_default")
+    if not held or not held.get("disposition") or not held.get("call_spent"):
+        raise Refused("LEGACY_DEFAULT_UNDECLARED: the legacy row carries no owner_default with a "
+                      "disposition and a call_spent, so which entries reach a call is undecided")
+    return held
+
+
+def decision1_kind(entry):
+    """The kind of a legacy entry's `decision1`, by its first word, or `none` when it has none.
+
+    The owner's grouping key: the 118 entries without a classification block differ from one another
+    only in this one line, so its first word is what the report groups them by."""
+    for row in entry.get("decisions") or []:
+        if isinstance(row, dict) and row.get("field") == "decision1":
+            return (str(row.get("legacy_text") or "").split(" ") or ["none"])[0] or "none"
+    return "none"
+
+
+def call_spent_on(entry):
+    """Whether this legacy entry reaches an S7 packet, by the owner's `call_spent` rule.
+
+    `classified_only`: an entry carrying a classification block names the layer someone meant to
+    write it into and is read one at a time; one without differs from its neighbours only in its
+    legacy line, so code proposes the default and no call is made. The plan's done-when 5 - items at
+    `none` stay in the intake - read as what it costs."""
+    rule = legacy_default()["call_spent"]
+    if rule == "classified_only":
+        return bool(entry.get("classification"))
+    if rule == "all":
+        return True
+    raise Refused(f"LEGACY_CALL_RULE_UNKNOWN {rule!r}: the legacy row declares classified_only or all")
+
+
+def mapped_incubate(entry):
+    """A schema-2 incubate decision this legacy entry already carries, or None.
+
+    An entry migrated WITH a decision is not an entry awaiting a default: it enters the intake with
+    what it has (the plan's F-O5-10). A legacy_migration row is not such a decision - it records the
+    migration of the status, not a judgment - so it is excluded by its own kind."""
+    for row in entry.get("decisions") or []:
+        if not isinstance(row, dict) or row.get("kind") == "legacy_migration":
+            continue
+        if row.get("disposition") == "incubate":
+            return row
+    return None
+
+
+def legacy_answer(entry):
+    """The default proposal code makes for a legacy entry no call is spent on.
+
+    It carries no operations and no observation, because the default is the ABSENCE of a new
+    judgment: §7.2's `none_stays_in_intake` asks exactly that, and the reason says which group the
+    entry was counted in rather than pretending to a reading nobody did."""
+    held = legacy_default()
+    group = decision1_kind(entry)
+    mapped = mapped_incubate(entry)
+    if mapped is not None:
+        # It enters with the decision it has. The observation and the expiry come from that decision,
+        # not from this code: a default that wrote an observation for an entry would be inventing the
+        # thing §7.3 asks for.
+        return {"disposition": "incubate", "consequence": "none", "operations": [],
+                "destination": {"layer": "incubator", "carrier": None},
+                "expected_observation": mapped.get("expected_observation"),
+                "unknowns": [],
+                "reasons": {"what_happened": f"레거시 항목 {entry.get('id')}은 이미 incubate 결정을 들고 있다",
+                            "proposal": "그 결정 그대로 흡입에 들어온다",
+                            "reason": f"스키마 2로 맵핑된 결정이 있어 기본값이 적용되지 않는다. 묶음 {group}.",
+                            "cost": "없음",
+                            "serves": "그 결정을 내린 사람과 그것을 확인할 다음 창",
+                            "falsifier": "저장된 관측이 만료에 이르러 확인되지 않으면 그 결정이 틀렸다"},
+                "legacy_group": group, "entered_with_decision": True}
+    return {"disposition": held["disposition"], "consequence": "none", "operations": [],
+            "destination": {"layer": "incubator", "carrier": None},
+            "expected_observation": None, "unknowns": [],
+            "reasons": {"what_happened": f"대장의 레거시 항목 {entry.get('id')}이 흡입에 남아 있다",
+                        "proposal": "제안 없음: 소유자가 정한 기본값대로 흡입에 남긴다",
+                        "reason": (f"이 항목에는 분류 블록이 없어 이번 창의 증거가 더 말해 주는 것이 없다. "
+                                   f"묶음 {group}."),
+                        "cost": "없음: 대장도 라이브러리도 바뀌지 않는다",
+                        "serves": "이 항목을 다시 읽을 다음 창의 작업자",
+                        "falsifier": "이 상황이 다시 일어나 새 증거가 생기면 보통 후보로 올라온다"},
+            "legacy_group": group, "entered_with_decision": False}
+
+
+def legacy_split(entries):
+    """`{calls, defaults, groups}`: which legacy entries reach a packet and which code answers.
+
+    The groups are counted over the entries this run holds, never over a remembered figure: the
+    owner's 24-and-118 was a measurement of one day's ledger, and a module that hard-coded it would
+    be wrong the first time an entry moved."""
+    calls, defaults = [], []
+    for entry in entries:
+        (calls if call_spent_on(entry) else defaults).append(entry)
+    groups = collections.Counter(decision1_kind(entry) for entry in defaults)
+    return {"calls": [e.get("id") for e in calls],
+            "defaults": [{"id": e.get("id"), "group": decision1_kind(e), "answer": legacy_answer(e)}
+                         for e in defaults],
+            "groups": dict(groups),
+            "counts": {"entries": len(entries), "calls": len(calls), "defaults": len(defaults),
+                       "groups": len(groups)}}
 
 
 def schema_bytes():
@@ -87,7 +208,9 @@ def candidate_facts(candidate, derivation_row):
             "diagnosis": ((outcome.get("candidate_diagnosis") or {}).get("current") or {}).get("diagnosis"),
             "admission": (outcome.get("admission") or {}).get("admission"),
             "lineages": (derivation_row or {}).get("lineages"),
-            "promotion": (outcome.get("promotion") or {}).get("eligible")}
+            # `eligible`, not `promotion`: see ELIGIBLE_SECTION below and the control that holds this
+            # reader against what `derive.unit_outcome` returns.
+            "promotion": (outcome.get(ELIGIBLE_SECTION) or {}).get("eligible")}
 
 
 def packet_for(candidate, derivation, derivation_row, units=(), intake_entry=None, call_id="c1",
@@ -112,13 +235,33 @@ def packet_for(candidate, derivation, derivation_row, units=(), intake_entry=Non
     return packet.build(call_id, STAGE, seat, payload, schema=schema_bytes(), repo=HERE.parent)
 
 
+# What the flat proposal carries, and where each field comes from. An explicit list, because the
+# first form of `proposal_of` copied the answer wholesale and then updated the derived fields over
+# it: that works until an answer carries a key with a derived name, and it hid a second defect -
+# §7.4's inputs were never carried at all, so five of its six rules read None on every proposal.
+# `from_answer` are the model's own claims; `derived` are computed here from S6 and the candidate and
+# may NOT be taken from the answer.
+FROM_ANSWER = ("disposition", "consequence", "operations", "artifact_set", "behavior_contract",
+               "expected_observation", "destination", "reasons", "unknowns", "harmful", "requires_R")
+FROM_PLACEMENT_CLAIMS = ("consumer", "artifact_form", "blocking", "criterion", "judges",
+                         "situation_promoted_items", "situation_covered_by_guide",
+                         "names_situation_of_guide", "owner_only")
+DERIVED_INTO_PROPOSAL = ("item_id", "candidate_id", "kind", "diagnosis", "typology",
+                         "legacy_incubating", "lineages", "requires_test", "admitted",
+                         "promotion_eligible", "reason", "keep_records_named")
+
+
 def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
     """The flat proposal `placement.py` and `ranking.py` read, assembled from the answer and S6.
 
-    The kind and the diagnosis come from the derivation here, which is the single place the two
-    sources could have diverged."""
+    Built field by field from `FROM_ANSWER`, `FROM_PLACEMENT_CLAIMS` and the derived names, so an
+    answer key can neither shadow a derived field nor arrive unread. The kind, the diagnosis, the
+    typology, the admission and the promotion eligibility come from S6 and the candidate: that is the
+    single place the two sources could have diverged."""
     facts = candidate_facts(candidate, derivation_row)
-    held = {k: v for k, v in answer.items()}
+    claims = answer.get("placement") or {}
+    held = {name: answer[name] for name in FROM_ANSWER if name in answer}
+    held.update({name: claims.get(name) for name in FROM_PLACEMENT_CLAIMS})
     held.update({"item_id": candidate["candidate_id"], "candidate_id": candidate["candidate_id"],
                  "kind": facts["kind"], "diagnosis": facts["diagnosis"],
                  "legacy_incubating": bool(legacy_incubating),
@@ -133,7 +276,20 @@ def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
                  # `reason` is the Korean reason the person reads (§7.3's reason fields), and `harmful`
                  # is the one flag a `reduce` needs that no other field carries.
                  "reason": (answer.get("reasons") or {}).get("reason"),
-                 "harmful": answer.get("harmful")})
+                 # §7.3's keep rule reads this name (plural), and the answer's field is singular: the
+                 # mismatch meant KEEP_GUARDED could never see a named record, so a reduce over a
+                 # keep record was refused however carefully the proposal named it.
+                 "keep_records_named": ([answer["keep_record_named"]]
+                                        if answer.get("keep_record_named") else []),
+                 # The candidate's own type, from the candidate. §7.4's C-route rule keys on it, and
+                 # an answer that carried it would give the field two sources.
+                 "typology": candidate.get("type")})
+    unexpected = sorted(set(answer) - set(FROM_ANSWER) - {"placement", "keep_record_named"}
+                        - set(DERIVED_FIELDS))
+    if unexpected:
+        raise Refused(f"ANSWER_FIELD_UNREAD {', '.join(unexpected)}: the flat proposal is built from a "
+                      f"declared list, so a field the schema admits and this list does not would "
+                      f"reach no rule")
     return held
 
 
@@ -201,16 +357,27 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
     return problems
 
 
+_VALIDATOR = []
+
+
+def validator():
+    """The answer's validator, through `runlib/validate.py`: the pinned dependency and the lint.
+
+    There is no fallback. The first form of this function fell back to checking the schema's
+    `required` keys when jsonschema was missing, which accepted an answer wrong in type, wrong in
+    enum, or carrying an extra field - a validation that fails OPEN is worse than none, because
+    every control over it passes and the stage reports a clean answer. `validate` raises when the
+    dependency is absent or mispinned, and that is the right failure for a stage whose whole job is
+    judging a shape."""
+    if not _VALIDATOR:
+        _VALIDATOR.append(validate.compile_schema(json.loads(schema_bytes())))
+    return _VALIDATOR[0]
+
+
 def _shape_problems(answer):
-    """The answer against its schema, through whichever validator this tree has."""
-    try:
-        import jsonschema
-    except ImportError:  # the sandbox may lack it; the shape is then judged by the required keys
-        schema = json.loads(schema_bytes())
-        return [f"ANSWER_FIELD_ABSENT {name}" for name in schema["required"] if name not in answer]
-    validator = jsonschema.Draft202012Validator(json.loads(schema_bytes()))
-    return [f"ANSWER_INVALID {'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
-            for e in sorted(validator.iter_errors(answer), key=lambda e: list(e.absolute_path))]
+    """The answer against its schema: every violation, by json path."""
+    return [f"ANSWER_INVALID {problem}" for problem in
+            validate.validate_instance(validator(), answer)]
 
 
 def review_row(answer, candidate, derivation_row, status="proposed"):
@@ -264,14 +431,24 @@ def document(derivations, candidates, answers, active_keep=None, legacy=()):
                        "status_group": dict(tally(p["status_group"] for p in ranking.ranked(proposals)))}}
 
 
+OUTPUT = "proposals.json"
+
+
 def run(run_dir, answers, active_keep=None, legacy=()):
-    """The stage, through the shared mechanism: nothing is written on refusal."""
+    """The stage, through the shared mechanism: nothing is written on refusal.
+
+    Two things this got wrong until lane E ran it: `records.write_json` confines its path beneath the
+    run, so a bare name is RUN_PATH_ESCAPE and the write never happened; and the file has to be
+    REGISTERED with `stage.output`, or the stage record claims no output and the next stage's
+    staleness check has nothing to compare. Both are now exercised end to end in the suite, because
+    every control over this function was calling `document` instead."""
     run_dir = pathlib.Path(run_dir)
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         derivations = records.read_json(run_dir / "judgments" / "derivations.json")
         candidates = records.read_json(run_dir / "checked-candidates.json")
         doc = document(derivations, candidates, answers, active_keep, legacy)
-        records.write_json(run_dir, "proposals.json", doc)
+        records.write_json(run_dir, run_dir / OUTPUT, doc)
+        stage.output(OUTPUT)
         return stage, doc
 
 
@@ -282,13 +459,43 @@ def run(run_dir, answers, active_keep=None, legacy=()):
 # the mechanism WP-10's and WP-11b's libraries use, for the same reason: a fixture that drifts with
 # the code it judges proves the code agrees with itself.
 
+# The requirement names both judges answer, from the judge schema rather than from memory: a real
+# derivation cannot be built without them, and `derive.admission` refuses a mark it does not have.
+REQUIREMENT_NAMES = ("actionable", "audience", "bounded", "causal_support", "consequence",
+                     "observed_event", "positioned", "recognizable_in_advance")
+
+
+def derived_row(cid="k-real", ctype="D", lineages=3, marks="met", units=None):
+    """A derivation row built by the REAL producer path: `derive.unit_outcome`, wrapped as S6 wraps it.
+
+    This exists because the fixtures and the reader shared one wrong key. `candidate_facts` read
+    `outcome["promotion"]`, which `derive.unit_outcome` has never returned, and every fixture was
+    built with the same spelling - so the suite agreed with the bug and only a real row disagreed.
+    The wrapping is `stage_judge.derivations`': `{outcome, requirements, lineages}`."""
+    judgment = {"candidate": {"candidate_id": cid, "type": ctype, "lifecycle": None},
+                "judges": {who: {"requirements": {name: marks for name in REQUIREMENT_NAMES},
+                                 "consequence_class": "quality", "no_longer_arises": False}
+                           for who in ("A", "B")},
+                "points": {"release": None,
+                           "current": {"complete": True, "layers": {}, "units": units or {}}},
+                "checks_pass": True, "lineages": lineages}
+    outcome = derive.unit_outcome(judgment, {}, TEST_STATE)
+    return {"outcome": outcome,
+            "requirements": {who: judgment["judges"][who]["requirements"] for who in ("A", "B")},
+            "lineages": lineages}
+
+
 def _candidate(cid="k1", kind="gap", diagnosis="gap", admission="admitted", eligible=True,
                lineages=3, ctype="D"):
     return ({"candidate_id": cid, "type": ctype, "admission": {"admission": admission}},
             {"outcome": {"kind": {"kind": kind},
                          "candidate_diagnosis": {"current": {"diagnosis": diagnosis}},
                          "admission": {"admission": admission},
-                         "promotion": {"eligible": eligible}},
+                         # `eligible`, the section derive.unit_outcome really returns. These fixtures
+                         # wrote `promotion` while the reader read `promotion`, so the library agreed
+                         # with the bug: F-O5-15 stopped being refused the moment the reader was
+                         # fixed, which is how the shared spelling was found.
+                         ELIGIBLE_SECTION: {"eligible": eligible}},
              "lineages": lineages, "requirements": {}})
 
 
@@ -304,6 +511,12 @@ def _answered(**over):
                                   "roles_and_routes": ["coding"], "failure_criteria": ["f"]},
             "expected_observation": None,
             "destination": {"layer": "guides", "carrier": "claude/guides/g.md", "situation": "s"},
+            # §7.4's inputs, as the answer's own claims. Every field is present; a null is "not
+            # applicable here" and `placement.py` refuses a null inside a rule's scope.
+            "placement": {"consumer": "session", "artifact_form": "instruction", "blocking": None,
+                          "criterion": None, "judges": None, "situation_promoted_items": 7,
+                          "situation_covered_by_guide": False, "names_situation_of_guide": None,
+                          "owner_only": None},
             "reasons": {"what_happened": "무엇이 있었는가", "proposal": "제안", "reason": "이유",
                         "cost": "비용", "serves": "누구에게", "falsifier": "반증"},
             "unknowns": []}
@@ -326,6 +539,32 @@ def _carry(derivation):
     return [{"field": r["field"], "state": r["state"],
              "effect": "the proposal rests on the remaining evidence and says so"}
             for r in named_states(derivation)]
+
+
+# The real S3-03 as the author-side ledger holds it (design/session-distill/ledger.json, read
+# 2026-11-11): status incubating, no classification block, two legacy decision lines and the
+# migration row, and NO mapped schema-2 decision. Carried as a constant rather than read from
+# `design/`, because this module ships and that file does not.
+S3_03 = {"id": "S3-03", "status": "incubating", "kind": "unclassified", "diagnosis": "unknown",
+         "disposition": "none",
+         "decisions": [{"run": "legacy-unknown", "disposition": "unknown", "approval_id": "legacy",
+                        "at": "2026-07-19", "field": "decision1",
+                        "legacy_text": "user-approved-default 2026-07-19"},
+                       {"run": "legacy-unknown", "disposition": "unknown", "approval_id": "legacy",
+                        "at": "2026-07-19", "field": "decision2",
+                        "legacy_text": "recommendation-confirmed 2026-07-19"},
+                       {"run": "legacy-unknown", "kind": "legacy_migration", "disposition": "unknown",
+                        "field": "status", "legacy_text": "incubating"}]}
+# Its counterpart: the same shape WITH a mapped schema-2 incubate decision (the plan's F-O5-10).
+S3_03_MAPPED = {**S3_03, "id": "S2-99",
+                "decisions": [*S3_03["decisions"],
+                              {"run": "r-2026-11", "kind": "judgment", "disposition": "incubate",
+                               "approval_id": "a1",
+                               "expected_observation": {"occasion": "같은 상황이 다시 온다",
+                                                        "exposure_rule": "선택되고 읽힌다",
+                                                        "expected_behavior": "에이전트가 그대로 한다",
+                                                        "retrieval_terms": ["그 말"],
+                                                        "expiry": "2027-02-01", "counter": None}}]}
 
 
 def fixture_cases():
@@ -379,6 +618,15 @@ def fixture_cases():
                                                    "expected_behavior": "the agent does it",
                                                    "retrieval_terms": ["the term"],
                                                    "expiry": "2027-02-01", "counter": None})},
+        {"id": "F-O5-REAL", "plant": "a derivation row built by the real producer path "
+                                      "(derive.unit_outcome, wrapped as S6 wraps it)",
+         "candidate": {"candidate_id": "k-real", "type": "D",
+                       "admission": {"admission": "admitted"}},
+         "row": derived_row("k-real"), "derivation": ANSWERED,
+         # Its derived kind is `unclassified` and §7.2 allows only `none` there, which is itself the
+         # point: a fixture built from a real row cannot choose its own kind to suit its answer.
+         "answer": _answered(disposition="none", operations=[],
+                             destination={"layer": "incubator", "carrier": None})},
         {"id": "F-O5-RELEASE1", "plant": "release 1's three named states, carried forward",
          "candidate": _candidate("k-r1")[0], "row": _candidate("k-r1")[1], "derivation": RELEASE_1,
          "answer": _answered(unknowns=_carry(RELEASE_1))},
@@ -386,6 +634,40 @@ def fixture_cases():
          "candidate": _candidate("k-r1b")[0], "row": _candidate("k-r1b")[1], "derivation": RELEASE_1,
          "answer": _answered(unknowns=_carry(RELEASE_1)[1:])},
     )
+
+
+def legacy_fixture_cases():
+    """The legacy plants (F-O5-09, -10, -13), answered by code under the owner's decided row."""
+    classified = {**S3_03, "id": "S2-07",
+                  "classification": {"type": "F", "layer": "guide", "meets_promotion_bar": False}}
+    return (
+        {"id": "F-O5-09", "plant": "legacy S3-03: no mapped decision, no classification block",
+         "entry": S3_03},
+        {"id": "F-O5-10", "plant": "a legacy entry with a mapped incubate decision",
+         "entry": S3_03_MAPPED},
+        # -13 is a different entry from -09 on purpose: its legacy line is a `below-bar-default`, the
+        # largest of the owner's three groups, so the fixture shows the group naming and not only the
+        # default. Under the owner's decision its disposition is the same as -09's, which is what
+        # "stays in the intake" means here.
+        {"id": "F-O5-13", "plant": "one left at none stays in the legacy intake, in another group",
+         "entry": {**S3_03, "id": "S2-11",
+                   "decisions": [{"field": "decision1", "legacy_text": "below-bar-default 2026-07-18",
+                                  "disposition": "unknown", "approval_id": "legacy"},
+                                 {"field": "status", "kind": "legacy_migration",
+                                  "legacy_text": "incubating", "disposition": "unknown"}]}},
+        {"id": "F-O5-09b", "plant": "the same entry with a classification block reaches a call",
+         "entry": classified},
+    )
+
+
+def run_legacy_fixture(case):
+    """What code answers for one legacy entry: whether a call is spent, and the default it makes."""
+    entry = case["entry"]
+    answer = legacy_answer(entry)
+    return {"call_spent": call_spent_on(entry), "disposition": answer["disposition"],
+            "entered_with_decision": answer["entered_with_decision"],
+            "group": answer["legacy_group"], "entry_id": entry.get("id"),
+            "observation": bool(answer.get("expected_observation"))}
 
 
 def run_fixture(case):
@@ -400,15 +682,19 @@ def generate_fixtures():
     return {"$comment": "Frozen answers of the O5 plants S7 owns (WP-12). Regenerate deliberately: a "
                         "changed answer here is a changed contract, and the suite names the case.",
             "cases": [{"id": case["id"], "plant": case["plant"], **run_fixture(case)}
-                      for case in fixture_cases()]}
+                      for case in fixture_cases()],
+            "legacy_cases": [{"id": case["id"], "plant": case["plant"], **run_legacy_fixture(case)}
+                             for case in legacy_fixture_cases()]}
 
 
 def fixture_problems():
     """The frozen table against the real answers, both ways."""
     if not FIXTURES_PATH.is_file():
         return [f"FIXTURES_ABSENT {FIXTURES_PATH}: every §7.2 state path would be judged by nothing"]
-    frozen = {row["id"]: row for row in json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))["cases"]}
-    live = {row["id"]: row for row in generate_fixtures()["cases"]}
+    held = json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))
+    frozen = {row["id"]: row for row in held["cases"] + held.get("legacy_cases", [])}
+    made = generate_fixtures()
+    live = {row["id"]: row for row in made["cases"] + made["legacy_cases"]}
     problems = [f"ROW_UNFIXTURED {cid}: this plant has no frozen answer" for cid in sorted(set(live) - set(frozen))]
     problems += [f"FIXTURE_ORPHAN {cid}: a frozen answer no plant produces" for cid in sorted(set(frozen) - set(live))]
     for cid in sorted(set(live) & set(frozen)):
@@ -416,6 +702,29 @@ def fixture_problems():
             problems.append(f"FIXTURE_CHANGED {cid}: the answer is no longer the frozen one "
                             f"({frozen[cid].get('problems')} -> {live[cid].get('problems')})")
     return problems
+
+
+def fx_through_s6(root):
+    """A golden run carried to S6's outputs, for the end-to-end controls. Returns the run directory.
+
+    S5's own fixture (`stage_retrieve.fx_gold`) builds the run through S4; S5 then runs for real. S6's
+    two documents are WRITTEN here under their own stage record rather than produced by a judge call,
+    because these controls are about S7's run and a model call is not made in a suite. The shape is
+    the one `stage_judge.derivations` writes, built by `derived_row` through the real derivation."""
+    from runlib import stage_retrieve  # local: the fixture path only, not S7's own dependency
+    run_dir = stage_retrieve.fx_gold(root / "base")
+    stage_retrieve.run(run_dir)
+    candidates = records.read_json(run_dir / "checked-candidates.json")["candidates"]
+    verdicts = {row["candidate_id"]: derived_row(row["candidate_id"]) for row in candidates}
+    with records.run_stage(run_dir, "S6",
+                           [{"artifact": "checks.json", "producer_stage": "S5"}]) as stage:
+        records.write_json(run_dir, run_dir / "judgments" / "derivations.json",
+                           {"stage": "S6", "verdicts": verdicts, "not_derived": [], **ANSWERED})
+        stage.output("judgments/derivations.json")
+        records.write_json(run_dir, run_dir / "judgments" / "gate-verdicts.json",
+                           {"stage": "S6", "gate_verdicts": {}})
+        stage.output("judgments/gate-verdicts.json")
+    return run_dir
 
 
 # ---- self-test -----------------------------------------------------------------------------------
@@ -445,18 +754,89 @@ def self_test():
         if problems:
             failures.append((name, f"expected nothing, got {problems}"))
 
+    def _unread_field():
+        """The refusal with its case planted: a field in the schema that the field list does not read.
+
+        Planted in FROM_ANSWER rather than in the schema, because the schema and the list are the two
+        sides this guard exists to keep together, and removing a name from the list is the side a
+        reader is likelier to get wrong."""
+        held = globals()["FROM_ANSWER"]
+        globals()["FROM_ANSWER"] = tuple(n for n in held if n != "consequence")
+        try:
+            try:
+                proposal_of(_answered(), *_candidate())
+            except Refused as exc:
+                return str(exc)
+            return ""
+        finally:
+            globals()["FROM_ANSWER"] = held
+
+    def _said_without_default():
+        """The loader's refusal with its case PLANTED: a legacy row stripped of its owner_default.
+
+        The table is restored on the way out, and the control after this one judges the real one, so
+        a plant that leaked would be visible rather than silent."""
+        held = placement.table("pairs")
+        row = [r for r in held["rows"] if r.get("legacy_incubating")][0]
+        kept = row.pop("owner_default")
+        try:
+            try:
+                legacy_default()
+            except Refused as exc:
+                return str(exc)
+            return ""
+        finally:
+            row["owner_default"] = kept
+
     def said(answer, candidate=None, derivation=None, row=None, keep=None, legacy=False):
         cand, drow = _candidate()
-        return "; ".join(answer_problems(answer, candidate or cand, derivation or ANSWERED,
-                                         row if row is not None else drow, keep, legacy))
+        try:
+            return "; ".join(answer_problems(answer, candidate or cand, derivation or ANSWERED,
+                                             row if row is not None else drow, keep, legacy))
+        except Refused as exc:
+            # A refusal is a problem too. Without this, a revert that let a malformed answer through
+            # the shape check raised out of `proposal_of` here and killed every control after it.
+            return str(exc)
 
     # The library, both ways.
+    own_text = pathlib.Path(__file__).read_text(encoding="utf-8")
     clean("every O5 plant this stage owns answers what its frozen fixture says", fixture_problems())
-    control("and the library holds the ten plants, not a subset",
-            str(len(json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))["cases"])), "10")
+    held_cases = json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))
+    control("the library holds every plant of both kinds, not a subset",
+            f'{len(held_cases["cases"])}/{len(held_cases["legacy_cases"])}',
+            f'{len(fixture_cases())}/{len(legacy_fixture_cases())}')
+    clean("and there are at least the eleven O5 plants and four legacy ones this package owns, so a "
+          "library that shrank is not merely self-consistent",
+          [f"{len(fixture_cases())} O5 and {len(legacy_fixture_cases())} legacy plants"]
+          if len(fixture_cases()) < 11 or len(legacy_fixture_cases()) < 4 else [])
     for case in fixture_cases():
         clean(f"{case['id']} runs the real function on a real-shaped answer ({case['plant']})",
               [] if isinstance(run_fixture(case)["problems"], list) else ["not a list"])
+
+    # The reader against the writer, on a row the real producer path built. This is lane E's finding:
+    # the stage read `outcome["promotion"]`, which `derive.unit_outcome` has never returned, so
+    # `promotion_eligible` was None on every real row and the promotion bar never fired - while every
+    # fixture here was built with the same wrong spelling and agreed.
+    real = derived_row("k-real")
+    clean("every outcome section this stage reads is a section derive.unit_outcome really returns",
+          sorted(set(OUTCOME_SECTIONS) - set(real["outcome"])))
+    control("and the eligibility section is the one that function names",
+            ", ".join(sorted(real["outcome"])), ELIGIBLE_SECTION)
+    clean("so no fact read from a real row is None, which is what the wrong key produced",
+          [name for name, value in candidate_facts({"candidate_id": "k-real", "type": "D"}, real).items()
+           if value is None])
+    control("the promotion bar on a real row reads a boolean rather than nothing",
+            str(candidate_facts({"candidate_id": "k-real", "type": "D"}, real)["promotion"]), "True")
+    control("and a row whose lineages are below the bar reads False, so the field is really being read",
+            str(candidate_facts({"candidate_id": "k-low", "type": "G"},
+                                derived_row("k-low", ctype="G", lineages=1))["promotion"]), "False")
+    control("the test state comes from derive's own domain, not from a literal here",
+            next(line for line in own_text.splitlines() if line.startswith("TEST_STATE")),
+            'derive.table()["domains"]["test"]')
+    control("and the value it reads is S6's own", TEST_STATE, "untested")
+    clean("and the real row's kind, diagnosis and admission are all present as well",
+          [name for name in ("kind", "diagnosis", "admission")
+           if candidate_facts({"candidate_id": "k-real", "type": "D"}, real)[name] is None])
 
     # F-O5-01..04: the four dispositions evidence supports, each clean on its own pair and refused on
     # a pair §7.2 does not allow, so neither reading is a coincidence of the fixture.
@@ -534,6 +914,155 @@ def self_test():
             said(_answered(unknowns=[{"field": "mood", "state": "none", "effect": "none"}])),
             "UNKNOWN_FIELD_UNDECLARED")
 
+    # The legacy intake, under the row the owner decided on 2026-11-11 (D-20261111-e53a01). The
+    # default and the call rule are READ from the table, so this suite judges the decision as data
+    # and not a copy of it.
+    legacy = {case["id"]: case for case in legacy_fixture_cases()}
+    clean("every legacy plant answers what its frozen fixture says",
+          [p for p in fixture_problems() if "F-O5-09" in p or "F-O5-10" in p or "F-O5-13" in p])
+    control("the owner's default is read from the legacy row, not held here",
+            legacy_default()["disposition"], "none")
+    control("and so is the rule for which entries reach a call",
+            legacy_default()["call_spent"], "classified_only")
+    control("F-O5-09: S3-03 carries no classification block, so no call is spent on it",
+            str(run_legacy_fixture(legacy["F-O5-09"])["call_spent"]), "False")
+    control("and its proposal is the owner's default",
+            run_legacy_fixture(legacy["F-O5-09"])["disposition"], "none")
+    control("F-O5-09b: the same entry WITH a classification block reaches a call, so the rule is the "
+            "block and not the id", str(run_legacy_fixture(legacy["F-O5-09b"])["call_spent"]), "True")
+    control("F-O5-10: an entry with a mapped incubate decision enters with it rather than with the "
+            "default", run_legacy_fixture(legacy["F-O5-10"])["disposition"], "incubate")
+    control("and its observation comes from that decision, not from this code",
+            str(run_legacy_fixture(legacy["F-O5-10"])["observation"]), "True")
+    control("and it says it entered with a decision, so the two cases are told apart by a field "
+            "rather than by the absence of one",
+            str(run_legacy_fixture(legacy["F-O5-10"])["entered_with_decision"]), "True")
+    control("F-O5-13: an entry of the largest group stays in the intake, and its group is named",
+            run_legacy_fixture(legacy["F-O5-13"])["group"], "below-bar-default")
+    # The swapped control the plan asks for: each answer must name its own entry, and swapping the
+    # two entries must change both answers. An answer that did not depend on its entry would pass
+    # the first half and fail this one.
+    nine, ten = legacy["F-O5-09"]["entry"], legacy["F-O5-10"]["entry"]
+    control("the S3-03 answer names S3-03", run_legacy_fixture(legacy["F-O5-09"])["entry_id"], "S3-03")
+    control("and the mapped entry's answer names the mapped entry",
+            run_legacy_fixture(legacy["F-O5-10"])["entry_id"], "S2-99")
+    control("swapped, the two fixtures fail by entry id: the id of each answer follows its entry",
+            f'{run_legacy_fixture({"entry": ten})["entry_id"]}/'
+            f'{run_legacy_fixture({"entry": nine})["entry_id"]}', "S2-99/S3-03")
+    control("and swapping changes the disposition too, so neither answer is entry-independent",
+            f'{run_legacy_fixture({"entry": ten})["disposition"]}/'
+            f'{run_legacy_fixture({"entry": nine})["disposition"]}', "incubate/none")
+    migrated_as_incubate = {**S3_03, "id": "S2-77",
+                            "decisions": [{"field": "status", "kind": "legacy_migration",
+                                           "disposition": "incubate",
+                                           "legacy_text": "incubating"}]}
+    control("a legacy_migration row that carries the word incubate is still not a mapped decision: it "
+            "records the migration of a status, not a judgment",
+            str(legacy_answer(migrated_as_incubate)["entered_with_decision"]), "False")
+    control("so such an entry takes the owner's default",
+            legacy_answer(migrated_as_incubate)["disposition"], "none")
+    clean("a legacy default carries no library operation, which is what none_stays_in_intake asks",
+          [case["id"] for case in legacy_fixture_cases()
+           if legacy_answer(case["entry"])["operations"]])
+    # The split, counted over the entries the run holds rather than remembered.
+    split = legacy_split([case["entry"] for case in legacy_fixture_cases()])
+    control("the split counts the calls and the defaults of THIS run",
+            f"{split['counts']['entries']}={split['counts']['calls']}+{split['counts']['defaults']}",
+            "4=1+3")
+    control("and names the groups it found, rather than the owner's figure of the day",
+            json.dumps(sorted(split["groups"])), "below-bar-default")
+    control("a legacy row with no owner_default is refused, so an undecided default cannot be applied "
+            "silently", _said_without_default(), "LEGACY_DEFAULT_UNDECLARED")
+    # The owner's sentence reaches the model, not only the table: the packet is where a proposal is
+    # actually shaped, and a decision that lived only in a table would be a decision the caller
+    # never reads.
+    packet_text = (HERE / "packets" / TEMPLATE).with_suffix(".md").read_text(encoding="utf-8")
+    control("the packet carries the owner's decided sentence for a legacy entry", packet_text,
+            str(legacy_default().get("text") or "<the legacy row states no sentence>").split(".")[0])
+    control("and tells the reader that the entry's own history is not this window's evidence",
+            packet_text, "it is the record of an earlier default")
+
+    # §7.4 THROUGH `proposal_of`. Each of the six rules is fired on an answer, because the rules'
+    # own suite calls them with hand-built dicts and could not see that this stage carried none of
+    # their inputs: five of six read None on every real proposal while every control stayed green.
+    def through(answer, candidate=None, row=None):
+        cand, drow = _candidate()
+        flat = proposal_of(answer, candidate or cand, row if row is not None else drow)
+        return "; ".join(placement.problems(flat))
+
+    def claims(**over):
+        held = dict(_answered()["placement"])
+        held.update(over)
+        return held
+
+    control("GUIDE_PREMATURE fires through proposal_of: a guide placed where four items share the "
+            "situation", through(_answered(placement=claims(situation_promoted_items=4))),
+            "GUIDE_PREMATURE")
+    clean("and does not fire at the threshold of five",
+          [p for p in placement.problems(proposal_of(
+              _answered(placement=claims(situation_promoted_items=5)), *_candidate()))
+           if "GUIDE_PREMATURE" in p])
+    control("CONSUMER_MISMATCH fires through it: an instruction aimed at a consumer that reads only "
+            "code", through(_answered(placement=claims(consumer="script"))), "CONSUMER_MISMATCH")
+    control("GATE_ON_JUDGMENT fires through it: a blocking gate on a semantic criterion",
+            through(_answered(destination={"layer": "gates", "carrier": "gates/check-x.sh"},
+                              placement=claims(blocking=True, criterion="semantic"))),
+            "GATE_ON_JUDGMENT")
+    control("GLOBAL_ADDITION fires through it: an addition to the always-loaded global file",
+            through(_answered(destination={"layer": "guides", "carrier": "claude/CLAUDE.md"})),
+            "GLOBAL_ADDITION")
+    control("C_ROUTE fires through it: a recognition principle placed in a guide whose situation it "
+            "does not name",
+            through(_answered(placement=claims(names_situation_of_guide=False)),
+                    candidate=_candidate(ctype="C")[0], row=_candidate(ctype="C")[1]),
+            "C_ROUTE")
+    control("HOOK_CHARTER fires through it: a hook that judges",
+            through(_answered(destination={"layer": "hooks", "carrier": "hooks/on-prompt.sh"},
+                              placement=claims(blocking=False, judges=True))),
+            "HOOK_CHARTER")
+    control("the typology C_ROUTE keys on comes from the CANDIDATE, so a D candidate's proposal is "
+            "not judged as a C principle",
+            str("C_ROUTE" in through(_answered(placement=claims(names_situation_of_guide=False)))),
+            "False")
+
+    # And the guard that makes those six reachable at all: a rule in scope whose input is absent.
+    control("a guide placement that claims nothing about its situation is refused by the rule's own "
+            "name rather than passing",
+            through(_answered(placement=claims(situation_promoted_items=None))),
+            "PLACEMENT_INPUT_ABSENT GUIDE_PREMATURE")
+    control("a gate placement with no blocking claim too",
+            through(_answered(destination={"layer": "gates", "carrier": "gates/check-x.sh"},
+                              placement=claims(blocking=None, criterion="decidable"))),
+            "PLACEMENT_INPUT_ABSENT GATE_ON_JUDGMENT")
+    control("and a hook placement with no judges claim",
+            through(_answered(destination={"layer": "hooks", "carrier": "hooks/on-prompt.sh"},
+                              placement=claims(blocking=False, judges=None))),
+            "PLACEMENT_INPUT_ABSENT HOOK_CHARTER")
+    clean("while a null outside every rule's scope is an honest not-applicable",
+          [p for p in placement.problems(proposal_of(
+              _answered(disposition="keep", operations=[],
+                        destination={"layer": "incubator", "carrier": None},
+                        reasons={**_answered()["reasons"], "reason": "그대로"},
+                        placement=claims(consumer=None, artifact_form=None,
+                                         situation_promoted_items=None,
+                                         situation_covered_by_guide=None)),
+              *_candidate("k-keep", "confirmed", "covered"))) if "PLACEMENT_INPUT_ABSENT" in p])
+
+    # The explicit field list: an answer key may neither shadow a derived field nor go unread.
+    control("an answer carrying a derived name is refused rather than shadowing it",
+            said({**_answered(), "promotion_eligible": True}), "ANSWER_INVALID")
+    control("the flat proposal's admitted and promotion_eligible come from S6, not from the answer",
+            json.dumps({k: proposal_of(_answered(), *_candidate(eligible=False))[k]
+                        for k in ("admitted", "promotion_eligible")}),
+            '"promotion_eligible": false')
+    control("and its item_id is the candidate's, whatever the answer says",
+            proposal_of(_answered(), *_candidate("k-9"))["item_id"], "k-9")
+    control("a field the schema admits and the list does not read is refused by name",
+            _unread_field(), "ANSWER_FIELD_UNREAD")
+    control("§7.3's keep rule receives the record the answer named, under the name that rule reads",
+            json.dumps(proposal_of({**_answered(), "keep_record_named": "KEEP-7"},
+                                   *_candidate())["keep_records_named"]), '"KEEP-7"')
+
     # The two sources rule, §10.4, and the shape.
     control("an answer that carries its own kind is refused: S6 derived it",
             said({**_answered(), "kind": "gap"}), "ANSWER_REDERIVES_DERIVED")
@@ -552,6 +1081,23 @@ def self_test():
             "before_state_sha256")
     control("a disposition outside §7.2's vocabulary is refused by the schema, not by a guess",
             said(_answered(disposition="rewrite")), "ANSWER_INVALID")
+    control("the validator is built through validate.compile_schema, which is the pinned path and the "
+            "schema policy", next(line for line in own_text.splitlines()
+                                  if "_VALIDATOR.append" in line), "validate.compile_schema")
+    import ast as _ast
+    own_tree = _ast.parse(own_text)
+    imported_here = {name.name.split(".")[0] for node in _ast.walk(own_tree)
+                     if isinstance(node, _ast.Import) for name in node.names} | \
+                    {(node.module or "").split(".")[0] for node in _ast.walk(own_tree)
+                     if isinstance(node, _ast.ImportFrom)}
+    clean("and this module imports no validator of its own, so there is no path that falls back when "
+          "the pinned one is missing - the fail-open form accepted a wrong type, a wrong enum and an "
+          "extra field, and every control over it passed",
+          sorted(imported_here & {"jsonschema"}))
+    clean("nor does it catch an import error anywhere, which is where that fallback lived",
+          [_ast.dump(node)[:60] for node in _ast.walk(own_tree)
+           if isinstance(node, _ast.ExceptHandler)
+           and "ImportError" in _ast.dump(node.type or _ast.Constant(value=None))])
 
     # The packet: the contract travels whole, with its digest, and the derived fields are given.
     built = packet_for(_candidate()[0], ANSWERED, _candidate()[1])
@@ -598,6 +1144,122 @@ def self_test():
             doc["contract"]["placement_contract_sha256"], placement.contract_digest())
     clean("and carries no instruction text of the person's own: the answers' own fields only",
           [k for k in doc if k in ("instruction_text", "compiled_text", "units_text")])
+
+    # ---- the stage END TO END, through `run`. Every control above calls `document`, which is how
+    # two defects survived: `records.write_json` confines its path beneath the run, so the bare name
+    # this function passed was RUN_PATH_ESCAPE and nothing was written; and the file was never
+    # registered with `stage.output`. Lane E found both by running it on the golden run.
+    import shutil
+    import subprocess
+    import tempfile
+    from runlib import stagelock
+    # A write that leaves the run raises `stagelock.Escaped`, not `Refused` - which is why the first
+    # form of these guards still died: the suite caught the wrong family and the trial read a
+    # traceback instead of a named failure.
+    STAGE_REFUSALS = (Refused, stagelock.Escaped)
+    root = pathlib.Path(tempfile.mkdtemp(prefix="s7-e2e-", dir="/tmp"))
+    try:
+        made = None
+        try:
+            made = fx_through_s6(root)
+        except Exception as exc:  # the fixture's own failure is reported, never swallowed
+            failures.append(("the golden run through S6 could not be made", repr(exc)))
+            ran.append("the golden run through S6 could not be made")
+        if made is not None:
+            cands = records.read_json(made / "checked-candidates.json")["candidates"]
+            answers = {row["candidate_id"]: _answered(
+                disposition="none", operations=[],
+                destination={"layer": "incubator", "carrier": None}) for row in cands}
+            # The CLI's copy is taken BEFORE the direct run. Taken after, it would already hold both
+            # documents, and the control that checks the command's own files passed while the command
+            # was stubbed out of the suite.
+            cli_root = root / "cli"
+            cli_root.mkdir()
+            cli_run = shutil.copytree(made, cli_root / made.name)
+            e2e = "S7 runs end to end on a golden run and writes its document inside the run"
+            try:
+                _stage, doc = run(made, answers)
+            except STAGE_REFUSALS as exc:
+                ran.append(e2e)
+                failures.append((e2e, f"the stage refused: {exc}"))
+                doc = {"counts": {"candidates": 0, "proposed": 0, "returned": 0}, "proposals": []}
+            control(e2e, str((made / OUTPUT).is_file()), "True")
+            clean("the run produced at least one proposal, so the controls here judge a document "
+                  "rather than an empty one",
+                  [] if doc["counts"]["proposed"] > 0 else [f"{doc['counts']}"])
+            def record_of(stage_id):
+                try:
+                    return records.read_json(records.record_path(made, stage_id))
+                except STAGE_REFUSALS + (OSError, ValueError):
+                    return {}
+
+            record = record_of(STAGE)
+            control("and REGISTERS it with the stage, so the next stage's staleness check has "
+                    "something to read",
+                    json.dumps([o.get("artifact") for o in record.get("outputs") or []]), OUTPUT)
+            control("the record says the stage completed", str(record.get("status")), "complete")
+            written = records.read_json(made / OUTPUT) if (made / OUTPUT).is_file() else {}
+            control("and the written document is the one the stage returned",
+                    str(written.get("counts") == doc["counts"]), "True")
+            clean("every proposal and every returned row is accounted for against the candidates",
+                  [] if doc["counts"]["candidates"] == doc["counts"]["proposed"] + doc["counts"]["returned"]
+                  else [f"{doc['counts']}"])
+            # S7b on the document S7 just wrote, which is the interface between them.
+            held = {row["candidate_id"]: {
+                "verdict": "agree",
+                "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다"},
+                "destination_review": {"holds": True, "reason": "가장 싼 자리다"},
+                "faithful_merge": "n/a", "alternative": None,
+                "bars": [{"bar": bar, "holds": True, "reason": "충족"}
+                         for bar in placement.contract_bars()],
+                "notes": "동의한다"} for row in doc["proposals"]}
+            from runlib import stage_review_proposals
+            e2e_b = "S7b then runs end to end on that same run and writes its own document inside it"
+            try:
+                _s7b_stage, s7b_doc = stage_review_proposals.run(made, held)
+            except STAGE_REFUSALS as exc:
+                ran.append(e2e_b)
+                failures.append((e2e_b, f"the stage refused: {exc}"))
+                s7b_doc = {"counts": {"proposals": 0, "reviewed": 0}}
+            control(e2e_b, str((made / stage_review_proposals.OUTPUT).is_file()), "True")
+            s7b_record = record_of("S7b")
+            control("and registers it too",
+                    json.dumps([o.get("artifact") for o in s7b_record.get("outputs") or []]),
+                    stage_review_proposals.OUTPUT)
+            control("every proposal S7 wrote is reviewed, so the two stages' populations agree",
+                    f'{s7b_doc["counts"]["proposals"]}={s7b_doc["counts"]["reviewed"]}',
+                    f'{len(doc["proposals"])}={len(doc["proposals"])}')
+            # And the CLI, as a subprocess: 25 direct-call controls once passed while the command
+            # itself crashed, so the command is exercised over files the way a caller runs it. Its
+            # copy of the run was taken above, before either stage wrote anything into it.
+            answers_path = root / "answers.json"
+            answers_path.write_text(json.dumps(answers, ensure_ascii=False), encoding="utf-8")
+            reviews_path = root / "reviews.json"
+            reviews_path.write_text(json.dumps(held, ensure_ascii=False), encoding="utf-8")
+            env = {**os.environ, "HOME": str(root / "home")}
+            (root / "home").mkdir(exist_ok=True)
+            def cli(*args):
+                done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), *args],
+                                      capture_output=True, text=True, timeout=600, env=env,
+                                      cwd=str(HERE.parent))
+                return done.returncode, done.stdout + done.stderr
+            code, said_dry = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root), "--dry")
+            control("`distill.py propose --dry` reports the packets it would send, as a subprocess",
+                    f"{code}:{said_dry[:0]}{'packet' if 'packet' in said_dry else said_dry[-120:]}",
+                    "0:packet")
+            code, said = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root),
+                             "--answers", str(answers_path))
+            control("`distill.py propose --answers` runs the stage from the command line",
+                    f"{code}:{'proposed' if 'proposed' in said else said[-160:]}", "0:proposed")
+            code, said_r = cli("review-proposals", "--run-id", cli_run.name, "--out", str(cli_root),
+                               "--reviews", str(reviews_path))
+            control("`distill.py review-proposals --reviews` does too",
+                    f"{code}:{'reviewed' if 'reviewed' in said_r else said_r[-160:]}", "0:reviewed")
+            clean("and both commands left their documents inside the run they were given",
+                  [name for name in (OUTPUT, stage_review_proposals.OUTPUT)
+                   if not (cli_run / name).is_file()])
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
     reporting.append(True)
     if failures:

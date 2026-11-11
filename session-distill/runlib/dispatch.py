@@ -255,6 +255,11 @@ SCRIPT_RUNS = (
      "reason": "S10's self-test runs the driver's `parse-decisions` command as a child over a copy of a golden run it "
                "rendered and the owner's copy it decided, so the command a person runs is held as a process runs it "
                "(WP-20 K3); S10 makes no call and starts no model"},
+    {"site": "session-distill/runlib/stage_propose.py", "path": "session-distill/distill.py",
+     "reason": "S7's self-test runs the driver's `propose` and `review-proposals` commands as children over a golden run "
+               "through S6 it made, with answers and reviews it supplies, because 25 direct-call controls once passed "
+               "while the command itself crashed (WP-12 commit B4); neither command starts a model - both refuse "
+               "CALL_NOT_WIRED without the files - and the golden host is the only one in reach"},
 )
 # Sites that run a closure file FROM A COPY of this checkout. The program is computed, so the trace
 # cannot name it; what admits it is that the copy is this tree's own, made by

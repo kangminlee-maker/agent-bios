@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §7.3's S7b paragraph (gpt-6-astra reviews each disposition and destination against the evidence, the kind and the placement contract, and for every merge judges whether meaning is preserved and no unrelated obligation is introduced; disagreement is SHOWN rather than resolved, and the owner resolves it by approving, by 수정 naming the alternative, or by rejecting), §7.4's semantic bars (packets/placement_contract.md, which this call is judged against and which travels into the packet whole with its digest), plan WP-12 (`review-s7b.json` {item_id, verdict, faithful_merge, alternative|null, notes}). This schema holds the SHAPE of one review. What it does not hold: which disposition is allowed (tables/allowed_pairs.json), the decidable placement rules (tables/placement_rules.json) - code has already refused a proposal that breaks either before this call is made, so a review is asked only about what a person's judgment decides.",
+  "title": "S7b review of one proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "disposition_review",
+    "destination_review",
+    "faithful_merge",
+    "alternative",
+    "bars",
+    "notes"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "agree",
+        "disagree"
+      ],
+      "$comment": "Two values, not three: a review that could answer \"unsure\" would let a disagreement reach the owner as a shrug. An uncertainty belongs in `notes` beside the verdict the reviewer would act on."
+    },
+    "disposition_review": {
+      "$ref": "#/$defs/judgment"
+    },
+    "destination_review": {
+      "$ref": "#/$defs/judgment"
+    },
+    "faithful_merge": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no",
+        "n/a"
+      ],
+      "$comment": "For every merge: whether meaning is preserved and no unrelated obligation is introduced. `n/a` only where the proposal holds no merge operation; code checks that against the operations rather than trusting the value."
+    },
+    "merge_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/merge_finding"
+      }
+    },
+    "alternative": {
+      "$ref": "#/$defs/alternative_or_null"
+    },
+    "bars": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/bar_judgment"
+      },
+      "$comment": "One entry per semantic bar of the contract text. Code checks the set against the bars that text states, so a review that skipped one is returned rather than read as a pass."
+    },
+    "notes": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "Korean: the owner reads this beside the Korean reason fields of the proposal."
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holds",
+        "reason"
+      ],
+      "properties": {
+        "holds": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "$comment": "What in the candidate, the judgments or the units the reviewer read it from; a reason resting on nothing is the finding this field makes visible."
+        }
+      }
+    },
+    "merge_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_target",
+        "meaning_preserved",
+        "unrelated_obligation",
+        "reason"
+      ],
+      "properties": {
+        "operation_target": {
+          "$ref": "#/$defs/text"
+        },
+        "meaning_preserved": {
+          "type": "boolean"
+        },
+        "unrelated_obligation": {
+          "type": "boolean",
+          "$comment": "true means the merge INTRODUCES one, which is the failing direction; the field is named for what it finds, not for what passes."
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "alternative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "reason"
+      ],
+      "properties": {
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "place",
+            "correct",
+            "re-deliver",
+            "keep",
+            "reduce",
+            "incubate",
+            "drop",
+            "none"
+          ]
+        },
+        "destination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "layer"
+          ],
+          "properties": {
+            "layer": {
+              "$ref": "#/$defs/text"
+            },
+            "carrier": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "$comment": "Nullable: the policy of runlib/validate.py admits a nullable as a type list and refuses oneOf."
+            }
+          }
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "$comment": "The alternative the owner can take with 수정. Code holds it to the same allowed pairs as the proposal: an alternative §7.2 forbids is not an alternative."
+    },
+    "bar_judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bar",
+        "holds",
+        "reason"
+      ],
+      "properties": {
+        "bar": {
+          "$ref": "#/$defs/text"
+        },
+        "holds": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "alternative_or_null": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "reason"
+      ],
+      "properties": {
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "place",
+            "correct",
+            "re-deliver",
+            "keep",
+            "reduce",
+            "incubate",
+            "drop",
+            "none"
+          ]
+        },
+        "destination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "layer"
+          ],
+          "properties": {
+            "layer": {
+              "$ref": "#/$defs/text"
+            },
+            "carrier": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "$comment": "Nullable: the policy of runlib/validate.py admits a nullable as a type list and refuses oneOf."
+            }
+          }
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "$comment": "Nullable: null when the verdict is agree. The alternative the owner can take with 수정. Code holds it to the same allowed pairs as the proposal: an alternative §7.2 forbids is not an alternative."
+    }
+  }
+}
