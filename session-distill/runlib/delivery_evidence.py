@@ -223,11 +223,38 @@ def _always(unit, units, session, decision_at, versions, row):
         return _result(unit, session, row, "selected_unavailable", "selected", ["route_unavailable"], "pin")
     if not _injected(session, decision_at):
         return _result(unit, session, row, "unknown", "selected", ["injection_unrecorded_before_decision"], "pin")
-    if not contains(text_lines(session.get("instruction_text")), text_lines(unit["text"])):
+    held, why = in_compiled_text(unit, session)
+    if held is None:
+        return _result(unit, session, row, "unknown", "selected", [why], "pin")
+    if not held:
         return _result(unit, session, row, "unknown", "selected", ["absent_from_compiled_text"], "pin")
     if _rank(row, "exposed") >= _rank(row, row["delivered_at"]):
         return _result(unit, session, row, "delivered", "exposed", [], "pin")
     return _result(unit, session, row, "unknown", "exposed", ["below_the_level_the_table_delivers_at"], "pin")
+
+
+def in_compiled_text(unit, session):
+    """`(verdict, reason)` for "the unit's lines are in the compiled instruction text".
+
+    Two sources, one answer. The compiled text itself is the fixture path and stays supported. The
+    production path is FACTS: S2 reads the session's snapshot where the snapshot is readable and
+    publishes, per unit, how many of its operative-context lines appear in that text under the same
+    prefix-stripping rule, with the text's sha256 — so the run never carries the owner's compiled
+    instructions and a later stage never reaches outside the run for them (lead decision, WP-11b).
+
+    Neither source is `unknown` by name, never a miss: a unit absent from a text nobody could read
+    is not an absence, and reading it as one would turn an input failure into `not_delivered`."""
+    facts = (session.get("instruction_coverage") or {}).get(unit["unit_id"])
+    if facts is not None:
+        total, covered = facts.get("total"), facts.get("covered")
+        if not isinstance(total, int) or not isinstance(covered, int) or total < 0 or covered < 0:
+            return None, "instruction_coverage_malformed"
+        if total == 0:
+            return None, "instruction_coverage_counts_no_line"
+        return covered >= total, None
+    if session.get("instruction_text") is not None:
+        return contains(text_lines(session.get("instruction_text")), text_lines(unit["text"])), None
+    return None, "compiled_text_unavailable"
 
 
 def _rank(row, level):
@@ -325,10 +352,17 @@ HANDLERS = {"always_rule": _always, "guide": _guide, "native_layer": _native}
 OTHER_ENTRIES = {"executable_consumed": "installer_exposure"}
 
 
-def delivery(unit, units, session, decision_at, versions=None):
-    """§6.3's answer for one unit in one session before `decision_at` (a record ordinal of that session)."""
+def delivery(unit, units, session, decision_at, versions=None, instruction_coverage=None):
+    """§6.3's answer for one unit in one session before `decision_at` (a record ordinal of that session).
+
+    `instruction_coverage` is the per-unit coverage of the compiled instruction text as FACTS
+    (`{unit_id: {covered, total, text_sha256}}`), which S2 publishes because the text itself is the
+    owner's and does not enter the run. Passed here or carried on the session; absent, the fixture's
+    `instruction_text` answers; absent too, the state is `unknown` naming that."""
     if not isinstance(decision_at, int):
         raise Refused(f"DELIVERY_INPUT_INVALID decision_at {decision_at!r}: a record ordinal of the session")
+    if instruction_coverage is not None:
+        session = {**session, "instruction_coverage": instruction_coverage}
     versions = versions if versions is not None else versions_of(units.values())
     row = surface_row(unit)
     if row is None:
@@ -775,6 +809,45 @@ def self_test():
            ["receipt_not_success"])
     refused("a decision instant that is not an ordinal", lambda: delivery(core, core_units, always, None),
             "DELIVERY_INPUT_INVALID")
+
+    # The compiled instruction text as FACTS (lead decision, WP-11b): S2 counts the lines where the
+    # snapshot is readable and publishes the counts, so the owner's compiled instructions never enter
+    # the run and no later stage reaches outside it. The two paths must answer alike.
+    no_text = {k: v for k, v in always.items() if k != "instruction_text"}
+    covered = {core["unit_id"]: {"covered": 1, "total": 1, "text_sha256": "f" * 64}}
+    expect("the facts path delivers what the text path delivers",
+           delivery(core, core_units, no_text, 5, instruction_coverage=covered)["state"],
+           delivery(core, core_units, always, 5)["state"])
+    partial = {core["unit_id"]: {"covered": 1, "total": 2, "text_sha256": "f" * 64}}
+    expect("a unit the text covers in part is not in the compiled text",
+           (delivery(core, core_units, no_text, 5, instruction_coverage=partial)["state"],
+            delivery(core, core_units, no_text, 5, instruction_coverage=partial)["reasons"]),
+           ("unknown", ["absent_from_compiled_text"]))
+    expect("k of n lines is a count, not a judgement: k == n delivers",
+           delivery(core, core_units, no_text, 5,
+                    instruction_coverage={core["unit_id"]: {"covered": 2, "total": 2,
+                                                            "text_sha256": "f" * 64}})["state"],
+           "delivered")
+    expect("neither facts nor text is unknown by name, never an absence",
+           (delivery(core, core_units, no_text, 5)["state"],
+            delivery(core, core_units, no_text, 5)["reasons"]),
+           ("unknown", ["compiled_text_unavailable"]))
+    expect("facts for another unit do not answer for this one",
+           delivery(core, core_units, no_text, 5,
+                    instruction_coverage={"u-somebody-else": {"covered": 1, "total": 1,
+                                                              "text_sha256": "f" * 64}})["reasons"],
+           ["compiled_text_unavailable"])
+    expect("counts that are not counts are refused by name rather than read as coverage",
+           delivery(core, core_units, no_text, 5,
+                    instruction_coverage={core["unit_id"]: {"covered": None, "total": 1}})["reasons"],
+           ["instruction_coverage_malformed"])
+    expect("and a unit whose context counts no line at all is unknown, not covered",
+           delivery(core, core_units, no_text, 5,
+                    instruction_coverage={core["unit_id"]: {"covered": 0, "total": 0}})["reasons"],
+           ["instruction_coverage_counts_no_line"])
+    expect("the facts may ride on the session instead of the argument",
+           delivery(core, core_units, {**no_text, "instruction_coverage": covered}, 5)["state"],
+           "delivered")
 
     for failure in failures:
         print(f"delivery_evidence --self-test [FAIL] {failure}")
