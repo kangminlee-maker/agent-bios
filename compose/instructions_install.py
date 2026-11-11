@@ -183,6 +183,31 @@ def _relative(value: str, label: str) -> str:
     return path.as_posix()
 
 
+# The ONLY `files[]` negations this package supports, as literal spellings.
+#
+# A negation is npm's one honoured exclusion once `files[]` exists, and it excludes from the
+# TARBALL — not from this installer, which applies `_is_bytecode` below, and not from the gates,
+# which scan what the tarball carries. Review Y r2 #2 showed what that difference costs: adding
+# `!README.md` removed README from the content and endpoint scans while npm force-included the
+# file anyway, so a forbidden identifier and a live endpoint in it became invisible with no
+# payload disagreement to notice. A negation can only be safe where every path it can exclude is
+# bytecode, and whether an arbitrary pattern has that property is not decidable by inspection —
+# so the supported set is enumerated instead, and `gates/check-package.sh` refuses any other
+# (`FILES_NEGATION_UNSUPPORTED`). This tuple is the authority the gates import; nothing re-models it.
+SUPPORTED_NEGATIONS = (
+    "__pycache__", "__pycache__/", "__pycache__/**",
+    "**/__pycache__", "**/__pycache__/**",
+    "*.pyc", "**/*.pyc", "*.pyo", "**/*.pyo",
+)
+
+
+def negation_supported(entry: str) -> bool:
+    """Whether a `files[]` entry is a negation this package supports (bytecode, and nothing else)."""
+    if not isinstance(entry, str) or not entry.startswith("!"):
+        return False
+    return entry[1:].strip() in SUPPORTED_NEGATIONS
+
+
 def _is_bytecode(relative: str) -> bool:
     """Compiled Python, which is the author's and never the package's.
 

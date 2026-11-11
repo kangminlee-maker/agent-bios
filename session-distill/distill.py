@@ -31,8 +31,9 @@ over `runlib/redaction.py`, `runlib/search.py` and the evidence store of `runlib
 Design: §3, §4, §4.1, §5.1-§5.5, §7.1, §7.4, §9.
 """
 import argparse
-import contextlib
 import ast
+import contextlib
+import inspect
 import io
 import json
 import os
@@ -43,6 +44,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import types
 
 # Before the command's module graph is imported, not inside the functions that load modules by
 # path: `runlib.projection` loads `learn/redact.py` at import, and a cache write lands beside the
@@ -50,7 +52,22 @@ import tempfile
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-HOME = str(pathlib.Path.home())
+def _diagnostic_home():
+    """The owner home a diagnostic masks, resolved without ever failing.
+
+    This runs at import, before either startup boundary, and `pathlib.Path.home()` RAISES
+    `RuntimeError` when `$HOME` is unset and the account has no password-database entry — so a
+    machine in that state could not run `--out DIR`, or `--help`, or anything at all (review Y r2
+    #3). `None` is what every consumer of this value already takes as its default (`entry.say`,
+    `entry.failed`, `inventory.overlap_problems`, `projection.project`, which expands `~` itself),
+    so an unresolvable home masks exactly what the floor's own default masks and costs no startup."""
+    try:
+        return str(pathlib.Path.home())
+    except (RuntimeError, OSError, KeyError):
+        return None
+
+
+HOME = _diagnostic_home()
 # The bootstrap, and the only thing in this file that runs before the boundary exists. It is
 # stdlib only and its line carries NO path, because what failed is the very code that would have
 # projected one: `from runlib import entry` stood outside every boundary this command has, so an
@@ -89,6 +106,18 @@ except BaseException as _startup_exc:   # SystemExit included: `validate` exits 
     # if the floor itself is what failed, the fixed line stands instead.
     sys.exit(entry.failed(_startup_exc, HOME, label="STARTUP_FAILED", code=2))
 
+def _password_home():
+    """This process's own home directory, as the password database states it.
+
+    A named seam rather than an inline lookup, deliberately: it is the one home a control cannot
+    override, so the relative-HOME control below reached the REAL account home and created a run
+    under `~/.local/state/agent-bios/distill/runs/` while a commit hook was running (review Y r2
+    #1). A control states the account home it means by replacing this function; production never
+    does, and the resolver it feeds is exercised against the real database by a control of its own."""
+    import pwd
+    return pwd.getpwuid(os.getuid()).pw_dir
+
+
 def _account_home():
     """The account's own home directory, which does not come from the environment.
 
@@ -98,8 +127,7 @@ def _account_home():
     is the authority that cannot be relative. If it cannot be read, no default is better than one
     resolved against whatever directory the caller happens to stand in."""
     try:
-        import pwd
-        home = pwd.getpwuid(os.getuid()).pw_dir
+        home = _password_home()
     except Exception:                      # no pwd (Windows), or no entry for this uid
         home = None
     if home and pathlib.PurePath(home).is_absolute():
@@ -136,17 +164,21 @@ def default_out(environ=None, home=None):
     """
     environ = os.environ if environ is None else environ
     notes = []
-    raw_home = home if home is not None else environ.get("HOME")
-    if raw_home is not None and not pathlib.PurePath(str(raw_home)).is_absolute():
-        notes.append(f"HOME={str(raw_home)!r} is relative and is ignored for the default run root")
-        raw_home = None
-    base_home = pathlib.Path(raw_home) if raw_home else _account_home()
+    # XDG FIRST, and the home only when XDG gives no absolute base. An absolute `XDG_STATE_HOME`
+    # determines the whole answer, so resolving a home it does not need let an unreadable account
+    # entry refuse a destination that was already decided (review Y r2 #4).
     raw_base = environ.get("XDG_STATE_HOME")
     if raw_base is not None and raw_base != "" and not pathlib.PurePath(raw_base).is_absolute():
         notes.append(f"XDG_STATE_HOME={raw_base!r} is relative and is ignored for the default run "
                      f"root; the XDG base-directory contract names absolute paths only")
         raw_base = None
-    base = raw_base or (base_home / ".local" / "state")
+    base = pathlib.Path(raw_base) if raw_base else None
+    if base is None:
+        raw_home = home if home is not None else environ.get("HOME")
+        if raw_home is not None and not pathlib.PurePath(str(raw_home)).is_absolute():
+            notes.append(f"HOME={str(raw_home)!r} is relative and is ignored for the default run root")
+            raw_home = None
+        base = (pathlib.Path(raw_home) if raw_home else _account_home()) / ".local" / "state"
     for note in notes:
         say(f"DEFAULT_OUT_INPUT_IGNORED {note}", sys.stderr)
     return pathlib.Path(base).expanduser() / "agent-bios" / "distill" / "runs"
@@ -1277,10 +1309,125 @@ def self_test():
                  / "y2-relative-xdg").is_dir(),
                 f"{sorted(q.name for q in (fake_home / '.local' / 'state').rglob('*'))[:6]}")
         here = pathlib.Path.cwd()
-        code, err = no_out("declare", "--run-id", "y2-relative-home", "--from", str(declaration),
-                           HOME="relative-home", XDG_STATE_HOME=None)
+        # review Y r2 #1: with a relative $HOME and no XDG, the destination comes from the password
+        # database — the one home this suite could not state, so the run landed in the REAL account
+        # home and a commit hook created `~/.local/state/agent-bios/distill/runs/y2-relative-home/`
+        # there. The control now states the account home it means through the production seam, and a
+        # CANARY reads the real one (names only, never contents) to prove nothing arrived in it.
+        real_account = pathlib.Path(_password_home())
+        canary_root = real_account / ".local" / "state" / "agent-bios"
+        canary_before = (sorted(str(q.relative_to(canary_root)) for q in canary_root.rglob("*"))
+                         if canary_root.is_dir() else None)
+        account = scratch / "account-home"
+        account.mkdir()
+        kept_seam = globals()["_password_home"]
+        try:
+            globals()["_password_home"] = lambda: str(account)
+            code, err = no_out("declare", "--run-id", "y2-relative-home", "--from", str(declaration),
+                               HOME="relative-home", XDG_STATE_HOME=None)
+        finally:
+            globals()["_password_home"] = kept_seam
+        landed = account / ".local" / "state" / "agent-bios" / "distill" / "runs" / "y2-relative-home"
         control("review Y #2: a RELATIVE HOME is ignored for the default run root as well",
                 "DEFAULT_OUT_INPUT_IGNORED" in err and "HOME=" in err, f"{code} {err[:300]}")
+        control("review Y r2 #1: and the run lands in the account home the password database states, "
+                "which this control states for itself",
+                code == 0 and (landed / "run.json").is_file(), f"{code} {landed} {err[:200]}")
+        canary_after = (sorted(str(q.relative_to(canary_root)) for q in canary_root.rglob("*"))
+                        if canary_root.is_dir() else None)
+        control("review Y r2 #1: and the REAL account home is untouched by this suite",
+                canary_after == canary_before,
+                f"{canary_root}: before {None if canary_before is None else len(canary_before)} "
+                f"after {None if canary_after is None else len(canary_after)}; "
+                f"new {sorted(set(canary_after or []) - set(canary_before or []))[:5]}")
+        # review Y r2 #4: an absolute XDG base determines the whole answer, so a home it does not
+        # need must not be able to refuse it. The home resolution ran FIRST, and an account whose
+        # database home is unreadable then raised DEFAULT_OUT_UNRESOLVED over a destination that was
+        # already fully decided.
+        kept_seam = globals()["_password_home"]
+        try:
+            globals()["_password_home"] = lambda: "not-absolute"
+            try:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    xdg_only = default_out({"HOME": "relative-home", "XDG_STATE_HOME": str(scratch / "xdg")})
+            except Refused as exc:
+                # The pre-fix order raises here, and a raised refusal must read as THIS control's
+                # failure rather than ending the suite: a control whose text never prints is a
+                # control a reader cannot act on.
+                xdg_only = f"REFUSED {exc}"
+            try:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    refused = f"RETURNED {default_out({'HOME': 'relative-home'})}"
+            except Refused as exc:
+                refused = str(exc)
+        finally:
+            globals()["_password_home"] = kept_seam
+        control("review Y r2 #4: an absolute XDG_STATE_HOME is the base even when no home resolves",
+                isinstance(xdg_only, pathlib.Path)
+                and xdg_only == scratch / "xdg" / "agent-bios" / "distill" / "runs", str(xdg_only))
+        control("review Y r2 #4: and with no XDG base, an unresolvable home is still refused by name",
+                refused.startswith("DEFAULT_OUT_UNRESOLVED"), refused)
+        # review Y r2 #3: an account with no password-database entry and no $HOME. `HOME =
+        # str(pathlib.Path.home())` ran at IMPORT, before either startup boundary, and `Path.home()`
+        # raises in that state — so the machine could not run the command at all, with `--out` or
+        # without, and no boundary could describe why.
+        #
+        # Two decidable controls rather than a re-execution of the module body. Running this file
+        # again as `__main__` (through a child or through `runpy`) is the shape the closure inventory
+        # refuses: a child needs a program a declaration can name, and `runpy.run_path` of a runtime
+        # path is a load the trace cannot resolve. Both refusals are right — this suite has no
+        # business starting the driver again — so the import-time property is asserted where it
+        # lives: in the function that answers, and in the module's own top level.
+        stub = types.ModuleType("pwd")
+        stub.getpwuid = stub.getpwnam = lambda *_a, **_k: (_ for _ in ()).throw(KeyError("no entry"))
+        stub.error = KeyError
+        kept = {"pwd": sys.modules.get("pwd"), "home": os.environ.get("HOME")}
+        try:
+            sys.modules["pwd"] = stub
+            os.environ.pop("HOME", None)
+            answered = _diagnostic_home()
+            raised = None
+        except BaseException as exc:                      # the defect, reported rather than fatal
+            answered, raised = "RAISED", f"{type(exc).__name__}: {exc}"
+        finally:
+            if kept["pwd"] is None:
+                sys.modules.pop("pwd", None)
+            else:
+                sys.modules["pwd"] = kept["pwd"]
+            if kept["home"] is not None:
+                os.environ["HOME"] = kept["home"]
+        control("review Y r2 #3: with no $HOME and no account entry, the home a diagnostic masks is "
+                "None rather than an exception",
+                answered is None, f"{answered!r} {raised}")
+        # And nothing at the module's TOP LEVEL may ask for a home, which is what made the failure
+        # unreachable by any boundary. Asked of the module's own source, so the next edit that puts
+        # such a call back fails here.
+        def asks_for_a_home(node):
+            return any(isinstance(inner, ast.Attribute) and inner.attr in ("home", "expanduser")
+                       for inner in ast.walk(node))
+
+        module = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+        top = [node for node in module.body
+               if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+               and asks_for_a_home(node)]
+        control("review Y r2 #3: and no statement of this module's top level asks for a home at all",
+                not top, [f"line {node.lineno}" for node in top])
+        # That the PRODUCTION path goes through the seam is asserted on the source, not by reverting
+        # it: reverting an inline lookup back into `_account_home` has exactly one observable, a run
+        # written into the owner's real home, which is the damage the fix exists to prevent. A text
+        # assertion is decidable and costs nothing, so an edit that inlines the lookup again fails
+        # here instead of in someone's home directory.
+        resolver = inspect.getsource(_account_home)
+        control("review Y r2 #1: the production resolver reaches the account home only through the "
+                "seam a control can state",
+                "_password_home()" in resolver and "getpwuid" not in resolver,
+                resolver.splitlines()[-6:])
+        # The production resolver itself, against the real database, reading and writing nothing:
+        # the seam above is a control's instrument, and a seam nothing exercises for real is a
+        # second implementation.
+        control("review Y r2 #1: and the production resolver reads an absolute home from the account "
+                "database itself",
+                _account_home().is_absolute(), str(_account_home()))
         # And the fallback is the ACCOUNT's home, not `Path.home()`, which reads the same relative
         # $HOME back: this control wrote `relative-home/.local/state/...` into the checkout the
         # first time it ran, which is the defect it now holds shut.

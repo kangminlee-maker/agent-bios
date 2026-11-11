@@ -292,6 +292,23 @@ PY
   case_is "the exemption comes from the assembler's reader, not a second copy" \
           "session-distill-workflow.md ->"
 
+  # A files[] negation may name BYTECODE and nothing else. npm force-includes README, LICENSE,
+  # the bin and main targets whatever files[] says, so `!README.md` took README out of the content
+  # and endpoint scans while the tarball still carried it, and the packlist comparison agreed
+  # (review Y r2 #2). Planted as the reviewer planted it.
+  fresh
+  python3 - "$W" <<'NEG'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "package.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+if not any(isinstance(e, str) and e.startswith("!") for e in d["files"]):
+    sys.exit("self-test mutation is stale: files[] carries no negation to sit beside")
+d["files"].append("!README.md")
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+NEG
+  case_is "a files[] negation naming anything but bytecode" \
+          "FILES_NEGATION_UNSUPPORTED !README.md"
+
   # Fourth direction, both halves: product code and a self_test body. The second is what
   # proves the scan's scope — a scan that skipped self-tests would exempt a whole class of
   # sites without naming one of them.
@@ -543,6 +560,26 @@ if _bad_negations:
     sys.exit(f"check-package: FAILED — negated files[] entr(ies) {_bad_negations} carry a "
              "character this gate's translation does not model; keep a negation to `*`, `**` and "
              "`?` or teach `excluded_by_npm` the rest")
+# A negation may name BYTECODE and nothing else. npm force-includes README, LICENSE, the bin and
+# main targets whatever files[] says, so a negation naming one of those removed it from the content
+# and endpoint scans while the tarball still carried it — `!README.md` hid a forbidden identifier
+# and a live endpoint, and the packlist comparison agreed because npm shipped the file too
+# (review Y r2 #2). The supported spellings are the installer's (`SUPPORTED_NEGATIONS`), imported
+# rather than restated, so the gate cannot tolerate a negation the payload does not implement.
+sys.path.insert(0, str(REPO / "compose"))
+try:
+    from instructions_install import negation_supported
+except ImportError as exc:
+    sys.exit(f"check-package: cannot read the supported negations — {exc}. "
+             f"compose/instructions_install.py owns them, and this gate keeps no second copy")
+_unsupported = sorted(e for e in files
+                      if isinstance(e, str) and e.startswith("!") and not negation_supported(e))
+if _unsupported:
+    sys.exit("check-package: FAILED — " + "; ".join(
+        f"FILES_NEGATION_UNSUPPORTED {e}: a files[] negation may name only compiled Python "
+        f"(__pycache__, *.pyc, *.pyo); anything else hides a packed file from the content and "
+        f"endpoint scans, because npm force-includes README, LICENSE, bin and main whatever "
+        f"files[] says" for e in _unsupported))
 if not NEGATED:
     sys.exit("check-package: FAILED — files[] carries no negated entry, so nothing keeps npm from "
              "packing a local __pycache__: npm nulls the root .npmignore when files[] exists")
