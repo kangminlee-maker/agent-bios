@@ -225,6 +225,36 @@ def _ls_files(root: pathlib.Path, prefix: str = "") -> list:
     return [line for line in proc.stdout.splitlines() if line]
 
 
+def _exclusion_regex(pattern: str):
+    """One negated `files[]` entry as a regex over a POSIX path, in npm's own terms.
+
+    `**/` is any number of directories, `*` stops at a separator, and a pattern carrying no
+    separator matches a basename at any depth (the gitignore convention npm inherits). Written out
+    rather than handed to `fnmatch`, whose `*` crosses separators: `**/__pycache__/**` under
+    fnmatch's `*` matched every path in the tree and emptied the subject set."""
+    pat = pattern.strip("/")
+    anchored = "/" in pat
+    out, i = [], 0
+    while i < len(pat):
+        if pat.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif pat.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif pat[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif pat[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(pat[i]))
+            i += 1
+    prefix = "^" if anchored else "^(?:.*/)?"
+    return re.compile(prefix + "".join(out) + "$")
+
+
 def derive_subjects(root: pathlib.Path, package: dict, tracked: list) -> tuple:
     """(subjects, problems) — pure, so the self-test can plant derivation holes."""
     problems = []
@@ -248,6 +278,15 @@ def derive_subjects(root: pathlib.Path, package: dict, tracked: list) -> tuple:
     for key in ("main", "browser"):   # both probed force-included, 2026-08-20
         if isinstance(package.get(key), str):
             subjects.add(package[key])
+    # npm's negated entries are EXCLUSIONS, and they are the only rule npm honours once `files[]`
+    # exists (it nulls the root `.npmignore`). They are applied here, so this derivation — which the
+    # endpoint gate imports rather than re-modelling — says what the tarball actually carries.
+    exclusions = [_exclusion_regex(entry[1:]) for entry in entries
+                  if isinstance(entry, str) and entry.startswith("!")]
+    entries = [entry for entry in entries
+               if not (isinstance(entry, str) and entry.startswith("!"))]
+    if not entries:
+        return [], ["package.json files[] declares only exclusions, so no subject set can be derived"]
     for entry in entries:
         if any(char in entry for char in "*?["):
             problems.append(
@@ -274,6 +313,8 @@ def derive_subjects(root: pathlib.Path, package: dict, tracked: list) -> tuple:
                 f"never saw, or ship nothing where the manifest promises a file"
             )
     subjects.update(name for name in tracked if name.startswith("ko/"))
+    if exclusions:
+        subjects = {name for name in subjects if not any(rx.match(name) for rx in exclusions)}
     # A derived subject absent from the worktree is a named failure, not a
     # silent shrink of the denominator (round 2, #0).
     missing = sorted(name for name in subjects if not (root / name).is_file())

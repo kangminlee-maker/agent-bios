@@ -183,6 +183,20 @@ def _relative(value: str, label: str) -> str:
     return path.as_posix()
 
 
+def _is_bytecode(relative: str) -> bool:
+    """Compiled Python, which is the author's and never the package's.
+
+    One predicate for every way a path can enter the payload — an explicit `files[]` entry and a
+    child of a listed directory alike. It was only on the directory branch, so naming a `.pyc`
+    outright still put it in the release inventory and in the release digest (review Y #4).
+
+    Skipped rather than refused: the author cannot be asked to clear a cache before every install,
+    the source beside it is the payload, and a stale `.pyc` shadowing source it no longer matches is
+    the worst shape to hand a user."""
+    parts = PurePosixPath(relative).parts
+    return relative.endswith(".pyc") or "__pycache__" in parts
+
+
 def _inside(path: Path, root: Path) -> bool:
     try:
         path.absolute().relative_to(root.absolute())
@@ -309,6 +323,17 @@ class InstructionsInstaller:
         if not isinstance(listed, list) or not listed:
             raise InstallError("package.json files must declare the private runtime payload")
         paths: set[str] = {"package.json"}  # npm includes this manifest even when files[] omits it.
+        # NEGATED entries (`!pattern`) are npm's exclusions, and they are why they exist here at
+        # all: with `files[]` present npm-packlist nulls the root `.npmignore`, so the one place a
+        # cache can be excluded from the TARBALL is `files[]` itself (measured on npm 12.0.2:
+        # 226 entries with the caches, 224 without). This installer does not implement npm's
+        # pattern language — it applies its own cache rule below, and `gates/check-package.sh`
+        # holds the two expansions equal against `npm pack --dry-run --json`, so a negation that
+        # excludes anything else is a gate failure rather than a silent divergence.
+        listed = [entry for entry in listed
+                  if not (isinstance(entry, str) and entry.startswith("!"))]
+        if not listed:
+            raise InstallError("package.json files declares only exclusions, so it promises no payload")
         # The driver (`session-distill/`) is runtime payload since WP-24: a private install stores it
         # like `wrappers/` or `session-cost.py`, because a user who cannot run it cannot distill
         # their own sessions. The author-side trees stay refused by name — a release carrying
@@ -333,6 +358,8 @@ class InstructionsInstaller:
             if source.is_symlink() or not source.exists():
                 raise InstallError(f"declared package file is missing or symlinked: {relative}")
             if source.is_file():
+                if _is_bytecode(relative):
+                    continue
                 paths.add(relative)
                 continue
             if not source.is_dir():
@@ -344,14 +371,7 @@ class InstructionsInstaller:
                     child_relative = child.relative_to(self.repo).as_posix()
                     if "/test_" in child_relative or child_relative.startswith("tests/"):
                         raise InstallError(f"test file is not a runtime payload: {child_relative}")
-                    # Compiled bytecode is the author's, not the package's. A directory entry
-                    # expands to every FILE under it, and `.pyc` files are files: the driver's
-                    # `runlib/` is run from the checkout constantly, so whatever `__pycache__` the
-                    # author happened to hold was packed into the release — and a stale `.pyc` that
-                    # shadows the source it no longer matches is the worst shape to hand a user.
-                    # Skipped rather than refused: the author cannot be asked to clean a cache
-                    # before every install, and the source beside it is the payload.
-                    if child.suffix == ".pyc" or "__pycache__" in child.parts:
+                    if _is_bytecode(child_relative):
                         continue
                     paths.add(child_relative)
         return sorted(paths)

@@ -201,7 +201,8 @@ def check_declarations(rows, want: tuple[int, int], exemptions) -> list[str]:
 
 def shipped_python(root: Path, files: set[str]) -> list[str]:
     try:
-        entries = json.loads((root / "package.json").read_text(encoding="utf-8")).get("files", [])
+        entries = [e for e in json.loads((root / "package.json").read_text(encoding="utf-8")).get("files", [])
+                   if not (isinstance(e, str) and e.startswith("!"))]   # npm exclusions, not paths
     except (OSError, ValueError) as exc:
         raise ValueError(f"package.json: cannot read files[]: {exc}") from exc
     found = set()
