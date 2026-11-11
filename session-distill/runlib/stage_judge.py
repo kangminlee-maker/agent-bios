@@ -1054,7 +1054,7 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
                     "packet_sha256": receipt.get("packet_sha256"),
                     "pairs": labels.resolve(gate.accepted(call_dir, judged=True))})
                 stage.output(rel)
-                receipts.append((f"{group}/{shard}", seat, call_id, receipt, payload_sha256))
+                receipts.append((f"sweep/{group}/{shard}", seat, call_id, receipt, payload_sha256))
                 held.update(call_id=call_id, result=rel)
             row["seats"][side] = held
         section["calls"].append(row)
@@ -1403,6 +1403,15 @@ def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, 
 DERIVATIONS = "judgments/derivations.json"
 TEST_STATE = "untested: s8_deferred"   # release 1 runs no S8 (D-20261111-818391)
 DELIVERY_WAITING = "delivery_assembly_waiting"   # lead decision D3: S5b assembles it, and S6 does not read it yet
+UNIT_OUTCOMES_NONE = ("unit outcomes are read at the release reference point (design §6.4), and S6 judges the current "
+                      "point only until S5 retrieves at a release point (D-20261111-c4fa71): S7 receives no unit outcome in "
+                      "release 1")
+ARC_UNDETERMINED = ("an arc retrospective the owner confirms in the review (design §7.4) is the only producer, and the "
+                    "review comes after S6; derive is given arc_confirmed false, so a type G candidate is eligible by "
+                    "its lineage count alone (D-20261111-f122c0)")
+
+
+G_TYPES = tuple(next(r for r in derive.table()["promotion"] if r["id"] == "type_g")["types"])
 
 
 def marks_of(judgment):
@@ -1443,7 +1452,8 @@ def derivation_input(candidate, source, row, first, again, point):
                              "no_longer_arises": (first[who].get("no_longer_arises") or {}).get("value") is True}
                        for who in SEAT_KEYS},
             "points": {"current": {**point, "units": units}},
-            "checks_pass": True, "lineages": (row.get("recurrence") or {}).get("count", 0), "arc_confirmed": False}
+            "checks_pass": True, "lineages": (row.get("recurrence") or {}).get("count", 0),
+            "arc_confirmed": False}   # undetermined, not false: ARC_UNDETERMINED
 
 
 def derive_stage(run_dir, summary, judgments, swept, again):
@@ -1479,9 +1489,16 @@ def derive_stage(run_dir, summary, judgments, swept, again):
         matched = [u for u, d in (outcome["unit_diagnosis"].get("current") or {}).items() if d != "no match"]
         waiting += len(population[cid].get("sessions") or []) * len(matched)
         verdicts[cid] = {"outcome": outcome, "requirements": {who: given["judges"][who]["requirements"] for who in SEAT_KEYS},
-                         "lineages": given["lineages"]}
+                         "lineages": given["lineages"],
+                         **({"arc_confirmation": "undetermined"} if given["candidate"]["type"] in G_TYPES else {})}
     tally = collections.Counter
+    g_rows = [v for v in verdicts.values() if "arc_confirmation" in v]
+    bar = next(r for r in derive.table()["promotion"] if r["id"] == "type_g")["independent_lineages_at_least"]
     return {"stage": STAGE, "test": TEST_STATE, "points": {"release": "absent (D-20261111-c4fa71)", "current": point},
+            "unit_outcomes": {"state": "none", "candidates": len(verdicts), "why": UNIT_OUTCOMES_NONE},
+            "arc_confirmation": {"state": "undetermined", "passed_as": False, "g_candidates": len(g_rows),
+                                 "g_below_lineage_bar": sum(1 for v in g_rows if v["lineages"] < bar),
+                                 "lineage_bar": bar, "why": ARC_UNDETERMINED},
             "delivery": {"state": DELIVERY_WAITING, "pairs": waiting,
                          "why": "S5b assembles delivery evidence (lead decision D3); S6 reads it once a wiring commit "
                                 "makes it S6's input"},
@@ -1548,6 +1565,18 @@ def stage_receipts(calls):
         out += [p for p in receipt_problems(held) if not p.startswith("RECEIPT_STALE")]
     out += [p for p in receipt_problems({c: (s, r) for _cid, s, c, r, _b in calls}) if p.startswith("RECEIPT_STALE")]
     return out
+
+
+RECEIPT_KINDS = ("sweep", "cross", "reconsider")   # a receipt key's prefix; any other key is a judgment's candidate id
+
+
+def receipt_counts(calls):
+    """How many receipts of each kind `stage_receipts` was given: `{judge, sweep, cross, reconsider}`. It cannot see a
+    receipt missing from its list, so the run records what it held to N#1 and a control compares that with the calls
+    accepted."""
+    kinds = collections.Counter(key.split("/", 1)[0] if key.split("/", 1)[0] in RECEIPT_KINDS else "judge"
+                                for key, *_rest in calls)
+    return {kind: kinds.get(kind, 0) for kind in ("judge",) + RECEIPT_KINDS}
 
 
 # S6's golden host: dispatch's (FAKE_HOST) for both hosts, with what its Codex branch does not do
@@ -1717,7 +1746,8 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         crossed, cross_receipts = cross_stage(run_dir, stage, supervisor, declaration, swept, item_of, caps, tranche)
         again, again_receipts = reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, judgments,
                                                  crossed, caps, tranche)
-        problems = stage_receipts(receipts + sweep_receipts + cross_receipts + again_receipts)
+        held_receipts = receipts + sweep_receipts + cross_receipts + again_receipts
+        problems = stage_receipts(held_receipts)
         if problems:
             raise Refused("\n".join(problems))
         derived = derive_stage(run_dir, summary, judgments, swept, again)
@@ -1734,7 +1764,10 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         again["counts"] = {**{o: again_outcomes.count(o) for o in OUTCOMES},
                            "reused": sum(1 for row in again["calls"] for held in row["seats"].values() if held["reused"])}
         summary.update(dry=False, calls=calls, sweeps=swept, cross_review=crossed, reconsiderations=again,
-                       derivations={"file": DERIVATIONS, "counts": derived["counts"], "delivery": derived["delivery"]},
+                       receipts_checked=receipt_counts(held_receipts),
+                       derivations={"file": DERIVATIONS, "counts": derived["counts"], "delivery": derived["delivery"],
+                                    "unit_outcomes": derived["unit_outcomes"],
+                                    "arc_confirmation": derived["arc_confirmation"]},
                        interrupted=interrupted, tranche=tranche,
                        counts={**{o: outcomes.count(o) for o in OUTCOMES},
                                "reused": sum(1 for row in calls for held in row["seats"].values() if held["reused"]),
@@ -1791,7 +1824,10 @@ def report_lines(summary):
             lines.append(f"derivations: {dv['derived']} candidates derived, {dv['not_derived']} not; admission "
                          + ", ".join(f"{k} {n}" for k, n in sorted(dv["admission"].items())) + "; current diagnosis "
                          + ", ".join(f"{k} {n}" for k, n in sorted(dv["current"].items())) + f"; {dv['eligible']} eligible; "
-                         f"{summary['derivations']['delivery']['pairs']} (session, unit) pairs {DELIVERY_WAITING}")
+                         f"{summary['derivations']['delivery']['pairs']} (session, unit) pairs {DELIVERY_WAITING}; no unit "
+                         f"outcome for {summary['derivations']['unit_outcomes']['candidates']} candidates (release not "
+                         f"judged); arc confirmation undetermined for {summary['derivations']['arc_confirmation']['g_candidates']} "
+                         "type G candidates")
             rc = summary["reconsiderations"]
             after = collections.Counter(r["diagnosis"] for r in rc["reconsidered"])
             lines.append(f"reconsidered by both judges: {len(rc['reconsidered'])} absence claims (" + ", ".join(
@@ -2384,6 +2420,11 @@ def self_test():
                                  held[3][4])]
             control("control: a receipt whose payload hash is not the payload S6 built is PACKET_DIVERGENCE",
                     sum(p.startswith("PACKET_DIVERGENCE") for p in stage_receipts(moved)) == 2, f"{stage_receipts(moved)}")
+            unbudgeted = copy_of("unbudgeted")
+            said = refusal(lambda: run(unbudgeted, supervisor(unbudgeted, root / "cells-ub", clean_plan)))
+            control("control: a run that declares no budget.per_stage.S6 is refused BUDGET_UNDECLARED S6 at the first "
+                    "reservation, before any S6 call", said.startswith("BUDGET_UNDECLARED S6")
+                    and not any(f"-{STAGE}-" in d.name for d in (unbudgeted / "calls").iterdir()), said[:200])
             dv_called = guarded(lambda: records.read_json(called / DERIVATIONS), {})
             gap_row = next(r for r in derive.table()["candidate_diagnosis"] if not r.get("lifecycle") and r["if_any_unit"] is None)
             currents = [v["outcome"]["candidate_diagnosis"]["current"] for v in dv_called.get("verdicts", {}).values()]
@@ -2861,6 +2902,44 @@ def self_test():
                         "delivery_assembly_waiting", dv.get("delivery", {}).get("state") == "delivery_assembly_waiting"
                         and dv.get("delivery", {}).get("pairs") == want_pairs and want_pairs > 0,
                         f"{dv.get('delivery')} {want_pairs}")
+                control("J4a: the derivations say by name that no unit outcome is derived, why, and for how many candidates",
+                        dv.get("unit_outcomes", {}).get("state") == "none"
+                        and dv.get("unit_outcomes", {}).get("candidates") == len(verd) and len(verd) > 0
+                        and "D-20261111-c4fa71" in dv.get("unit_outcomes", {}).get("why", "")
+                        and fourth.get("derivations", {}).get("unit_outcomes") == dv.get("unit_outcomes"),
+                        f"{dv.get('unit_outcomes')}")
+                g_ids = sorted(c for c in verd if pop_b[c].get("type") in G_TYPES)
+                bar_g = next(r for r in derive.table()["promotion"] if r["id"] == "type_g")["independent_lineages_at_least"]
+                arc = dv.get("arc_confirmation", {})
+                control("J4a (D-20261111-f122c0): every type G verdict says its arc confirmation is undetermined, no other "
+                        "verdict does, and the derivations count the G candidates and those below the lineage bar",
+                        g_ids and all(verd[c].get("arc_confirmation") == "undetermined" for c in g_ids)
+                        and not any("arc_confirmation" in v for c, v in verd.items() if c not in g_ids)
+                        and arc.get("state") == "undetermined" and arc.get("passed_as") is False
+                        and arc.get("g_candidates") == len(g_ids)
+                        and arc.get("g_below_lineage_bar") == sum(1 for c in g_ids if verd[c]["lineages"] < bar_g),
+                        f"{arc} {g_ids}")
+                # N#1 over the reconsiderations (J3c): the check that reads their receipts, and what the run handed it
+                accepted_rc = sum(1 for r in rc.get("calls", []) for h in r["seats"].values() if h["outcome"] == "accepted")
+                control("J3c (N#1): the run holds every accepted reconsideration's receipt to N#1 - the receipts it checked "
+                        "count each accepted reconsideration call once", accepted_rc > 0
+                        and fourth.get("receipts_checked", {}).get("reconsider") == accepted_rc
+                        and fourth.get("receipts_checked", {}).get("cross") == len(cr.get("calls", [])),
+                        f"{fourth.get('receipts_checked')} {accepted_rc}")
+                pair_rc = []
+                for who in ("A", "B"):
+                    call_rc = kept_rc[(claims_known[1], who)].get("call_id")
+                    held_rc = guarded(lambda call_rc=call_rc: records.read_json(whole / "calls" / call_rc / "receipt.json"), {})
+                    pair_rc.append((f"reconsider/{claims_known[1]}", who, call_rc, held_rc,
+                                    kept_rc[(claims_known[1], who)].get("payload_sha256")))
+                control("J3c (N#1): the kept reconsiderations' receipt pair passes the check that reads it",
+                        all(r[3] for r in pair_rc) and not stage_receipts(pair_rc), f"{stage_receipts(pair_rc)}")
+                moved_rc = [pair_rc[0], (*pair_rc[1][:3], {**pair_rc[1][3], "evidence": {
+                    **(pair_rc[1][3].get("evidence") or {}), "payload_sha256": "0" * 64}}, pair_rc[1][4])]
+                named("control (N#1): a reconsideration's two receipts carrying different payload hashes is "
+                      "PACKET_DIVERGENCE", stage_receipts(moved_rc), "PACKET_DIVERGENCE")
+                control("J3c: a receipt missing from the list is not something the check can see - receipt_counts says what "
+                        "it held", receipt_counts(pair_rc[:1]).get("reconsider") == 1 and not stage_receipts(pair_rc[:1]))
                 some = next(iter(sorted(kept_sw)), None)
                 if some is not None:
                     said = refusal(lambda: kept_sweep(whole, sweep_rel(*some), "0" * 64))
@@ -2973,7 +3052,9 @@ def self_test():
           "schema's projection with drift planted both ways, candidate-level fields refused by the schema in a run and "
           "by FIELD_UNEXPECTED, the unit rules in the judgment packet's own words; the derivations (J4a) - done-when 2's "
           "disputed, rejected and admitted, every judged candidate derived, the marks and lineages read, the reconsidered "
-          "diagnosis carried, no release point, the delivery pairs counted as waiting, an unfinished claim named)")
+          "diagnosis carried, no release point, the delivery pairs counted as waiting, an unfinished claim named, no unit "
+          "outcome said by name, the type G arc confirmation undetermined and counted, the reconsiderations' receipts held "
+          "to N#1 and counted, a run with no S6 budget refused before any call)")
     return 0
 
 
