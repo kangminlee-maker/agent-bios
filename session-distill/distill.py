@@ -336,6 +336,13 @@ def cmd_deliver(args):
     return 0
 
 
+# The handler per subcommand, as ONE table rather than a literal inside the parser builder: a
+# `cmd_` function that nothing dispatches to is a command that reports STAGE_NOT_IMPLEMENTED while
+# its implementation sits in the file, which is how `deliver` shipped unreachable in WP-11b's first
+# commit. The self-test holds this table against the `cmd_` functions that exist.
+HANDLERS = {}
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -343,6 +350,10 @@ def cmd_stage(args):
         return 2
     say(f"STAGE_NOT_IMPLEMENTED {args.command} ({stage}): no stage logic has landed for it", sys.stderr)
     return 2
+
+
+HANDLERS.update({"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
+                 "form": cmd_form, "retrieve": cmd_retrieve, "deliver": cmd_deliver})
 
 
 def build_parser():
@@ -393,8 +404,7 @@ def build_parser():
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
             sub.add_argument("--golden-plan", help="a golden host's plan: realization golden, no model is started")
             sub.add_argument("--index", help="the occasion index's rows (a JSON list; WP-21, golden until it lands)")
-        sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
-                                  "form": cmd_form, "retrieve": cmd_retrieve}.get(name, cmd_stage))
+        sub.set_defaults(handler=HANDLERS.get(name, cmd_stage))
     return parser
 
 
@@ -652,7 +662,20 @@ def self_test():
 
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
-        implemented = ("census", "views", "inventory", "form", "retrieve")
+        implemented = ("census", "views", "inventory", "form", "retrieve", "deliver")
+        # The structural half, which is what this suite lacked: a `cmd_` function the parser never
+        # dispatches to is an implemented command that answers STAGE_NOT_IMPLEMENTED, and the loop
+        # below cannot see it — it ASSERTED that answer for `deliver` while `cmd_deliver` sat in the
+        # file unreachable (WP-11b, found by running S5b on a real run). Both directions, by name.
+        own = {name[len("cmd_"):] for name in globals() if name.startswith("cmd_")
+               and name not in ("cmd_stage", "cmd_declare")}
+        control("every command with a handler of its own is dispatched to it",
+                not (own - set(HANDLERS)), f"undispatched: {sorted(own - set(HANDLERS))}")
+        control("and every dispatched command has one", not (set(HANDLERS) - own),
+                f"dispatched to nothing of its own: {sorted(set(HANDLERS) - own)}")
+        control("the implemented list is the dispatch table, so neither can drift from the other",
+                set(implemented) == set(HANDLERS),
+                f"implemented={sorted(implemented)} dispatched={sorted(HANDLERS)}")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue
@@ -665,6 +688,10 @@ def self_test():
         code, err = cli("retrieve", "--run-id", "r1")
         control("retrieve (S5) over a run S4 has not run is refused by name, and no stage record is written or changed",
                 code == 1 and "INPUT_INVALID S4" in err and stage_files() == before, f"{code} {err}")
+        code, err = cli("deliver", "--run-id", "r1")
+        control("deliver (S5b) over a run whose immutable copy is absent is refused by name, and no "
+                "stage record is written or changed",
+                code == 1 and "DELIVERY_SOURCES_MISSING" in err and stage_files() == before, f"{code} {err}")
         code, err = cli("form", "--run-id", "r-form")
         control("form (S4) with neither --dry nor --cells is refused by name before anything is recorded",
                 code == 1 and "INPUT_INVALID form --cells" in err and not (out / "r-form").exists(), err)
