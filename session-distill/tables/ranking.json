@@ -20,6 +20,18 @@
       "$comment": "The one numeric key, and the only descending one: more affirmed lineages first."
     },
     {
+      "id": "owner_resolves",
+      "direction": "ascending",
+      "source": "the S7b review's own owner_resolves",
+      "values": {
+        "true": 0,
+        "absent": 1,
+        "false": 1
+      },
+      "design": "plan amendment 2026-11-11T0040 (release 1 ships distill without S8), the WP-20 row: \"the §7.5 order falls back to the judges and S7b, and the header names the fallback\".",
+      "$comment": "This key rests on the AMENDMENT, not on §7.5. §7.5's own seven keys carry no S7b part: with S8 deferred no row can be tested, so the ordering signal S8 would have supplied is replaced by the two that remain - the judges' (already here as `lineages`, the affirmed independent lineages S6's judges agree on) and S7b's, which is this key. It sits after `lineages` and before `kind` so the two fallback signals are adjacent and both ahead of the structural keys. A row whose S7b review disagrees and leaves the question to the owner (`owner_resolves` true) sorts FIRST, because the owner reading the report is the person who resolves it. A row that carries no S7b record at all is NEUTRAL, not last: it ranks exactly where S7's own keys put it, so adding the key cannot reorder a run that has no reviews. The direction of the first group is a lead decision, since the amendment's sentence says the order falls back to S7b without saying which way; revisit the key when S8 lands and §7.5's test signal returns."
+    },
+    {
       "id": "kind",
       "direction": "ascending",
       "source": "kind_order"
