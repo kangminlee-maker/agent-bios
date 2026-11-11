@@ -1,0 +1,66 @@
+{
+  "$comment": "design §6.4 (design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md) as data: the one source runlib/derive.py reads and its fixture generator writes one frozen fixture per row from. Words are the design's own. A column that is the string \"any\" or \"—\" accepts every value of its domain, as the design's dash does; a list accepts its members. Every section's rows carry an id, and the frozen fixtures name those ids (`derive.py --generate-fixtures`).",
+  "domains": {
+    "judged": ["yes", "no"],
+    "diagnosis": ["covers", "wrong or insufficient", "trigger problem", "no match"],
+    "delivery": ["unknown", "selected_unavailable", "not_delivered", "exposed_not_read", "delivered"],
+    "following": ["followed", "not_followed", "unknown"],
+    "contribution": ["helped", "harmed", "neutral", "unknown"],
+    "requirement": ["met", "unmet", "uncertain"],
+    "test": ["untested: s8_deferred"]
+  },
+  "unit_diagnosis": [
+    {"id": "covers", "situation": "yes", "action": "yes", "diagnosis": "covers"},
+    {"id": "wrong_or_insufficient", "situation": "yes", "action": "no", "diagnosis": "wrong or insufficient"},
+    {"id": "trigger_problem", "situation": "no", "action": "yes", "diagnosis": "trigger problem"},
+    {"id": "no_match", "situation": "no", "action": "no", "diagnosis": "no match"}
+  ],
+  "unit_outcome": [
+    {"id": "o1", "diagnosis": "any", "delivery": ["unknown"], "following": "—", "contribution": "—", "outcome": "unknown", "test": "—"},
+    {"id": "o2", "diagnosis": "any", "delivery": ["selected_unavailable", "not_delivered"], "following": "—", "contribution": "—", "outcome": "not delivered", "test": "—"},
+    {"id": "o3", "diagnosis": ["covers"], "delivery": ["exposed_not_read"], "following": "—", "contribution": "—", "outcome": "misfire (trigger)", "test": "—"},
+    {"id": "o4", "diagnosis": ["covers"], "delivery": ["delivered"], "following": ["not_followed"], "contribution": "—", "outcome": "misfire", "test": "—"},
+    {"id": "o5", "diagnosis": ["covers"], "delivery": ["delivered"], "following": ["followed"], "contribution": ["harmed"], "outcome": "misfire", "test": "—"},
+    {"id": "o6", "diagnosis": ["covers"], "delivery": ["delivered"], "following": ["followed"], "contribution": ["helped"], "outcome": "confirmed", "test": "—"},
+    {"id": "o7", "diagnosis": ["covers"], "delivery": ["delivered"], "following": ["followed"], "contribution": ["neutral"], "outcome": "neutral (followed, no effect)", "test": "—"},
+    {"id": "o8", "diagnosis": ["covers"], "delivery": ["delivered"], "following": ["followed"], "contribution": ["unknown"], "outcome": "unknown", "test": "—"},
+    {"id": "o9", "diagnosis": ["covers"], "delivery": ["delivered"], "following": ["unknown"], "contribution": "—", "outcome": "unknown", "test": "—"},
+    {"id": "o10", "diagnosis": ["trigger problem", "wrong or insufficient"], "delivery": ["delivered", "exposed_not_read"], "following": "—", "contribution": "—", "outcome": "misfire", "test": "—"}
+  ],
+  "candidate_diagnosis": [
+    {"id": "covered", "if_any_unit": "covers", "diagnosis": "covered"},
+    {"id": "wrong_or_insufficient", "if_any_unit": "wrong or insufficient", "diagnosis": "wrong or insufficient"},
+    {"id": "trigger_problem", "if_any_unit": "trigger problem", "diagnosis": "trigger problem"},
+    {"id": "gap", "if_any_unit": null, "diagnosis": "gap", "incomplete": "unknown"},
+    {"id": "redundant", "lifecycle": "redundancy_hint", "covering_units_at_least": 2, "diagnosis": "redundant"}
+  ],
+  "kind": [
+    {"id": "obsolete", "lifecycle_no_longer_arises": true, "kind": "obsolete",
+     "$comment": "first: a lifecycle candidate both judges find no longer arising is obsolete whatever its units yield; the design names the case without a place in the order, and the order of this list is the precedence"},
+    {"id": "misfire", "if_any_outcome": ["misfire", "misfire (trigger)"], "kind": "misfire"},
+    {"id": "not_delivered", "if_any_outcome": ["not delivered"], "kind": "not delivered"},
+    {"id": "unknown", "if_any_outcome": ["unknown"], "kind": "unclassified"},
+    {"id": "confirmed", "if_any_outcome": ["confirmed"], "kind": "confirmed"},
+    {"id": "all_neutral", "if_any_outcome": ["neutral (followed, no effect)"], "kind": "unclassified"},
+    {"id": "gap", "no_matching_unit": {"release": "gap", "current": "gap"}, "kind": "gap"},
+    {"id": "already_resolved", "no_matching_unit": {"release": "gap", "current": "covered"}, "kind": "already resolved"},
+    {"id": "no_matching_unit_otherwise", "no_matching_unit": "otherwise", "kind": "unclassified",
+     "$comment": "not a row of §6.4: the design names two pairs for a candidate with no matching unit, and any other pair (an absence unknown at either point, or a current point whose units match without covering) is unclassified rather than read as either; a licensed addition of runlib/derive.py, so the table stays total"}
+  ],
+  "admission": [
+    {"id": "admitted", "rule": "both judges mark every requirement met and every deterministic check passes", "admission": "admitted"},
+    {"id": "rejected", "rule": "both judges mark one requirement unmet", "admission": "rejected"},
+    {"id": "disputed", "rule": "anything else", "admission": "disputed"}
+  ],
+  "requirements": ["observed_event", "consequence", "causal_support", "recognizable_in_advance", "actionable", "bounded", "positioned", "audience"],
+  "promotion": [
+    {"id": "lineages", "types": "any but G", "independent_lineages_at_least": 2, "eligible": true},
+    {"id": "consequence", "types": "any but G", "both_judges_class_one_of": ["irreversible", "security-relevant", "verification-corrupting"], "eligible": true},
+    {"id": "type_g", "types": ["G"], "independent_lineages_at_least": 3, "or_arc_confirmed": true, "eligible": true},
+    {"id": "below_bar", "types": "any", "eligible": false, "allowed_dispositions": ["incubate", "keep", "drop"]}
+  ],
+  "absence_completeness": {
+    "policy": "literal",
+    "$comment": "§6.4: an incomplete reference point turns gap into unknown. `literal` reads the reference point's own flag (§6.1), so a layer with no producer at any point (native_settings, D-20261102-0caf7d) keeps every absence unknown; `scoped` reads only the layers it lists, and every absence claim then names them. The records of 2026-10-22, 2026-10-23T1330 and T1548 leave the choice to WP-10; this is the default until it is decided."
+  }
+}
