@@ -30,7 +30,9 @@ The calls (plan WP-11 J2): `distill.py judge --cells DIR` sends every judged can
 the dispatcher, each judge an item of its own with the candidate's one payload (N#1). Each answer is held to its packet
 by the stage (`check`) and kept in the stores' ids (`judgments/<item>/<A|B>.json`); the receipts carry the payload S6
 built and one packet each (`stage_receipts`); a call whose capture shows an undeclared instruction is failed by the
-gate whatever it answered (done-when 5). A re-run reuses every accepted attempt and calls only the rest.
+gate whatever it answered (done-when 5). A re-run reuses every accepted attempt and calls only the rest; another run
+reuses nothing, and one judge's attempt never answers the other's item (done-when 4's decidable halves; the reuse map and
+the later reference point's call are deferred, D-20261111-c4fa71).
 
   stage_judge.py --self-test
 """
@@ -1469,6 +1471,44 @@ def self_test():
             said = refusal(lambda: check(packets[judged_ids[0]][0], limits_a.get("capacity"))(moved_dir))
             control("control: an attempt whose call record carries another capacity than S6 was admitted against is "
                     "CAPACITY_UNRECORDED", said.startswith("CAPACITY_UNRECORDED"), said[:200])
+            # ---- done-when 4's decidable halves (J2b deferred, D-20261111-c4fa71) -------------------------------------
+            # no cross-run reuse: the same inputs under another run id, an earlier run's judgments and reuse map in it
+            nxt_root = root / "next"
+            shutil.copytree(planner, nxt_root)
+            nxt = nxt_root / f"{called.name}-next"
+            (nxt_root / called.name).rename(nxt)
+            shutil.copytree(called / "judgments", nxt / "judgments")
+            earlier_map = nxt / "judgments" / "reuse.json"
+            earlier_map.write_text(json.dumps({sha256_json([c, w]): judgment_rel(item_of(c), w) for c in judged_ids
+                                               for w in ("A", "B")}), encoding="utf-8")
+            planted_bytes = earlier_map.read_bytes()
+            fresh = guarded(lambda: run(nxt, supervisor(nxt, root / "cells-5", clean_plan)), lambda e: {"problem": repr(e)})
+            fresh_calls = sorted(d.name for d in (nxt / "calls").iterdir() if d.name.startswith(f"{nxt.name}-{STAGE}-"))
+            control("done-when 4: a new run with the same inputs makes a fresh call for every judgment - an earlier run's "
+                    "judgments and reuse map in its directory are ignored, and the map is left as it was",
+                    fresh.get("counts", {}).get("reused") == 0 and fresh.get("counts", {}).get("accepted") == 2 * len(judged_ids)
+                    and len(fresh_calls) == 2 * len(judged_ids) and earlier_map.read_bytes() == planted_bytes,
+                    f"{fresh.get('counts', fresh)} {len(fresh_calls)}")
+            # A's judgment never answers B: every A accepted and no B, then both
+            only_a = copy_of("only-a", through_s5=False)
+            declare.amend(only_a, [("budget.per_stage.S6", 20_000_000), ("judge", {"candidate_kinds": {"formed": "all"}})],
+                          "S6's golden budget, the formed candidates only (WP-11 J2)", scope=["S5", "S6"])
+            stage_retrieve.run(only_a, "aa" * 8)
+            a_plan = root / "plan-a-only.json"
+            seat_a = f"SEAT: {fresh.get('seats', {}).get('A')}"
+            a_plan.write_text(json.dumps([r for r in json.loads(pathlib.Path(clean_plan).read_text(encoding="utf-8"))
+                                          if r["match"][0] == seat_a]), encoding="utf-8")
+            one = guarded(lambda: run(only_a, supervisor(only_a, root / "cells-6", a_plan)), lambda e: {"problem": repr(e)})
+            two = guarded(lambda: run(only_a, supervisor(only_a, root / "cells-7", clean_plan)), lambda e: {"problem": repr(e)})
+            a_rows, b_rows = ([row["seats"].get(w, {}) for row in got.get("calls", [])] for got, w in ((one, "A"), (two, "B")))
+            control("done-when 4: A's accepted judgment never answers B - with every A accepted and no B, the next run calls "
+                    "every B anew, and no B considers an attempt of A's",
+                    a_rows and all(h.get("outcome") == "accepted" for h in a_rows)
+                    and all(h.get("outcome") == "failed" for row in one.get("calls", []) for h in [row["seats"].get("B", {})])
+                    and two.get("counts", {}).get("reused") == len(a_rows)
+                    and all(h.get("outcome") == "accepted" and not h.get("reused")
+                            and all("-B-a" in reason.split()[1] for reason in h.get("not_reused", [])) for h in b_rows),
+                    f"{one.get('counts', one)} {two.get('counts', two)}")
             token = os.environ.pop("CLAUDE_RUN_TOKEN_FILE", None)
             try:
                 said = refusal(lambda: supervisor(tight, root / "cells-4"))
@@ -1494,7 +1534,8 @@ def self_test():
           "EDGES_ABSENT, JUDGE_UNSUPERVISED and INPUT_INVALID S5; the calls (J2) through the golden hosts - both judges per "
           "candidate, done-when 5's replayed undeclared instruction failed, a unit left unjudged failed by name, the "
           "re-run reusing every accepted attempt, one payload and one packet per receipt with RECEIPT_STALE and "
-          "PACKET_DIVERGENCE planted, JUDGE_OVER_CAPACITY and TOKEN_FILE_UNSET)")
+          "PACKET_DIVERGENCE planted, JUDGE_OVER_CAPACITY and TOKEN_FILE_UNSET; done-when 4's decidable halves - no "
+          "reuse across runs, and A's judgment never answering B)")
     return 0
 
 
