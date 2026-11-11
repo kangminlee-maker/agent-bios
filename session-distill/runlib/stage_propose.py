@@ -534,6 +534,16 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
 OUTPUT = "proposals.json"
 
 
+# A subset is a reading of the stage, not a run of it. `run` writes the stage's ONE output and
+# registers it, so a subset run would replace the whole document with a few rows and every other
+# candidate would be reported RENDER_INCOMPLETE by S9. WP-20 therefore calls `document(..., only=)`
+# and writes its own file; `run` refuses the argument by name rather than silently doing the
+# narrower thing.
+SUBSET_IN_RUN = ("SUBSET_IN_RUN {stage}: `run` writes the stage's output, so a subset would replace "
+                 "the whole document with {n} of its rows. Call `document(..., only=...)` and write "
+                 "the result where the caller owns it.")
+
+
 def run(run_dir, answers, active_keep=None, legacy=(), only=None):
     """The stage, through the shared mechanism: nothing is written on refusal.
 
@@ -543,10 +553,12 @@ def run(run_dir, answers, active_keep=None, legacy=(), only=None):
     staleness check has nothing to compare. Both are now exercised end to end in the suite, because
     every control over this function was calling `document` instead."""
     run_dir = pathlib.Path(run_dir)
+    if only is not None:
+        raise Refused(SUBSET_IN_RUN.format(stage=STAGE, n=len(list(only))))
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         derivations = records.read_json(run_dir / "judgments" / "derivations.json")
         candidates = records.read_json(run_dir / "checked-candidates.json")
-        doc = document(derivations, candidates, answers, active_keep, legacy, only)
+        doc = document(derivations, candidates, answers, active_keep, legacy)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return stage, doc
@@ -1396,33 +1408,42 @@ def self_test():
             control("every proposal S7 wrote is reviewed, so the two stages' populations agree",
                     f'{s7b_doc["counts"]["proposals"]}={s7b_doc["counts"]["reviewed"]}',
                     f'{len(doc["proposals"])}={len(doc["proposals"])}')
-            # WP-20's second pass, on the golden host: S7 and S7b over a subset of the run's own
-            # candidates, written into a copy so the full run's documents are left as they are.
+            # WP-20's second pass over the run's OWN candidates, through `document` rather than
+            # `run`: the stage's output is one file, so a subset run would replace the whole
+            # document with a few rows and S9 would report every other candidate
+            # RENDER_INCOMPLETE. The caller writes the subset where it owns it.
             if doc["proposals"]:
                 picked = [doc["proposals"][0]["candidate_id"]]
-                sub_root = root / "subset"
-                sub_root.mkdir()
-                sub_run = shutil.copytree(made, sub_root / made.name)
-                subset_name = ("S7 runs on a subset of the run's candidates and says which subset "
-                               "the document is about")
-                try:
-                    _s, sub_doc = run(sub_run, {cid: answers[cid] for cid in picked}, only=picked)
-                except STAGE_REFUSALS as exc:
-                    ran.append(subset_name)
-                    failures.append((subset_name, f"the stage refused: {exc}"))
-                    sub_doc = {"counts": {"candidates": 0}, "subset": None, "proposals": []}
-                control(subset_name,
+                derivations = records.read_json(made / "judgments" / "derivations.json")
+                candidates_doc = records.read_json(made / "checked-candidates.json")
+                sub_doc = document(derivations, candidates_doc,
+                                   {cid: answers[cid] for cid in picked}, only=picked)
+                control("S7 answers a subset of a real run's candidates and says which subset the "
+                        "document is about",
                         f'{sub_doc["counts"]["candidates"]}:{json.dumps(sub_doc["subset"])}',
                         f'1:{json.dumps(picked)}')
                 control("and S7b reviews that same subset",
                         json.dumps(stage_review_proposals.document(
                             sub_doc, {cid: held[cid] for cid in picked}, only=picked)["subset"]),
                         json.dumps(picked))
-                clean("the subset run wrote its own document inside its own run",
-                      [] if (sub_run / OUTPUT).is_file() else [f"no {OUTPUT} in {sub_run}"])
-                clean("and the full run's document is untouched by it",
+                control("but `run` refuses a subset by name, because it would overwrite the stage's "
+                        "whole output with those rows",
+                        refusal(lambda: run(made, answers, only=picked)), f"SUBSET_IN_RUN {STAGE}")
+                control("and so does S7b's",
+                        refusal(lambda: stage_review_proposals.run(made, held, only=picked)),
+                        "SUBSET_IN_RUN S7b")
+                clean("the refused subset run left the full document exactly as it was",
                       [] if records.read_json(made / OUTPUT)["counts"] == doc["counts"]
                       else ["the full document moved"])
+                # The refusal has to come BEFORE the stage record is opened. Refusing inside the
+                # stage leaves a half-opened record, which the next run reads as a failed S7 rather
+                # than as a call that never happened.
+                control("and the stage record still says the real run completed, so the refused "
+                        "call never opened a stage",
+                        str(record_of(STAGE).get("status")), "complete")
+                clean("with its one output still registered",
+                      [] if [o.get("artifact") for o in record_of(STAGE).get("outputs") or []]
+                      == [OUTPUT] else [f"{record_of(STAGE).get('outputs')}"])
 
             # And the CLI, as a subprocess: 25 direct-call controls once passed while the command
             # itself crashed, so the command is exercised over files the way a caller runs it. Its

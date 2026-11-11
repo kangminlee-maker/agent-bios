@@ -202,9 +202,12 @@ def run(run_dir, reviews, only=None):
     reason `stage_propose.run` states: a bare name is refused by the confinement, and an
     unregistered output leaves the next stage's staleness check nothing to read."""
     run_dir = pathlib.Path(run_dir)
+    if only is not None:
+        # The same refusal as S7's, named by S7 so there is one sentence for one rule.
+        raise Refused(stage_propose.SUBSET_IN_RUN.format(stage=STAGE, n=len(list(only))))
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         proposals = records.read_json(run_dir / stage_propose.OUTPUT)
-        doc = document(proposals, reviews, only=only)
+        doc = document(proposals, reviews)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return stage, doc
@@ -442,16 +445,33 @@ def self_test():
     control("and a full review says it is not a subset",
             json.dumps(document(two, reviews_two)["subset"]), "null")
     def refused(call):
+        """The refusal as text, or any other exception as text.
+
+        Catching `Refused` alone made a control die rather than speak: with the refusal reverted the
+        call reached `run_stage` over a path that does not exist and raised an OSError straight
+        through the suite.
+        """
         try:
             call()
-        except Refused as exc:
-            return str(exc)
+        except Exception as exc:  # noqa: BLE001 - the exception IS the answer here
+            return f"{type(exc).__name__}: {exc}"
         return ""
 
     control("a proposal this run does not hold is refused by name rather than dropped",
             refused(lambda: document(two, reviews_two, only=["k9"])), "SUBSET_UNKNOWN k9")
     control("and an empty subset is refused", refused(lambda: document(two, reviews_two, only=[])),
             "SUBSET_EMPTY")
+    control("`run` refuses a subset by name: the stage's output is one file, so a subset run would "
+            "replace the whole review with those rows",
+            refused(lambda: run("/nonexistent-run", reviews_two, only=["k2"])), "SUBSET_IN_RUN S7b")
+    control("and the refusal is S7's sentence, so one rule has one wording",
+            next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                 if "SUBSET_IN_RUN" in line and "raise" in line),
+            "stage_propose.SUBSET_IN_RUN")
+    control("the refusal comes before the run directory is touched, so a bad call cannot half-open "
+            "a stage", refused(lambda: run("/nonexistent-run", reviews_two, only=["k2"])),
+            "SUBSET_IN_RUN")
+
     control("the question is S7's, asked once: this file calls S7's own check",
             next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
                  if "subset_problems" in line and "problems = " in line),
