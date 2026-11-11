@@ -149,9 +149,17 @@ def score(value):
     return None if value is None else round(value, SCORE_DIGITS)
 
 
-def retrieve_units(keys, names_u, index):
-    """`(rows, named ids the library does not hold)`: the top PER_LAYER units of each layer by score (ties by unit id),
-    each with its rank, then every named unit outside them, unranked."""
+def retrieval_of(declaration):
+    """The counts S5 keeps (plan WP-11, lead decision on J0's numbers): run.json's `retrieval.per_layer` and
+    `retrieval.top_entries` when the run declares them, else PER_LAYER and TOP_ENTRIES, each with where it came from."""
+    held = (declaration or {}).get("retrieval") or {}
+    return {"per_layer": held.get("per_layer", PER_LAYER), "top_entries": held.get("top_entries", TOP_ENTRIES),
+            "basis": {key: "declared" if key in held else "default" for key in ("per_layer", "top_entries")}}
+
+
+def retrieve_units(keys, names_u, index, per_layer=PER_LAYER):
+    """`(rows, named ids the library does not hold)`: the top `per_layer` units of each layer by score (ties by unit
+    id), each with its rank, then every named unit outside them, unranked."""
     scores = index.library.scores(keys) if keys else {}
     by_layer = collections.defaultdict(list)
     for rep, value in scores.items():
@@ -160,7 +168,7 @@ def retrieve_units(keys, names_u, index):
     wanted = set(names_u)
     rows = []
     for layer in sorted(by_layer):
-        ranked = sorted(by_layer[layer], key=lambda pair: (-pair[1], pair[0]))[:PER_LAYER]
+        ranked = sorted(by_layer[layer], key=lambda pair: (-pair[1], pair[0]))[:per_layer]
         rows += [{"unit_id": rep, "layer": layer, "rank": rank, "score": score(value), "named": rep in wanted,
                   "copies": index.copies[rep]} for rank, (rep, value) in enumerate(ranked, 1)]
     have = {r["unit_id"] for r in rows}
@@ -179,11 +187,11 @@ def retrieve_units(keys, names_u, index):
     return rows, absent
 
 
-def retrieve_entries(keys, names_e, index):
-    """`(rows, named ids the ledger does not hold)`: the top TOP_ENTRIES entries by score (ties by id), then every named
-    entry outside them, unranked."""
+def retrieve_entries(keys, names_e, index, top_entries=TOP_ENTRIES):
+    """`(rows, named ids the ledger does not hold)`: the top `top_entries` entries by score (ties by id), then every
+    named entry outside them, unranked."""
     scores = index.library.scores(keys) if keys else {}
-    ranked = sorted(((i, v) for i, v in scores.items() if v > 0), key=lambda pair: (-pair[1], pair[0]))[:TOP_ENTRIES]
+    ranked = sorted(((i, v) for i, v in scores.items() if v > 0), key=lambda pair: (-pair[1], pair[0]))[:top_entries]
     wanted = set(names_e)
     rows = [{"entry_id": i, "status": index.entries[i].get("status"), "rank": rank, "score": score(v), "named": i in wanted}
             for rank, (i, v) in enumerate(ranked, 1)]
@@ -340,11 +348,12 @@ def build(run_dir, declaration, nonce=None):
     everyone = sorted(cands["candidates"] + planted, key=lambda k: k["candidate_id"])
     clusters = {c["candidate_id"]: c for c in everyone if c["source"] == "g_cluster"}
     absence, withheld_reason = absence_of(current)
+    limits = retrieval_of(declaration)
     out = []
     for k in everyone:
         keys, names_u, names_e = query_keys(k, unit_index, entry_index, clusters)
-        units, absent_u = retrieve_units(keys, names_u, unit_index)
-        entries, absent_e = retrieve_entries(keys, names_e, entry_index)
+        units, absent_u = retrieve_units(keys, names_u, unit_index, limits["per_layer"])
+        entries, absent_e = retrieve_entries(keys, names_e, entry_index, limits["top_entries"])
         ids, claim_problems = cited(k, subject_of)
         quotes = claim_problems + quote_problems(run_dir, ids, stored, extra)
         out.append({"candidate_id": k["candidate_id"], "source": k["source"], "query_keys": len(keys),
@@ -354,8 +363,8 @@ def build(run_dir, declaration, nonce=None):
                     "quote_problems": quotes, "session_problems": session_problems(k, subject_of, rows),
                     "absence_withheld": withheld_reason is not None})
     planted_ids = {k["candidate_id"] for k in planted}
-    doc = {"constants": {"per_layer": PER_LAYER, "top_entries": TOP_ENTRIES, "top_entries_basis": TOP_ENTRIES_BASIS,
-                         "indexed_class": INDEXED_CLASS},
+    doc = {"constants": {"per_layer": limits["per_layer"], "top_entries": limits["top_entries"],
+                         "top_entries_basis": TOP_ENTRIES_BASIS, "indexed_class": INDEXED_CLASS, "declared": limits["basis"]},
            "library": unit_index.counts, "ledger_index": {"entries": len(entry_index.entries), "read": read},
            "absence": absence, "candidates": out,
            "summary": summary_of([r for r in out if r["candidate_id"] not in planted_ids], withheld_reason)}
@@ -399,7 +408,7 @@ def run(run_dir, nonce=None):
         for name in OUTPUTS:
             stage.output(name)
         declaration_seq = stage.record["declaration_seq"]
-    return {**doc["summary"], "declaration_seq": declaration_seq, "library": doc["library"],
+    return {**doc["summary"], "declaration_seq": declaration_seq, "library": doc["library"], "constants": doc["constants"],
             "ledger_index": doc["ledger_index"], "absence": doc["absence"],
             "controls": {"planted": len(planted_doc["planted"]),
                          "s5_checked": sum(1 for e in planted_doc["planted"] if "S5" in e),
@@ -422,7 +431,9 @@ def report_lines(summary):
              f"copies folded, not indexed {lib['not_indexed']}; ledger: {summary['ledger_index']['entries']} entries "
              f"({summary['ledger_index']['read']})",
              f"retrieval: {summary['retrieved_units']} unit rows ({summary['named_units']} named), "
-             f"{summary['ledger_entries']} ledger entry rows; at most {PER_LAYER} per layer and {TOP_ENTRIES} entries",
+             f"{summary['ledger_entries']} ledger entry rows; at most {summary['constants']['per_layer']} per layer "
+             f"({summary['constants']['declared']['per_layer']}) and {summary['constants']['top_entries']} entries "
+             f"({summary['constants']['declared']['top_entries']})",
              f"quotes: {summary['quotes_checked']} verified again, {summary['quote_failed']} candidates failed; "
              f"sessions: {summary['session_failed']} candidates with a session problem",
              f"recurrence: {rec['lineages']} counted lineages over {rec['sessions']} sessions; excluded "
@@ -649,6 +660,29 @@ def self_test():
                     "QUOTE_MISMATCH, the fabricated session SESSION_UNKNOWN - and the run goes on",
                     [e.get("S5", {}).get("ok") for e in planted_doc["planted"] if "S5" in e["checked_at"]] == [True] * 4
                     and made.get("controls", {}).get("s5_held") == 4, f"{planted_doc['planted']}")
+            gold_ranks = [u["rank"] for r in doc["candidates"] for u in r["retrieved_units"] if u["rank"] is not None]
+            control("WP-11: with no retrieval declared, S5 keeps its own counts and says they are its defaults",
+                    doc.get("constants", {}).get("declared") == {"per_layer": "default", "top_entries": "default"}
+                    and doc["constants"].get("per_layer") == PER_LAYER and doc["constants"].get("top_entries") == TOP_ENTRIES
+                    and f"at most {PER_LAYER} per layer (default)" in "\n".join(guarded(lambda: report_lines(made), [])),
+                    f"{doc.get('constants')}")
+            from runlib import declare
+            narrow_run = copy_of("narrow")
+            # two per layer, under a fixed draw: at one per layer a paraphrase control can lose its unit to another of its
+            # layer, and S5 then stops the run by name (CONTROL_FAILED), which is S5's verdict on too narrow a retrieval
+            narrowed = guarded(lambda: (declare.amend(narrow_run, [("retrieval", {"per_layer": 2, "top_entries": 1})],
+                                                      "narrow S5's retrieval (WP-11)", scope=["S5"]),
+                                        run(narrow_run, "aa" * 8))[1],
+                               lambda exc: {"problem": repr(exc)})
+            narrow = guarded(lambda: records.read_json(narrow_run / "checks.json"), {"problem": narrowed})
+            ranked = {u["rank"] for r in narrow.get("candidates", []) for u in r["retrieved_units"] if u["rank"] is not None}
+            entry_ranks = {e["rank"] for r in narrow.get("candidates", []) for e in r["ledger_entries"] if e["rank"] is not None}
+            control("WP-11: a declared retrieval keeps that many units of each layer and ledger entries, says the counts are "
+                    "declared, and its checks.json is schema-valid",
+                    narrow.get("constants", {}).get("declared") == {"per_layer": "declared", "top_entries": "declared"}
+                    and gold_ranks and max(gold_ranks) > 2 and ranked == {1, 2} and entry_ranks == {1}
+                    and not guarded(lambda: schema_problems(narrow), ["unreadable"]),
+                    f"{narrow.get('constants', narrow)} {sorted(ranked)} {sorted(entry_ranks)}")
             control("golden: the summary counts the natural candidates; the controls are reported apart",
                     doc.get("summary", {}).get("candidates") == len(cands) and doc["summary"].get("quote_failed") == 0
                     and doc["summary"].get("session_failed") == 0, f"{doc.get('summary')}")

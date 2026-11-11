@@ -153,7 +153,7 @@ def semantic_errors(run):
     if view_seat not in run["host_allowance"]:
         errors.append(f"ALLOWANCE_UNDECLARED seats.{VIEW_WINDOW_STAGE}: {view_seat} reads view windows and "
                       f"has no host_allowance entry")
-    return errors + density_errors(run) + retry_errors(run)
+    return errors + density_errors(run) + retry_errors(run) + scope_errors(run)
 
 
 def retry_errors(run):
@@ -168,6 +168,25 @@ def retry_errors(run):
     # ranges over it and raises
     return [f"DECLARATION_INVALID retry.{key}: an integer, not {held[key]!r}" for key in ("count", "margin")
             if key in held and (isinstance(held[key], bool) or not isinstance(held[key], int))]
+
+
+def scope_errors(run):
+    """The declared retrieval counts and judged scope (plan WP-11, lead decision on J0's numbers): integers, not integral
+    floats, which the schema's integer admits; and, whenever `judge.candidate_kinds` is declared, `formed: all`
+    (FORMED_SAMPLED), since design §6.5's planted controls take the formed shape and S6 cannot tell them apart (F27,
+    lead decision D4), so sampling or leaving out the formed candidates would drop controls unseen."""
+    out = [f"DECLARATION_INVALID retrieval.{key}: an integer, not {value!r}"
+           for key, value in (run.get("retrieval") or {}).items() if isinstance(value, bool) or not isinstance(value, int)]
+    held = run.get("judge") or {}
+    kinds = held.get("candidate_kinds")
+    if kinds is None:
+        return out
+    out += [f"DECLARATION_INVALID judge.candidate_kinds.{key}: all or an integer, not {value!r}"
+            for key, value in kinds.items() if value != "all" and (isinstance(value, bool) or not isinstance(value, int))]
+    if kinds.get("formed") != "all":
+        out.append(f"FORMED_SAMPLED judge.candidate_kinds.formed: {kinds.get('formed', 'left out')!r}; the formed candidates "
+                   "are judged all whenever the map is declared, since the planted controls take their shape")
+    return out
 
 
 DENSITY_KIND = re.compile(r"S[0-9]+[a-z]?:[a-z_]+")   # a declared density's kind, matched whole (fullmatch)
@@ -463,8 +482,9 @@ def self_test():
                 "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
                 "declaration_seq", "host_allowance", "output_caps", "destinations"}
     control("schema-requires-exactly-the-declared-fields",
-            [] if set(SCHEMA["required"]) == declared and set(SCHEMA["properties"]) == declared | {"density", "retry"}
-            and "density (optional)" in SCHEMA["$comment"] and "retry (optional)" in SCHEMA["$comment"]
+            [] if set(SCHEMA["required"]) == declared
+            and set(SCHEMA["properties"]) == declared | {"density", "retry", "retrieval", "judge"}
+            and all(f"{name} (optional)" in SCHEMA["$comment"] for name in ("density", "retry", "retrieval", "judge"))
             else [f"schema requires {sorted(SCHEMA['required'])}, declares {sorted(SCHEMA['properties'])}"])
     measured = {"bytes_per_token": 1.852, "measured_in": "c2-20261110", "samples": 8, "at": "2026-11-10T23:22:00+09:00"}
     s3_seat = fixture()["seats"][VIEW_WINDOW_STAGE]  # a name of its own: `sonnet` is assigned later in this function
@@ -486,6 +506,20 @@ def self_test():
     control("W r2 F9: a declared density that is not finite is refused by name",
             mutated(lambda run: run.update(density={s3_seat: {"S3:window": {**measured, "bytes_per_token": math.inf}}})),
             f"DECLARATION_INVALID density.{s3_seat}.S3:window.bytes_per_token: a finite number, not inf")
+    control("WP-11: declared retrieval counts and a judged scope with every formed candidate are accepted",
+            mutated(lambda run: run.update(retrieval={"per_layer": 5, "top_entries": 5},
+                                           judge={"candidate_kinds": {"formed": "all", "legacy": 10, "redundancy_hint": 0}})))
+    control("WP-11: a retrieval count that is an integral float is refused by name",
+            mutated(lambda run: run.update(retrieval={"per_layer": 5.0})), "DECLARATION_INVALID retrieval.per_layer: an integer")
+    control("WP-11: a judged scope that is an integral float is refused by name",
+            mutated(lambda run: run.update(judge={"candidate_kinds": {"formed": "all", "legacy": 2.0}})),
+            "DECLARATION_INVALID judge.candidate_kinds.legacy: all or an integer")
+    control("WP-11: the formed candidates sampled is FORMED_SAMPLED (the planted controls take their shape)",
+            mutated(lambda run: run.update(judge={"candidate_kinds": {"formed": 3}})), "FORMED_SAMPLED judge.candidate_kinds.formed")
+    control("WP-11: the formed candidates left out of a declared map is FORMED_SAMPLED",
+            mutated(lambda run: run.update(judge={"candidate_kinds": {"legacy": "all"}})), "FORMED_SAMPLED")
+    control("WP-11: a judged scope naming a source S5 does not name is refused by the schema",
+            mutated(lambda run: run.update(judge={"candidate_kinds": {"formed": "all", "planted": "all"}})), "planted")
     control("W r1 F4: a declared retry that names neither its count nor its margin is refused by name",
             mutated(lambda run: run.update(retry={})), "DECLARATION_INVALID retry: a declared retry names its count")
     control("WP-08e: a declared density is keyed by a seat the declaration names, as a reservation class is",

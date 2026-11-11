@@ -127,6 +127,56 @@ def classes(held=None):
     return tuple(held["$defs"]["consequence_class"]["enum"])
 
 
+# ---- which candidates are judged ------------------------------------------------------------------------------
+
+# the sources S5's population names (stage_form.INTAKE_SOURCES and S4's own), the keys of run.json's judged scope
+SOURCES = ("formed", "legacy", "g_cluster", "redundancy_hint")
+
+
+def check_failures(rows):
+    """`{candidate id: codes}` of the candidates S5's checks failed (a quote that does not verify, a session problem):
+    they are not judged, and stand rejected by check failure (lead, WP-11 stage 0)."""
+    out = {}
+    for row in rows:
+        codes = sorted({p.split()[0] for p in (row.get("quote_problems") or []) + (row.get("session_problems") or [])})
+        if row.get("quote_ok") is False or row.get("session_problems"):
+            out[row["candidate_id"]] = codes
+    return out
+
+
+def judged_of(candidates, declaration, run_id, failed=()):
+    """`(judged ids, left out)` (plan WP-11, lead decision on J0's numbers). Of the candidates S5's checks passed, a
+    source run.json's `judge.candidate_kinds` maps to `all` is judged whole, one mapped to n by a sample of n drawn by
+    code from the run id (the first n by the hash of run id and candidate id), one the map leaves out not at all; with
+    no map every candidate is judged. `left out` names every candidate not judged, by source:
+    `{source: {count, of, why}}`. A source S6 does not know is SOURCE_UNDECLARED."""
+    kinds = ((declaration or {}).get("judge") or {}).get("candidate_kinds")
+    by = {}
+    for k in candidates:
+        if k["candidate_id"] not in failed:
+            by.setdefault(k["source"], []).append(k["candidate_id"])
+    unknown = sorted(set(by) - set(SOURCES))
+    if unknown:
+        raise Refused(f"SOURCE_UNDECLARED {unknown}: S5's population names a source S6's judged scope has no key for "
+                      f"({list(SOURCES)})")
+    judged, left = [], {}
+    for source in SOURCES:
+        ids = sorted(by.get(source, []))
+        scope = "all" if kinds is None else kinds.get(source)
+        if scope == "all":
+            judged += ids
+            continue
+        if scope is None:
+            keep, why = [], "the declaration's judge.candidate_kinds leaves this source out"
+        else:
+            keep = sorted(ids, key=lambda i: hashlib.sha256(f"{run_id}\x00{i}".encode("utf-8")).hexdigest())[:scope]
+            why = f"a sample of {scope} drawn from the run id"
+        judged += keep
+        if len(keep) < len(ids):
+            left[source] = {"count": len(ids) - len(keep), "of": len(ids), "why": why}
+    return sorted(judged), left
+
+
 # ---- the reuse key --------------------------------------------------------------------------------------------
 
 def sha256_json(value):
@@ -421,6 +471,33 @@ def self_test():
             not answer_problems(shown, later, first=False), f"{answer_problems(shown, later, first=False)}")
     named("control: a later call's answer that judges a ledger entry is refused (D12)",
           answer_problems(shown, {**later, "ledger_relations": answer["ledger_relations"]}, first=False), "FIELD_UNEXPECTED")
+
+    # ---- which candidates are judged ----------------------------------------------------------------------------
+    pop = ([{"candidate_id": f"k-f{n}", "source": "formed"} for n in range(3)]
+           + [{"candidate_id": f"k-l{n:02d}", "source": "legacy"} for n in range(12)]
+           + [{"candidate_id": "k-g0", "source": "g_cluster"}] + [{"candidate_id": f"k-r{n}", "source": "redundancy_hint"} for n in range(4)])
+    every, none_left = judged_of(pop, {}, "r1")
+    control("with no judged scope declared every candidate is judged and none is left out",
+            every == sorted(k["candidate_id"] for k in pop) and none_left == {}, f"{none_left}")
+    scoped = {"judge": {"candidate_kinds": {"formed": "all", "legacy": 3, "redundancy_hint": 0}}}
+    picked, left = judged_of(pop, scoped, "r1")
+    control("a declared scope judges all the formed, a sample of the legacy, and names every source it leaves out with "
+            "its count and why", sum(i.startswith("k-f") for i in picked) == 3 and sum(i.startswith("k-l") for i in picked) == 3
+            and not any(i.startswith(("k-g", "k-r")) for i in picked)
+            and left == {"legacy": {"count": 9, "of": 12, "why": "a sample of 3 drawn from the run id"},
+                         "g_cluster": {"count": 1, "of": 1, "why": "the declaration's judge.candidate_kinds leaves this source out"},
+                         "redundancy_hint": {"count": 4, "of": 4, "why": "a sample of 0 drawn from the run id"}}, f"{left}")
+    control("the sample is drawn from the run id: the same id draws the same, another id another",
+            judged_of(pop, scoped, "r1")[0] == picked and judged_of(pop, scoped, "r2")[0] != picked)
+    rows = [{"candidate_id": "k-f0", "quote_ok": False, "quote_problems": ["QUOTE_MISMATCH q-1"], "session_problems": []},
+            {"candidate_id": "k-f1", "quote_ok": True, "quote_problems": [], "session_problems": ["SESSION_UNKNOWN s-9"]},
+            {"candidate_id": "k-f2", "quote_ok": None, "quote_problems": [], "session_problems": []}]
+    failed = check_failures(rows)
+    control("S5's check failures are named with their codes and not judged",
+            failed == {"k-f0": ["QUOTE_MISMATCH"], "k-f1": ["SESSION_UNKNOWN"]}
+            and judged_of(pop, {}, "r1", failed)[0] == sorted(set(every) - {"k-f0", "k-f1"}), f"{failed}")
+    said = refusal(lambda: judged_of(pop + [{"candidate_id": "k-x", "source": "planted"}], {}, "r1"))
+    control("control: a source the judged scope has no key for is refused by name", said.startswith("SOURCE_UNDECLARED"), said)
 
     for failure in failures:
         print(f"stage_judge --self-test [FAIL] {failure}")
