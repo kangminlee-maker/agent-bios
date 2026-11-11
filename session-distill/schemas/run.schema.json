@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md; retrieval (optional) and judge (optional): design/session-distill/2026-11-11T1545--58ad0cf--a-run-declares-what-s5-retrieves-and-which-candidates-s6-judges.md",
+  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md; retrieval (optional) and judge (optional): design/session-distill/2026-11-11T1545--58ad0cf--a-run-declares-what-s5-retrieves-and-which-candidates-s6-judges.md; sweeps (optional): plan WP-11 J3a, lead decision E2 (2026-11-11)",
   "title": "Run declaration",
   "type": "object",
   "additionalProperties": false,
@@ -107,6 +107,12 @@
         "properties": {"formed": {"$ref": "#/$defs/judged_scope"}, "due_decision": {"$ref": "#/$defs/judged_scope"},
                        "legacy": {"$ref": "#/$defs/judged_scope"}, "obsolete_hint": {"$ref": "#/$defs/judged_scope"},
                        "redundancy_hint": {"$ref": "#/$defs/judged_scope"}, "g_cluster": {"$ref": "#/$defs/judged_scope"}}}}
+    },
+    "sweeps": {
+      "$comment": "plan WP-11 done-when 6 and lead decisions D9 and E2 (2026-11-11): how S6's absence sweeps are cut - `shard_units` remaining units per shard, `candidates_per_shard` candidates per group of shards - and the output cap each sweep call declares (`output_cap`). Absent, S6's own constants (stage_judge.SWEEP_DEFAULTS: 100, 5 and 20,000), and judgments/judge.json says which each value came from.",
+      "type": "object", "additionalProperties": false,
+      "properties": {"shard_units": {"type": "integer", "minimum": 1}, "candidates_per_shard": {"type": "integer", "minimum": 1},
+                     "output_cap": {"type": "integer", "minimum": 1}}
     },
     "retry": {
       "$comment": "W review of WP-08e r1, F4 (lead decision): the host's retries one call's 'at most' claim holds (count, default 1) and the error share each carries (margin, default RETRY_ERROR_TOKENS, raised by a larger measured one). A request past the claim stops the run (CLAIM_EXCEEDED), and only a later amendment of this key lifts it.",

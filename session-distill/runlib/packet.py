@@ -53,7 +53,7 @@ from runlib import validate
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PAYLOAD_MARKER = "=== PAYLOAD ==="
 TEMPLATE_DIR = pathlib.Path(__file__).resolve().parents[1] / "packets"
-TEMPLATES = ("read", "stitch", "form", "judge")  # S3's two calls (plan WP-08), S4's one (plan WP-09), S6's judges' (plan WP-11)
+TEMPLATES = ("read", "stitch", "form", "judge", "sweep")  # S3's two calls (plan WP-08), S4's one (plan WP-09), S6's judges' and sweeps' (plan WP-11)
 WINDOW_TEMPLATES = ("read", "stitch")  # the calls whose fixed part the view windows were cut to leave room for
 PLACEHOLDER = re.compile(r"\{\{([a-z_]+)\}\}")
 # (summary title, owning guide, the part of it that is the summary)
@@ -527,7 +527,8 @@ def self_test():
     from runlib import bound
     schemas = pathlib.Path(__file__).resolve().parents[1] / "schemas"
     filled_by = {"read": ["expected", "omissions", "window"], "stitch": ["claims", "events"],
-                 "form": ["claims", "clusters", "events"], "judge": ["candidate", "claims", "context", "entries", "units"]}
+                 "form": ["claims", "clusters", "events"], "judge": ["candidate", "claims", "context", "entries", "units"],
+                 "sweep": ["candidates", "inventory", "units"]}
     room = {}
     for name in TEMPLATES:
         try:

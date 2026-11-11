@@ -171,12 +171,13 @@ def retry_errors(run):
 
 
 def scope_errors(run):
-    """The declared retrieval counts and judged scope (plan WP-11, lead decision on J0's numbers): integers, not integral
-    floats, which the schema's integer admits; and, whenever `judge.candidate_kinds` is declared, `formed: all`
+    """The declared retrieval counts, sweep sizes and judged scope (plan WP-11, lead decisions on J0's numbers and E2):
+    integers, not integral floats, which the schema's integer admits; and, whenever `judge.candidate_kinds` is declared, `formed: all`
     (FORMED_SAMPLED), since design §6.5's planted controls take the formed shape and S6 cannot tell them apart (F27,
     lead decision D4), so sampling or leaving out the formed candidates would drop controls unseen."""
-    out = [f"DECLARATION_INVALID retrieval.{key}: an integer, not {value!r}"
-           for key, value in (run.get("retrieval") or {}).items() if isinstance(value, bool) or not isinstance(value, int)]
+    out = [f"DECLARATION_INVALID {field}.{key}: an integer, not {value!r}"
+           for field in ("retrieval", "sweeps")
+           for key, value in (run.get(field) or {}).items() if isinstance(value, bool) or not isinstance(value, int)]
     held = run.get("judge") or {}
     kinds = held.get("candidate_kinds")
     if kinds is None:
@@ -419,7 +420,9 @@ def fixture():
         "budget": {"per_stage": {"S3": 4000000, "S4": 1000000},
                    "per_episode": {"tokens": 200000, "compactions": 2, "max_budget_usd": 5.0, "max_turns": 40},
                    "reserve": 0.15},
-        "seats": {"S3": sonnet, "S4": opus, "S6.A": opus, "S6.B": astra, "S7b": astra},
+        # S6's sweeps as seats.json pins them for S6 (lead decision E1, WP-11 J3a)
+        "seats": {"S3": sonnet, "S4": opus, "S6.A": opus, "S6.B": astra, "S6.sweep_a": "claude:claude-sonnet-5-5/medium",
+                  "S6.sweep_b": "codex:gpt-6-luna/medium", "S7b": astra},
         "actor_seats": [{"stratum": "claude-main", "seat": sonnet, "provenance": "observed"},
                         {"stratum": "claude-subagent", "seat": opus, "provenance": "observed"},
                         {"stratum": "codex-main", "seat": astra, "provenance": "observed"},
@@ -483,8 +486,8 @@ def self_test():
                 "declaration_seq", "host_allowance", "output_caps", "destinations"}
     control("schema-requires-exactly-the-declared-fields",
             [] if set(SCHEMA["required"]) == declared
-            and set(SCHEMA["properties"]) == declared | {"density", "retry", "retrieval", "judge"}
-            and all(f"{name} (optional)" in SCHEMA["$comment"] for name in ("density", "retry", "retrieval", "judge"))
+            and set(SCHEMA["properties"]) == declared | {"density", "retry", "retrieval", "judge", "sweeps"}
+            and all(f"{name} (optional)" in SCHEMA["$comment"] for name in ("density", "retry", "retrieval", "judge", "sweeps"))
             else [f"schema requires {sorted(SCHEMA['required'])}, declares {sorted(SCHEMA['properties'])}"])
     measured = {"bytes_per_token": 1.852, "measured_in": "c2-20261110", "samples": 8, "at": "2026-11-10T23:22:00+09:00"}
     s3_seat = fixture()["seats"][VIEW_WINDOW_STAGE]  # a name of its own: `sonnet` is assigned later in this function
@@ -511,6 +514,12 @@ def self_test():
                                            judge={"candidate_kinds": {"formed": "all", "legacy": 10, "redundancy_hint": 0}})))
     control("WP-11: a retrieval count that is an integral float is refused by name",
             mutated(lambda run: run.update(retrieval={"per_layer": 5.0})), "DECLARATION_INVALID retrieval.per_layer: an integer")
+    control("WP-11 J3a: declared sweep sizes are accepted",
+            mutated(lambda run: run.update(sweeps={"shard_units": 50, "candidates_per_shard": 3, "output_cap": 16000})))
+    control("WP-11 J3a: a sweep size that is an integral float is refused by name",
+            mutated(lambda run: run.update(sweeps={"shard_units": 50.0})), "DECLARATION_INVALID sweeps.shard_units: an integer")
+    control("WP-11 J3a: a sweep size below one is refused by the schema",
+            mutated(lambda run: run.update(sweeps={"candidates_per_shard": 0})), "candidates_per_shard")
     control("WP-11: a judged scope that is an integral float is refused by name",
             mutated(lambda run: run.update(judge={"candidate_kinds": {"formed": "all", "legacy": 2.0}})),
             "DECLARATION_INVALID judge.candidate_kinds.legacy: all or an integer")

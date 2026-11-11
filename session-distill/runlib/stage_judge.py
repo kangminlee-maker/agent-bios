@@ -34,10 +34,20 @@ gate whatever it answered (done-when 5). A re-run reuses every accepted attempt 
 reuses nothing, and one judge's attempt never answers the other's item (done-when 4's decidable halves; the reuse map and
 the later reference point's call are deferred, D-20261111-c4fa71).
 
+The absence sweeps (plan WP-11 J3a, design §6.2, done-when 6) follow the judgments in the same run. At a reference
+point the absence policy reads as incomplete every absence is `unknown` and nothing is swept. Otherwise every judged
+candidate no unit matches by both judges (`absent_candidates`) has its remaining units - the units S5 indexes less the
+ones retrieved for it - cut into shards, several candidates to a group (`shard_plan`, `shard_problems`, run.json's
+`sweeps`), each shard sent to the Claude-side and the OpenAI-side sweep with one payload bound to the inventory's hash,
+and each answer held to exactly the pairs its packet lists (`sweep_problems`). `--dry` reports the sweep's upper bound:
+every judged candidate as a gap over the catalog layer (`upper_bound`).
+
   stage_judge.py --self-test
 """
+import collections
 import hashlib
 import json
+import math
 import os
 import pathlib
 import re
@@ -47,7 +57,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, controls, gate, lifecycle_intake, packet, records, stage_form, stage_retrieve, validate  # noqa: E402
+from runlib import bound, controls, derive, gate, lifecycle_intake, packet, records, stage_form, stage_retrieve, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -597,7 +607,7 @@ def seats_of(declaration):
     return {who: held[key] for who, key in SEAT_KEYS.items()}
 
 
-def limits_of(seat, run_dir, declaration, seats_path=None):
+def limits_of(seat, run_dir, declaration, seats_path=None, case=CASE, output_cap=OUTPUT_CAP):
     """What one judgment call of `seat` is held to: the seat's context capacity and the host's measured hermetic
     allowance from seats.json (`gate.seat_capacity`), the run's density for this class of call and the host's retry
     share (`dispatch.measured_density`, `retry_share`), the output cap. What is not measured is named in `unmeasured`
@@ -609,14 +619,14 @@ def limits_of(seat, run_dir, declaration, seats_path=None):
     slot = (entry.get("host_allowance") or {}).get("hermetic") or {}
     allowance = slot.get("allowance_tokens") if slot.get("measured") is True else None
     capacity, basis = gate.seat_capacity(seat, entry.get("version"), path=path)
-    density = dispatch.measured_density(run_dir, seat, STAGE, CASE, (declaration or {}).get("density"))
+    density = dispatch.measured_density(run_dir, seat, STAGE, case, (declaration or {}).get("density"))
     retry = dispatch.retry_share(run_dir, host, (declaration or {}).get("retry"))
     unmeasured = ([] if isinstance(allowance, int) else
                   [f"ALLOWANCE_UNMEASURED {seat}: seats.json holds no measured hermetic allowance for {host}"]) \
         + ([] if capacity is not None else [f"CAPACITY_UNDECLARED {seat}: {basis}"])
     return {"seat": seat, "capacity": capacity, "capacity_basis": basis, "allowance": allowance,
             "bytes_per_token": density["bytes_per_token"], "density_basis": density["basis"],
-            "retry_margin": retry["margin"], "retries": retry["count"], "output_cap": OUTPUT_CAP, "unmeasured": unmeasured}
+            "retry_margin": retry["margin"], "retries": retry["count"], "output_cap": output_cap, "unmeasured": unmeasured}
 
 
 def at_most_of(size, limits):
@@ -625,8 +635,8 @@ def at_most_of(size, limits):
     from runlib import dispatch
     if limits["unmeasured"]:
         return None
-    return dispatch.input_at_most(size, {"bytes_per_token": limits["bytes_per_token"]}, limits["allowance"], OUTPUT_CAP,
-                                  limits["retry_margin"], limits["retries"])[1]
+    return dispatch.input_at_most(size, {"bytes_per_token": limits["bytes_per_token"]}, limits["allowance"],
+                                  limits["output_cap"], limits["retry_margin"], limits["retries"])[1]
 
 
 def beyond_capacity(size, limits):
@@ -634,7 +644,7 @@ def beyond_capacity(size, limits):
     CORRECTION_ROOM) and the output cap, exceeds the seat's capacity; None when it cannot be told."""
     from runlib import stage_read
     at_most = at_most_of(size + stage_read.CORRECTION_ROOM, limits)
-    return None if at_most is None else at_most + OUTPUT_CAP > limits["capacity"]
+    return None if at_most is None else at_most + limits["output_cap"] > limits["capacity"]
 
 
 def measure(run_id, who, limits, text, schema_bytes, item):
@@ -699,6 +709,331 @@ def build(run_dir, declaration, seats_path=None):
     return summary, packets
 
 
+# ---- the absence sweeps (plan WP-11 J3a, design §6.2) ----------------------------------------------------------
+
+SWEEP_TEMPLATE = "sweep"
+SWEEP_SCHEMA_PATH = HERE / "schemas" / "sweep.schema.json"
+SWEEP_CASE = "sweep"   # a sweep call's class (dispatch.class_key)
+SWEEP_SEAT_KEYS = {"a": "S6.sweep_a", "b": "S6.sweep_b"}   # lead decision E1: the Claude side and the OpenAI side
+SWEEP_DEFAULTS = {"shard_units": 100, "candidates_per_shard": 5, "output_cap": 20_000}   # lead decision E2
+# the density the dry upper bound reports tokens at: S4's declared one, at which J0 measured C2's packets (lead, J2a)
+J0_DENSITY = 2.27
+J0_DENSITY_BASIS = "S4's declared density, at which J0 measured C2's judgment packets (2026-11-11)"
+UPPER_BOUND_LAYER = "catalog"   # lead, on J2a: the bound's remaining units are the catalog layer's
+UPPER_BOUND_BASIS = ("every judged candidate taken as a gap, its remaining units the catalog layer's indexed units less "
+                     "the ones S5 retrieved for it: a bound, not a count of gap candidates, which exist only after judging")
+# what a lifecycle candidate's record names by id, shown to a sweep by the named texts instead (`sweep_view`)
+LIFECYCLE_NAMED = ("candidate_id", "source", "target_entry", "entries", "target_unit", "target_units", "members")
+
+
+def sweep_schema():
+    return json.loads(SWEEP_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def sweeps_of(declaration):
+    """`(sizes, basis)`: the sweep sizes run.json declares (`sweeps.shard_units`, `candidates_per_shard`, `output_cap`),
+    each absent one S6's own (SWEEP_DEFAULTS), and which each came from."""
+    held = (declaration or {}).get("sweeps") or {}
+    return ({k: held.get(k, v) for k, v in SWEEP_DEFAULTS.items()},
+            {k: "declared" if k in held else "default" for k in SWEEP_DEFAULTS})
+
+
+def sweep_seats(declaration):
+    """`{a, b}`: the sweeps' seats as run.json declares them (`seats.S6.sweep_a`, `seats.S6.sweep_b`), SEAT_UNDECLARED
+    otherwise."""
+    held = (declaration or {}).get("seats") or {}
+    missing = [key for key in SWEEP_SEAT_KEYS.values() if not held.get(key)]
+    if missing:
+        raise Refused(f"SEAT_UNDECLARED {missing}: S6's sweeps are seated by run.json, {list(SWEEP_SEAT_KEYS.values())}")
+    return {side: held[key] for side, key in SWEEP_SEAT_KEYS.items()}
+
+
+def sweep_layers(absence_doc):
+    """The layers an absence sweep covers: every indexed layer under the `literal` policy, which reads the reference
+    point's own flag, or the layers a `scoped` policy lists (`derive.absence`)."""
+    if (absence_doc or {}).get("policy") == "scoped":
+        return list(derive.table()["absence_completeness"]["layers"])
+    return None
+
+
+def absent_candidates(judged, judgments, sources):
+    """`(absent, not judged by both)`: the judged candidates whose diagnosis at the current reference point, from both
+    judges' units as derive reads them (`agreed`, `unit_diagnosis`, `candidate_diagnosis` at a complete point), is
+    `gap` - an absence claim, which the sweep checks. A candidate either judge did not judge is not swept."""
+    absent, not_both = [], []
+    for cid in judged:
+        held = judgments.get(cid) or {}
+        if set(held) != set(SEAT_KEYS):
+            not_both.append(cid)
+            continue
+        a, b = ({u["unit_id"]: u for u in held[who]["units"]} for who in ("A", "B"))
+        units = {}
+        for uid in a:
+            pair = (a[uid], b.get(uid) or {})
+            values = [derive.agreed(pair[0].get(f), pair[1].get(f)) for f in ("situation", "action")]
+            diagnosis = derive.unit_diagnosis(*values)
+            units[uid] = (diagnosis, [derive.unit_diagnosis(x["situation"], x["action"]) for x in pair]) \
+                if diagnosis == derive.DISPUTED else diagnosis
+        diagnosis, _row = derive.candidate_diagnosis(units, True, None if sources[cid] == "formed" else sources[cid])
+        if diagnosis == "gap":
+            absent.append(cid)
+    return absent, not_both
+
+
+def remaining_of(index, retrieved, layers):
+    """A candidate's remaining units: the units S5 indexes (one per text in each layer, `UnitIndex`) in `layers` (None:
+    every layer), less the ones retrieved for it, a copy counted as the unit that stands for it."""
+    taken = {index.rep_of.get(u, u) for u in retrieved}
+    return sorted(rep for rep in index.copies if (layers is None or index.layer_of[rep] in layers) and rep not in taken)
+
+
+def shard_plan(remaining, candidates_per_shard, shard_units):
+    """The sweep's groups and shards (lead decisions E2, E3): the candidates `candidates_per_shard` at a time in id
+    order, and each group's remaining units, the union of its candidates', `shard_units` at a time in unit id order; a
+    shard names for each candidate the units of it that are that candidate's remaining ones, and a candidate with none
+    in a shard is not in it."""
+    ids, groups = sorted(remaining), []
+    for g, start in enumerate(range(0, len(ids), candidates_per_shard), 1):
+        members = ids[start:start + candidates_per_shard]
+        union = sorted(set().union(*(remaining[c] for c in members)))
+        shards = []
+        for n, at in enumerate(range(0, len(union), shard_units), 1):
+            inside = set(union[at:at + shard_units])
+            pairs = {c: [u for u in remaining[c] if u in inside] for c in members}
+            shards.append({"shard": f"s{n:03d}", "units": union[at:at + shard_units],
+                           "pairs": {c: us for c, us in pairs.items() if us}})
+        groups.append({"group": f"g{g:03d}", "candidates": members, "shards": shards})
+    return groups
+
+
+def shard_problems(groups, remaining):
+    """Done-when 6's set accounting: every candidate in exactly one group, and each of its remaining units in exactly
+    one shard of that group and nothing else (SET_MISMATCH)."""
+    out, seen = [], collections.Counter(c for g in groups for c in g["candidates"])
+    if set(seen) != set(remaining) or any(n > 1 for n in seen.values()):
+        out.append(f"SET_MISMATCH sweep groups: {sorted(set(remaining) - set(seen))[:3]} in none, "
+                   f"{sorted(c for c, n in seen.items() if n > 1)[:3]} in more than one")
+    for g in groups:
+        for c in g["candidates"]:
+            got = collections.Counter(u for sh in g["shards"] for u in sh["pairs"].get(c, []))
+            want = set(remaining.get(c, []))
+            twice, missing, extra = (sorted(u for u, n in got.items() if n > 1), sorted(want - set(got)),
+                                     sorted(set(got) - want))
+            if twice or missing or extra:
+                out.append(f"SET_MISMATCH sweep {g['group']} {c}: remaining units in no shard {missing[:3]}, in two "
+                           f"{twice[:3]}, not remaining {extra[:3]}")
+    return out
+
+
+def sweep_view(candidate, entries, units):
+    """What a sweep is shown of a candidate: a formed one's lesson, type, situation, action and exception; a lifecycle
+    one's record without its ids, with the texts of the ledger entries and units it names. A name the stores do not hold
+    is counted, as S5 counts a named unit it does not hold (`retrieve_units`' absent): an inventory taken again since
+    the intake can drop a unit a hint named."""
+    if candidate["source"] == "formed":
+        return {k: candidate.get(k) for k in ("lesson", "type", "situation", "action", "exception")}
+    life = candidate.get("lifecycle") or {}
+    named_entries = stage_retrieve.as_list(life.get("target_entry")) + stage_retrieve.as_list(life.get("entries"))
+    named_units = stage_retrieve.as_list(life.get("target_unit")) + stage_retrieve.as_list(life.get("target_units"))
+    return {"source": candidate["source"], **{k: v for k, v in sorted(life.items()) if k not in LIFECYCLE_NAMED},
+            "entry_texts": [lifecycle_intake.entry_text(entries[i]) for i in named_entries if i in entries],
+            "unit_texts": [units[u]["text"] for u in named_units if u in units],
+            "names_not_held": sum(1 for i in named_entries if i not in entries) + sum(1 for u in named_units if u not in units)}
+
+
+class SweepLabels:
+    """What one sweep packet labels: its candidates k1, ... in id order and its units n1, ... in the shard's order, and
+    the pairs it lists - each candidate with the units of the shard that are its remaining ones (E3)."""
+
+    def __init__(self, shard, candidates, units, entries):
+        self.shard, self.unit_store, self.entry_store = shard, units, entries
+        self.candidates = {f"k{n}": cid for n, cid in enumerate(sorted(shard["pairs"]), 1)}
+        self.units = {f"n{n}": uid for n, uid in enumerate(shard["units"], 1)}
+        of_unit = {uid: label for label, uid in self.units.items()}
+        self.listed = {(k, of_unit[u]) for k, cid in self.candidates.items() for u in shard["pairs"][cid]}
+        self.views = {k: sweep_view(candidates[cid], entries, units) for k, cid in self.candidates.items()}
+
+    def candidates_text(self):
+        of_unit = {uid: label for label, uid in self.units.items()}
+        return "\n".join(json.dumps({"candidate": k, **self.views[k],
+                                     "units": [of_unit[u] for u in self.shard["pairs"][cid]]}, ensure_ascii=False)
+                         for k, cid in self.candidates.items())
+
+    def units_text(self):
+        return "\n".join(json.dumps({"unit": label, "layer": self.unit_store[uid]["layer"],
+                                     "path": self.unit_store[uid].get("path"),
+                                     "heading": self.unit_store[uid].get("heading") or "",
+                                     "text": self.unit_store[uid]["text"]}, ensure_ascii=False)
+                         for label, uid in self.units.items())
+
+    def resolve(self, answer):
+        """An accepted sweep answer in the stores' ids."""
+        return [{"candidate_id": self.candidates[r["candidate"]], "unit_id": self.units[r["unit"]],
+                 **{k: r[k] for k in ("situation", "action", "reason")}} for r in answer["pairs"]]
+
+
+def sweep_payload(labels, inventory_sha256):
+    """One shard's sweep payload, the same for both sweeps (N#1), bound to the inventory it was cut from: the
+    inventory's hash is in the payload, so a moved inventory is a new payload and no earlier attempt answers it."""
+    return packet.render(SWEEP_TEMPLATE, {"candidates": labels.candidates_text(), "units": labels.units_text(),
+                                          "inventory": f"sha256:{inventory_sha256}"})
+
+
+def sweep_problems(labels, answer):
+    """What a schema-valid sweep answer gets wrong against its packet: every listed pair judged exactly once
+    (SWEEP_PAIR_MISSING, SWEEP_PAIR_TWICE) and no other (SWEEP_PAIR_UNLISTED, E3), by labels the packet shows
+    (UNKNOWN_LABEL)."""
+    out, seen = [], {}
+    for n, row in enumerate(answer.get("pairs") or []):
+        pair, where = (row["candidate"], row["unit"]), f"pairs[{n}] {row['candidate']} {row['unit']}"
+        if pair[0] not in labels.candidates or pair[1] not in labels.units:
+            out.append(f"UNKNOWN_LABEL {where}: this packet shows no such candidate or unit")
+        elif pair not in labels.listed:
+            out.append(f"SWEEP_PAIR_UNLISTED {where}: the packet does not list this unit for this candidate (E3)")
+        elif pair in seen:
+            out.append(f"SWEEP_PAIR_TWICE {where}: judged at pairs[{seen[pair]}] already")
+        else:
+            seen[pair] = n
+    out += [f"SWEEP_PAIR_MISSING {k} {u}: the packet lists it and the answer does not judge it"
+            for k, u in sorted(labels.listed - set(seen))]
+    return out
+
+
+def sweep_check(labels):
+    """The stage's check of a sweep attempt, as `Supervisor.item(stage_check=)` asks it."""
+    from runlib import stage_read
+
+    def judged(call_dir):
+        return sweep_problems(labels, stage_read.answer_of(call_dir))
+    return judged
+
+
+def sweep_rel(group, shard, side):
+    return f"sweeps/{group}/{shard}/{side}.json"
+
+
+def kept_sweep(run_dir, rel, inventory_sha256):
+    """A kept sweep result, refused by name when it was cut from another inventory than the one S6 reads now
+    (SWEEP_INVENTORY_MOVED, done-when 6)."""
+    held = records.read_json(pathlib.Path(run_dir) / rel)
+    if held.get("inventory_sha256") != inventory_sha256:
+        raise Refused(f"SWEEP_INVENTORY_MOVED {rel}: cut from inventory {str(held.get('inventory_sha256'))[:12]}, and S6 "
+                      f"reads {inventory_sha256[:12]}; its shard is swept again")
+    return held
+
+
+def sweep_context(run_dir, declaration):
+    """What a sweep plan reads: S5's checks and population, S2's current units, the ledger's entries and S5's index."""
+    checks = records.read_json(run_dir / "checks.json")
+    population = records.read_json(run_dir / "checked-candidates.json")
+    units = records.read_json(run_dir / "inventory" / "current.json")["units"]
+    ledger, _read = lifecycle_intake.ledger_of(declaration)
+    return {"checks": checks, "by_id": {k["candidate_id"]: k for k in population["candidates"]},
+            "rows": {r["candidate_id"]: r for r in checks["candidates"]}, "units": {u["unit_id"]: u for u in units},
+            "entries": {e["id"]: e for e in ledger["entries"]}, "index": stage_retrieve.UnitIndex(units)}
+
+
+def sweep_packets(context, groups, inventory_sha256):
+    """`[(group, shard, labels, payload)]` of every shard with a pair to judge."""
+    out = []
+    for g in groups:
+        for sh in g["shards"]:
+            if sh["pairs"]:
+                labels = SweepLabels(sh, context["by_id"], context["units"], context["entries"])
+                out.append((g["group"], sh["shard"], labels, sweep_payload(labels, inventory_sha256)))
+    return out
+
+
+def upper_bound(run_dir, declaration, judged, seats_path=None):
+    """The sweep's work at its largest (lead, on J2a), for a dry run: every judged candidate as a gap, its remaining
+    units the catalog layer's indexed units less its retrieved ones. Groups, shards, packets, payload and driver bytes,
+    input tokens at J0's density and output at the cap - counts only, labelled as the bound."""
+    context = sweep_context(run_dir, declaration)
+    sizes, basis = sweeps_of(declaration)
+    seats = sweep_seats(declaration)
+    remaining = {cid: remaining_of(context["index"], [r["unit_id"] for r in context["rows"][cid]["retrieved_units"]],
+                                   [UPPER_BOUND_LAYER]) for cid in judged}
+    groups = shard_plan(remaining, sizes["candidates_per_shard"], sizes["shard_units"])
+    inventory = packet.sha256_bytes((run_dir / "inventory" / "current.json").read_bytes())
+    schema_bytes = packet.schema_bytes(sweep_schema())
+    payload_bytes, driver = 0, {side: 0 for side in seats}
+    built = sweep_packets(context, groups, inventory)
+    for group, shard, _labels, text in built:
+        payload_bytes += len(text.encode("utf-8"))
+        for side, seat in seats.items():
+            item = f"sweep-{group}-{shard}-{side}"
+            made = packet.build(f"{run_dir.resolve().name}-{STAGE}-{item}-a1", STAGE, seat, text, schema_bytes)
+            driver[side] += bound.driver_bytes(made, schema_bytes)[0]
+    calls = len(built) * len(seats)
+    return {"basis": UPPER_BOUND_BASIS, "layer": UPPER_BOUND_LAYER, "sizes": sizes, "sizes_basis": basis, "seats": seats,
+            "candidates": len(remaining), "remaining_units": sum(len(v) for v in remaining.values()),
+            "groups": len(groups), "shards": sum(len(g["shards"]) for g in groups), "packets": calls,
+            "pairs": sum(len(us) for _g, _s, labels, _t in built for us in labels.shard["pairs"].values()),
+            "payload_bytes": payload_bytes, "driver_bytes": driver,
+            "input_tokens_at_j0_density": {side: int(math.ceil(v / J0_DENSITY)) for side, v in driver.items()},
+            "density": J0_DENSITY, "density_basis": J0_DENSITY_BASIS, "output_tokens_at_most": calls * sizes["output_cap"]}
+
+
+def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sources, caps, tranche):
+    """The absence sweeps over S6's judgments (plan WP-11 J3a, done-when 6): at a reference point the absence policy
+    reads as incomplete, every absence is `unknown` and nothing is swept; otherwise each absence claim's remaining units
+    are cut into shards (`shard_plan`, held to `shard_problems`), and each shard is sent to both sweeps with one payload
+    bound to the inventory hash, each answer checked (`sweep_problems`) and kept under sweeps/<group>/<shard>/<a|b>.json.
+    Returns the summary's `sweeps` section and the sweeps' receipts."""
+    checks = records.read_json(run_dir / "checks.json")
+    absence = checks.get("absence") or {}
+    sizes, basis = sweeps_of(declaration)
+    section = {"reference": "current", "policy": absence.get("policy"), "complete": absence.get("complete") is True,
+               "unknown_layers": absence.get("unknown_layers") or [], "sizes": sizes, "sizes_basis": basis,
+               "absent": [], "not_judged_by_both": [], "groups": [], "calls": []}
+    if not section["complete"]:
+        section["why"] = ("absence unknown: the reference point is incomplete under the " + str(absence.get("policy"))
+                          + " policy, so no absence claim stands and nothing is swept")
+        return section, []
+    seats = sweep_seats(declaration)
+    context = sweep_context(run_dir, declaration)
+    layers = sweep_layers(absence)
+    absent, not_both = absent_candidates(judged, judgments, sources)
+    remaining = {cid: remaining_of(context["index"], [r["unit_id"] for r in context["rows"][cid]["retrieved_units"]],
+                                   layers) for cid in absent}
+    groups = shard_plan(remaining, sizes["candidates_per_shard"], sizes["shard_units"])
+    problems = shard_problems(groups, remaining)
+    if problems:
+        raise Refused("\n".join(problems))
+    inventory = packet.sha256_bytes((run_dir / "inventory" / "current.json").read_bytes())
+    held_schema = sweep_schema()
+    receipts = []
+    section.update(absent=absent, not_judged_by_both=not_both, layers=layers, inventory_sha256=inventory,
+                   groups=[{"group": g["group"], "candidates": g["candidates"],
+                            "shards": [{"shard": sh["shard"], "units": len(sh["units"]),
+                                        "pairs": sum(len(us) for us in sh["pairs"].values())} for sh in g["shards"]]}
+                           for g in groups])
+    for group, shard, labels, text in sweep_packets(context, groups, inventory):
+        payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
+        row = {"group": group, "shard": shard, "seats": {}}
+        for side, seat in seats.items():
+            out = supervisor.item(STAGE, f"sweep-{group}-{shard}-{side}", seat, text, held_schema, case_type=SWEEP_CASE,
+                                  caps=caps, view_window=False, tranche=tranche, max_output_tokens=sizes["output_cap"],
+                                  stage_check=sweep_check(labels), resume=True)
+            held = call_row(out)
+            if out["outcome"] == "accepted":
+                call_dir = pathlib.Path(out["accepted"])
+                call_id = records.read_json(call_dir / "call.json")["call_id"]
+                receipt = records.read_json(call_dir / "receipt.json")
+                rel = sweep_rel(group, shard, side)
+                records.write_json(run_dir, run_dir / rel, {
+                    "group": group, "shard": shard, "side": side, "seat": seat, "call_id": call_id,
+                    "inventory_sha256": inventory, "payload_sha256": payload_sha256,
+                    "packet_sha256": receipt.get("packet_sha256"),
+                    "pairs": labels.resolve(gate.accepted(call_dir, judged=True))})
+                stage.output(rel)
+                receipts.append((f"{group}/{shard}", seat, call_id, receipt, payload_sha256))
+                held.update(call_id=call_id, result=rel)
+            row["seats"][side] = held
+        section["calls"].append(row)
+    return section, receipts
+
+
 # ---- the calls ------------------------------------------------------------------------------------------------
 
 SUMMARY = "judgments/judge.json"
@@ -759,15 +1094,29 @@ def stage_receipts(calls):
 JUDGE_HOST = r'''
 """S6's golden host. It runs dispatch's golden host (FAKE_HOST) and adds two things: a Codex call is answered from the
 plan, as FAKE_HOST's Claude branch answers one; and a plan row's `context` names a replayed capture (WP-03's planted
-working directories) whose effective context replaces the one the host reports. argv: fake-host host mode spec-json."""
+working directories) whose effective context replaces the one the host reports. A row `auto: sweep` answers a sweep
+packet from the packet itself: every pair it lists, a partial match (situation yes) where the unit's text holds the
+row's `partial_where`, its first pair left out with `drop_first`. argv: fake-host host mode spec-json."""
 import json, os, pathlib, subprocess, sys
 fake, host, mode, spec = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4])
 packet = sys.stdin.buffer.read()
-done = subprocess.run([sys.executable, fake, host, mode, json.dumps(spec)], input=packet, stdout=subprocess.PIPE)
 text = packet.decode("utf-8")
 call_id = text.splitlines()[0].split(": ", 1)[1]
 plan = json.loads(pathlib.Path(spec["answers"]).read_text())
 row = next((r for r in plan if all(t in text for t in r["match"])), None)
+def block(tag):
+    body = text.split("<" + tag + ">\n", 1)[1].split("\n</" + tag + ">", 1)[0]
+    return [json.loads(line) for line in body.splitlines()]
+if row is not None and row.get("auto") == "sweep":  # every pair the packet lists, a partial match where the text says
+    units = {u["unit"]: u["text"] for u in block("units")}
+    flagged = lambda u: bool(row.get("partial_where")) and row["partial_where"] in units[u]
+    pairs = [{"candidate": c["candidate"], "unit": u, "situation": "yes" if flagged(u) else "no", "action": "no",
+              "reason": "a partial match" if flagged(u) else "unrelated"} for c in block("candidates") for u in c["units"]]
+    row = {**row, "answer": {"pairs": pairs[1:] if row.get("drop_first") else pairs}}
+    held = pathlib.Path(os.environ["DISTILL_CELL"]) / "judge-host-plan.json"
+    held.write_text(json.dumps([{"match": row["match"], "answer": row["answer"]}]))
+    spec = {**spec, "answers": str(held)}
+done = subprocess.run([sys.executable, fake, host, mode, json.dumps(spec)], input=packet, stdout=subprocess.PIPE)
 if row is not None and row.get("context") and done.returncode == 0:
     capture = pathlib.Path(os.environ["REVIEW_CAPTURE_DIR"]) / "host.json"
     held = json.loads(capture.read_text())
@@ -832,6 +1181,7 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         interrupted = [] if dry else supervisor.interrupted(STAGE)
         summary, packets = build(run_dir, declaration, seats_path if dry else supervisor.seats_path)
         if dry:
+            summary["sweep_upper_bound"] = upper_bound(run_dir, declaration, sorted(packets), seats_path)
             records.write_json(run_dir, run_dir / DRY_RECORD, summary)
             stage.output(DRY_RECORD)
             stage.record["status"] = "partial"
@@ -846,7 +1196,7 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
         held_schema = schema()
         schema_bytes = packet.schema_bytes(held_schema)
-        calls, receipts = [], []
+        calls, receipts, judgments = [], [], {}
         for measured in summary["packets"]:
             cid, item = measured["candidate_id"], measured["item"]
             labels, text = packets[cid]
@@ -865,20 +1215,28 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
                     call_id = records.read_json(call_dir / "call.json")["call_id"]
                     receipt = records.read_json(call_dir / "receipt.json")
                     rel = judgment_rel(item, who)
+                    judgment = labels.resolve(gate.accepted(call_dir, judged=True))
+                    judgments.setdefault(cid, {})[who] = judgment
                     records.write_json(run_dir, run_dir / rel, {
                         "candidate_id": cid, "item": item, "judge": who, "seat": seat, "call_id": call_id,
                         "payload_sha256": measured["payload_sha256"], "packet_sha256": receipt.get("packet_sha256"),
-                        "judgment": labels.resolve(gate.accepted(call_dir, judged=True))})
+                        "judgment": judgment})
                     stage.output(rel)
                     receipts.append((cid, seat, call_id, receipt, measured["payload_sha256"]))
                     held.update(call_id=call_id, judgment=rel)
                 row["seats"][who] = held
             calls.append(row)
-        problems = stage_receipts(receipts)
+        sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
+        swept, sweep_receipts = sweep_stage(run_dir, stage, supervisor, declaration, sorted(packets), judgments, sources,
+                                            caps, tranche)
+        problems = stage_receipts(receipts + sweep_receipts)
         if problems:
             raise Refused("\n".join(problems))
         outcomes = [held["outcome"] for row in calls for held in row["seats"].values()]
-        summary.update(dry=False, calls=calls, interrupted=interrupted, tranche=tranche,
+        swept_outcomes = [held["outcome"] for row in swept["calls"] for held in row["seats"].values()]
+        swept["counts"] = {**{o: swept_outcomes.count(o) for o in OUTCOMES},
+                           "reused": sum(1 for row in swept["calls"] for held in row["seats"].values() if held["reused"])}
+        summary.update(dry=False, calls=calls, sweeps=swept, interrupted=interrupted, tranche=tranche,
                        counts={**{o: outcomes.count(o) for o in OUTCOMES},
                                "reused": sum(1 for row in calls for held in row["seats"].values() if held["reused"]),
                                "judged_by_both": sum(1 for row in calls
@@ -886,7 +1244,7 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
                        density_table=dispatch.measured_table(run_dir))
         records.write_json(run_dir, run_dir / SUMMARY, summary)
         stage.output(SUMMARY)
-        if any(o != "accepted" for o in outcomes):
+        if any(o != "accepted" for o in outcomes + swept_outcomes):
             stage.record["status"] = "partial"
     return summary
 
@@ -917,6 +1275,21 @@ def report_lines(summary):
             lines.append(f"codes of the calls not accepted: {', '.join(failed)}")
         if summary["interrupted"]:
             lines.append(f"interrupted reservations closed: {len(summary['interrupted'])}")
+        sw = summary["sweeps"]
+        if not sw["complete"]:
+            lines.append(f"sweeps: none - {sw['why']}")
+        else:
+            c = sw["counts"]
+            lines.append(f"sweeps ({sw['policy']} policy): {len(sw['absent'])} absence claims in {len(sw['groups'])} groups, "
+                         f"{sum(len(g['shards']) for g in sw['groups'])} shards; calls " + ", ".join(f"{o} {c[o]}" for o in OUTCOMES)
+                         + f"; {c['reused']} answered by an earlier accepted attempt; {len(sw['not_judged_by_both'])} "
+                           "candidates not swept because a judge did not judge them")
+    else:
+        b = summary["sweep_upper_bound"]
+        lines.append(f"sweep upper bound ({b['basis']}): {b['groups']} groups, {b['shards']} shards, {b['packets']} calls, "
+                     f"{b['pairs']} pairs, {b['payload_bytes']} payload bytes; input "
+                     + ", ".join(f"{side} {n}" for side, n in b["input_tokens_at_j0_density"].items())
+                     + f" tokens at {b['density']} bytes a token; output at most {b['output_tokens_at_most']} tokens")
     return lines
 
 
@@ -1172,6 +1545,10 @@ def self_test():
     # ---- the packet and the dry stage over a golden run through S5 ------------------------------------------------
     control("the judge template is one packet.TEMPLATES lists, and its placeholders are the five blocks",
             TEMPLATE in packet.TEMPLATES and guarded(lambda: packet.template_fields(TEMPLATE), []) == sorted(BLOCKS),
+            f"{packet.TEMPLATES}")
+    control("the sweep template is one packet.TEMPLATES lists, and its placeholders are the candidates, the inventory and "
+            "the units", SWEEP_TEMPLATE in packet.TEMPLATES
+            and guarded(lambda: packet.template_fields(SWEEP_TEMPLATE), []) == ["candidates", "inventory", "units"],
             f"{packet.TEMPLATES}")
     form_text, judge_text = (guarded(lambda name=n: packet.template_text(name), "") for n in ("form", TEMPLATE))
     definitions = [line for line in form_text.splitlines() if re.match(r"^(\d\. `|   \S)", line)]
@@ -1509,6 +1886,185 @@ def self_test():
                     and all(h.get("outcome") == "accepted" and not h.get("reused")
                             and all("-B-a" in reason.split()[1] for reason in h.get("not_reused", [])) for h in b_rows),
                     f"{one.get('counts', one)} {two.get('counts', two)}")
+            # ---- the absence sweeps (J3a, done-when 6) --------------------------------------------------------------
+            sw_second = second.get("sweeps") or {}
+            control("done-when 6: at a reference point the absence policy reads as incomplete, no absence claim stands and "
+                    "nothing is swept", sw_second.get("complete") is False and sw_second.get("calls") == []
+                    and sw_second.get("absent") == [] and "absence unknown" in sw_second.get("why", ""), f"{sw_second}")
+            ub = dry.get("sweep_upper_bound") or {}
+            index = stage_retrieve.UnitIndex(records.read_json(gold / "inventory" / "current.json")["units"])
+            dry_judged = [r["candidate_id"] for r in dry.get("packets", [])]
+            # computed here from the index itself, not through remaining_of, so a revert of it cannot move both sides
+            ub_remaining = {c: sorted(rep for rep in index.copies if index.layer_of[rep] == "catalog"
+                                      and rep not in {index.rep_of.get(r["unit_id"], r["unit_id"])
+                                                      for r in rows_of[c]["retrieved_units"]}) for c in dry_judged}
+            ub_groups = shard_plan(ub_remaining, SWEEP_DEFAULTS["candidates_per_shard"], SWEEP_DEFAULTS["shard_units"])
+            with_pairs = sum(1 for g in ub_groups for sh in g["shards"] if sh["pairs"])
+            control("dry: the sweep's upper bound is every judged candidate as a gap over the catalog layer less its "
+                    "retrieved units, labelled as the bound, in groups, shards, calls, pairs, bytes and tokens at J0's density",
+                    ub.get("basis") == UPPER_BOUND_BASIS and ub.get("candidates") == len(dry_judged)
+                    and ub.get("groups") == len(ub_groups) == math.ceil(len(dry_judged) / SWEEP_DEFAULTS["candidates_per_shard"])
+                    and ub.get("packets") == 2 * with_pairs and ub.get("pairs") == sum(len(v) for v in ub_remaining.values())
+                    and all(ub.get("input_tokens_at_j0_density", {}).get(side) == math.ceil(ub["driver_bytes"][side] / J0_DENSITY)
+                            for side in ("a", "b")) and ub.get("output_tokens_at_most") == ub.get("packets", 0) * 20_000,
+                    f"{ub}")
+            # a golden run whose current reference point is complete, three formed candidates judged with no unit that
+            # matches, so they and the candidates S5 retrieved nothing for are absence claims
+            whole = guarded(lambda: stage_retrieve.fx_gold(root / "whole", stage_retrieve.fx_current(fx_library(), complete=True)),
+                            lambda e: e)
+            if isinstance(whole, Exception):
+                failures.append(f"the complete golden run could not be made: {whole!r}")
+            else:
+                declare.amend(whole, [("budget.per_stage.S6", 20_000_000),
+                                      ("sweeps", {"shard_units": 2, "candidates_per_shard": 2})],
+                              "S6's golden budget and small shards (WP-11 J3a)", scope=["S5", "S6"])
+                stage_retrieve.run(whole, "aa" * 8)
+                whole_plan_root = root / "whole-planner"
+                shutil.copytree(whole.parent, whole_plan_root)
+                made_gaps = []
+
+                def no_match(cid, who, row):
+                    if cid in made_gaps or (len(made_gaps) < 3 and cid.startswith("k-") and row["answer"]["units"]):
+                        if cid not in made_gaps:
+                            made_gaps.append(cid)
+                        for u in row["answer"]["units"]:
+                            u.update(situation="no", action="no", quote="")
+                        row["answer"]["matching_units"] = []
+                whole_plan, whole_packets = fx_judge_plan(whole_plan_root / whole.name, root / "plan-whole.json", no_match)
+                sweep_rows = [{"match": [f"SEAT: {seat}"], "auto": "sweep", "partial_where": "glob"}
+                              for seat in ("claude:claude-sonnet-5-5/medium", "codex:gpt-6-luna/medium")]
+                judge_rows = json.loads(pathlib.Path(whole_plan).read_text(encoding="utf-8"))
+                pathlib.Path(whole_plan).write_text(json.dumps(judge_rows + sweep_rows), encoding="utf-8")
+                defect_sweep_plan = root / "plan-whole-defect.json"
+                defect_sweep_plan.write_text(json.dumps(
+                    judge_rows + [{"match": [f"-{STAGE}-sweep-g001-s001-b-a"], "auto": "sweep", "drop_first": True}] + sweep_rows),
+                    encoding="utf-8")
+                swept_run = guarded(lambda: run(whole, supervisor(whole, root / "cells-8", defect_sweep_plan)),
+                                    lambda e: {"problem": repr(e)})
+                sw = swept_run.get("sweeps") or {}
+                first_record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
+                dropped = next((row["seats"].get("b", {}) for row in sw.get("calls", [])
+                                if (row["group"], row["shard"]) == ("g001", "s001")), {})
+                control("J3a: a sweep answer that leaves a listed pair out fails the stage's check on both attempts, by name, "
+                        "and leaves the record partial", dropped.get("outcome") == "failed" and len(dropped.get("attempts", [])) == 2
+                        and all(any(line.startswith("SWEEP_PAIR_MISSING") for line in a["stage_check"] or [])
+                                for a in dropped.get("attempts", [])) and first_record.get("status") == "partial",
+                        f"{dropped} {first_record.get('status')}")
+                swept_run = guarded(lambda: run(whole, supervisor(whole, root / "cells-8b", whole_plan)),
+                                    lambda e: {"problem": repr(e)})
+                sw = swept_run.get("sweeps") or {}
+                whole_rows = {r["candidate_id"]: r for r in records.read_json(whole / "checks.json")["candidates"]}
+                expected = sorted(c for c, (labels, _t) in whole_packets.items() if c in made_gaps or not labels.units)
+                control("J3a: the absence claims are the judged candidates no unit matches by both judges - the three planted "
+                        "and every one S5 retrieved nothing for", sw.get("complete") is True and sw.get("absent") == expected
+                        and len(made_gaps) == 3, f"{sw.get('absent')} {expected}")
+                whole_index = stage_retrieve.UnitIndex(records.read_json(whole / "inventory" / "current.json")["units"])
+                inventory_hash = packet.sha256_bytes((whole / "inventory" / "current.json").read_bytes())
+                want = {c: sorted(rep for rep in whole_index.copies
+                                  if rep not in {whole_index.rep_of.get(r["unit_id"], r["unit_id"])
+                                                 for r in whole_rows[c]["retrieved_units"]}) for c in expected}
+                kept_sw = {}
+                for g in sw.get("groups", []):
+                    for sh in g["shards"]:
+                        for side in ("a", "b"):
+                            rel = sweep_rel(g["group"], sh["shard"], side)
+                            if (whole / rel).exists():
+                                kept_sw[(g["group"], sh["shard"], side)] = guarded(lambda r=rel: kept_sweep(whole, r, inventory_hash), {})
+                judged_pairs = {side: collections.Counter((p["candidate_id"], p["unit_id"]) for (g, sh, sd), k in kept_sw.items()
+                                                          if sd == side for p in k.get("pairs", [])) for side in ("a", "b")}
+                control("J3a (done-when 6): each sweep judged every absence claim's remaining units exactly once - every unit "
+                        "S5 indexes less the ones retrieved for it - and nothing else",
+                        all(set(judged_pairs[side]) == {(c, u) for c, us in want.items() for u in us}
+                            and all(n == 1 for n in judged_pairs[side].values()) for side in ("a", "b")) and want,
+                        f"{sum(judged_pairs['a'].values())} {sum(len(v) for v in want.values())}")
+                shards_made = [(g, sh) for (g, sh, sd) in kept_sw if sd == "a"]
+                control("J3a (N#1, done-when 6): both sweeps of a shard were sent one payload bound to the inventory's hash, "
+                        "each call its own packet", shards_made and all(
+                            kept_sw[(g, sh, "a")].get("payload_sha256") == kept_sw.get((g, sh, "b"), {}).get("payload_sha256")
+                            and kept_sw[(g, sh, "a")].get("inventory_sha256") == inventory_hash for g, sh in shards_made)
+                        and len({k.get("packet_sha256") for k in kept_sw.values()}) == len(kept_sw)
+                        and sw.get("counts", {}).get("accepted") == 2 * len(shards_made), f"{sw.get('counts')}")
+                record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
+                again_sw = guarded(lambda: run(whole, supervisor(whole, root / "cells-9", whole_plan)), lambda e: {"problem": repr(e)})
+                control("J3a: run again after the defect, only the failed sweep is called anew and the record is complete; "
+                        "run once more, every sweep is answered by its accepted attempt",
+                        record.get("status") == "complete" and sw.get("counts", {}).get("reused") == 2 * len(shards_made) - 1
+                        and (again_sw.get("sweeps") or {}).get("counts", {}).get("reused") == 2 * len(shards_made),
+                        f"{sw.get('counts')} {(again_sw.get('sweeps') or {}).get('counts', again_sw)}")
+                some = next(iter(sorted(kept_sw)), None)
+                if some is not None:
+                    said = refusal(lambda: kept_sweep(whole, sweep_rel(*some), "0" * 64))
+                    control("control (done-when 6): a sweep result cut from another inventory is SWEEP_INVENTORY_MOVED",
+                            said.startswith("SWEEP_INVENTORY_MOVED"), said[:200])
+                # a shard's packet, its answer checked, its plan's set accounting, a lifecycle candidate's view
+                plan_w = shard_plan(want, 2, 2)
+                # a shard where one candidate lacks a unit another has, so E3's unlisted pair can be planted
+                first_shard = next((sh for g in plan_w for sh in g["shards"] if len(sh["pairs"]) > 1
+                                    and any(len(us) < len(sh["units"]) for us in sh["pairs"].values())),
+                                   next(sh for g in plan_w for sh in g["shards"] if sh["pairs"]))
+                pop_w = {k["candidate_id"]: k for k in records.read_json(whole / "checked-candidates.json")["candidates"]}
+                units_w = {u["unit_id"]: u for u in records.read_json(whole / "inventory" / "current.json")["units"]}
+                labels_w = guarded(lambda: SweepLabels(first_shard, pop_w, units_w, whole_packets[next(iter(whole_packets))][0].entry_store),
+                                   lambda e: e)
+                if isinstance(labels_w, Exception):
+                    failures.append(f"J3a: a sweep packet could not be labelled: {labels_w!r}")
+                else:
+                    good = {"pairs": [{"candidate": k, "unit": u, "situation": "no", "action": "no", "reason": "unrelated"}
+                                      for k, u in sorted(labels_w.listed)]}
+                    control("J3a: a sweep answer judging exactly the listed pairs passes", not sweep_problems(labels_w, good),
+                            f"{sweep_problems(labels_w, good)}")
+                    k0, u0 = sorted(labels_w.listed)[0]
+                    unlisted = next(((k, u) for k in labels_w.candidates for u in labels_w.units if (k, u) not in labels_w.listed),
+                                    None)
+                    cases = [("a listed pair left out", {"pairs": good["pairs"][1:]}, "SWEEP_PAIR_MISSING"),
+                             ("a pair judged twice", {"pairs": good["pairs"] + good["pairs"][:1]}, "SWEEP_PAIR_TWICE"),
+                             ("a label the packet does not show", {"pairs": good["pairs"] + [{**good["pairs"][0], "unit": "n99"}]},
+                              "UNKNOWN_LABEL")]
+                    if unlisted is not None:
+                        cases.append(("a pair the packet does not list", {"pairs": good["pairs"] + [
+                            {**good["pairs"][0], "candidate": unlisted[0], "unit": unlisted[1]}]}, "SWEEP_PAIR_UNLISTED"))
+                    for name, answer, code in cases:
+                        named(f"control: {name} is refused by name", sweep_problems(labels_w, answer), code)
+                    control("control: the sweep packet names an unlisted pair to plant (E3 has one to refuse)", unlisted is not None)
+                    control("J3a: a sweep payload is bound to its inventory - another inventory hash is another payload",
+                            sweep_payload(labels_w, "a" * 64) != sweep_payload(labels_w, "b" * 64))
+                shifted = json.loads(json.dumps(plan_w))
+                g0 = shifted[0]
+                c0 = next(c for c in g0["candidates"] if any(c in sh["pairs"] for sh in g0["shards"]))
+                sh0 = next(sh for sh in g0["shards"] if c0 in sh["pairs"])
+                for name, change, code in (
+                        ("a remaining unit in two shards", lambda: g0["shards"][-1]["pairs"].setdefault(c0, []).append(sh0["pairs"][c0][0]),
+                         "SET_MISMATCH sweep g001"),
+                        ("a remaining unit in no shard", lambda: sh0["pairs"][c0].pop(), "SET_MISMATCH sweep g001"),
+                        ("a candidate in two groups", lambda: shifted[-1]["candidates"].append(c0), "SET_MISMATCH sweep groups")):
+                    shifted = json.loads(json.dumps(plan_w))
+                    g0 = shifted[0]
+                    sh0 = next(sh for sh in g0["shards"] if c0 in sh["pairs"])
+                    change()
+                    named(f"control (done-when 6): {name} is refused by the set accounting", shard_problems(shifted, want), code)
+                control("J3a: the plan's set accounting passes", not shard_problems(plan_w, want), f"{shard_problems(plan_w, want)}")
+                said = refusal(lambda: sweep_seats({"seats": {"S6.sweep_a": "claude:claude-sonnet-5-5/medium"}}))
+                control("control: a declaration without the OpenAI-side sweep's seat is SEAT_UNDECLARED",
+                        said.startswith("SEAT_UNDECLARED"), said)
+                lifecycle_w = next((k for k in pop_w.values() if k["source"] == "legacy"), None)
+                if lifecycle_w is not None:
+                    shown_w = guarded(lambda: sweep_view(lifecycle_w, {}, units_w), {})
+                    held_w = guarded(lambda: sweep_view(lifecycle_w, labels_w.entry_store, units_w), {})
+                    control("J3a: a lifecycle candidate is shown with the texts of the entries it names; a name the stores do "
+                            "not hold is counted, as S5 counts one", shown_w.get("entry_texts") == [] and shown_w.get("names_not_held", 0) >= 1
+                            and held_w.get("entry_texts") and held_w.get("names_not_held") == 0
+                            and not set(held_w) & (set(LIFECYCLE_NAMED) - {"source"}), f"{shown_w} {held_w}")
+                # the absence rule itself: a judge missing, and a unit the judges disagree on
+                one_side = {"k-x": {"A": {"units": []}}}
+                control("J3a: a candidate either judge did not judge is not swept, and is named",
+                        guarded(lambda: absent_candidates(["k-x"], one_side, {"k-x": "formed"}), None) == ([], ["k-x"]))
+                split = {"k-y": {"A": {"units": [{"unit_id": "u", "situation": "yes", "action": "yes"}]},
+                                 "B": {"units": [{"unit_id": "u", "situation": "no", "action": "no"}]}}}
+                control("J3a: a candidate whose only unit the judges disagree on is no absence claim (the disputed unit could "
+                        "cover it)", guarded(lambda: absent_candidates(["k-y"], split, {"k-y": "formed"}), None) == ([], []))
+                agreed_no = {"k-z": {w: {"units": [{"unit_id": "u", "situation": "no", "action": "no"}]} for w in ("A", "B")}}
+                control("J3a: a candidate both judges find no unit matching is an absence claim",
+                        guarded(lambda: absent_candidates(["k-z"], agreed_no, {"k-z": "formed"}), None) == (["k-z"], []))
             token = os.environ.pop("CLAUDE_RUN_TOKEN_FILE", None)
             try:
                 said = refusal(lambda: supervisor(tight, root / "cells-4"))
@@ -1535,7 +2091,11 @@ def self_test():
           "candidate, done-when 5's replayed undeclared instruction failed, a unit left unjudged failed by name, the "
           "re-run reusing every accepted attempt, one payload and one packet per receipt with RECEIPT_STALE and "
           "PACKET_DIVERGENCE planted, JUDGE_OVER_CAPACITY and TOKEN_FILE_UNSET; done-when 4's decidable halves - no "
-          "reuse across runs, and A's judgment never answering B)")
+          "reuse across runs, and A's judgment never answering B; the absence sweeps (J3a) - nothing swept at an "
+          "incomplete reference point, the dry upper bound, the absence claims, every remaining unit judged once by each "
+          "sweep, one payload bound to the inventory, the re-run reused, SWEEP_INVENTORY_MOVED, the pair and set "
+          "accounting refusals planted, a sweep answer missing a pair failed by name, SEAT_UNDECLARED, a lifecycle "
+          "candidate's named texts with the names not held counted)")
     return 0
 
 
