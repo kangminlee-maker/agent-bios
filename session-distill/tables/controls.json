@@ -1,0 +1,29 @@
+{
+  "$comment": "design §6.5 and §3.2 as data (plan WP-10 done-when 4): the population planted in every run, each kind with its count, the stage that checks it and the verdict it must receive. runlib/controls.py plants the §6.5 kinds into S5's population under ordinary ids, borrowing a natural formed candidate's events and quotes, and writes their expected verdicts to controls.json, a file no packet carries and S6 never reads. The §3.2 gate controls are judged by the gate over planted call directories of the stage that dispatches calls; a run that lacks any kind's verdict is CONTROLS_INCOMPLETE.",
+  "planted": [
+    {"kind": "paraphrase_covered", "count": 2, "design": "two paraphrases of covered units (must match their unit)",
+     "checked_at": ["S5", "S6"],
+     "expected": {"S5": "its unit is among the units retrieved for it", "S6": "its unit diagnosis at the current point is covers"}},
+    {"kind": "temporal_order_cause", "count": 1, "design": "an admission failure: cause by temporal order only",
+     "checked_at": ["S6"], "expected": {"S6": "rejected, both judges marking causal_support unmet"}},
+    {"kind": "task_specific_requirement", "count": 1, "design": "an admission failure: a task-specific requirement",
+     "checked_at": ["S6"], "expected": {"S6": "rejected"}},
+    {"kind": "altered_quote", "count": 1, "design": "one altered quote",
+     "checked_at": ["S5"], "expected": {"S5": "QUOTE_MISMATCH on the altered quote"}},
+    {"kind": "fabricated_session", "count": 1, "design": "one fabricated session id",
+     "checked_at": ["S5"], "expected": {"S5": "SESSION_UNKNOWN on the fabricated session"}}
+  ],
+  "gate": [
+    {"kind": "truncated_output", "design": "a truncated output (Claude, a small CLAUDE_CODE_MAX_OUTPUT_TOKENS)", "code": "COMPLETION_INCOMPLETE"},
+    {"kind": "aborted_stream", "design": "a real aborted stream (Codex)", "code": "COMPLETION_INCOMPLETE"},
+    {"kind": "incomplete_frame", "design": "a planted response.incomplete frame (Codex)", "code": "COMPLETION_INCOMPLETE"},
+    {"kind": "refusal", "design": "a refusal (Claude stop_reason refusal; planted refusal frames for both runners)", "code": "COMPLETION_INCOMPLETE"},
+    {"kind": "nonzero_exit", "design": "a nonzero exit", "code": "COMPLETION_INCOMPLETE"},
+    {"kind": "stale_receipt", "design": "a stale receipt", "code": "RECEIPT_STALE"},
+    {"kind": "mismatched_result_hash", "design": "a mismatched result hash", "code": "RECORD_INTEGRITY"},
+    {"kind": "inherited_profile", "design": "an inherited profile", "code": "PROFILE_INHERITED"},
+    {"kind": "contaminated_working_directory", "design": "a contaminated working directory: an undeclared working-directory, ancestor and configuration-home instruction file, a skill, and a memory file", "code": "CONTEXT_UNDECLARED"},
+    {"kind": "unattested_model", "design": "an unattested model", "code": "MODEL_UNATTESTED"}
+  ],
+  "rejection_share": {"natural_more_than": 20, "design": "more than twenty natural candidates with no rejection fails O4"}
+}

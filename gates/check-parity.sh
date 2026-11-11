@@ -587,6 +587,12 @@ if [ -f session-distill/runlib/stage_retrieve.py ]; then
   leg -q "FAIL: session-distill S5 retrieve self-test (session-distill/runlib/stage_retrieve.py)" \
     python3 session-distill/runlib/stage_retrieve.py --self-test
 fi
+# Design §6.5's planted controls (plan WP-10 done-when 4): the population planted from a golden run under ordinary ids,
+# F27's marker check, CONTROLS_INCOMPLETE, CONTROL_FAILED and REJECTION_SHARE_ZERO; no model is called.
+if [ -f session-distill/runlib/controls.py ]; then
+  leg -q "FAIL: session-distill planted controls self-test (session-distill/runlib/controls.py)" \
+    python3 session-distill/runlib/controls.py --self-test
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled

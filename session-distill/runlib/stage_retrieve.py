@@ -39,7 +39,7 @@ import sys
 import tempfile
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import census, derive, evidence, lifecycle_intake, lineage, records, stage_form, validate
+from runlib import census, controls, derive, evidence, lifecycle_intake, lineage, records, stage_form, validate
 from runlib.records import Refused
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/: the self-test runs the driver from it
@@ -56,7 +56,11 @@ INPUTS = ({"artifact": "candidates.json", "producer_stage": "S4"},
           {"artifact": "coverage.json", "producer_stage": "S1"},
           {"artifact": "views.json", "producer_stage": "S2"},
           {"artifact": "inventory/current.json", "producer_stage": "S2"})
-OUTPUTS = ("checks.json",)
+# checks.json: one row per candidate; checked-candidates.json: the population S6 judges, natural and planted in one
+# shape, ordered by id, with the evidence records no S3 store holds; the expected verdicts of the planted controls,
+# which no packet carries and S6 never reads (controls.reader_problems)
+POPULATION_FILE = "checked-candidates.json"
+OUTPUTS = ("checks.json", POPULATION_FILE, controls.CONTROLS_FILE)
 # design §6.2 line 411: "top 20 per layer plus every unit a candidate names"
 PER_LAYER = 20
 # design §6.2 line 412 names "the top ledger entries" and no number, nor does the plan: the per-layer count, a declared
@@ -259,11 +263,12 @@ def cited(candidate, subject_of):
     return sorted(ids), problems
 
 
-def quote_problems(run_dir, ids, stored, origins):
-    """Each cited quote verified again against the immutable copy: the problems, each `<code> <evidence id>`."""
+def quote_problems(run_dir, ids, stored, extra):
+    """Each cited quote verified again against the immutable copy: the problems, each `<code> <evidence id>`. A record is
+    an S3 store's, or one of `extra`: S4's origin quotes and the planted controls' own."""
     problems = []
     for ident in ids:
-        record = origins.get(ident) if ident.startswith("origin:") else stored.get(ident)
+        record = stored.get(ident) or extra.get(ident)
         if record is None:
             problems.append(f"EVIDENCE_ABSENT {ident}")
             continue
@@ -311,15 +316,16 @@ def schema_problems(doc):
     return validate.validate_instance(validate.compile_schema(json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))), doc)
 
 
-def population(run_dir):
-    """The candidates S5 checks: S4's population as `candidates.json` lists it, formed and lifecycle."""
+def natural_population(run_dir):
+    """S4's population as `candidates.json` lists it, formed and lifecycle."""
     return records.read_json(pathlib.Path(run_dir) / "candidates.json")
 
 
-def build(run_dir, declaration):
-    """`checks.json`'s document for a run."""
+def build(run_dir, declaration, nonce=None):
+    """`(checks.json, checked-candidates.json, controls.json)` for a run: S4's population with the planted controls
+    of design §6.5 (controls.plant) among it under ordinary ids, every candidate checked alike."""
     run_dir = pathlib.Path(run_dir)
-    cands = population(run_dir)
+    cands = natural_population(run_dir)
     current = records.read_json(run_dir / "inventory" / "current.json")
     rows = census.rows(census.load(run_dir))
     subject_of = stage_form.subject(run_dir)
@@ -327,25 +333,33 @@ def build(run_dir, declaration):
     names = [t["name"] for t in records.read_json(run_dir / "views.json")["transcripts"]]
     stored, origins = stored_evidence(run_dir, names), cands.get("origin_evidence") or {}
     unit_index, entry_index = UnitIndex(current["units"]), EntryIndex(ledger["entries"])
-    clusters = {c["candidate_id"]: c for c in cands["candidates"] if c["source"] == "g_cluster"}
+    planted, planted_evidence, planted_doc = controls.plant(
+        cands["candidates"], unit_index, lambda k: cited(k, subject_of)[0], lambda i: stored.get(i) or origins.get(i),
+        {census.key_of(r) for r in rows}, nonce)
+    extra = {**origins, **planted_evidence}
+    everyone = sorted(cands["candidates"] + planted, key=lambda k: k["candidate_id"])
+    clusters = {c["candidate_id"]: c for c in everyone if c["source"] == "g_cluster"}
     absence, withheld_reason = absence_of(current)
     out = []
-    for k in cands["candidates"]:
+    for k in everyone:
         keys, names_u, names_e = query_keys(k, unit_index, entry_index, clusters)
         units, absent_u = retrieve_units(keys, names_u, unit_index)
         entries, absent_e = retrieve_entries(keys, names_e, entry_index)
         ids, claim_problems = cited(k, subject_of)
-        quotes = claim_problems + quote_problems(run_dir, ids, stored, origins)
+        quotes = claim_problems + quote_problems(run_dir, ids, stored, extra)
         out.append({"candidate_id": k["candidate_id"], "source": k["source"], "query_keys": len(keys),
                     "retrieved_units": units, "named_units_absent": absent_u, "ledger_entries": entries,
                     "named_entries_absent": absent_e, "recurrence": recurrence(k.get("sessions") or [], rows),
                     "quote_ok": (not quotes) if (ids or claim_problems) else None, "quotes_checked": len(ids),
                     "quote_problems": quotes, "session_problems": session_problems(k, subject_of, rows),
                     "absence_withheld": withheld_reason is not None})
-    return {"constants": {"per_layer": PER_LAYER, "top_entries": TOP_ENTRIES, "top_entries_basis": TOP_ENTRIES_BASIS,
-                          "indexed_class": INDEXED_CLASS},
-            "library": unit_index.counts, "ledger_index": {"entries": len(entry_index.entries), "read": read},
-            "absence": absence, "candidates": out, "summary": summary_of(out, withheld_reason)}
+    planted_ids = {k["candidate_id"] for k in planted}
+    doc = {"constants": {"per_layer": PER_LAYER, "top_entries": TOP_ENTRIES, "top_entries_basis": TOP_ENTRIES_BASIS,
+                         "indexed_class": INDEXED_CLASS},
+           "library": unit_index.counts, "ledger_index": {"entries": len(entry_index.entries), "read": read},
+           "absence": absence, "candidates": out,
+           "summary": summary_of([r for r in out if r["candidate_id"] not in planted_ids], withheld_reason)}
+    return doc, {"candidates": everyone, "evidence": dict(sorted(extra.items()))}, planted_doc
 
 
 def summary_of(rows, withheld_reason):
@@ -365,19 +379,32 @@ def summary_of(rows, withheld_reason):
             "absence_withheld": {"candidates": withheld, "reason": withheld_reason if withheld else None}}
 
 
-def run(run_dir):
-    """S5 over S4's population: admitted against its inputs, writes `checks.json` (schema-checked) and records it."""
+def run(run_dir, nonce=None):
+    """S5 over S4's population and the planted controls: admitted against its inputs, writes `checks.json`
+    (schema-checked), the population S6 judges and the controls' expected verdicts, and records them. `nonce` fixes
+    the controls' draw; only a self-test passes it."""
     run_dir = pathlib.Path(run_dir)
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
-        doc = build(run_dir, stage.declaration)
+        doc, checked, planted_doc = build(run_dir, stage.declaration, nonce)
         problems = schema_problems(doc)
         if problems:
             raise Refused("CHECKS_INVALID " + "; ".join(problems[:5]))
+        # a planted control S5 checks and does not fail, or a kind not planted, stops the run here (design §4, §6.5)
+        stops = controls.check_s5(planted_doc, {r["candidate_id"]: r for r in doc["candidates"]})
+        if stops:
+            raise Refused("\n".join(stops))
         records.write_json(run_dir, run_dir / "checks.json", doc)
-        stage.output("checks.json")
+        records.write_json(run_dir, run_dir / POPULATION_FILE, checked)
+        records.write_json(run_dir, run_dir / controls.CONTROLS_FILE, planted_doc)
+        for name in OUTPUTS:
+            stage.output(name)
         declaration_seq = stage.record["declaration_seq"]
     return {**doc["summary"], "declaration_seq": declaration_seq, "library": doc["library"],
-            "ledger_index": doc["ledger_index"], "absence": doc["absence"]}
+            "ledger_index": doc["ledger_index"], "absence": doc["absence"],
+            "controls": {"planted": len(planted_doc["planted"]),
+                         "s5_checked": sum(1 for e in planted_doc["planted"] if "S5" in e),
+                         "s5_held": sum(1 for e in planted_doc["planted"] if (e.get("S5") or {}).get("ok")),
+                         "gate_declared": len(planted_doc["gate"])}}
 
 
 def withheld_line(summary):
@@ -402,6 +429,9 @@ def report_lines(summary):
              + ", ".join(f"{k} {v}" for k, v in rec["excluded"].items())]
     line = withheld_line(summary)
     lines.append(f"absence: {line}" if line else "absence: the current reference point is complete; none withheld")
+    c = summary["controls"]
+    lines.append(f"controls (apart from the counts above): {c['planted']} planted; S5 checked {c['s5_checked']}, each "
+                 f"given its verdict: {c['s5_held']}; {c['gate_declared']} gate controls declared for the dispatching stage")
     return lines
 
 
@@ -602,12 +632,33 @@ def self_test():
             doc = guarded(lambda: records.read_json(gold / "checks.json"), {"candidates": []})
             cands = guarded(lambda: records.read_json(gold / "candidates.json")["candidates"], [])
             rows_by = {r["candidate_id"]: r for r in doc["candidates"]}
-            control("golden: S5 runs over S4's population, completes, and records checks.json as its one output",
+            control("golden: S5 runs over S4's population, completes, and records its three outputs",
                     record_of(gold).get("status") == "complete"
                     and [o["artifact"] for o in record_of(gold).get("outputs", [])] == list(OUTPUTS), f"{made}")
-            control("golden: one row per candidate of the population, formed and lifecycle, and none beside them",
-                    [r["candidate_id"] for r in doc["candidates"]] == [k["candidate_id"] for k in cands] and len(cands) > 2,
-                    f"{len(doc['candidates'])} {len(cands)}")
+            checked = guarded(lambda: records.read_json(gold / POPULATION_FILE), {"candidates": [], "evidence": {}})
+            planted_doc = guarded(lambda: records.read_json(gold / controls.CONTROLS_FILE), {"planted": [], "gate": []})
+            planted_ids = {e["candidate_id"] for e in planted_doc["planted"]}
+            natural_ids = [k["candidate_id"] for k in cands]
+            control("golden (done-when 4): the planted controls join the population every run - the six of §6.5 among "
+                    "S4's candidates, one population ordered by id, one row of checks.json per member",
+                    len(planted_ids) == 6 and set(natural_ids) | planted_ids == {k["candidate_id"] for k in checked["candidates"]}
+                    and [k["candidate_id"] for k in checked["candidates"]] == sorted(set(natural_ids) | planted_ids)
+                    and [r["candidate_id"] for r in doc["candidates"]] == [k["candidate_id"] for k in checked["candidates"]]
+                    and len(cands) > 2, f"{len(planted_ids)} {len(doc['candidates'])} {len(cands)}")
+            control("golden: S5 gives each of its controls its verdict - the paraphrased unit retrieved, the altered quote "
+                    "QUOTE_MISMATCH, the fabricated session SESSION_UNKNOWN - and the run goes on",
+                    [e.get("S5", {}).get("ok") for e in planted_doc["planted"] if "S5" in e["checked_at"]] == [True] * 4
+                    and made.get("controls", {}).get("s5_held") == 4, f"{planted_doc['planted']}")
+            control("golden: the summary counts the natural candidates; the controls are reported apart",
+                    doc.get("summary", {}).get("candidates") == len(cands) and doc["summary"].get("quote_failed") == 0
+                    and doc["summary"].get("session_failed") == 0, f"{doc.get('summary')}")
+            nat_formed = next((k for k in cands if k["source"] == "formed" and k["event_ids"]), {})
+            twin = next((k for k in checked["candidates"] if k["candidate_id"] in planted_ids
+                         and k.get("event_ids") == nat_formed.get("event_ids")), {})
+            control("F27: a control's row in checks.json has a natural row's paths and types, and its record in the "
+                    "population a natural record's", twin and not controls.marker_problems(rows_by.get(twin.get("candidate_id"), {}),
+                                                                                         rows_by.get(nat_formed.get("candidate_id"), {}))
+                    and not controls.marker_problems(twin, nat_formed), f"{twin.get('candidate_id')}")
             control("golden: checks.json holds to its schema", not schema_problems(doc), f"{schema_problems(doc)[:3]}")
             formed_c = next((k for k in cands if k["source"] == "formed" and k["event_ids"]), {})
             row_c = rows_by.get(formed_c.get("candidate_id"), {})
@@ -627,15 +678,29 @@ def self_test():
             lc = [r for r in doc["candidates"] if r["source"] != "formed"]
             control("golden: a lifecycle candidate cites no quote (quote_ok null) and has no session to count",
                     lc and all(r["quote_ok"] is None and r["recurrence"]["count"] == 0 for r in lc), f"{lc[:1]}")
-            control("golden: at the run's incomplete current point every candidate is withheld, and the summary carries "
-                    "the count and the reason by name",
+            control("golden: at the run's incomplete current point every natural candidate is withheld, and the summary "
+                    "carries the count and the reason by name",
                     doc.get("summary", {}).get("absence_withheld") == {"candidates": len(cands), "reason":
                                                                       "completeness of the native_settings layer unknown"}
                     and all(r["absence_withheld"] for r in doc["candidates"]), f"{doc.get('summary', {}).get('absence_withheld')}")
-            said = guarded(lambda: report_lines(made), ["RAISED"])
+            said = guarded(lambda: report_lines(made), ["RAISED", "RAISED"])
             control("golden: the report carries the withheld line: '<n> candidates not advanced to an absence sweep: <reason>'",
-                    said[-1] == f"absence: {len(cands)} candidates not advanced to an absence sweep: completeness of the "
-                                "native_settings layer unknown", f"{said[-1:]}")
+                    said[-2] == f"absence: {len(cands)} candidates not advanced to an absence sweep: completeness of the "
+                                "native_settings layer unknown", f"{said[-2:]}")
+            control("golden: the report carries the controls apart from the natural counts",
+                    said[-1].startswith("controls (apart from the counts above): 6 planted; S5 checked 4"), f"{said[-1:]}")
+            # a planted S5 control that S5 lets through stops the run before S6 reads anything
+            slipped = copy_of("slipped")
+            held_alter = controls.alter
+            controls.alter = lambda text: text
+            try:
+                said_slipped = refusal(lambda: run(slipped))
+            finally:
+                controls.alter = held_alter
+            control("CONTROL_FAILED: an altered quote that is not altered passes S5's quote check, and S5 stops the run by "
+                    "name, writing nothing", "CONTROL_FAILED" in said_slipped and "altered_quote" in said_slipped
+                    and not (slipped / "checks.json").exists() and record_of(slipped).get("status") == "failed",
+                    said_slipped[:300])
             # a text short enough to be a JSON word ("true") says nothing about what the file holds
             texts = [t for t in [u["text"] for u in lifecycle_intake.FX_LIBRARY] + [k.get("lesson") for k in cands]
                      if t and len(t) > 12]
