@@ -305,7 +305,8 @@
             "null"
           ],
           "minLength": 1,
-          "$comment": "null for a disposition that carries no operations; a placed item names the file or entry that carries it."
+          "$comment": "null for a disposition that carries no operations; a placed item names the file or entry that carries it. The pattern refuses a control character only - a single line. WHICH layers exist and whether the path is relative are `runlib/placement.destination_problems`'s, so one rule has one authority; the pattern is here because a schema can say 'one line' without restating anything.",
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
         },
         "consumer": {
           "type": "string",

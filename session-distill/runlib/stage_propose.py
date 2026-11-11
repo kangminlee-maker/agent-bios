@@ -389,6 +389,66 @@ def awaiting_r(answer, candidate, derivation_row):
     return False, "admitted directly, so its F is this run's"
 
 
+# The answer's own PATH-SHAPED and IDENTIFIER-SHAPED strings, which reach the owner's review page
+# the way a destination's carrier does. The seven Korean reason fields and the behavior contract's
+# sentences are PROSE: a newline in prose is ordinary, and escaping prose on render is lane E's. What
+# is held here is the set whose values name files, records and terms - where a control character is
+# never meaningful and a forged line is.
+NON_PROSE_STRINGS = (
+    ("operations[].target", "every operation's target, which names a file"),
+    ("keep_record_named", "a ledger record id"),
+    ("expected_observation.retrieval_terms[]", "the terms a later run searches for"),
+    ("expected_observation.expiry", "a date"),
+    ("artifact_set.registration", "the router line or published path an item registers under"),
+)
+
+
+def _non_prose_values(answer):
+    """The answer's non-prose strings as (field, value) pairs, in NON_PROSE_STRINGS' order."""
+    held = []
+    for operation in answer.get("operations") or ():
+        if isinstance(operation, dict) and isinstance(operation.get("target"), str):
+            held.append(("operations[].target", operation["target"]))
+    keep = answer.get("keep_record_named")
+    for value in (keep if isinstance(keep, list) else [keep] if isinstance(keep, str) else []):
+        if isinstance(value, str):
+            held.append(("keep_record_named", value))
+    observation = answer.get("expected_observation") or {}
+    if isinstance(observation, dict):
+        for value in observation.get("retrieval_terms") or ():
+            if isinstance(value, str):
+                held.append(("expected_observation.retrieval_terms[]", value))
+        if isinstance(observation.get("expiry"), str):
+            held.append(("expected_observation.expiry", observation["expiry"]))
+    artifacts = answer.get("artifact_set") or {}
+    if isinstance(artifacts, dict) and isinstance(artifacts.get("registration"), str):
+        held.append(("artifact_set.registration", artifacts["registration"]))
+    return held
+
+
+def non_prose_problems(answer, item=""):
+    """A control character in a non-prose string, by field and value.
+
+    Same reason as the destination's carrier: these values are model output that reaches the owner's
+    review page, and a newline followed by a decision-shaped line could forge an owner's line there.
+    A `..` segment and an absolute path are refused for `operations[].target` as well, since that
+    field names a file the apply stage will write.
+    """
+    problems = []
+    for field, value in _non_prose_values(answer):
+        if any(ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F for ch in value):
+            problems.append(f"FIELD_CONTROL_CHARACTER {item}{field}={value!r}: a control character in "
+                            f"a value that names a file, a record or a term, which could forge a line "
+                            f"in the rendered review")
+            continue
+        if field == "operations[].target":
+            broken = placement._carrier_problem(value)
+            if broken and broken[0] != "DESTINATION_CARRIER_CONTROL":
+                code = broken[0].replace("DESTINATION_CARRIER", "TARGET")
+                problems.append(f"{code} {item}{field}={value!r}: {broken[1]}")
+    return problems
+
+
 def answer_problems(answer, candidate, derivation, derivation_row, active_keep=None,
                     legacy_incubating=False):
     """Every problem of one answer, by name: its shape, the contract, and the unknowns it must carry.
@@ -403,6 +463,7 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
     if problems:
         return problems
     proposal = proposal_of(answer, candidate, derivation_row, legacy_incubating)
+    problems += non_prose_problems(answer, item=f"{candidate.get('candidate_id')}: ")
     problems += placement.problems(proposal, active_keep)
     # §10.4: a ledger-only disposition changes no installed instruction, so it carries no operations
     # and needs no test. The structural table owns the rest of §7.3; this one is §10.4's own sentence.
@@ -718,7 +779,11 @@ def fixture_cases():
          "row": adj_row, "derivation": ANSWERED, "answer": _answered(requires_R=True)},
         {"id": "F-O5-08b", "plant": "the same admission on a personal item", "candidate": adj_cand,
          "row": adj_row, "derivation": ANSWERED,
-         "answer": _answered(destination={"layer": "personal", "carrier": "~/notes/own.md"})},
+         # The carrier is relative to the personal layer's declared root, not to HOME: written
+         # `~/notes/own.md` it would resolve through the home directory and bypass the root
+         # `run.json.destinations.personal_layers` names. The frozen answer moved with this change,
+         # deliberately, which is what the freeze is for.
+         "answer": _answered(destination={"layer": "personal", "carrier": "notes/own.md"})},
         {"id": "F-O5-15", "plant": "a type G candidate below the lineage bar", "candidate": g_cand,
          "row": g_row, "derivation": ANSWERED, "answer": _answered()},
         {"id": "F-O5-15b", "plant": "the same candidate proposed as incubate instead",
@@ -1182,6 +1247,71 @@ def self_test():
     control("§7.3's keep rule receives the record the answer named, under the name that rule reads",
             json.dumps(proposal_of({**_answered(), "keep_record_named": "KEEP-7"},
                                    *_candidate())["keep_records_named"]), '"KEEP-7"')
+
+    # The answer's own non-prose strings. The seven Korean reason fields and the behavior contract's
+    # sentences are prose and are escaped on render; these name files, records and terms, where a
+    # control character is never meaningful and a forged line is.
+    def with_target(target):
+        held = _answered()
+        return {**held, "operations": [{**held["operations"][0], "target": target}]}
+
+    clean("an ordinary answer carries no non-prose problem", non_prose_problems(_answered()))
+    control("a newline in an operation's target is refused by field and value",
+            "; ".join(non_prose_problems(with_target("g.md\nowner approved: yes"))),
+            "FIELD_CONTROL_CHARACTER operations[].target")
+    clean("and every other control character too, not only the newline",
+          [hex(code) for code in list(range(0x00, 0x20)) + list(range(0x7F, 0xA0))
+           if not non_prose_problems(with_target(f"g{chr(code)}md"))])
+    control("a target climbing out of the tree is refused, since apply will write that file",
+            "; ".join(non_prose_problems(with_target("../../etc/x"))), "TARGET_TRAVERSAL")
+    control("and an absolute target too", "; ".join(non_prose_problems(with_target("/etc/passwd"))),
+            "TARGET_ABSOLUTE")
+    clean("a target whose name merely contains two dots is not a traversal",
+          non_prose_problems(with_target("claude/guides/a..b.md")))
+    control("a control character in artifact_set.registration is refused: it names a router line or "
+            "a published path",
+            "; ".join(non_prose_problems({**_answered(),
+                                          "artifact_set": {**_answered()["artifact_set"],
+                                                           "registration": "r\napproved"}})),
+            "FIELD_CONTROL_CHARACTER artifact_set.registration")
+    control("and one in a ledger record id",
+            "; ".join(non_prose_problems({**_answered(), "keep_record_named": ["L-1\nL-2"]})),
+            "FIELD_CONTROL_CHARACTER keep_record_named")
+    control("and one in a retrieval term or an expiry, which a later run searches and reads",
+            "; ".join(non_prose_problems({**_answered(), "expected_observation": {
+                "occasion": "o", "exposure_rule": "e", "expected_behavior": "b",
+                "retrieval_terms": ["ok", "bad\nterm"], "expiry": "2026-12-01"}})),
+            "FIELD_CONTROL_CHARACTER expected_observation.retrieval_terms[]")
+    clean("a newline in a PROSE field is not refused here: prose is prose, and the render escapes it",
+          non_prose_problems({**_answered(),
+                              "reasons": {**_answered()["reasons"], "reason": "첫 줄\n둘째 줄"}}))
+    control("every field the check covers is named in one place, with what it is",
+            ", ".join(name for name, _why in NON_PROSE_STRINGS), "operations[].target")
+    clean("and every named field is actually read, so the list cannot describe a check that is not "
+          "made",
+          [name for name, _why in NON_PROSE_STRINGS
+           if name not in {field for field, _v in _non_prose_values({
+               **_answered(), "keep_record_named": ["L-1"],
+               "expected_observation": {"occasion": "o", "exposure_rule": "e",
+                                        "expected_behavior": "b", "retrieval_terms": ["t"],
+                                        "expiry": "2026-12-01"}})}])
+    control("the schema refuses a multi-line carrier on its own, so a malformed answer is caught "
+            "before any contract check reads it",
+            "; ".join(_shape_problems(_answered(
+                destination={"layer": "guides", "carrier": "g.md\napproved"}))),
+            "ANSWER_INVALID destination/carrier")
+    clean("and an ordinary carrier still passes the schema", _shape_problems(_answered()))
+    control("the answer path refuses it too, not only the function",
+            said(with_target("g.md\nowner approved: yes")), "FIELD_CONTROL_CHARACTER")
+    control("a PERSONAL carrier is relative to its layer's declared root as well: `~/...` would "
+            "resolve through HOME and bypass the root the run declared",
+            said(_answered(destination={"layer": "personal", "carrier": "~/notes/own.md"}),
+                 *_candidate()[:1], ANSWERED, _candidate()[1]),
+            "DESTINATION_CARRIER_ABSOLUTE")
+    clean("while the same file named relatively is clean",
+          [p for p in (said(_answered(destination={"layer": "personal", "carrier": "notes/own.md"}),
+                            *_candidate()[:1], ANSWERED, _candidate()[1]) or "").split("; ")
+           if "CARRIER" in p])
 
     # WP-20's three interface pieces: the Korean regeneration, the subset, and (in the end-to-end
     # block below) both on the golden host.

@@ -118,6 +118,14 @@ def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incu
             problems.append(f"ALTERNATIVE_DISALLOWED {alternative['disposition']}: §7.2 allows "
                             f"{', '.join(sorted(allowed)) or 'nothing'} for this pair, so this is not "
                             f"an alternative the owner could take")
+        # The alternative IS a proposal - it is what the owner may take instead - so its destination
+        # is held to §7.4's layers and to the carrier rules, through the same function S7's own
+        # destination goes through. Both are model output that reaches the owner's review page, where
+        # a carrier carrying a newline and a decision-shaped line could forge an owner's line; the
+        # render escapes, and the producer refuses at the source.
+        problems.extend(placement.destination_problems(
+            alternative.get("destination"), where="alternative.destination",
+            item=f"{proposal_row.get('candidate_id')}: "))
     return problems
 
 
@@ -461,6 +469,65 @@ def self_test():
             refused(lambda: document(two, reviews_two, only=["k9"])), "SUBSET_UNKNOWN k9")
     control("and an empty subset is refused", refused(lambda: document(two, reviews_two, only=[])),
             "SUBSET_EMPTY")
+    # The alternative is a proposal - what the owner may take instead - so its destination goes
+    # through the same function S7's own does. An automated review of lane E's render found this: the
+    # alternative's layer and carrier are model output reaching the owner's page, and the render
+    # escaping them is not the producer refusing them.
+    def alt(**over):
+        held = {"disposition": "correct", "reason": "더 싼 자리다",
+                "destination": {"layer": "guides", "carrier": "claude/guides/g.md"}}
+        held.update(over)
+        return held
+
+    disagreeing = review(verdict="disagree", alternative=alt(),
+                         disposition_review={"holds": False, "reason": "그 처분이 아니다"})
+    misfire = row(kind="misfire", diagnosis="wrong or insufficient")
+    clean("an alternative with a §7.4 layer and a relative carrier passes",
+          review_problems(disagreeing, misfire))
+    control("an alternative whose layer is outside §7.4's order is refused by name",
+            said(review(verdict="disagree", alternative=alt(destination={"layer": "everywhere",
+                                                                        "carrier": "x"}),
+                        disposition_review={"holds": False, "reason": "r"}), misfire),
+            "LAYER_UNKNOWN k1: alternative.destination.layer")
+    # Two gates, and which one speaks is worth being exact about. The SCHEMA refuses a multi-line
+    # carrier first, because the shape check runs before the contract checks - so through
+    # `review_problems` that is the message. The CODE rule is what holds where no schema runs: a
+    # proposal row read from a `proposals.json` this version did not write, which `review_problems`
+    # judges without re-validating. Both are asserted, each where it is the one that answers.
+    control("an alternative carrier carrying a newline is refused by the schema first, which is what "
+            "a forged owner line would need",
+            said(review(verdict="disagree",
+                        alternative=alt(destination={"layer": "guides",
+                                                     "carrier": "g.md\nowner approved: yes"}),
+                        disposition_review={"holds": False, "reason": "r"}), misfire),
+            "REVIEW_INVALID alternative/destination/carrier")
+    control("and the code rule refuses the same carrier where no schema runs, naming the field",
+            "; ".join(placement.destination_problems(
+                {"layer": "guides", "carrier": "g.md\nowner approved: yes"},
+                where="alternative.destination", item="k1: ")),
+            "DESTINATION_CARRIER_CONTROL k1: alternative.destination.carrier")
+    control("an alternative carrier climbing out of the tree is refused",
+            said(review(verdict="disagree",
+                        alternative=alt(destination={"layer": "guides", "carrier": "../../etc/x"}),
+                        disposition_review={"holds": False, "reason": "r"}), misfire),
+            "DESTINATION_CARRIER_TRAVERSAL k1: alternative.destination")
+    control("and an absolute one too",
+            said(review(verdict="disagree",
+                        alternative=alt(destination={"layer": "guides", "carrier": "/etc/passwd"}),
+                        disposition_review={"holds": False, "reason": "r"}), misfire),
+            "DESTINATION_CARRIER_ABSOLUTE k1: alternative.destination")
+
+    control("the rules are S7's own function, not a second copy here",
+            next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                 if "destination_problems" in line and "problems.extend" in line),
+            "placement.destination_problems")
+    clean("an alternative with no destination at all is not a destination problem: whether one is "
+          "required is the pair's question",
+          [p for p in review_problems(
+              review(verdict="disagree", alternative={"disposition": "correct", "reason": "r"},
+                     disposition_review={"holds": False, "reason": "r"}), misfire)
+           if "DESTINATION" in p or "LAYER_UNKNOWN" in p])
+
     control("`run` refuses a subset by name: the stage's output is one file, so a subset run would "
             "replace the whole review with those rows",
             refused(lambda: run("/nonexistent-run", reviews_two, only=["k2"])), "SUBSET_IN_RUN S7b")
