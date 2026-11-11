@@ -5836,7 +5836,7 @@ def shared_inventories(ctx):
         sub = {**ctx, "notes": {}, "omissions": list(unkeyed), "pin": None, "pin_record": {"content_ref": content_ref},
                "snapshot": snapshot, "selection_host": "claude"}
         out.append(shared_document("selection", content_ref, layer_rows("selection", sub), ctx,
-                                   unavailable=unavailable_rows(ctx, snapshot)))
+                                   unavailable=unavailable_rows(ctx, snapshot), snapshot=snapshot))
     for ref, (items, failures) in sorted((ctx.get("session_baselines") or {}).items()):
         omissions = list(unkeyed) + [{"input": "release_baseline", "ref": ref, **row} for row in failures]
         sub = {**ctx, "notes": {}, "omissions": omissions, "pin": None, "pin_record": None, "release_ref": ref,
@@ -5861,7 +5861,68 @@ def unavailable_rows(ctx, snapshot):
     return rows, (refs, surfaces)
 
 
-def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None):
+# The prefix a reading tool adds to each line, as `delivery_evidence.returned_lines` strips it: the
+# counts here and the judge's reading of a returned byte-stream must agree on what a line IS.
+LINE_PREFIX = re.compile(r"^\s*\d+(?:\t|→)")
+
+
+def _held_forms(line):
+    """The forms one line OF THE COMPILED TEXT can match a unit's line in: as written, and with a
+    reading tool's line-number prefix removed.
+
+    The two sides are not alike, and the asymmetry is the rule. A unit's line is the file's own
+    bytes, so it is compared as written; the compiled text may have been numbered by whatever
+    returned it, so it is held both ways. Normalizing BOTH sides would make `1\tfoo` and `2\tfoo`
+    the same line, and normalizing the text only when every one of its lines is numbered made the
+    two sides disagree about what a line is whenever the text was a mixture."""
+    stripped = LINE_PREFIX.sub("", line, count=1).rstrip()
+    return {line.rstrip()} | ({stripped} if stripped.strip() else set())
+
+
+def _lines_of(text):
+    """`text`'s non-blank lines, as written."""
+    return [line.rstrip() for line in (text or "").splitlines() if line.strip()]
+
+
+def instruction_coverage(units, text):
+    """Per unit, how many of its operative-context LINES appear in the compiled instruction text.
+
+    Counts, never the text (lead decision, WP-11b): a session's compiled instructions are the
+    owner's and never enter a run, so the one place that can compare them with a unit's lines is
+    here, at S2, where the snapshot is readable. What is published is `{covered, total}` per unit
+    reference, which `delivery_evidence.in_compiled_text` reads in place of the text.
+
+    The context is the ONE-STEP set the §6.2 judge packet holds — `context_direct` plus
+    `context_reached` — so the counts answer the same question the judge asks. A requirement this
+    inventory cannot resolve (a `k-` entry) counts in `total` and never in `covered`: an unresolved
+    requirement is not a covered one."""
+    if text is None:
+        return {}
+    held = {form for line in _lines_of(text) for form in _held_forms(line)}
+    by_id = {unit["unit_id"]: unit for unit in units}
+    out = {}
+    for unit in units:
+        if unit["unit_ref"] in out:
+            continue
+        total = covered = 0
+        # Deduplicated: `direct` already holds the unit itself, and counting a requirement twice
+        # would make `covered == total` unreachable for a unit whose own lines the text holds.
+        context = dict.fromkeys([unit["unit_id"], *(unit.get("context_direct") or []),
+                                 *(unit.get("context_reached") or [])])
+        for req in context:
+            required = by_id.get(req)
+            if required is None:          # a k- entry, or a requirement outside this universe
+                total += 1
+                continue
+            for line in _lines_of(required.get("text")):
+                total += 1
+                if line in held:
+                    covered += 1
+        out[unit["unit_ref"]] = {"covered": covered, "total": total}
+    return out
+
+
+def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None, snapshot=None):
     """One shared inventory as `shared/<kind>-<i>.json` publishes it: its layer rows, the carrier
     versions it holds and its units, by reference into the store, its edges (`edges_of`: every unit's
     `direct` and `reached`, mentions resolved in this inventory's own universe, step 0 S-12) with the
@@ -5893,6 +5954,18 @@ def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None):
     if kind == "selection":
         rows_out, vocabulary = unavailable or ([], ())
         document["unavailable"] = rows_out
+        # What the session was given, as FACTS: the items with their surfaces, the compiled text's
+        # digest, and the per-unit line coverage of that text. The text itself stays where it is.
+        text = ((snapshot or {}).get("output") or {}).get("instruction_text")
+        items = [item for item in (snapshot or {}).get("items") or []
+                 if isinstance(item, dict) and isinstance(item.get("ref"), str)]
+        document["items"] = [{"ref": item["ref"], "surface": item.get("surface")} for item in
+                             sorted(items, key=lambda item: item["ref"])]
+        document["instruction_text_sha256"] = (
+            hashlib.sha256(text.encode("utf-8")).hexdigest() if isinstance(text, str) else None)
+        document["instruction_coverage"] = [
+            {"unit_ref": unit_ref, **counts}
+            for unit_ref, counts in sorted(instruction_coverage(units, text).items())]
         if vocabulary:
             table = table_of({**SHARED_INVENTORY_TABLE["fields"], "unavailable": list_of(table_of({
                 "ref": as_enum(vocabulary[0]), "surface": as_enum(vocabulary[1]), "reason": as_metadata()}))},
@@ -6850,9 +6923,19 @@ SHARED_INVENTORY_TABLE = table_of({
     "edges": list_of(EDGE_TABLE),
     "unknown_entries": list_of(UNKNOWN_REQUIREMENT_TABLE),
     "unavailable": list_of(table_of({"ref": as_enum(()), "surface": as_enum(()), "reason": as_metadata()})),
+    # A selection inventory's facts about the compiled instruction text (WP-11b): the items the
+    # session was given with their surfaces, that text's digest, and per unit how many of its
+    # operative-context lines the text held. The text is the owner's and is never published.
+    # the snapshot's own strings, through the floor: `unavailable` binds the enum vocabularies, and it
+    # is computable only where that list has rows (it reads the catalog), so this block does not
+    "items": list_of(table_of({"ref": as_metadata(), "surface": as_metadata(nullable=True)})),
+    "instruction_text_sha256": as_opaque("sha256", nullable=True),
+    "instruction_coverage": list_of(table_of({"unit_ref": as_opaque("unit_ref"), "covered": as_scalar(),
+                                              "total": as_scalar()})),
     "baseline_unmapped": list_of(as_metadata()),
     "baseline_items_expected": as_scalar(nullable=True),
-}, optional=("unavailable", "baseline_unmapped", "baseline_items_expected"), schema="shared_inventory_document")
+}, optional=("unavailable", "items", "instruction_text_sha256", "instruction_coverage",
+             "baseline_unmapped", "baseline_items_expected"), schema="shared_inventory_document")
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
@@ -16972,6 +17055,109 @@ def self_test():
                         document_contract_problems({**r15_document, "r15_unexpected_member": True}) if r15_document
                         else [f"no {kind} document written"],
                         "DOCUMENT_INVALID", "r15_unexpected_member")
+
+        with section("W11b: the compiled instruction text is answered as COUNTS, and never published"):
+            # ---- WP-11b, the S2 half of the lead's decision (fact-only): a session's compiled instructions are
+            # the owner's and never enter a run, so the one place that can compare them with a unit's lines is
+            # here, where the snapshot is readable. What a selection inventory publishes is the items with their
+            # surfaces, the text's digest and `{covered, total}` per unit — read by
+            # `delivery_evidence.in_compiled_text` in place of the text. Every control below plants a snapshot
+            # and reads the WRITTEN document, because what the run holds is the bytes, not the dict.
+            w11b_items = [carrier("catalog", "claude/guides/w11b/rules.md", "## Rules\n\n- the first rule\n- the second rule\n")]
+            w11b_units = units_of(w11b_items)
+            w11b_lines = [line for unit in w11b_units for line in (unit["text"] or "").splitlines() if line.strip()]
+
+            def w11b_published(text, items=({"ref": "a-ref", "surface": "always"},)):
+                """The written selection inventory for one planted snapshot: `(bytes, document)`."""
+                ctx_w = {"home": p26_home, "commit": None}
+                _path, document = shared_document("selection", f"w11b-{abs(hash(text)) % 10 ** 8}",
+                                                  p26_rows(w11b_items), ctx_w,
+                                                  snapshot={"items": list(items),
+                                                            "output": {"instruction_text": text}})
+                return p26_written(document)
+
+            # k of n: a snapshot holding SOME of a unit's operative-context lines publishes that count and the
+            # total, so the judge reads the same partial state the text path reads.
+            w11b_partial_bytes, w11b_partial = w11b_published("\n".join(w11b_lines[:1]))
+            w11b_whole_bytes, w11b_whole = w11b_published("\n".join(w11b_lines))
+            w11b_none_bytes, w11b_none = w11b_published("- an unrelated line\n")
+            w11b_counts = {row["unit_ref"]: (row["covered"], row["total"]) for row in w11b_partial["instruction_coverage"]}
+            w11b_total = {row["unit_ref"]: row["total"] for row in w11b_whole["instruction_coverage"]}
+            check("W11b: a snapshot covering k of a unit's n operative-context lines publishes k and n, and one "
+                  "covering all of them publishes n and n",
+                  # A unit whose whole context IS that one line is fully covered by the partial text,
+                  # which is correct and not what this row is about: the property is that at least one
+                  # unit reads strictly partial, and that no unit ever reads more than its total.
+                  bool(w11b_counts) and w11b_total
+                  and any(0 < covered < total for covered, total in w11b_counts.values())
+                  and all(0 <= covered <= total for covered, total in w11b_counts.values())
+                  and all(row["covered"] == row["total"] for row in w11b_whole["instruction_coverage"])
+                  and all(row["covered"] == 0 and row["total"] > 0 for row in w11b_none["instruction_coverage"]),
+                  f"partial={sorted(w11b_counts.items())} whole="
+                  f"{[(row['unit_ref'], row['covered'], row['total']) for row in w11b_whole['instruction_coverage']]} "
+                  f"none={[(row['unit_ref'], row['covered']) for row in w11b_none['instruction_coverage']]}")
+            # The run never contains the text. Judged on the BYTES of every planted snapshot, by the lines
+            # themselves rather than by a field name: a field renamed or added would carry the text past a
+            # key-name assertion. The digest is published, so the reader can still bind what it was told about.
+            w11b_leaked = sorted({line for bytes_, _document in ((w11b_partial_bytes, w11b_partial),
+                                                                 (w11b_whole_bytes, w11b_whole),
+                                                                 (w11b_none_bytes, w11b_none))
+                                  for line in w11b_lines if line.strip() in bytes_.decode("utf-8")})
+            clean("W11b: no selection inventory this suite wrote carries a line of the compiled text, while each "
+                  "carries its digest",
+                  w11b_leaked + ([f"a digest is missing: {[d.get('instruction_text_sha256') for d in (w11b_partial, w11b_whole, w11b_none)]}"]
+                                 if not all(isinstance(document.get("instruction_text_sha256"), str)
+                                            for document in (w11b_partial, w11b_whole, w11b_none)) else []))
+            # The digest is the text's own, so a reader can bind what it was told about to the bytes the
+            # session was given without the run holding them.
+            check("W11b: the published digest is the sha256 of the compiled text, and a session with no text "
+                  "publishes a null digest with no counts",
+                  w11b_whole["instruction_text_sha256"]
+                  == hashlib.sha256("\n".join(w11b_lines).encode("utf-8")).hexdigest()
+                  and w11b_published(None)[1]["instruction_text_sha256"] is None
+                  and w11b_published(None)[1]["instruction_coverage"] == [],
+                  f"{w11b_whole['instruction_text_sha256']}")
+            # The prefix-stripping rule, the one `delivery_evidence.returned_lines` applies: a text a reading
+            # tool numbered covers the same lines as the file's own bytes, and a digit that BEGINS a line of the
+            # text is never taken for a prefix (only a text whose every line carries one is stripped).
+            w11b_numbered = "\n".join(f"{n + 1:6d}\t{line}" for n, line in enumerate(w11b_lines))
+            _bytes, w11b_prefixed = w11b_published(w11b_numbered)
+            check("W11b: a compiled text a reading tool numbered covers the same lines as the file's own bytes",
+                  [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_prefixed["instruction_coverage"]]
+                  == [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_whole["instruction_coverage"]],
+                  f"numbered={[(row['unit_ref'], row['covered']) for row in w11b_prefixed['instruction_coverage']]} "
+                  f"plain={[(row['unit_ref'], row['covered']) for row in w11b_whole['instruction_coverage']]}")
+            # The asymmetry, in both directions. A unit's line is the file's own bytes and the compiled
+            # text may have been numbered by whatever returned it, so the text is held both ways and the
+            # unit's line is compared as written. The first of these rows was silent when the rule
+            # normalized both sides conditionally — the mutation changed no answer this suite asked about
+            # — and the pretrial is what said so (pretrial-wp11b-c6 row 4, 2026-11-11).
+            w11b_tabbed = [{"unit_id": "u-1", "unit_ref": "r-1", "text": "1\tfoo",
+                            "context_direct": [], "context_reached": []}]
+            w11b_verbatim = instruction_coverage(w11b_tabbed, "1\tfoo\nan unnumbered line\n")
+            check("W11b: a numbered-looking line the text holds as written is covered, though the rest of "
+                  "the text carries no number",
+                  w11b_verbatim.get("r-1") == {"covered": 1, "total": 1}, f"{w11b_verbatim}")
+            w11b_renumbered = instruction_coverage(w11b_tabbed, "2\tfoo\nan unnumbered line\n")
+            check("W11b: and the same line under another number is not that line, so stripping both sides "
+                  "cannot pass one off as the other",
+                  w11b_renumbered.get("r-1") == {"covered": 0, "total": 1}, f"{w11b_renumbered}")
+            # An unresolved requirement (a `k-` entry) counts in the total and never in the covered: a
+            # requirement this inventory cannot resolve is not a covered one, so a unit holding one can never
+            # read as fully covered however much of the text it finds.
+            w11b_unresolved = instruction_coverage(
+                [{"unit_id": "u-1", "unit_ref": "r-1", "text": "- a rule", "context_direct": ["u-1"],
+                  "context_reached": ["k-absent"]}], "- a rule")
+            check("W11b: an unresolved requirement counts in the total and never in the covered, so the unit "
+                  "cannot read as fully covered",
+                  w11b_unresolved.get("r-1") == {"covered": 1, "total": 2}, f"{w11b_unresolved}")
+            check("W11b: a selection inventory publishes the items the snapshot holds with their surfaces, and a "
+                  "release inventory publishes no coverage block at all",
+                  w11b_whole["items"] == [{"ref": "a-ref", "surface": "always"}]
+                  and "instruction_coverage" not in shared_document(
+                      "release", "w11b-release", p26_rows(w11b_items), {"home": p26_home, "commit": None},
+                      expected=None)[1],
+                  f"{w11b_whole['items']}")
 
         with section("H1: a heading's parent is the nearest shallower heading still open (K6's finding, P2.6)"):
             # ---- H1 (lead's K6 rulings): `units_of` nested headings by the slot their level number names

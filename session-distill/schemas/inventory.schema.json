@@ -244,6 +244,15 @@
         "unavailable": {"type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["ref", "surface", "reason"],
           "properties": {"ref": {"type": "string"}, "surface": {"type": "string"}, "reason": {"type": "string"}}}},
+        "items": {"$comment": "a selection inventory's facts about the compiled instruction text (WP-11b): the items the session was given, with the surface the snapshot selected each at", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ref", "surface"],
+          "properties": {"ref": {"type": "string"}, "surface": {"type": ["string", "null"]}}}},
+        "instruction_text_sha256": {"$comment": "the digest of the compiled instruction text the session was activated with; the text itself is the owner's and never enters a run", "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "instruction_coverage": {"$comment": "per unit, how many of its operative-context lines that text held, as counts: what the delivery judge reads in the text's place (WP-11b)", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["unit_ref", "covered", "total"],
+          "properties": {"unit_ref": {"type": "string", "pattern": "^r-[0-9a-f]{24}$"},
+                         "covered": {"type": "integer", "minimum": 0},
+                         "total": {"type": "integer", "minimum": 0}}}},
         "baseline_unmapped": {"type": "array", "items": {"type": "string"}},
         "baseline_items_expected": {"type": ["integer", "null"], "minimum": 0}
       }

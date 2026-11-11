@@ -52,7 +52,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, derive, dispatch, projection, records  # noqa: E402
+from runlib import bound, delivery_evidence, derive, dispatch, projection, records  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -208,16 +208,41 @@ def selected_items(shared, store):
     S2 published, because moving that acquisition here would make the stage read the owner's state
     directly and would make S2's recorded failure unverifiable.
 
-    What the shared document does publish is the carrier versions and unit refs the selection held,
-    so membership is derivable and the SURFACE is not. The surface is returned None, and the judge
-    then answers the levels that need it as unknown rather than guessing one."""
+    S2 publishes the snapshot's `items` with their surfaces (the fact-only half of the lead's
+    boundary decision), so a published surface is the snapshot's own answer. An item the carriers
+    name and the items block does not is held with a surface of None, and the judge then answers the
+    levels that need a surface as unknown rather than guessing one — which is what EVERY item read
+    as before that block existed."""
+    stated = {item.get("ref"): item.get("surface") for item in shared.get("items") or []
+              if isinstance(item, dict) and item.get("ref")}
     held = {}
     for carrier in shared.get("carriers") or []:
         version = ((store.get("versions") or {}).get(carrier.get("carrier_id")) or {}).get(
             carrier.get("version_sha256")) or {}
         if version.get("item_ref"):
-            held[version["item_ref"]] = None
+            held[version["item_ref"]] = stated.get(version["item_ref"])
     return held
+
+
+def coverage_facts(shared, units):
+    """`{unit_id: {covered, total}}` from the selection inventory's published counts.
+
+    The counts S2 publishes are keyed by the inventory's `r-` reference, and the judge asks about a
+    `unit_id`, so this translates between them over the units of the run. A reference the current
+    units do not carry is dropped rather than guessed: a fact that cannot be attached to a unit the
+    judge will ask about is no fact about that unit.
+
+    The compiled instruction text itself is never in the run (lead decision, WP-11b), so these
+    counts are the only way `delivery_evidence.in_compiled_text` can answer at all. A session whose
+    inventory publishes none reads unknown by `compiled_text_unavailable`, never `not_delivered`."""
+    ids = {}
+    for unit in units:
+        ids.setdefault(unit.get("unit_ref"), []).append(unit.get("unit_id"))
+    facts = {}
+    for row in shared.get("instruction_coverage") or []:
+        for unit_id in ids.get(row.get("unit_ref")) or []:
+            facts[unit_id] = {"covered": row.get("covered"), "total": row.get("total")}
+    return facts
 
 
 # The tools whose input NAMES the file it returned. A reader of this kind is unambiguous: the path is
@@ -476,13 +501,15 @@ def release_of(release_doc, session_ref):
 
 
 def session_evidence(session_row, events_by_ref, by_version, release_doc, shared_of, store,
-                     run_dir=None, copies=None):
-    """The inventory's half of the judge's `session` input: selection, events and the release.
+                     run_dir=None, copies=None, unit_records=()):
+    """The judge's `session` input: selection and the snapshot's facts, the events, the release, and
+    the bytes the session read back.
 
-    The session's own records — the compiled instruction text it was activated with, the paths it
-    was given, and the bytes it read back — are the other half, and they come from the run's
-    immutable copy in the commit after this one. Until then the keys they fill are absent rather
-    than empty, so no reader can mistake "not assembled" for "nothing there"."""
+    Three sources, each with its own absence rule. The inventory answers selection, events and the
+    release. S2 answers what the session was GIVEN — the items with their surfaces and the per-unit
+    coverage of the compiled instruction text, as counts, because that text is the owner's and never
+    enters a run. The run's immutable copy answers what the session READ. A key one of them cannot
+    fill is absent rather than empty, so no reader can mistake "not assembled" for "nothing there"."""
     basis, pin_reason, selected, history = basis_of(session_row, shared_of, store)
     native, undated = native_events_of(session_row, events_by_ref, by_version)
     evidence = {"session_ref": session_row.get("session_ref"), "basis": basis,
@@ -492,6 +519,23 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
     if pin_reason:
         evidence["pin_reason"] = pin_reason
     counts = {"native_events": len(native), "events_without_a_line": undated}
+    # The snapshot's facts, as S2 published them on this session's selection inventory: the rows a
+    # surface could not be routed on, and the per-unit coverage of the compiled instruction text.
+    # Looked up here as well as in `basis_of` because the two read the document for different
+    # answers, and a basis of None does not mean the facts are absent.
+    selection_ref = (session_row.get("selection") or {}).get("inventory_ref")
+    shared = shared_of(selection_ref) if selection_ref else None
+    if shared is not None:
+        facts = coverage_facts(shared, unit_records)
+        unavailable = [row for row in shared.get("unavailable") or [] if isinstance(row, dict)]
+        # Absent rather than empty, by the same rule as `reads`: an empty block is "the text covered
+        # nothing", which is a claim, and a missing one is "this run cannot say", which is the truth.
+        if facts:
+            evidence["instruction_coverage"] = facts
+        if unavailable:
+            evidence["unavailable"] = unavailable
+        counts.update({"coverage_facts": len(facts), "unavailable_rows": len(unavailable),
+                       "compiled_text_digest": "present" if shared.get("instruction_text_sha256") else "absent"})
     # The session's own records, from the run's immutable copy. Absent rather than empty when the run
     # holds no copy for this session: an empty `reads` is "it read nothing", which is a claim, and a
     # missing key is "this run cannot say", which is the truth.
@@ -566,7 +610,7 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
             if pair["session_ref"] not in counts_by_ref:
                 built, counts = session_evidence(session_row, events_by_ref, by_version, release_doc,
                                                  shared_of, store, run_dir,
-                                                 copies_of(views or {}))
+                                                 copies_of(views or {}), current.get("units") or ())
                 counts_by_ref[pair["session_ref"]] = (built, counts)
             evidence = counts_by_ref[pair["session_ref"]][0]
         # Every reason that holds, in the order a reader would ask them, and never one in place of
@@ -798,6 +842,81 @@ def self_test():
         # the same shape as the unguarded `[0]` this repo fixed in the ledger migrator's suite.
         control("and the reason the inventory recorded is what the unknown will name",
                 evidence.get("pin_reason") or "no pin_reason was recorded", "selection_input_failed")
+        # ---- the snapshot's facts, as S2 publishes them (commit 5b, the lead's fact-only decision).
+        # A selection inventory with items, surfaces and per-unit coverage counts: the compiled text is
+        # never in the run, so these counts are the only thing that can answer whether the session was
+        # given a unit's lines. Keyed by the inventory's `r-` reference, translated here to the unit ids
+        # the judge asks about.
+        facts_shared = {
+            "carriers": [{"carrier_id": "c-" + "0" * 24, "version_sha256": "a" * 64}],
+            "items": [{"ref": "claude:guides/g", "surface": "always"}],
+            "instruction_text_sha256": "d" * 64,
+            "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 1, "total": 2},
+                                     {"unit_ref": "r-" + "9" * 24, "covered": 5, "total": 5}],
+            "unavailable": [{"ref": "claude:guides/g", "surface": "always", "reason": "route_absent"}]}
+        facts_units = [{**current["units"][0], "unit_ref": "r-" + "1" * 24},
+                       {**current["units"][1], "unit_ref": "r-" + "2" * 24}]
+        facts_store = {"versions": {"c-" + "0" * 24: {"a" * 64: {"item_ref": "claude:guides/g"}}}, "units": {}}
+        facts_row = {**session_row, "selection": {"status": "read", "reason": None,
+                                                  "inventory_ref": "i-" + "a" * 24}}
+        facts_evidence, facts_counts = session_evidence(
+            facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
+            lambda ref: facts_shared, facts_store, None, None, facts_units)
+        control("the per-unit coverage counts reach the judge under the unit ids it asks about",
+                json.dumps(facts_evidence.get("instruction_coverage")), '"u-1": {"covered": 1, "total": 2}')
+        clean("and a coverage row naming a unit this run does not carry is dropped, never guessed",
+              [ref for ref in facts_evidence.get("instruction_coverage") or () if ref not in ("u-1", "u-2")])
+        control("the surface the snapshot selected an item at is published, so the judge need not guess one",
+                json.dumps(facts_evidence.get("selected")), '"claude:guides/g": "always"')
+        control("the rows the selection could not route are carried as the judge reads them",
+                json.dumps(facts_evidence.get("unavailable")), "route_absent")
+        control("and the counts say the digest was published", json.dumps(facts_counts), '"compiled_text_digest": "present"')
+        # Absence rather than emptiness: a session whose inventory publishes no facts carries NO
+        # coverage key, and `delivery_evidence` then answers unknown by name. An empty block would be
+        # the claim that the text covered nothing, which is `not_delivered` for every unit of it.
+        bare_evidence, _bare_counts = session_evidence(
+            facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
+            lambda ref: {"carriers": facts_shared["carriers"]}, facts_store, None, None, facts_units)
+        clean("a selection inventory that publishes no facts leaves the evidence with no coverage key",
+              [key for key in bare_evidence if key in ("instruction_coverage", "unavailable")])
+        # The equivalence the lead named: the same k-of-n snapshot answers the same through the facts
+        # path as through the text path. Judged by calling the judge itself, because "the same state"
+        # is its answer and not this stage's.
+        # The always surface, whose ladder ends at `exposed`: its top level is the compiled text
+        # holding the unit's lines, which is exactly what the two paths answer differently.
+        eq_unit = {"unit_id": "u-1", "path": "claude/guides/g.md", "text": "- x\n- y",
+                   "version_sha256": "a" * 64, "layer": "catalog", "surface": "always",
+                   "item_ref": "claude:guides/g", "carrier_id": "c-" + "0" * 24, "n": 1, "start": 1,
+                   "operative_context": ["u-1"]}
+        eq_session = {"session_ref": "claude:s", "basis": "pin", "selected": {"claude:guides/g": "always"},
+                      "native_events": [], "injection_at": 1,
+                      "release": {"complete": True, "layers": {}, "items": []}}
+
+        def eq_state(text=None, facts=None):
+            """The judge's state for this unit under one of the two paths."""
+            answer = delivery_evidence.delivery(
+                eq_unit, {"u-1": eq_unit},
+                {**eq_session, **({"instruction_text": text} if text is not None else {})},
+                10, instruction_coverage=facts)
+            return answer.get("state"), tuple(answer.get("reasons") or ())
+
+        eq_whole = (eq_state(text="- x\n- y"), eq_state(facts={"u-1": {"covered": 2, "total": 2}}))
+        eq_partial = (eq_state(text="- x"), eq_state(facts={"u-1": {"covered": 1, "total": 2}}))
+        clean("a snapshot covering all of a unit's lines answers the same through the facts path as "
+              "through the text path",
+              [f"text={eq_whole[0]} facts={eq_whole[1]}"] if eq_whole[0] != eq_whole[1] else [])
+        clean("and a snapshot covering k of n answers the same through both, with the same reason",
+              [f"text={eq_partial[0]} facts={eq_partial[1]}"] if eq_partial[0] != eq_partial[1] else [])
+        clean("and the two paths are not the same answer for every input, so the comparison can fail",
+              [] if eq_whole[0] != eq_partial[0] else [f"both paths answered {eq_whole[0]} for k of n and n of n"])
+        control("a session with neither the text nor the facts is unknown by name, never a miss",
+                json.dumps(delivery_evidence.delivery(eq_unit, {"u-1": eq_unit}, eq_session, 10)),
+                "compiled_text_unavailable")
+        clean("and that answer is not not_delivered",
+              [delivery_evidence.delivery(eq_unit, {"u-1": eq_unit}, eq_session, 10).get("state")]
+              if delivery_evidence.delivery(eq_unit, {"u-1": eq_unit}, eq_session,
+                                            10).get("state") == "not_delivered" else [])
+
         control("the release is read as the point derive.absence judges",
                 json.dumps(evidence.get("release") or {}), '"complete": false')
         control("a layer the release leaves unresolved is carried with its status",
