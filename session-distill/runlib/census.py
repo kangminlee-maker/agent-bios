@@ -221,6 +221,8 @@ READER_EXCEPTIONS = {
     ("distill.py", "cmd_inventory"): "declares the census as the inventory part's S1 input artifact",
     ("runlib/stage_form.py", "<module>"): "INPUTS declares census.json as S4's S1 input artifact; the barrier reads the "
                                           "census itself through load and rows",
+    ("runlib/stage_retrieve.py", "<module>"): "INPUTS declares census.json as S5's S1 input artifact; the recurrence reads "
+                                              "the census itself through load and rows",
 }
 LOADERS = frozenset(("load", "load_document", "build", "reconcile", "run"))
 TEST_CODE = ("self_test", "fx_", "golden")

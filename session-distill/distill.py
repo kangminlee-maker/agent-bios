@@ -17,7 +17,9 @@
   distill.py form --run-id ID --cells DIR [--golden-plan PLAN.json] [--index ROWS.json]
                                                            S4: the one formation call, live (the token only as
                                                            CLAUDE_RUN_TOKEN_FILE) or, with a plan, golden
-  distill.py <stage command> --run-id ID                   S3, S5-S12: named, and refused until implemented
+  distill.py retrieve --run-id ID                          S5: the retrieval, the quotes verified again, the sessions and
+                                                           the recurrence, into checks.json; no model is called
+  distill.py <stage command> --run-id ID                   S3, S6-S12: named, and refused until implemented
 
 A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
 `amendments.jsonl`, `stages/<stage>/record.json`, and per-call directories. The declaration,
@@ -27,8 +29,9 @@ record schemas every stage keeps (claim, evidence, expected observation) are
 `schemas/run.schema.json`. The census (S1) is `runlib/census.py`, over the readers of `runlib/sources.py`,
 `runlib/lineage.py` and the coverage state of `runlib/coverage.py`. The views (S2) are `runlib/views.py`,
 over `runlib/redaction.py`, `runlib/search.py` and the evidence store of `runlib/evidence.py`. Formation (S4) is
-`runlib/stage_form.py`, over the lifecycle intake of `runlib/lifecycle_intake.py`.
-Design: §3, §4, §4.1, §5.1-§5.5, §7.1, §7.4, §9.
+`runlib/stage_form.py`, over the lifecycle intake of `runlib/lifecycle_intake.py`. Retrieval and its checks (S5) are
+`runlib/stage_retrieve.py`, over the derivations' tables read by `runlib/derive.py`.
+Design: §3, §4, §4.1, §5.1-§5.5, §6.2, §7.1, §7.4, §9.
 """
 import argparse
 import contextlib
@@ -79,7 +82,7 @@ except BaseException:
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:
-    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stagelock, views
+    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_retrieve, stagelock, views
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
@@ -320,6 +323,12 @@ def cmd_form(args):
     return 0
 
 
+def cmd_retrieve(args):
+    """S5 (runlib/stage_retrieve.py): code only, over S4's population."""
+    say("\n".join(stage_retrieve.report_lines(stage_retrieve.run(run_dir_of(args)))))
+    return 0
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -350,7 +359,8 @@ def build_parser():
     sub.set_defaults(handler=cmd_declare)
     for name, stage in STAGE_COMMANDS.items():
         helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
-                 "form": f"{stage}: candidate formation and the lifecycle intake"}
+                 "form": f"{stage}: candidate formation and the lifecycle intake",
+                 "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -376,7 +386,7 @@ def build_parser():
             sub.add_argument("--golden-plan", help="a golden host's plan: realization golden, no model is started")
             sub.add_argument("--index", help="the occasion index's rows (a JSON list; WP-21, golden until it lands)")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
-                                  "form": cmd_form}.get(name, cmd_stage))
+                                  "form": cmd_form, "retrieve": cmd_retrieve}.get(name, cmd_stage))
     return parser
 
 
@@ -632,15 +642,21 @@ def self_test():
         finally:
             os.chdir(here)
 
-        # each implemented command has its own controls (form's run in runlib/stage_form.py's suite, as a process); the
-        # rest are named and refused
-        implemented = ("census", "views", "inventory", "form")
+        # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
+        # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
+        implemented = ("census", "views", "inventory", "form", "retrieve")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue
             code, err = cli(command, "--run-id", "r1")
             control(f"{command} ({stage_id}) is named and refused",
                     code == 2 and f"STAGE_NOT_IMPLEMENTED {command} ({stage_id})" in err, err)
+        def stage_files():
+            return {str(p): p.read_bytes() for p in sorted((out / "r1" / "stages").rglob("*")) if p.is_file()}
+        before = stage_files()
+        code, err = cli("retrieve", "--run-id", "r1")
+        control("retrieve (S5) over a run S4 has not run is refused by name, and no stage record is written or changed",
+                code == 1 and "INPUT_INVALID S4" in err and stage_files() == before, f"{code} {err}")
         code, err = cli("form", "--run-id", "r-form")
         control("form (S4) with neither --dry nor --cells is refused by name before anything is recorded",
                 code == 1 and "INPUT_INVALID form --cells" in err and not (out / "r-form").exists(), err)

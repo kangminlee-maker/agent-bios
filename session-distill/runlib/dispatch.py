@@ -266,6 +266,9 @@ SCRIPT_RUNS = (
      "reason": "S4's self-test runs the driver's `form` command as a child over golden runs it made, dry and with a golden "
                "host's plan, so the command a person runs is held as a process runs it, not only the stage function "
                "beneath it (WP-09 commit 5); the child's host is the golden one, it starts no model"},
+    {"site": "session-distill/runlib/stage_retrieve.py", "path": "session-distill/distill.py",
+     "reason": "S5's self-test runs the driver's `retrieve` command as a child over a golden run through S4 it made, so the "
+               "command a person runs is held as a process runs it (WP-10 commit W3); S5 makes no call and starts no model"},
 )
 # Sites that run a closure file FROM A COPY of this checkout. The program is computed, so the trace
 # cannot name it; what admits it is that the copy is this tree's own, made by

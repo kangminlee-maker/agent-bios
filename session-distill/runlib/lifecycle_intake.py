@@ -269,6 +269,12 @@ def redundancy_pairs(units, spec=None):
     return sorted(same + near, key=lambda c: c["candidate_id"]), left
 
 
+def entry_text(entry):
+    """The text of a ledger entry a retrieval reads: its lesson and its principle (the rule it states), as the upward
+    clusters match it and S5's top ledger entries rank it (runlib/stage_retrieve.py)."""
+    return " ".join(t for t in (entry.get("lesson"), entry.get("principle")) if t)
+
+
 def upward_clusters(doc, units, spec=None):
     """Design §7.4's upward distillation: the placed learnings of the ledger whose top retrieval hit over the eligible
     units is one unit, at least three of them (lead decision D6 (iii)). A learning whose text matches no unit is in
@@ -280,8 +286,7 @@ def upward_clusters(doc, units, spec=None):
     for entry in doc["entries"]:
         if entry["status"] != "placed":
             continue
-        text = " ".join(t for t in (entry.get("lesson"), entry.get("principle")) if t)
-        counts, _n = keys_tf(text)
+        counts, _n = keys_tf(entry_text(entry))
         row = lib.scores(counts)
         if not row:
             continue

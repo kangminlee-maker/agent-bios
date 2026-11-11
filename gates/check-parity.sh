@@ -581,6 +581,12 @@ if [ -f session-distill/runlib/delivery.py ]; then
   leg -q "FAIL: session-distill §6.3 delivery evidence self-test (session-distill/runlib/delivery.py)" \
     python3 session-distill/runlib/delivery.py --self-test
 fi
+# S5 retrieve (plan WP-10 done-when 3): retrieval over a library of its own, recurrence over lineage-linked census rows,
+# and the stage over a golden run through S4, its quotes verified again and the driver run as a process; no model is called.
+if [ -f session-distill/runlib/stage_retrieve.py ]; then
+  leg -q "FAIL: session-distill S5 retrieve self-test (session-distill/runlib/stage_retrieve.py)" \
+    python3 session-distill/runlib/stage_retrieve.py --self-test
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
