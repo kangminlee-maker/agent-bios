@@ -522,6 +522,11 @@ if [ -f session-distill/runlib/placement.py ]; then
   leg -q "FAIL: session-distill proposal contract self-test (session-distill/runlib/placement.py)" \
     python3 session-distill/runlib/placement.py --self-test
 fi
+# S7 propose: the packet, the answer's shape and the O5 fixtures.
+if [ -f session-distill/runlib/stage_propose.py ]; then
+  leg -q "FAIL: session-distill S7 propose self-test (session-distill/runlib/stage_propose.py)" \
+    python3 session-distill/runlib/stage_propose.py --self-test
+fi
 # The §7.5 total order over review rows.
 if [ -f session-distill/runlib/ranking.py ]; then
   leg -q "FAIL: session-distill ranking self-test (session-distill/runlib/ranking.py)" \
