@@ -82,8 +82,13 @@
         {
           "field": "status",
           "value": "tested"
+        },
+        {
+          "field": "status",
+          "value": "untested"
         }
-      ]
+      ],
+      "$comment": "§9 names this group \"proposed and tested\". `untested` is in it for release 1 and for release 1's reason: S8 is deferred (D-818391), so no row can be `tested` and an untested row is a proposed row whose test stage does not run - not a row offered for testing and skipped. The report prints it as `proposed (untested: s8_deferred)` through `test_state_label`. §9's sentence does not name `untested` itself, so this placement rests on the deferral rather than on that sentence, and it is the entry to revisit when S8 lands: with S8 running, an untested row means something §9 has not placed."
     },
     {
       "id": "disputed",
@@ -144,19 +149,34 @@
         {
           "field": "status",
           "value": "delivery_failed"
+        },
+        {
+          "field": "status",
+          "value": "failed"
+        },
+        {
+          "field": "status",
+          "value": "returned"
         }
-      ]
+      ],
+      "$comment": "§9's population sentence names \"every quarantined or failed item\", so `failed` is a status this group holds by §9's own words: WP-20 uses it for an item that failed upstream - an S5 check that did not pass, an S6 candidate in `not_derived`, an S7 answer returned. `returned` is here by the same sentence read one step further: §10.4 says an ineligible item is RETURNED with the failing condition named, which is a failure of eligibility and nothing else in §9's population. Before both were members, a returned proposal fell into the resolved/unclassified group by its KIND, and a returned row whose kind is gap was refused outright - which is how lane E found this."
     }
   ],
   "groups_design": "Rows appear in the single total order of §7.5, grouped by status: proposed and tested; disputed (adjudicate); confirmed and keep; already resolved and unclassified; rejected; quarantined or failed.",
   "groups_note": "§9 calls this grouping \"by status\", and four of the six groups are indeed named by statuses of §7.2. Two are not: \"confirmed and keep\" names a status, a KIND (confirmed) and a DISPOSITION (keep), and \"already resolved and unclassified\" names two kinds only. So each member carries the field it belongs to, and the module places a row in two passes: a status a group names decides first, since §9 says the rows are grouped by status; a row whose status no group holds is then placed by its kind or its disposition. Without the second pass those two groups would be unreachable for the rows they exist for, because an approved keep carries a status §9 never mentions. A row no pass places is a named problem (ROW_GROUP_UNDECLARED), never a silent last bucket. This reading is recorded as an interpretation with the sentence it rests on.",
   "unplaced_statuses": [
-    "untested",
     "admitted",
     "approved",
     "applied",
-    "delivery_verified",
-    "returned"
+    "delivery_verified"
   ],
-  "unplaced_note": "The statuses of §7.2 that no group sentence holds. A row carrying one is placed by its kind or disposition in the second pass, and refused by name only when neither places it either - so the gap is visible and countable rather than discovered by a row falling through. When §9 is extended, a status moves into a group and leaves this list in the same change."
+  "unplaced_note": "The statuses of §7.2 that no group sentence holds. A row carrying one is placed by its kind or disposition in the second pass, and refused by name only when neither places it either - so the gap is visible and countable rather than discovered by a row falling through. When §9 is extended, a status moves into a group and leaves this list in the same change. `returned` and `untested` left this list on 2026-11-12: the first by §9's population sentence, the second by release 1's deferral of S8, each with its reason in its group's comment.",
+  "test_state_label": {
+    "applies_to_status": [
+      "proposed",
+      "untested"
+    ],
+    "format": "{status} ({test_state})",
+    "$comment": "Release 1 defers S8 (D-818391), so no row is `tested` and every row of the first group carries a test state instead. The report prints `<status> (<test state>)` for the statuses listed here; the label never decides a group, which is the status's job."
+  }
 }
