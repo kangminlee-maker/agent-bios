@@ -14,6 +14,7 @@ separate authorities on purpose.
 
     placement.py --self-test
 """
+import hashlib
 import itertools
 import json
 import pathlib
@@ -26,6 +27,10 @@ from runlib.records import Refused  # noqa: E402
 HERE = pathlib.Path(__file__).resolve().parents[1]
 PAIRS_PATH = HERE / "tables" / "allowed_pairs.json"
 RULES_PATH = HERE / "tables" / "structural_rules.json"
+PLACEMENT_PATH = HERE / "tables" / "placement_rules.json"
+# The semantic bars' one canonical text. It is carried into the S7 and S7b packets with its digest,
+# because a bar the packet paraphrases is a second authority and S7b would be judging that one.
+CONTRACT_PATH = HERE / "packets" / "placement_contract.md"
 _TABLES = {}
 
 # A disposition that writes nothing into the library: §10.4's ledger-only set, named once.
@@ -39,7 +44,7 @@ BELOW_BAR = ("incubate", "keep", "drop")
 def table(which):
     """One of the two tables, read once per process. A control may seed `_TABLES` with a scratch copy."""
     if which not in _TABLES:
-        path = {"pairs": PAIRS_PATH, "rules": RULES_PATH}[which]
+        path = {"pairs": PAIRS_PATH, "rules": RULES_PATH, "placement": PLACEMENT_PATH}[which]
         try:
             _TABLES[which] = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
@@ -226,9 +231,106 @@ def structural_problems(proposal, active_keep=None):
     return problems
 
 
+# ---- §7.4's decidable restrictions ---------------------------------------------------------------
+
+def contract_text():
+    """The semantic bars' canonical text, read from the packet."""
+    try:
+        return CONTRACT_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise Refused(f"CONTRACT_UNREADABLE {CONTRACT_PATH.name}: {exc}") from exc
+
+
+def contract_digest():
+    """The sha256 of that text. The packet carries it so a reader can bind the bars it was judged by."""
+    return hashlib.sha256(contract_text().encode("utf-8")).hexdigest()
+
+
+def contract_bars():
+    """The bars the canonical text states, by their heading lines in `## The bars` and `## Type G`.
+
+    Read out of the text rather than listed here: the text is the authority, and a list beside it
+    would be the second one this contract exists to avoid. A bar is a bolded lead-in of a paragraph
+    under those sections, which is the shape the text is written in."""
+    bars, section = [], None
+    for line in contract_text().splitlines():
+        if line.startswith("## "):
+            section = line[3:].strip()
+            continue
+        if section and section.startswith(("The bars", "Type G")) and line.startswith("**"):
+            bars.append(line[2:].split("**", 1)[0].strip().rstrip("."))
+    return tuple(bars)
+
+
+def _layer(proposal):
+    return (proposal.get("destination") or {}).get("layer")
+
+
+def _carrier(proposal):
+    return (proposal.get("destination") or {}).get("carrier")
+
+
+def placement_problems(proposal):
+    """§7.4's decidable rules, from `tables/placement_rules.json`, in its order.
+
+    Every rule here is decidable from the proposal's own fields. The section's judgements —
+    leftward reformulation, retirement reasons, facts kept verbatim — are not decided here at all:
+    they are in the canonical text and are S7b's to judge, which is why this function never reads
+    that text."""
+    held = table("placement")
+    problems = []
+    for rule in held["rules"]:
+        code, rid = rule["code"], rule["id"]
+        if rid == "guide_premature":
+            if _layer(proposal) == "guides" and proposal.get("disposition") == "place":
+                sharing = proposal.get("situation_promoted_items")
+                covered = proposal.get("situation_covered_by_guide")
+                if covered is False and (not isinstance(sharing, int) or sharing < rule["threshold"]):
+                    problems.append(f"{code} {proposal.get('item_id')}: §7.4 asks for at least "
+                                    f"{rule['threshold']} promoted items sharing a situation no guide "
+                                    f"covers, and this one has {sharing!r}")
+        elif rid == "consumer_mismatch":
+            reads = held["consumers"]["reads"].get(proposal.get("consumer"))
+            if reads is not None and proposal.get("artifact_form") == "instruction" and "instruction" not in reads:
+                problems.append(f"{code} {proposal.get('item_id')}: an instruction cannot reach a "
+                                f"{proposal.get('consumer')}, which reads {', '.join(reads)}")
+        elif rid == "gate_on_judgment":
+            if _layer(proposal) == "gates" and proposal.get("blocking") is True \
+                    and proposal.get("criterion") == "semantic":
+                problems.append(f"{code} {proposal.get('item_id')}: a semantic check discloses and never "
+                                f"blocks, so a blocking gate is not its destination")
+        elif rid == "global_addition":
+            if _carrier(proposal) in global_files() and proposal.get("disposition") in ("place", "correct",
+                                                                                        "re-deliver"):
+                problems.append(f"{code} {proposal.get('item_id')}: the always-loaded global file receives "
+                                f"deletions and merges only, so it is no home for a new learning")
+        elif rid == "c_route":
+            if proposal.get("typology") == "C":
+                layer = _layer(proposal)
+                if layer not in rule["allowed_layers"]:
+                    problems.append(f"{code} {proposal.get('item_id')}: a recognition principle goes to the "
+                                    f"router trigger of the guide whose situation it names, or to "
+                                    f"session-level injection, not to {layer!r}")
+                elif layer == "guides" and proposal.get("names_situation_of_guide") is not True:
+                    problems.append(f"{code} {proposal.get('item_id')}: a recognition principle placed in a "
+                                    f"guide goes to the router trigger of the guide whose situation it "
+                                    f"names, and this one names none")
+                elif layer == "session_injection" and proposal.get("owner_only") is not True:
+                    problems.append(f"{code} {proposal.get('item_id')}: session-level injection is for a "
+                                    f"principle that concerns only the owner")
+        elif rid == "hook_charter":
+            if _layer(proposal) == "hooks" and (proposal.get("blocking") is True or proposal.get("judges") is True):
+                problems.append(f"{code} {proposal.get('item_id')}: a hook does pattern-matched injection of "
+                                f"canonical text; it does not block and it does not judge")
+        else:
+            problems.append(f"RULE_UNIMPLEMENTED {rid}: the placement table names a rule this module "
+                            f"does not apply")
+    return problems
+
+
 def problems(proposal, active_keep=None):
-    """Every problem of one proposal, §7.2's and §7.3's, in the tables' own order."""
-    return structural_problems(proposal, active_keep)
+    """Every problem of one proposal: §7.2's, §7.3's and §7.4's decidable rules, in the tables' order."""
+    return structural_problems(proposal, active_keep) + placement_problems(proposal)
 
 
 # ---- the tables against the design ---------------------------------------------------------------
@@ -265,6 +367,69 @@ DESIGN_7_3 = (
 )
 
 
+# §7.4's own list, copied from `design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md`
+# (### 7.4 Placement contract (operative)) and cited here, each item with the owner that carries it:
+# `table:<rule id or block>` for a decidable restriction, `text:<heading or bar>` for a bar a person
+# judges. An item may have both owners — the gate bar's decidable half is a rule and its judgement is
+# a bar. The pair of authorities is complete exactly when every item has an owner that exists and
+# every rule and bar is some item's owner, which is what `fidelity_problems` asks.
+DESIGN_7_4 = (
+    ("the layers as destinations, cheapest that still fires on time", ("table:destinations",)),
+    ("the A-G typology as the second axis", ("table:c_route", "text:Type G, the recognition principles")),
+    ("leftward reformulation when the target layer's bar passes", ("text:Leftward reformulation",)),
+    ("consumer escalation: who executes when the learning is needed", ("table:consumer_mismatch",
+                                                                       "text:Where a learning goes")),
+    ("the enforcement bar, all four conditions", ("text:The enforcement bar",)),
+    ("the gate bar; semantic checks disclose and never block", ("table:gate_on_judgment", "text:The gate bar")),
+    ("the hook charter: pattern-matched injection, no blocking, no semantic judging",
+     ("table:hook_charter", "text:The hook charter")),
+    ("one canonical home per learning, with accelerators and mirrors derived from it",
+     ("text:Where a learning goes",)),
+    ("the new-guide criterion: at least five promoted items sharing a situation no guide covers",
+     ("table:guide_premature",)),
+    ("retirement for refutation or harm, an expired version-bound fact, or mechanization - never for "
+     "low frequency", ("text:Retirement",)),
+    ("concrete facts kept verbatim rather than abstracted away", ("text:Facts stay verbatim",)),
+    ("the always-loaded global file receives deletions and merges only", ("table:global_addition",)),
+    ("a recognition principle (C) to the router trigger of the guide whose situation it names, or to "
+     "session-level injection", ("table:c_route",)),
+    ("hooks are a destination on both hosts, and the skills tree is shared", ("text:Where a learning goes",)),
+    ("type G: the sources, the evidence bar, the four carries, and the routes by gap kind",
+     ("text:Type G, the recognition principles",)),
+    ("the exclusions, each with its reason and revisit condition", ("text:What this contract excludes, and why",)),
+)
+
+
+def contract_headings():
+    """The canonical text's own section headings."""
+    return tuple(line[3:].strip() for line in contract_text().splitlines() if line.startswith("## "))
+
+
+def contract_problems():
+    """§7.4's list against its two authorities: the table's rules and the text's bars and sections.
+
+    Both directions. An item whose owner does not exist is a bar nobody carries; a rule or bar that
+    is nobody's owner is an authority the design does not ask for. Either way the contract has drifted
+    from the section it claims to be."""
+    rules = {f"table:{rule['id']}" for rule in table("placement")["rules"]}
+    blocks = {f"table:{name}" for name in table("placement") if not name.startswith("$")} - {"table:rules"}
+    bars = {f"text:{bar}" for bar in contract_bars()}
+    headings = {f"text:{heading}" for heading in contract_headings()}
+    held = rules | blocks | bars | headings
+    problems = [f"CONTRACT_OWNER_ABSENT {owner}: §7.4's item {item!r} names an owner that does not exist"
+                for item, owners in DESIGN_7_4 for owner in owners if owner not in held]
+    claimed = {owner for _item, owners in DESIGN_7_4 for owner in owners}
+    problems += [f"CONTRACT_ITEM_UNCLAIMED {name}: a rule of the placement table that no §7.4 item owns"
+                 for name in sorted(rules - claimed)]
+    problems += [f"CONTRACT_ITEM_UNCLAIMED {name}: a bar of the canonical text that no §7.4 item owns"
+                 for name in sorted(bars - claimed)]
+    if not DESIGN_7_4:
+        problems.append("CONTRACT_EMPTY: a bijection over no items says nothing")
+    if not bars:
+        problems.append("CONTRACT_NO_BARS: the canonical text states no bar, so S7b would judge nothing")
+    return problems
+
+
 def render_pair_row(row):
     def one(entry):
         return entry["disposition"] + (f" ({entry['requires']})" if entry.get("requires") else "")
@@ -292,6 +457,9 @@ def fidelity_problems():
         problems.append("TABLE_EMPTY allowed_pairs: a table with no rows allows nothing and refuses nothing")
     if not table("rules")["rules"]:
         problems.append("TABLE_EMPTY structural_rules: a table with no rules judges nothing")
+    if not table("placement")["rules"]:
+        problems.append("TABLE_EMPTY placement_rules: a table with no rules restricts nothing")
+    problems += contract_problems()
     return problems
 
 
@@ -454,6 +622,105 @@ def self_test():
             said({**legacy, "disposition": "place", "admitted": False}),
             "only where the entry is admitted")
 
+    # ---- §7.4's six decidable rules, each with its clean counterpart (F-O5-17 x6). Every fixture
+    # below is a proposal §7.2 and §7.3 already pass, so a refusal here is the placement rule's.
+    guide = {**place, "destination": {"layer": "guides", "carrier": "claude/guides/g.md"},
+             "situation_promoted_items": 5, "situation_covered_by_guide": False,
+             "consumer": "session", "artifact_form": "instruction", "typology": "A"}
+    clean("a guide proposed where five promoted items share an uncovered situation passes",
+          problems(guide))
+    control("F-O5-17: a guide proposed below the five-item criterion is refused by name",
+            said({**guide, "situation_promoted_items": 4}), "GUIDE_PREMATURE")
+    control("and the refusal says how many §7.4 asks for and how many there are",
+            said({**guide, "situation_promoted_items": 4}), "at least 5 promoted items")
+    clean("while a guide over a situation a guide already covers is not this rule's business",
+          problems({**guide, "situation_promoted_items": 2, "situation_covered_by_guide": True}))
+    control("F-O5-17: an instruction aimed at a consumer that reads only code is refused by name",
+            said({**guide, "consumer": "script"}), "CONSUMER_MISMATCH")
+    control("and a hermetic dispatch, which reads only its packet, the same",
+            said({**guide, "consumer": "hermetic_dispatch"}), "CONSUMER_MISMATCH")
+    clean("while code aimed at a script is not a mismatch",
+          problems({**guide, "consumer": "script", "artifact_form": "code"}))
+    # The carrier is a NAME, not a path: a fixture spelling a real author-side module is read by the
+    # payload gate as this shipped file naming one, which it refuses (and rightly: it cannot tell a
+    # proposal's data from a code reference).
+    gate = {**guide, "destination": {"layer": "gates", "carrier": "the gate this item changes"},
+            "blocking": True, "criterion": "deterministic"}
+    clean("a blocking gate on a deterministic criterion passes", problems(gate))
+    control("F-O5-17: a blocking gate proposed for a semantic criterion is refused by name",
+            said({**gate, "criterion": "semantic"}), "GATE_ON_JUDGMENT")
+    clean("while a semantic check that discloses rather than blocks passes",
+          problems({**gate, "criterion": "semantic", "blocking": False}))
+    control("F-O5-17: an addition to the global file is refused by name",
+            said({**guide, "destination": {"layer": "guides", "carrier": "claude/CLAUDE.md"}}),
+            "GLOBAL_ADDITION")
+    clean("while a reduce whose carrier is the global file is not an addition",
+          problems({**guide, "kind": "obsolete", "diagnosis": "unknown", "disposition": "reduce",
+                    "destination": {"layer": "guides", "carrier": "claude/CLAUDE.md"},
+                    "operations": [{"type": "delete", "target": "claude/CLAUDE.md",
+                                    "before_sha256": "a" * 64}]}))
+    c_rule = {**guide, "typology": "C", "names_situation_of_guide": True}
+    clean("a C principle at the router trigger of the guide whose situation it names passes",
+          problems(c_rule))
+    clean("and one in session-level injection, where it concerns only the owner",
+          problems({**c_rule, "destination": {"layer": "session_injection", "carrier": "session"},
+                    "names_situation_of_guide": None, "owner_only": True}))
+    control("F-O5-17: a C principle routed anywhere else is refused by name",
+            said({**c_rule, "destination": {"layer": "skills", "carrier": "claude/skills/s"}}),
+            "C_ROUTE")
+    control("one placed in a guide whose situation it does not name, the same",
+            said({**c_rule, "names_situation_of_guide": False}), "names none")
+    control("and one injected at session level without concerning only the owner, the same",
+            said({**c_rule, "destination": {"layer": "session_injection", "carrier": "session"},
+                  "owner_only": False}), "concerns only the owner")
+    hook = {**guide, "destination": {"layer": "hooks", "carrier": "hooks/x"}, "blocking": False,
+            "judges": False}
+    clean("a hook that injects canonical text passes", problems(hook))
+    control("F-O5-17: a hook that blocks is refused by name", said({**hook, "blocking": True}),
+            "HOOK_CHARTER")
+    control("and one that judges, the same", said({**hook, "judges": True}), "HOOK_CHARTER")
+
+    # ---- the two authorities of §7.4, and the packet that carries one of them
+    clean("§7.4's list is owned, item by item, by a rule of the table or a bar of the canonical text",
+          contract_problems())
+    control("the canonical text states the bars S7b judges", "; ".join(contract_bars()),
+            "Leftward reformulation")
+    control("and the retirement bar among them", "; ".join(contract_bars()), "Retirement")
+    clean("the digest is the text's own, so a packet can bind the bars it was judged by",
+          [] if contract_digest() == hashlib.sha256(contract_text().encode("utf-8")).hexdigest()
+          else ["the digest is not of this text"])
+    held_contract = contract_text()
+    try:
+        # A planted text with one bar removed: the item that owns it is then unowned by name.
+        CONTRACT_PATH.write_text(held_contract.replace("**Retirement.**", "Retirement."), encoding="utf-8")
+        control("a bar the canonical text drops leaves its §7.4 item with no owner",
+                "; ".join(contract_problems()), "CONTRACT_OWNER_ABSENT text:Retirement")
+        # Planted INSIDE the bars section, which is the only place a bar is read from: appended at
+        # the end of the file it would not be a bar at all, and the control passed over nothing.
+        CONTRACT_PATH.write_text(
+            held_contract.replace("**Retirement.**",
+                                  "**An invented bar.** Nothing in §7.4 says this.\n\n**Retirement.**"),
+            encoding="utf-8")
+        control("and a bar it invents is named as owned by no item",
+                "; ".join(contract_problems()), "CONTRACT_ITEM_UNCLAIMED text:An invented bar")
+    finally:
+        CONTRACT_PATH.write_text(held_contract, encoding="utf-8")
+    clean("and the canonical text is back as it is on disk", contract_problems())
+    held_placement = json.loads(PLACEMENT_PATH.read_text(encoding="utf-8"))
+    try:
+        _TABLES["placement"] = {**held_placement,
+                                "rules": held_placement["rules"] + [{"id": "invented", "code": "X",
+                                                                     "design": "y", "reads": []}]}
+        control("a placement rule this module does not apply is named",
+                said(guide), "RULE_UNIMPLEMENTED invented")
+        control("and a rule no §7.4 item owns is named too",
+                "; ".join(contract_problems()), "CONTRACT_ITEM_UNCLAIMED table:invented")
+        _TABLES["placement"] = {**held_placement, "rules": []}
+        control("an emptied placement table is named rather than restricting nothing",
+                "; ".join(fidelity_problems()), "TABLE_EMPTY placement_rules")
+    finally:
+        _TABLES["placement"] = held_placement
+
     # ---- the tables themselves: a planted drift and an emptied table are named
     held_pairs = json.loads(PAIRS_PATH.read_text(encoding="utf-8"))
     held_rules = json.loads(RULES_PATH.read_text(encoding="utf-8"))
@@ -492,8 +759,10 @@ def self_test():
         print(f"placement --self-test: FAILED ({len(failures)} of {len(ran)} controls)", file=sys.stderr)
         return 1
     print(f"placement --self-test: OK ({len(ran)} controls: §7.2's pairs and their conditions, §7.3's "
-          f"structural rules and §10.4's ledger-only rule, each from its table and each planted "
-          f"violation refused by name, with the tables held against the design's own rows)")
+          f"structural rules and §10.4's ledger-only rule, §7.4's six decidable restrictions each with "
+          f"its clean counterpart, and the two authorities of §7.4 held against the section's own list "
+          f"item by item in both directions - every rule and bar from its table or the canonical text, "
+          f"and each planted violation refused by name)")
     return 0
 
 

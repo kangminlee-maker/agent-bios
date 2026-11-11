@@ -1,0 +1,41 @@
+{
+ "$comment": "design §7.4's DECIDABLE restrictions, as data. The semantic bars of the same section — leftward reformulation, retirement reasons, facts kept verbatim — are not here: they reach S7 and S7b as the one canonical text in `packets/placement_contract.md` and are judged by S7b. Together this table and that packet are the single authority for §7.4, and WP-22 generates the runbook's contract section from them (never hand-written). `runlib/placement.py` reads this file; `placement.fidelity_problems` holds the rule ids plus the packet's bars against the copied and cited §7.4 list.",
+ "destinations": {
+  "$comment": "the layers as destinations, in §7.4's order of 'cheapest that still fires on time'. The order is data because the rule is an order, and a reader that re-sorted it would be a second authority.",
+  "order": ["enforcement", "gates", "hooks", "guides", "skills", "personal", "session_injection", "incubator"],
+  "global_file": "the always-loaded global file, which §7.4's revision leaves open to deletions and merges only"
+ },
+ "consumers": {
+  "$comment": "consumer escalation (§7.4): who executes when the learning is needed. A consumer that reads only code cannot be reached by an instruction, whatever layer it is placed in.",
+  "reads": {
+   "session": ["instruction", "code"],
+   "owner": ["instruction", "code"],
+   "hermetic_dispatch": ["packet"],
+   "script": ["code"]
+  }
+ },
+ "rules": [
+  {"id": "guide_premature", "code": "GUIDE_PREMATURE",
+   "design": "a guide proposed where fewer than five promoted items share a situation no guide covers",
+   "reads": ["destination.layer", "situation_promoted_items", "situation_covered_by_guide"],
+   "threshold": 5},
+  {"id": "consumer_mismatch", "code": "CONSUMER_MISMATCH",
+   "design": "an instruction aimed at a consumer that reads only code (a script, a hermetic dispatch)",
+   "reads": ["consumer", "artifact_form"]},
+  {"id": "gate_on_judgment", "code": "GATE_ON_JUDGMENT",
+   "design": "a blocking gate proposed for a semantic criterion",
+   "reads": ["destination.layer", "blocking", "criterion"]},
+  {"id": "global_addition", "code": "GLOBAL_ADDITION",
+   "design": "an addition to the global file",
+   "$comment": "§7.4's destination rule, beside §7.3's operation rule in tables/structural_rules.json: one refuses the always-loaded file as the HOME of a new learning, the other refuses an operation on it that is not a delete or a merge. Both can hold of one proposal, and each says which it was.",
+   "reads": ["destination.carrier", "disposition"]},
+  {"id": "c_route", "code": "C_ROUTE",
+   "design": "a C principle routed anywhere but the router trigger of the guide whose situation it names or session-level injection",
+   "reads": ["typology", "destination.layer", "destination.carrier", "names_situation_of_guide", "owner_only"],
+   "allowed_layers": ["guides", "session_injection"]},
+  {"id": "hook_charter", "code": "HOOK_CHARTER",
+   "design": "a hook that blocks or judges",
+   "$comment": "the hook charter of §7.4: pattern-matched injection of canonical text, no blocking and no semantic judging.",
+   "reads": ["destination.layer", "blocking", "judges"]}
+ ]
+}
