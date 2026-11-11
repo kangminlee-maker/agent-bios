@@ -166,6 +166,16 @@ if [ -f gates/check-mcp-inventory.py ]; then
     python3 gates/check-mcp-inventory.py
 fi
 
+# The shipped driver's own dependencies against the inventory: an import or a command literal the
+# driver reaches for and DEPENDENCIES.md does not name is a traceback on the first user who lacks
+# it, with nothing in the inventory to have warned them. Derived from the code, both halves.
+if [ -f gates/check-driver-dependencies.py ]; then
+  leg -q "FAIL: driver-dependency gate self-test missed a negative control" \
+    python3 gates/check-driver-dependencies.py --self-test
+  leg -q "FAIL: the shipped driver reaches for a dependency DEPENDENCIES.md does not declare" \
+    python3 gates/check-driver-dependencies.py
+fi
+
 # The always-loaded global file stays under its byte ceiling (AGENTS.md section 8). The gate
 # reads the INDEX — under the pre-commit hook the exported GIT_INDEX_FILE is the hook's
 # snapshot — so what it judges is what the commit carries. A staged file above the ceiling is
