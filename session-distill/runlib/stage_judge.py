@@ -1398,6 +1398,102 @@ def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, 
     return section, receipts
 
 
+# ---- the derivations (plan WP-11 J4a, design §4's S6 row, §6.4) -------------------------------------------------
+
+DERIVATIONS = "judgments/derivations.json"
+TEST_STATE = "untested: s8_deferred"   # release 1 runs no S8 (D-20261111-818391)
+DELIVERY_WAITING = "delivery_assembly_waiting"   # lead decision D3: S5b assembles it, and S6 does not read it yet
+
+
+def marks_of(judgment):
+    """A judgment's requirement marks as derive reads them: `{requirement: mark}`."""
+    return {name: held["mark"] for name, held in (judgment.get("requirements") or {}).items()}
+
+
+def judged_units(held):
+    """`{unit id: {A: {situation, action, following, contribution}, B: ...}}` over both judges' judgments of one packet:
+    a matching unit's following and contribution from its `matching_units` row, None for a unit that does not match."""
+    out = {}
+    for who, judgment in held.items():
+        matching = {m["unit_id"]: m for m in judgment.get("matching_units") or []}
+        for u in judgment["units"]:
+            m = matching.get(u["unit_id"]) or {}
+            out.setdefault(u["unit_id"], {})[who] = {"situation": u["situation"], "action": u["action"],
+                                                     "following": m.get("following"), "contribution": m.get("contribution")}
+    return out
+
+
+def current_point(current):
+    """The current reference point as derive reads one: S2's completeness flag and its layers' statuses."""
+    return {"complete": (current.get("reference") or {}).get("complete") is True,
+            "layers": {row["layer"]: row["status"] for row in current.get("layers") or []}}
+
+
+def derivation_input(candidate, source, row, first, again, point):
+    """`derive.unit_outcome`'s judgment for one candidate: its type and lifecycle, both judges' requirement marks,
+    class and no_longer_arises from their first judgments, the current point's units - the ones S5 retrieved and the
+    ones reconsidered (`again`, may be empty) - S5's checks passed (it was judged), and its counted lineages. No release
+    point: S6 judges the current one only until S5 retrieves at a release point (D-20261111-c4fa71). No arc
+    confirmation has a producer in S6, so it is False."""
+    units = judged_units(first)
+    units.update(judged_units(again) if again else {})
+    return {"candidate": {"candidate_id": candidate["candidate_id"], "type": candidate.get("type"),
+                          "lifecycle": lifecycle_of(source)},
+            "judges": {who: {"requirements": marks_of(first[who]), "consequence_class": first[who].get("consequence_class"),
+                             "no_longer_arises": (first[who].get("no_longer_arises") or {}).get("value") is True}
+                       for who in SEAT_KEYS},
+            "points": {"current": {**point, "units": units}},
+            "checks_pass": True, "lineages": (row.get("recurrence") or {}).get("count", 0), "arc_confirmed": False}
+
+
+def derive_stage(run_dir, summary, judgments, swept, again):
+    """The derivations of every candidate both judges judged (design §4's S6 row: code derives diagnosis, delivery
+    state, kind, admission and promotion eligibility; §6.4 through `derive.unit_outcome`). An absence claim whose sweeps,
+    cross-review and reconsiderations did not all finish is not derived and is named, since its gap is not checked; so
+    is a candidate a judge did not judge. Delivery is not read (lead decision D3): every (session, unit) pair a unit
+    outcome would need is counted as DELIVERY_WAITING. Returns the document `judgments/derivations.json` holds, its
+    `verdicts` in the shape `controls.evaluate` reads."""
+    population = {k["candidate_id"]: k for k in records.read_json(run_dir / "checked-candidates.json")["candidates"]}
+    rows = {r["candidate_id"]: r for r in records.read_json(run_dir / "checks.json")["candidates"]}
+    point = current_point(records.read_json(run_dir / "inventory" / "current.json"))
+    sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
+    finished = {r["candidate_id"] for r in again.get("reconsidered") or []}
+    verdicts, not_derived, waiting = {}, [], 0
+    for cid in sorted(sources):
+        first = judgments.get(cid) or {}
+        if set(first) != set(SEAT_KEYS):
+            not_derived.append({"candidate_id": cid, "why": "a judge's call did not finish"})
+            continue
+        if cid in (swept.get("absent") or []) and cid not in finished:
+            not_derived.append({"candidate_id": cid, "why": "its absence claim's sweeps, cross-review and "
+                                                           "reconsiderations did not all finish"})
+            continue
+        held = {}
+        for who in SEAT_KEYS:
+            path = run_dir / reconsideration_rel(item_of(cid), who)
+            if path.is_file():
+                held[who] = records.read_json(path)["judgment"]
+        given = derivation_input(population[cid], sources[cid], rows[cid], first,
+                                 held if set(held) == set(SEAT_KEYS) else {}, point)
+        outcome = derive.unit_outcome(given, {}, TEST_STATE)
+        matched = [u for u, d in (outcome["unit_diagnosis"].get("current") or {}).items() if d != "no match"]
+        waiting += len(population[cid].get("sessions") or []) * len(matched)
+        verdicts[cid] = {"outcome": outcome, "requirements": {who: given["judges"][who]["requirements"] for who in SEAT_KEYS},
+                         "lineages": given["lineages"]}
+    tally = collections.Counter
+    return {"stage": STAGE, "test": TEST_STATE, "points": {"release": "absent (D-20261111-c4fa71)", "current": point},
+            "delivery": {"state": DELIVERY_WAITING, "pairs": waiting,
+                         "why": "S5b assembles delivery evidence (lead decision D3); S6 reads it once a wiring commit "
+                                "makes it S6's input"},
+            "verdicts": verdicts, "not_derived": not_derived,
+            "counts": {"derived": len(verdicts), "not_derived": len(not_derived),
+                       "admission": dict(tally(v["outcome"]["admission"]["admission"] for v in verdicts.values())),
+                       "kind": dict(tally(v["outcome"]["kind"]["kind"] for v in verdicts.values())),
+                       "current": dict(tally(v["outcome"]["candidate_diagnosis"]["current"]["diagnosis"]
+                                             for v in verdicts.values())),
+                       "eligible": sum(1 for v in verdicts.values() if v["outcome"]["eligible"]["eligible"])}}
+
+
 # ---- the calls ------------------------------------------------------------------------------------------------
 
 SUMMARY = "judgments/judge.json"
@@ -1624,6 +1720,9 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         problems = stage_receipts(receipts + sweep_receipts + cross_receipts + again_receipts)
         if problems:
             raise Refused("\n".join(problems))
+        derived = derive_stage(run_dir, summary, judgments, swept, again)
+        records.write_json(run_dir, run_dir / DERIVATIONS, derived)
+        stage.output(DERIVATIONS)
         outcomes = [held["outcome"] for row in calls for held in row["seats"].values()]
         swept_outcomes = [held["outcome"] for row in swept["calls"] for held in row["seats"].values()]
         swept["counts"] = {**{o: swept_outcomes.count(o) for o in OUTCOMES},
@@ -1635,6 +1734,7 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         again["counts"] = {**{o: again_outcomes.count(o) for o in OUTCOMES},
                            "reused": sum(1 for row in again["calls"] for held in row["seats"].values() if held["reused"])}
         summary.update(dry=False, calls=calls, sweeps=swept, cross_review=crossed, reconsiderations=again,
+                       derivations={"file": DERIVATIONS, "counts": derived["counts"], "delivery": derived["delivery"]},
                        interrupted=interrupted, tranche=tranche,
                        counts={**{o: outcomes.count(o) for o in OUTCOMES},
                                "reused": sum(1 for row in calls for held in row["seats"].values() if held["reused"]),
@@ -1687,6 +1787,11 @@ def report_lines(summary):
             cr = summary["cross_review"]
             lines.append(f"cross-review by Judge B: {len(cr['reviewed'])} absence claims reviewed, {len(cr['not_reviewed'])} "
                          f"not; calls " + ", ".join(f"{o} {cr['counts'][o]}" for o in OUTCOMES))
+            dv = summary["derivations"]["counts"]
+            lines.append(f"derivations: {dv['derived']} candidates derived, {dv['not_derived']} not; admission "
+                         + ", ".join(f"{k} {n}" for k, n in sorted(dv["admission"].items())) + "; current diagnosis "
+                         + ", ".join(f"{k} {n}" for k, n in sorted(dv["current"].items())) + f"; {dv['eligible']} eligible; "
+                         f"{summary['derivations']['delivery']['pairs']} (session, unit) pairs {DELIVERY_WAITING}")
             rc = summary["reconsiderations"]
             after = collections.Counter(r["diagnosis"] for r in rc["reconsidered"])
             lines.append(f"reconsidered by both judges: {len(rc['reconsidered'])} absence claims (" + ", ".join(
@@ -2217,6 +2322,12 @@ def self_test():
                     short.get("outcome") == "failed" and len(short.get("attempts", [])) == 2
                     and all(any(line.startswith("UNIT_UNJUDGED") for line in a["stage_check"] or [])
                             for a in short.get("attempts", [])), f"{short}")
+            dv_first = guarded(lambda: records.read_json(called / DERIVATIONS), {})
+            control("J4a: a candidate a judge's call did not finish for is not derived, and is named",
+                    sorted(r["candidate_id"] for r in dv_first.get("not_derived", [])
+                           if r["why"] == "a judge's call did not finish") == sorted({tainted, unjudged})
+                    and not {tainted, unjudged} & set(dv_first.get("verdicts", {}))
+                    and len(dv_first.get("verdicts", {})) == len(judged_ids) - 2, f"{dv_first.get('not_derived')}")
             made = {d.name for d in (called / "calls").iterdir()} if (called / "calls").is_dir() else set()
             second = guarded(lambda: run(called, supervisor(called, root / "cells-2", clean_plan)), lambda e: {"problem": repr(e)})
             record = guarded(lambda: records.read_json(records.record_path(called, STAGE)), {})
@@ -2273,6 +2384,14 @@ def self_test():
                                  held[3][4])]
             control("control: a receipt whose payload hash is not the payload S6 built is PACKET_DIVERGENCE",
                     sum(p.startswith("PACKET_DIVERGENCE") for p in stage_receipts(moved)) == 2, f"{stage_receipts(moved)}")
+            dv_called = guarded(lambda: records.read_json(called / DERIVATIONS), {})
+            gap_row = next(r for r in derive.table()["candidate_diagnosis"] if not r.get("lifecycle") and r["if_any_unit"] is None)
+            currents = [v["outcome"]["candidate_diagnosis"]["current"] for v in dv_called.get("verdicts", {}).values()]
+            control("J4a: at an incomplete current point no candidate is a gap - a candidate no unit matches is the gap "
+                    "row's incomplete answer", dv_called.get("points", {}).get("current", {}).get("complete") is False
+                    and currents and not any(c["diagnosis"] == "gap" for c in currents)
+                    and any(c["row"] == gap_row["id"] and c["diagnosis"] == gap_row["incomplete"] for c in currents),
+                    f"{collections.Counter((c['diagnosis'], c['row']) for c in currents)}")
             # refused before anything is sent
             tight = copy_of("tight-called", through_s5=False)
             declare.amend(tight, [("budget.per_stage.S6", 20_000_000)], "S6's golden budget (WP-11 J2)", scope=["S5", "S6"])
@@ -2382,7 +2501,17 @@ def self_test():
                         for u in row["answer"]["units"]:
                             u.update(situation="no", action="no", quote="")
                         row["answer"]["matching_units"] = []
-                whole_plan, whole_packets = fx_judge_plan(whole_plan_root / whole.name, root / "plan-whole.json", no_match)
+                # done-when 2 (J4a): the next candidate both judges mark `bounded` uncertain, the one after both mark
+                # `consequence` unmet; every other requirement of every candidate both mark met
+                planted_marks = {}
+
+                def plan_edit(cid, who, row):
+                    no_match(cid, who, row)
+                    if cid not in made_gaps and (cid in planted_marks or len(planted_marks) < 2):
+                        mark = planted_marks.setdefault(cid, ("uncertain", "bounded") if not planted_marks
+                                                        else ("unmet", "consequence"))
+                        row["answer"]["requirements"][mark[1]] = {"mark": mark[0], "reason": "planted"}
+                whole_plan, whole_packets = fx_judge_plan(whole_plan_root / whole.name, root / "plan-whole.json", plan_edit)
                 # each sweep flags its own unit, so a flag is what either raised, not both (J3b)
                 sweep_rows = [{"match": [f"SEAT: {seat}"], "auto": "sweep", "partial_where": where}
                               for seat, where in (("claude:claude-sonnet-5-5/medium", "glob"),
@@ -2479,6 +2608,11 @@ def self_test():
                 again_sw = guarded(lambda: run(whole, supervisor(whole, root / "cells-9", recon_defect)),
                                    lambda e: {"problem": repr(e)})
                 third_record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
+                third_dv = guarded(lambda: records.read_json(whole / DERIVATIONS), {})
+                control("J4a: an absence claim whose reconsideration did not finish is not derived, and is named",
+                        [r["candidate_id"] for r in third_dv.get("not_derived", [])] == [claims_known[0]]
+                        and claims_known[0] not in third_dv.get("verdicts", {}) and len(third_dv.get("verdicts", {})) > 1,
+                        f"{third_dv.get('not_derived')}")
                 third_again = again_sw.get("reconsiderations") or {}
                 third_calls = {r["candidate_id"]: r for r in third_again.get("calls", [])}
                 c0_b = third_calls.get(claims_known[0], {}).get("seats", {}).get("B", {})
@@ -2674,6 +2808,59 @@ def self_test():
                                                                   "row": quiet_section[0]["reconsidered"][0]["row"]}]
                         and not quiet_section[0].get("calls") and not quiet_section[1] if quiet_section[0].get("reconsidered")
                         else False, f"{quiet_section[0]}")
+                # ---- the derivations (J4a) ----------------------------------------------------------------------------
+                dv = guarded(lambda: records.read_json(whole / DERIVATIONS), {})
+                verd = dv.get("verdicts", {})
+                judged_whole = sorted(whole_packets)
+                admitted_of = {c: v["outcome"]["admission"] for c, v in verd.items()}
+                uncertain_c, unmet_c = (list(planted_marks) + [None, None])[:2]
+                control("J4a (done-when 2, O4): both judges uncertain on a requirement is disputed, not admitted; both unmet "
+                        "is rejected; both met on every requirement is admitted",
+                        len(planted_marks) == 2 and admitted_of.get(uncertain_c) == {"admission": "disputed", "row": "disputed"}
+                        and admitted_of.get(unmet_c, {}).get("admission") == "rejected"
+                        and all(a == {"admission": "admitted", "row": "admitted"} for c, a in admitted_of.items()
+                                if c not in planted_marks) and len(admitted_of) > 2, f"{planted_marks} {admitted_of}")
+                control("J4a: every candidate both judges judged is derived, and no other",
+                        sorted(verd) == judged_whole and not dv.get("not_derived"), f"{len(verd)} {len(judged_whole)}")
+                firsts_w = {c: {who: guarded(lambda c=c, who=who: records.read_json(
+                    whole / judgment_rel(item_of(c), who))["judgment"], {}) for who in ("A", "B")} for c in judged_whole}
+                control("J4a: a derivation reads both judges' requirement marks from their first judgments and the "
+                        "candidate's lineages from S5's recurrence count",
+                        all(verd.get(c, {}).get("requirements", {}).get(who) == {n: m["mark"] for n, m in
+                                                                                  firsts_w[c][who].get("requirements", {}).items()}
+                            and firsts_w[c][who].get("requirements") for c in judged_whole for who in ("A", "B"))
+                        and all(verd.get(c, {}).get("lineages") == (whole_rows[c].get("recurrence") or {}).get("count")
+                                for c in judged_whole) and any(verd.get(c, {}).get("lineages") for c in judged_whole),
+                        "")
+                after_rc = {r["candidate_id"]: r["diagnosis"] for r in rc.get("reconsidered", [])}
+                control("J4a: a reconsidered absence claim is derived with its reconsidered units - its current diagnosis is "
+                        "the reconsideration's", after_rc and all(
+                            verd.get(c, {}).get("outcome", {}).get("candidate_diagnosis", {}).get("current", {}).get("diagnosis")
+                            == d for c, d in after_rc.items()), f"{after_rc}")
+                control("J4a: no release point is judged, so every derivation's release diagnosis is unknown by `absent`, it "
+                        "has no unit outcome, and it names its test state",
+                        verd and all(v["outcome"]["candidate_diagnosis"]["release"] == {"diagnosis": "unknown", "row": "absent",
+                                                                                         "absence": None}
+                                     and v["outcome"]["unit_outcomes"] == [] and v["outcome"]["test"] == "untested: s8_deferred"
+                                     for v in verd.values()))
+                want_pairs = 0
+                for c in judged_whole:
+                    pairs_c = {}
+                    for who in ("A", "B"):
+                        for u in firsts_w[c][who].get("units", []):
+                            pairs_c.setdefault(u["unit_id"], {})[who] = u
+                        again_c = guarded(lambda c=c, who=who: records.read_json(
+                            whole / reconsideration_rel(item_of(c), who))["judgment"], {})
+                        for u in again_c.get("units", []):
+                            pairs_c.setdefault(u["unit_id"], {})[who] = u
+                    matched_c = [u for u, pr in pairs_c.items() if derive.unit_diagnosis(
+                        derive.agreed(pr.get("A", {}).get("situation"), pr.get("B", {}).get("situation")),
+                        derive.agreed(pr.get("A", {}).get("action"), pr.get("B", {}).get("action"))) != "no match"]
+                    want_pairs += len(pop_b[c].get("sessions") or []) * len(matched_c)
+                control("J4a (D3): delivery is not read; every (session, unit) pair a matching unit would need is counted as "
+                        "delivery_assembly_waiting", dv.get("delivery", {}).get("state") == "delivery_assembly_waiting"
+                        and dv.get("delivery", {}).get("pairs") == want_pairs and want_pairs > 0,
+                        f"{dv.get('delivery')} {want_pairs}")
                 some = next(iter(sorted(kept_sw)), None)
                 if some is not None:
                     said = refusal(lambda: kept_sweep(whole, sweep_rel(*some), "0" * 64))
@@ -2784,7 +2971,9 @@ def self_test():
           "both ways, one payload for both judges, contradicted, disputed and standing claims, RECONSIDERATION_MISSING "
           "planted and run, a claim with nothing returned; the reconsideration's units-only shape - its schema the judge "
           "schema's projection with drift planted both ways, candidate-level fields refused by the schema in a run and "
-          "by FIELD_UNEXPECTED, the unit rules in the judgment packet's own words)")
+          "by FIELD_UNEXPECTED, the unit rules in the judgment packet's own words; the derivations (J4a) - done-when 2's "
+          "disputed, rejected and admitted, every judged candidate derived, the marks and lineages read, the reconsidered "
+          "diagnosis carried, no release point, the delivery pairs counted as waiting, an unfinished claim named)")
     return 0
 
 
