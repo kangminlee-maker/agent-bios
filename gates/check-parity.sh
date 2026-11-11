@@ -540,6 +540,12 @@ fi
 # The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
 # belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
 # by the pre-commit hook and a leg that ran the hook would recurse.
+# WP-21's §11 exposure predicate: one branch per table row, three generated cases each.
+if [ -f session-distill/runlib/exposure.py ]; then
+  leg -q "FAIL: session-distill exposure predicate self-test (session-distill/runlib/exposure.py)" \
+    python3 session-distill/runlib/exposure.py --self-test
+fi
+
 # WP-21's drift and order: the comparison, the layers nobody compared, and the global-file refusal.
 # The O10 case against the REAL global-file gate is `gates/global-op-unjudged-check.sh`, an
 # author-side script and not a leg: it drives git over a scratch repository, and a shipped suite
