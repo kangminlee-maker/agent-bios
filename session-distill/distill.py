@@ -89,6 +89,25 @@ except BaseException as _startup_exc:   # SystemExit included: `validate` exits 
     # if the floor itself is what failed, the fixed line stands instead.
     sys.exit(entry.failed(_startup_exc, HOME, label="STARTUP_FAILED", code=2))
 
+def _account_home():
+    """The account's own home directory, which does not come from the environment.
+
+    `pathlib.Path.home()` reads `$HOME`, so it answered `relative-home` for a relative `$HOME` and
+    the "ignored" value came straight back as the base — the default then resolved against the
+    working directory and a control of mine wrote a run into this checkout. The password database
+    is the authority that cannot be relative. If it cannot be read, no default is better than one
+    resolved against whatever directory the caller happens to stand in."""
+    try:
+        import pwd
+        home = pwd.getpwuid(os.getuid()).pw_dir
+    except Exception:                      # no pwd (Windows), or no entry for this uid
+        home = None
+    if home and pathlib.PurePath(home).is_absolute():
+        return pathlib.Path(home)
+    raise Refused("DEFAULT_OUT_UNRESOLVED: this account has no absolute home directory, so the "
+                  "default run root cannot be resolved; pass --out DIR")
+
+
 def default_out(environ=None, home=None):
     """The root of the run directories when the caller names none.
 
@@ -121,7 +140,7 @@ def default_out(environ=None, home=None):
     if raw_home is not None and not pathlib.PurePath(str(raw_home)).is_absolute():
         notes.append(f"HOME={str(raw_home)!r} is relative and is ignored for the default run root")
         raw_home = None
-    base_home = pathlib.Path(raw_home) if raw_home else pathlib.Path.home()
+    base_home = pathlib.Path(raw_home) if raw_home else _account_home()
     raw_base = environ.get("XDG_STATE_HOME")
     if raw_base is not None and raw_base != "" and not pathlib.PurePath(raw_base).is_absolute():
         notes.append(f"XDG_STATE_HOME={raw_base!r} is relative and is ignored for the default run "
@@ -1257,10 +1276,34 @@ def self_test():
                 (fake_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
                  / "y2-relative-xdg").is_dir(),
                 f"{sorted(q.name for q in (fake_home / '.local' / 'state').rglob('*'))[:6]}")
+        here = pathlib.Path.cwd()
         code, err = no_out("declare", "--run-id", "y2-relative-home", "--from", str(declaration),
                            HOME="relative-home", XDG_STATE_HOME=None)
         control("review Y #2: a RELATIVE HOME is ignored for the default run root as well",
                 "DEFAULT_OUT_INPUT_IGNORED" in err and "HOME=" in err, f"{code} {err[:300]}")
+        # And the fallback is the ACCOUNT's home, not `Path.home()`, which reads the same relative
+        # $HOME back: this control wrote `relative-home/.local/state/...` into the checkout the
+        # first time it ran, which is the defect it now holds shut.
+        control("and nothing is written relative to the working directory",
+                not (here / "relative-home").exists(),
+                f"{sorted(q.name for q in (here / 'relative-home').rglob('*'))[:5]}"
+                if (here / "relative-home").exists() else "")
+        # The function's own answer, not the write's: a relative $HOME used to come straight back
+        # through `pathlib.Path.home()`, and the only thing that then stopped the write was the
+        # checkout being a protected root — which a packaged install does not have. So the default
+        # is required to be ABSOLUTE at the source, from the account's own home.
+        kept_home = os.environ.get("HOME")
+        try:
+            os.environ["HOME"] = "relative-home"      # the ambient value too, or the fallback hides
+            with contextlib.redirect_stderr(io.StringIO()):
+                resolved = default_out({"HOME": "relative-home"})
+        finally:
+            if kept_home is None:
+                os.environ.pop("HOME", None)
+            else:
+                os.environ["HOME"] = kept_home
+        control("review Y #2: the default run root is absolute even when $HOME is not",
+                resolved.is_absolute() and "relative-home" not in resolved.parts, str(resolved))
         code, err = no_out("declare", "--run-id", "y2-ordinary", "--from", str(declaration),
                            HOME=str(fake_home), XDG_STATE_HOME=None)
         control("and an ordinary environment still declares a run without being told a destination",
