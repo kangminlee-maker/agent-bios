@@ -628,7 +628,7 @@ def seats_of(declaration):
     return {who: held[key] for who, key in SEAT_KEYS.items()}
 
 
-def limits_of(seat, run_dir, declaration, seats_path=None, case=CASE, output_cap=OUTPUT_CAP):
+def limits_of(seat, run_dir, declaration, seats_path=None, case=CASE, output_cap=OUTPUT_CAP, stage=STAGE):
     """What one judgment call of `seat` is held to: the seat's context capacity and the host's measured hermetic
     allowance from seats.json (`gate.seat_capacity`), the run's density for this class of call and the host's retry
     share (`dispatch.measured_density`, `retry_share`), the output cap. What is not measured is named in `unmeasured`
@@ -640,7 +640,7 @@ def limits_of(seat, run_dir, declaration, seats_path=None, case=CASE, output_cap
     slot = (entry.get("host_allowance") or {}).get("hermetic") or {}
     allowance = slot.get("allowance_tokens") if slot.get("measured") is True else None
     capacity, basis = gate.seat_capacity(seat, entry.get("version"), path=path)
-    density = dispatch.measured_density(run_dir, seat, STAGE, case, (declaration or {}).get("density"))
+    density = dispatch.measured_density(run_dir, seat, stage, case, (declaration or {}).get("density"))
     retry = dispatch.retry_share(run_dir, host, (declaration or {}).get("retry"))
     unmeasured = ([] if isinstance(allowance, int) else
                   [f"ALLOWANCE_UNMEASURED {seat}: seats.json holds no measured hermetic allowance for {host}"]) \

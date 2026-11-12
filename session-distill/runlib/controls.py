@@ -362,8 +362,12 @@ READERS = {
     ("runlib/stage_render.py", "load"): "S9 reads which candidates S5 planted, so a proposal for one is accounted as a "
                                         "control and never rendered as a review row; S9 runs after S6 and S7, and the "
                                         "review is the owner's, read by no judge",
+    ("runlib/stage_propose.py", "<module>"): "LIVE_INPUTS declares controls.json as one of S7's S5 input artifacts",
+    ("runlib/stage_propose.py", "live"): "S7 reads which candidates S5 planted, so no proposal call is spent on a "
+                                         "control; S7 runs after S6, whose judges are the only readers the file is "
+                                         "sealed against, and what it reads is the ids, never a verdict",
 }
-TEST_CODE = ("self_test", "fx_")
+TEST_CODE = ("self_test", "_self_test", "fx_")
 
 
 def reader_sites(texts):

@@ -577,32 +577,30 @@ def cmd_judge(args):
 
 
 def cmd_propose(args):
-    """S7 (runlib/stage_propose.py): the packets, or a golden run over answers the caller supplies.
-
-    The live call is NOT wired here. The stage and its contract are complete and judged on golden
-    answers; what is missing is the supervised call, and a driver that pretended otherwise would
-    start a model from a command whose refusal path nobody has exercised."""
+    """S7 (runlib/stage_propose.py): dry, up to the calls; a golden run over answers the caller
+    supplies; otherwise the supervised calls, through a supervisor made before the stage is entered
+    so a live run without its token is refused before anything is recorded."""
+    name_checkout_ledger(args)
     run_dir = run_dir_of(args)
-    if args.dry:
-        derivations = records.read_json(run_dir / "judgments" / "derivations.json")
-        candidates = records.read_json(run_dir / "checked-candidates.json")
-        measures = []
-        for row in candidates.get("candidates") or []:
-            built = stage_propose.packet_for(row, derivations,
-                                             (derivations.get("verdicts") or {}).get(row["candidate_id"]))
-            measures.append(f"{row['candidate_id']}: packet {len(built)} bytes")
-        say("\n".join(["S7 dry: the packets this run would send",
-                        *measures,
-                        f"unknowns in force: {len(stage_propose.named_states(derivations))}"]))
+    if args.answers:
+        if args.dry or args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID propose --answers: answers in hand make no call, so they take no --dry, "
+                          "--cells or --golden-plan")
+        answers = records.read_json(pathlib.Path(args.answers))
+        stage, doc = stage_propose.run(run_dir, answers)
+        say(f"S7: {doc['counts']['proposed']} proposed, {doc['counts']['returned']} returned, "
+            f"{doc['counts']['awaiting_R']} awaiting R")
         return 0
-    if not args.answers:
-        say("CALL_NOT_WIRED propose: the supervised call has not landed; give --answers PATH to run "
-            "the stage over answers already in hand, or --dry for the packets", sys.stderr)
-        return 2
-    answers = records.read_json(pathlib.Path(args.answers))
-    stage, doc = stage_propose.run(run_dir, answers)
-    say(f"S7: {doc['counts']['proposed']} proposed, {doc['counts']['returned']} returned, "
-        f"{doc['counts']['awaiting_R']} awaiting R")
+    if args.dry:
+        if args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID propose --dry: a dry run makes no call, so it takes no --cells or --golden-plan")
+        summary, _doc = stage_propose.live(run_dir, dry=True)
+    else:
+        if not args.cells:
+            raise Refused("INPUT_INVALID propose --cells: the proposal calls run in cells under a cell root; give "
+                          "--cells DIR, --dry to stop before the calls, or --answers PATH for answers in hand")
+        summary, _doc = stage_propose.live(run_dir, stage_propose.supervisor(run_dir, args.cells, args.golden_plan))
+    say("\n".join(stage_propose.live_report_lines(summary)))
     return 0
 
 
@@ -727,8 +725,13 @@ def build_parser():
                                                        "checkout is not this driver's to assume; without it the "
                                                        "stage is refused LEDGER_UNNAMED rather than reading a guess")
         if name == "propose":
-            sub.add_argument("--dry", action="store_true", help="stop before any call: the packets this run would send")
+            sub.add_argument("--dry", action="store_true", help="stop before any call: who is asked and each packet's measure")
             sub.add_argument("--answers", help="a JSON object of answers by candidate id, for a golden run")
+            sub.add_argument("--cells", help="the cell root the proposal calls run under (made mode 700)")
+            sub.add_argument("--golden-plan", help="a golden host's plan: the calls are answered from it and start no model")
+            sub.add_argument("--checkout-ledger", help="the ledger's path INSIDE the declaration's checkout "
+                                                       "destination; without it the stage is refused LEDGER_UNNAMED "
+                                                       "rather than reading a guess")
         if name == "review-proposals":
             sub.add_argument("--reviews", help="a JSON object of reviews by item id, for a golden run")
         if name == "adjudicate":
@@ -1031,8 +1034,8 @@ def self_test():
             return not (out / "r1" / "stages" / "S7.json").exists() \
                    and not (out / "r1" / "stages" / "S7b.json").exists()
         code, err = cli("propose", "--run-id", "r1")
-        control("propose (S7) without --answers says the supervised call is not wired, and records no "
-                "stage", code == 2 and "CALL_NOT_WIRED propose" in err and no_stage_record(), f"{code} {err}")
+        control("propose (S7) with neither --cells, --dry nor --answers is refused by name, and records no "
+                "stage", code == 1 and "INPUT_INVALID propose --cells" in err and no_stage_record(), f"{code} {err}")
         code, err = cli("review-proposals", "--run-id", "r1")
         control("review-proposals (S7b) without --reviews says the same, by its own name",
                 code == 2 and "CALL_NOT_WIRED review-proposals" in err and no_stage_record(),

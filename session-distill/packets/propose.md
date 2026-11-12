@@ -61,6 +61,9 @@ has.
 - **Operations**, typed, each with the expected before-state hash of its target: `create(path, content)`,
   `edit(path, anchor, diff)`, `delete(path, anchor)`, `merge(units, into, text)`, `route(entry)`. A create needs an
   allowed parent and scope. A keep, incubate, drop or none carries NO operations: those change the ledger alone.
+  Name a target by the `path` a unit above shows (or the new file's path for a create) and locate an edit or a delete
+  by that unit's `heading`. For `before_state_sha256` write `absent`: you cannot hash a file, so code replaces the
+  field on every operation with the state of its target as it reads it, and a value of yours is never used.
 - **Artifact set**, complete: the English canonical text, the Korean translation under `ko/claude/` when the item is
   user-facing, the catalog and router registration, and for an author-side item the gate change together with its
   negative control.

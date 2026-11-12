@@ -829,8 +829,8 @@ def broad_handlers(src, module):
     as `(key, reraises)` (the lead's verification of WP-08e commit 4, finding 3). `key` is `module:function:caught#n`,
     n counting the same catch in the same function, so a line moving never renames a site. `reraises` is structural: a
     handler of the same `try` before it catches RunStopped and ends in a bare `raise`, or the handler itself always
-    ends in one (its last statement, with no return, break or continue anywhere in it). A `self_test` and what is
-    nested in it is not production code."""
+    ends in one (its last statement, with no return, break or continue anywhere in it). A `self_test`, a
+    `_self_test…` body it delegates to, and what is nested in either is not production code."""
     import ast
     catches = {cls.__name__ for cls in RunStopped.__mro__} - {"object"}
 
@@ -850,7 +850,10 @@ def broad_handlers(src, module):
     def walk(node, path):
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                if child.name == "self_test":
+                # The suite, whatever it is called: a module whose `self_test` is a wrapper that
+                # reports a dying control keeps its body in `_self_test_body`, and that body's
+                # handlers are the suite's as much as the wrapper's are.
+                if child.name == "self_test" or child.name.startswith("_self_test"):
                     continue
                 walk(child, path + [child.name])
                 continue
@@ -1058,6 +1061,11 @@ def self_test():
     }
     import ast as _ast
     here = pathlib.Path(__file__).resolve().parent
+    suite_src = ("def _self_test_body(failures, ran):\n    try:\n        pass\n    except Refused:\n        pass\n"
+                 "def run():\n    try:\n        pass\n    except Refused:\n        pass\n")
+    expect("a handler in a suite's delegated body is the suite's, and the same handler in production code is not",
+           [] if [key for key, _r in broad_handlers(suite_src, "m")] == ["m:run:Refused#1"]
+           else [f"{broad_handlers(suite_src, 'm')}"])
 
     def stop_modules(read):
         """The runlib modules whose code names RunStopped or a supervisor: `{stem: source}`."""

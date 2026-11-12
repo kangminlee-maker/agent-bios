@@ -250,8 +250,15 @@ def packet_for(candidate, derivation, derivation_row, units=(), intake_entry=Non
 
     The contract text travels whole rather than summarised: S7b judges the proposal against that
     same text, and a packet that paraphrased it would be a second authority for the bars."""
+    payload = payload_for(candidate, derivation, derivation_row, units, intake_entry)
+    return packet.build(call_id, STAGE, seat, payload, schema=schema_bytes(), repo=HERE.parent)
+
+
+def payload_for(candidate, derivation, derivation_row, units=(), intake_entry=None):
+    """The packet's payload alone: what a supervised call is handed, which builds the packet around
+    it under the call id its reservation gave it. `packet_for` is this with the packet built."""
     facts = candidate_facts(candidate, derivation_row)
-    payload = packet.render(TEMPLATE, {
+    return packet.render(TEMPLATE, {
         "candidate": json.dumps({**candidate, **facts}, ensure_ascii=False, indent=1),
         "judgments": json.dumps((derivation_row or {}).get("requirements") or {}, ensure_ascii=False,
                                 indent=1),
@@ -263,7 +270,6 @@ def packet_for(candidate, derivation, derivation_row, units=(), intake_entry=Non
         "placement_contract": f"sha256:{placement.contract_digest()}\n\n{placement.contract_text()}",
         "returns": "Return one JSON object in the schema of this call.",
     }, template_dir=HERE / "packets")
-    return packet.build(call_id, STAGE, seat, payload, schema=schema_bytes(), repo=HERE.parent)
 
 
 # What the flat proposal carries, and where each field comes from. An explicit list, because the
@@ -702,7 +708,8 @@ def subset_problems(only, population):
             if missing else [])
 
 
-def document(derivations, candidates, answers, active_keep=None, legacy=(), only=None):
+def document(derivations, candidates, answers, active_keep=None, legacy=(), only=None,
+             not_asked=None, unanswered=None):
     """`proposals.json`: every candidate answered, ranked, with each refusal named and counted.
 
     A candidate whose answer does not hold is NOT dropped and not silently re-asked: its row carries
@@ -723,9 +730,16 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
     legacy_entries = dict(legacy) if isinstance(legacy, dict) else {cid: None for cid in legacy or ()}
     legacy_ids = set(legacy_entries)
     defaulted, default_groups = [], collections.Counter()
-    proposals, returned = [], []
+    proposals, returned, unasked = [], [], {}
     for cid in sorted(rows):
         answer = (answers or {}).get(cid)
+        if answer is None and cid in (unanswered or {}):
+            # A call that was made and not accepted. Asked BEFORE the legacy default below: an
+            # admitted legacy candidate whose call failed would otherwise be answered `none` by the
+            # owner's default, which is a decision nobody made about a candidate the run asked a
+            # model about.
+            returned.append({"candidate_id": cid, "problems": [unanswered[cid]]})
+            continue
         if answer is None and cid in legacy_ids and legacy_entries[cid] is not None:
             entry = legacy_entries[cid]
             if call_spent_on(entry):
@@ -738,6 +752,12 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
             answer = legacy_answer(entry)
             defaulted.append(cid)
             default_groups[decision1_kind(entry)] += 1
+        if answer is None and cid in (not_asked or {}):
+            # Not asked is not unanswered. A candidate S6 rejected, disputed, left out of its judged
+            # scope or planted as a control is owed no proposal, and reporting it ANSWER_ABSENT
+            # would say a call failed that was never due. It is named with its reason instead.
+            unasked[cid] = not_asked[cid]
+            continue
         if answer is None:
             returned.append({"candidate_id": cid, "problems": [f"ANSWER_ABSENT {cid}: S7 made no "
                                                                f"proposal for a candidate it was given"]})
@@ -762,6 +782,12 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
             "returned": sorted(returned, key=lambda r: r["candidate_id"]),
             "unknowns_in_force": named_states(derivations or {}),
             "not_derived": sorted(not_derived),
+            # Present only where the caller said who was owed an answer (the live stage does): the
+            # golden path, which is handed an answer for every candidate, keeps its document's shape.
+            **({"not_asked": {"count": len(unasked),
+                              "by_reason": dict(sorted(collections.Counter(unasked.values()).items())),
+                              "candidates": dict(sorted(unasked.items()))}}
+               if not_asked is not None else {}),
             "contract": {"placement_contract_sha256": placement.contract_digest(),
                          "schema_sha256": packet.sha256_bytes(schema_bytes())},
             # `subset` says what population this document is about, so a reader cannot mistake a
@@ -813,6 +839,302 @@ def run(run_dir, answers, active_keep=None, legacy=(), only=None):
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return stage, doc
+
+
+# ---- the supervised call (release 1) --------------------------------------------------------------
+# One call per candidate OWED a proposal, through the dispatcher like every other stage's calls:
+# reserved, bounded, gated, retried once with the contract's own refusal lines, kept.
+#
+# Who is owed one is decided by code from what the earlier stages recorded, and everyone else is
+# named with the reason (`asked_of`). S9 needs a proposal or a returned row for a candidate S6
+# ADMITTED, and the owner's legacy decision (D-20261111-e53a01) sends an incubating entry that
+# carries a classification block to the model; a candidate S6 rejected or disputed is shown by its
+# admission, one S6 left out of its judged scope by its group, and a control S5 planted is no row at
+# all — a call for any of those would be spent on an answer nothing reads.
+SEAT_KEY = "S7"
+CASE = "propose"          # the call's class (dispatch.class_key)
+OUTPUT_CAP = 20_000       # S6's cap for a judgment; a proposal is one object of the same order
+LIVE_INPUTS = INPUTS + ({"artifact": "checks.json", "producer_stage": "S5"},
+                        {"artifact": "controls.json", "producer_stage": "S5"},
+                        {"artifact": "inventory/current.json", "producer_stage": "S2"},
+                        {"artifact": "intake.json", "producer_stage": "S4"})
+CALLS = "propose/calls.json"
+DRY_RECORD = "propose/dry.json"
+ASKED_ADMITTED = "S6 admitted it"
+ASKED_LEGACY = "a legacy entry with a classification block (D-20261111-e53a01)"
+
+
+def item_of(candidate_id):
+    """A candidate's item name in its call: opaque, since a call directory's name must not be the id."""
+    import hashlib
+    return "p" + hashlib.sha256(candidate_id.encode("utf-8")).hexdigest()[:12]
+
+
+def legacy_entries(candidates, intake, ledger):
+    """`{candidate_id: ledger entry}` of the population's legacy candidates, by the intake's own
+    `target_entry`. An entry the pinned ledger does not hold maps to None: `document` then answers
+    as it does for an id given without its entry."""
+    entries = {e["id"]: e for e in (ledger or {}).get("entries") or []}
+    intake_of = {c["candidate_id"]: c for c in (intake or {}).get("candidates") or []}
+    return {row["candidate_id"]: entries.get((intake_of.get(row["candidate_id"]) or {}).get("target_entry"))
+            for row in (candidates or {}).get("candidates") or [] if row.get("source") == "legacy"}
+
+
+def asked_of(candidates, derivations, planted, legacy):
+    """`(asked, not_asked)`: each `{candidate_id: reason}`, together every candidate but the legacy
+    entries the owner's default answers in code (`document` answers those, with no call)."""
+    verdicts = (derivations or {}).get("verdicts") or {}
+    not_derived = {r["candidate_id"] for r in (derivations or {}).get("not_derived") or []}
+    asked, not_asked = {}, {}
+    for row in (candidates or {}).get("candidates") or []:
+        cid = row["candidate_id"]
+        if cid in planted:
+            not_asked[cid] = "a control S5 planted"
+        elif cid in verdicts:
+            admission = ((verdicts[cid].get("outcome") or {}).get("admission") or {}).get("admission")
+            if admission == "admitted":
+                asked[cid] = ASKED_ADMITTED
+            else:
+                not_asked[cid] = f"S6's admission is {admission}"
+        elif cid in not_derived:
+            not_asked[cid] = "S6 did not derive it"
+        elif cid in legacy:
+            if legacy[cid] is not None and call_spent_on(legacy[cid]):
+                asked[cid] = ASKED_LEGACY
+            # else: the owner's default, answered by `document` in code
+        else:
+            not_asked[cid] = "S6 left its source out of the judged scope"
+    return asked, not_asked
+
+
+def file_state(checkout, target):
+    """`(sha256 of the file's bytes | "absent", problems)` of one operation's target in the declared
+    checkout, through the target contract: a target the contract refuses has no state to give."""
+    import hashlib
+    from runlib import targets
+    path = str(target or "").split("#", 1)[0]
+    problems = targets.problems(path, checkout)
+    if problems:
+        return None, problems
+    held = pathlib.Path(checkout) / targets.identity(path)
+    if not held.exists():
+        return "absent", []
+    return hashlib.sha256(held.read_bytes()).hexdigest(), []
+
+
+def with_before_states(answer, checkout):
+    """`(answer, problems)`: the answer with every operation's `before_state_sha256` set by CODE.
+
+    A model cannot hash a file, and the hash an operation carries is what S11 holds the target to
+    before it writes, so it is the one field of an operation that is never the model's: whatever the
+    answer wrote there is replaced by the state of the target in the declared checkout as S7 reads
+    it (`absent` for a file that is not there). `before_state_by` says so on each operation."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("operations"), list):
+        return answer, []
+    problems, operations = [], []
+    for n, operation in enumerate(answer["operations"]):
+        if not isinstance(operation, dict):
+            operations.append(operation)
+            continue
+        state, held = file_state(checkout, operation.get("target"))
+        problems += [f"OPERATION_TARGET_REFUSED operations[{n}]: {p}" for p in held]
+        operations.append({**operation, **({"before_state_sha256": state} if state else {})})
+    return {**answer, "operations": operations}, problems
+
+
+def unit_rows(check_row, current_units, checkout):
+    """The units S5 retrieved for one candidate, as S7 is shown them: where each lives and what it
+    says, in S5's order. The label is the packet's own; a store id is not shown."""
+    import hashlib
+    rows = []
+    for n, held in enumerate((check_row or {}).get("retrieved_units") or [], 1):
+        unit = current_units.get(held["unit_id"])
+        if unit is None:
+            raise Refused(f"RECORD_INTEGRITY S7 packet: S5 retrieved {held['unit_id']}, which "
+                          f"current.json does not hold")
+        rows.append({"unit": f"n{n}", "layer": unit.get("layer"), "path": unit.get("path"),
+                     "heading": unit.get("heading"), "class": unit.get("class"),
+                     "text": unit.get("text")})
+    return rows
+
+
+def live_check(candidate, derivations, verdict, legacy_incubating, checkout, capacity):
+    """The stage's check of a proposal call's attempts, as `Supervisor.item(stage_check=)` asks it:
+    the contract's own refusals over the answer with its before-states set, so the one retry is
+    told exactly what `document` would have returned the row for."""
+    from runlib import stage_read
+
+    def judged(call_dir):
+        held = ((records.read_json(pathlib.Path(call_dir) / "call.json").get("bound")) or {}).get("context_capacity")
+        if held != capacity:
+            raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record "
+                          f"carries the capacity {held!r}, and S7 was admitted against {capacity!r}")
+        answer, problems = with_before_states(stage_read.answer_of(call_dir), checkout)
+        return problems + answer_problems(answer, candidate, derivations, verdict, None, legacy_incubating)
+    return judged
+
+
+def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibration", ledger_ref=None):
+    """S7 with its supervised calls: `proposals.json` over the answers the calls returned.
+
+    Admitted against its inputs, it decides who is owed a proposal (`asked_of`), builds and measures
+    each one's packet, and — unless `dry`, which writes `propose/dry.json` and leaves the record
+    `partial` — sends each through `supervisor`, an item of its own. An accepted answer has its
+    operations' before-states set by code (`with_before_states`) and enters `document` with every
+    other candidate named `not_asked`; a call that ends other than accepted leaves its candidate
+    without an answer, which `document` returns as ANSWER_ABSENT, and the record `partial`. A re-run
+    reuses each accepted attempt. `propose/calls.json` says what each call did: counts and codes,
+    never a proposal's text."""
+    from runlib import bound, dispatch, gate, lifecycle_intake, stage_judge
+    if not dry and supervisor is None:
+        raise Refused("PROPOSE_UNSUPERVISED S7: a proposal call goes through a supervisor; without "
+                      "one, run it dry (--dry) or over answers in hand (--answers)")
+    run_dir = pathlib.Path(run_dir)
+    run_id = run_dir.resolve().name
+    with records.run_stage(run_dir, STAGE, LIVE_INPUTS) as stage:
+        declaration = stage.declaration
+        seat = ((declaration or {}).get("seats") or {}).get(SEAT_KEY)
+        if not seat:
+            raise Refused(f"SEAT_UNDECLARED {SEAT_KEY}: S7's seat is named by run.json's seats")
+        checkout = ((declaration or {}).get("destinations") or {}).get("checkout")
+        if not checkout or not pathlib.Path(checkout).is_dir():
+            raise Refused("CHECKOUT_UNDECLARED S7: an operation's before-state is read from the "
+                          "declared checkout, and run.json's destinations name none that exists")
+        interrupted = [] if dry else supervisor.interrupted(STAGE)
+        derivations = records.read_json(run_dir / "judgments" / "derivations.json")
+        candidates = records.read_json(run_dir / "checked-candidates.json")
+        checks = {r["candidate_id"]: r for r in records.read_json(run_dir / "checks.json")["candidates"]}
+        current = {u["unit_id"]: u for u in records.read_json(run_dir / "inventory" / "current.json")["units"]}
+        planted = {p["candidate_id"] for p in records.read_json(run_dir / "controls.json").get("planted") or []}
+        intake = records.read_json(run_dir / "intake.json")
+        ledger, _read = lifecycle_intake.ledger_of(declaration, ledger_ref)
+        legacy = legacy_entries(candidates, intake, ledger)
+        asked, not_asked = asked_of(candidates, derivations, planted, legacy)
+        rows = {r["candidate_id"]: r for r in candidates["candidates"]}
+        verdicts = derivations.get("verdicts") or {}
+        intake_of = {c["candidate_id"]: c for c in intake.get("candidates") or []}
+        held_schema = json.loads(schema_bytes().decode("utf-8"))
+        limits = stage_judge.limits_of(seat, run_dir, declaration,
+                                       seats_path if dry else supervisor.seats_path,
+                                       case=CASE, output_cap=OUTPUT_CAP, stage=STAGE)
+        packets, measured = {}, []
+        for cid in sorted(asked):
+            text = payload_for(rows[cid], derivations, verdicts.get(cid),
+                               unit_rows(checks.get(cid), current, checkout),
+                               intake_of.get(cid) if cid in legacy else None)
+            item = item_of(cid)
+            built = packet.build(f"{run_id}-{STAGE}-{item}-a1", STAGE, seat, text, schema_bytes())
+            size = bound.driver_bytes(built, schema_bytes())[0]
+            packets[cid] = (item, text)
+            measured.append({"candidate_id": cid, "item": item, "why": asked[cid],
+                             "payload_bytes": len(text.encode("utf-8")),
+                             "payload_sha256": packet.sha256_bytes(text.encode("utf-8")),
+                             "driver_bytes": size,
+                             "input_at_most": stage_judge.at_most_of(size, limits),
+                             "over_capacity": bool(stage_judge.beyond_capacity(size, limits))})
+        summary = {"stage": STAGE, "declaration_seq": declaration["declaration_seq"], "dry": dry,
+                   "seat": seat, "limits": limits, "output_cap": OUTPUT_CAP,
+                   "population": {"candidates": len(rows), "asked": len(asked),
+                                  "asked_by_reason": dict(sorted(collections.Counter(asked.values()).items())),
+                                  "not_asked": len(not_asked),
+                                  "not_asked_by_reason": dict(sorted(collections.Counter(not_asked.values()).items())),
+                                  "legacy_defaulted_in_code": sum(1 for cid in legacy
+                                                                  if cid not in asked and cid not in not_asked)},
+                   "packets": measured,
+                   "budget": {"per_stage": ((declaration.get("budget") or {}).get("per_stage") or {}).get(STAGE)}}
+        if dry:
+            records.write_json(run_dir, run_dir / DRY_RECORD, summary)
+            stage.output(DRY_RECORD)
+            stage.record["status"] = "partial"
+            return summary, None
+        over = [m["candidate_id"] for m in measured if m["over_capacity"]]
+        if over:
+            raise Refused(f"PROPOSE_OVER_CAPACITY S7: {len(over)} packets exceed the seat's capacity "
+                          f"{limits['capacity']} with the output cap and a retry's correction "
+                          f"({over[:3]})")
+        episode = declaration["budget"]["per_episode"]
+        caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
+        answers, calls = {}, []
+        for row in measured:
+            cid = row["candidate_id"]
+            item, text = packets[cid]
+            out = supervisor.item(
+                STAGE, item, seat, text, held_schema, case_type=CASE, caps=caps, view_window=False,
+                tranche=tranche, max_output_tokens=OUTPUT_CAP, resume=True,
+                context_capacity=limits["capacity"],
+                stage_check=live_check(rows[cid], derivations, verdicts.get(cid), cid in legacy,
+                                       checkout, limits["capacity"]),
+                packet_check=lambda built: stage_judge.attempt_problems(
+                    built, limits, schema_bytes(), SEAT_KEY, code="PROPOSE_OVER_CAPACITY"))
+            held = {"candidate_id": cid, "item": item, **stage_judge.call_row(out)}
+            if out["outcome"] == "accepted":
+                call_dir = pathlib.Path(out["accepted"])
+                held["call_id"] = records.read_json(call_dir / "call.json")["call_id"]
+                answers[cid], _checked = with_before_states(gate.accepted(call_dir, judged=True), checkout)
+            calls.append(held)
+        unanswered = {c["candidate_id"]: f"CALL_NOT_ACCEPTED {c['candidate_id']}: S7's call ended "
+                                         f"{c['outcome']}" + (f" ({', '.join(c['codes'])})" if c["codes"] else "")
+                      for c in calls if c["outcome"] != "accepted"}
+        doc = document(derivations, candidates, answers, None, legacy, not_asked=not_asked,
+                       unanswered=unanswered)
+        records.write_json(run_dir, run_dir / OUTPUT, doc)
+        stage.output(OUTPUT)
+        outcomes = [c["outcome"] for c in calls]
+        summary.update(calls=calls, interrupted=interrupted, tranche=tranche,
+                       counts={**{o: outcomes.count(o) for o in sorted(set(outcomes))},
+                               "reused": sum(1 for c in calls if c.get("reused"))},
+                       document=doc["counts"], density_table=dispatch.measured_table(run_dir))
+        records.write_json(run_dir, run_dir / CALLS, summary)
+        stage.output(CALLS)
+        if any(o != "accepted" for o in outcomes):
+            stage.record["status"] = "partial"
+        return summary, doc
+
+
+def supervisor(run_dir, cells, plan=None, seats_path=None):
+    """The supervisor S7's calls go through, their cells under `cells` (made mode 700). Live, the
+    pinned runner, whose token reaches claude-run only as CLAUDE_RUN_TOKEN_FILE in this process's
+    environment — a path never read here, refused by name before anything is reserved when it is
+    not set. With `plan`, a golden host's plan (`[{match, answer}]`, dispatch.FAKE_HOST's): the host
+    answers from the plan and starts no model."""
+    from runlib import dispatch
+    if plan is None and not os.environ.get("CLAUDE_RUN_TOKEN_FILE"):
+        raise Refused("TOKEN_FILE_UNSET S7: a live proposal call's token reaches claude-run only as "
+                      "CLAUDE_RUN_TOKEN_FILE, and this environment does not set it")
+    cells = pathlib.Path(cells)
+    cells.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if plan is None:
+        return dispatch.Supervisor(run_dir, cell_root=cells, realization="live", seats_path=seats_path)
+    fake, plan = cells / "fake_host.py", pathlib.Path(plan).resolve()
+    fake.write_text(dispatch.FAKE_HOST, encoding="utf-8")
+    sup = dispatch.Supervisor(run_dir, cell_root=cells, realization="golden", seats_path=seats_path)
+    sup.runner = lambda host, spec: [sys.executable, str(fake), host, "clean",
+                                     json.dumps({**spec, "answers": str(plan)})]
+    return sup
+
+
+def live_report_lines(summary):
+    """What the driver prints of a live or dry S7: counts, sizes and codes, never a proposal's text."""
+    pop = summary["population"]
+    lines = [f"S7 propose{' (dry)' if summary['dry'] else ''}: declaration_seq {summary['declaration_seq']}; "
+             f"{pop['asked']} of {pop['candidates']} candidates asked "
+             f"({'; '.join(f'{n} {why}' for why, n in pop['asked_by_reason'].items()) or 'none'}); "
+             f"{pop['legacy_defaulted_in_code']} legacy entries answered by the owner's default; "
+             f"not asked: {'; '.join(f'{n} {why}' for why, n in pop['not_asked_by_reason'].items()) or 'none'}",
+             f"packets: {sum(m['payload_bytes'] for m in summary['packets'])} payload bytes over "
+             f"{len(summary['packets'])} calls on {summary['seat']}; output at most "
+             f"{len(summary['packets']) * summary['output_cap']} tokens at the cap {summary['output_cap']}; "
+             f"budget per_stage S7 {summary['budget']['per_stage']}"]
+    if not summary["dry"]:
+        counts, held = summary["counts"], summary["document"]
+        lines.append("calls: " + (", ".join(f"{k} {v}" for k, v in counts.items() if k != "reused") or "none")
+                     + f"; {counts['reused']} answered by an earlier accepted attempt")
+        failed = sorted({c for row in summary["calls"] if row["outcome"] != "accepted" for c in row["codes"]})
+        if failed:
+            lines.append(f"codes of the calls not accepted: {', '.join(failed)}")
+        lines.append(f"proposals.json: {held['proposed']} proposed, {held['returned']} returned, "
+                     f"{held['awaiting_R']} awaiting R, {held['legacy_defaulted']} defaulted")
+    return lines
 
 
 # ---- the O5 fixture library ----------------------------------------------------------------------
@@ -1998,6 +2320,159 @@ def _self_test_body(failures, ran):
     # form of these guards still died: the suite caught the wrong family and the trial read a
     # traceback instead of a named failure.
     STAGE_REFUSALS = (Refused, stagelock.Escaped)
+
+    # ---- the supervised call (release 1) ---------------------------------------------------------
+    # Who is asked, in one population holding each case once. Expected sets are written out.
+    def verdict_of(admission):
+        return {"outcome": {"admission": {"admission": admission}}}
+    asked_population = {"candidates": [{"candidate_id": cid, "source": source} for cid, source in (
+        ("k-admitted", "formed"), ("k-rejected", "formed"), ("k-disputed", "formed"),
+        ("k-planted", "formed"), ("k-underived", "formed"), ("legacy:block", "legacy"),
+        ("legacy:plain", "legacy"), ("legacy:judged", "legacy"), ("redundancy_hint:left", "redundancy_hint"))]}
+    asked_derivations = {"verdicts": {"k-admitted": verdict_of("admitted"), "k-rejected": verdict_of("rejected"),
+                                      "k-disputed": verdict_of("disputed"), "k-planted": verdict_of("admitted"),
+                                      "legacy:judged": verdict_of("admitted")},
+                         "not_derived": [{"candidate_id": "k-underived", "why": "x"}]}
+    asked_legacy = {"legacy:block": {"id": "B", "classification": {"type": "D"}},
+                    "legacy:plain": {"id": "P"}, "legacy:judged": {"id": "J"}}
+    held_asked, held_not = asked_of(asked_population, asked_derivations, {"k-planted"}, asked_legacy)
+    control("a proposal is asked for a candidate S6 admitted and for a legacy entry with a "
+            "classification block, and for nobody else",
+            json.dumps(held_asked, sort_keys=True),
+            json.dumps({"k-admitted": ASKED_ADMITTED, "legacy:block": ASKED_LEGACY,
+                        "legacy:judged": ASKED_ADMITTED}, sort_keys=True))
+    control("everyone not asked is named with the reason, a planted control before its admission",
+            json.dumps(held_not, sort_keys=True),
+            json.dumps({"k-disputed": "S6's admission is disputed", "k-planted": "a control S5 planted",
+                        "k-rejected": "S6's admission is rejected", "k-underived": "S6 did not derive it",
+                        "redundancy_hint:left": "S6 left its source out of the judged scope"},
+                       sort_keys=True))
+    control("and a legacy entry with no block is in neither set: the owner's default answers it in code",
+            json.dumps("legacy:plain" in held_asked or "legacy:plain" in held_not), "false")
+    # The before-state is code's. A checkout with one file; the answer's own values are wrong on purpose.
+    import hashlib
+    state_root = pathlib.Path(tempfile.mkdtemp(prefix="s7-state-", dir="/tmp"))
+    try:
+        (state_root / "claude" / "guides").mkdir(parents=True)
+        (state_root / "claude" / "guides" / "g.md").write_bytes(b"the guide\n")
+        wrong = "f" * 64
+        filled, filled_problems = with_before_states(
+            {"operations": [{"type": "edit", "target": "claude/guides/g.md", "before_state_sha256": wrong},
+                            {"type": "create", "target": "claude/guides/new.md", "before_state_sha256": wrong}]},
+            str(state_root))
+        control("an operation's before-state is the target's bytes as code reads them, whatever the "
+                "answer wrote there",
+                json.dumps([op["before_state_sha256"] for op in filled["operations"]]),
+                json.dumps([hashlib.sha256(b"the guide\n").hexdigest(), "absent"]))
+        clean("and a readable target raises nothing", filled_problems)
+        escaped, escaped_problems = with_before_states(
+            {"operations": [{"type": "edit", "target": "../outside.md", "before_state_sha256": wrong}]},
+            str(state_root))
+        control("a target the contract refuses has no state to give, and says so by name",
+                json.dumps([p.split(":")[0] for p in escaped_problems][:1]),
+                json.dumps(["OPERATION_TARGET_REFUSED operations[0]"]))
+        control("and its hash is left as the answer wrote it rather than invented",
+                escaped["operations"][0]["before_state_sha256"], wrong)
+    finally:
+        shutil.rmtree(state_root, ignore_errors=True)
+    live_root = pathlib.Path(tempfile.mkdtemp(prefix="s7-live-", dir="/tmp"))
+    try:
+        from runlib import declare
+        live_run = None
+        try:
+            live_run = fx_through_s6(live_root)
+        except Exception as exc:  # the fixture's own failure is reported, never swallowed
+            failures.append(("the golden run for the supervised call could not be made", repr(exc)))
+            ran.append("the golden run for the supervised call could not be made")
+        if live_run is not None:
+            control("a run whose declaration seats no S7 is refused before anything is asked",
+                    refusal(lambda: live(live_run, dry=True)), "SEAT_UNDECLARED S7")
+            declare.amend(live_run, [("seats.S7", "claude:claude-opus-5-5/high"),
+                                     ("budget.per_stage.S7", 5_000_000)],
+                          "S7's golden seat and budget", scope=["S7"])
+            control("a live run with no supervisor is refused by name",
+                    refusal(lambda: live(live_run)), "PROPOSE_UNSUPERVISED S7")
+            dry_summary, _none = live(live_run, dry=True)
+            planted_ids = {p["candidate_id"] for p in records.read_json(live_run / "controls.json")["planted"]}
+            population = [r["candidate_id"] for r in
+                          records.read_json(live_run / "checked-candidates.json")["candidates"]]
+            wanted = sorted(set(population) - planted_ids)   # the fixture's S6 admits every candidate
+            control("dry: every candidate but S5's planted controls is asked, and the measure names them",
+                    json.dumps(sorted(m["candidate_id"] for m in dry_summary["packets"])), json.dumps(wanted))
+            clean("the fixture holds both kinds, so that set is neither everything nor nothing",
+                  [] if planted_ids and wanted else [f"planted {len(planted_ids)}, asked {len(wanted)}"])
+            control("dry writes its measure and no document, and leaves the stage partial",
+                    json.dumps([(live_run / DRY_RECORD).is_file(), (live_run / OUTPUT).exists(),
+                                records.read_json(records.record_path(live_run, STAGE)).get("status")]),
+                    json.dumps([True, False, "partial"]))
+            clean("a packet shows each retrieved unit by where it lives and never by a store id",
+                  [m["candidate_id"] for m in dry_summary["packets"] if m["payload_bytes"] <= 0])
+            # One asked candidate is answered with a disposition its pair forbids; the rest with a
+            # ledger-only answer. The refused one is a LEGACY candidate on purpose: its call failing
+            # must return the row, not hand it to the owner's default.
+            good = _answered(disposition="none", operations=[],
+                             destination={"layer": "incubator", "carrier": None})
+            failing = next((cid for cid in wanted if cid.startswith("legacy:")), None)
+            clean("the fixture holds an asked legacy candidate for the failed-call case",
+                  [] if failing else ["no legacy candidate among the asked"])
+            plan_path = live_root / "plan.json"
+            plan_path.write_text(json.dumps(
+                [{"match": [json.dumps(cid)], "answer": _answered() if cid == failing else good}
+                 for cid in wanted]), encoding="utf-8")
+            live_summary, live_doc = live(live_run, supervisor(live_run, live_root / "cells", plan_path))
+            outcome_of = {c["candidate_id"]: c["outcome"] for c in live_summary["calls"]}
+            # Which answers hold is the CONTRACT's question (`answer_problems`, judged on its own
+            # above), asked here directly so the expectation is not the stage's own outcome: the
+            # ledger-only answer is refused for some pairs, and those calls must fail too.
+            live_rows = {r["candidate_id"]: r for r in
+                         records.read_json(live_run / "checked-candidates.json")["candidates"]}
+            live_deriv = records.read_json(live_run / "judgments" / "derivations.json")
+            holds = {cid: cid != failing and not answer_problems(
+                good, live_rows[cid], live_deriv, live_deriv["verdicts"].get(cid), None,
+                cid.startswith("legacy:")) for cid in wanted}
+            clean("some answers hold and some do not, so both outcomes are exercised",
+                  [] if any(holds.values()) and not all(holds.values()) else [f"{holds}"])
+            control("each asked candidate is one supervised call, accepted where the answer holds and "
+                    "failed where the contract refuses it twice",
+                    json.dumps(outcome_of, sort_keys=True),
+                    json.dumps({cid: ("accepted" if holds[cid] else "failed") for cid in wanted},
+                               sort_keys=True))
+            # Over an empty directory: the codes are the contract's, and the contract does not
+            # read the before-state this fills.
+            empty_checkout = live_root / "empty-checkout"
+            empty_checkout.mkdir()
+            bad_filled, _p = with_before_states(_answered(), str(empty_checkout))
+            control("the refused answer's codes are the contract's own, so the retry was told them",
+                    json.dumps(sorted(next(c["codes"] for c in live_summary["calls"]
+                                           if c["candidate_id"] == failing))),
+                    json.dumps(sorted({p.split()[0] for p in answer_problems(
+                        bad_filled, live_rows[failing], live_deriv, live_deriv["verdicts"].get(failing),
+                        None, True)})))
+            control("the document proposes for every accepted call and returns the failed one BY ITS "
+                    "CALL, not by the owner's legacy default",
+                    json.dumps([sorted(p["candidate_id"] for p in live_doc["proposals"]),
+                                [(r["candidate_id"], r["problems"][0].split()[0]) for r in live_doc["returned"]]]),
+                    json.dumps([sorted(cid for cid in wanted if holds[cid]),
+                                [[cid, "CALL_NOT_ACCEPTED"] for cid in wanted if not holds[cid]]]))
+            control("the failed LEGACY call in particular is returned and not defaulted",
+                    json.dumps([failing in [r["candidate_id"] for r in live_doc["returned"]],
+                                failing in live_doc["legacy"]["defaulted"]]), json.dumps([True, False]))
+            control("and names the planted controls not asked, with their count",
+                    json.dumps(live_doc["not_asked"]["by_reason"]),
+                    json.dumps({"a control S5 planted": len(planted_ids)}))
+            control("the stage is partial while a call is not accepted, and both files are its outputs",
+                    json.dumps([records.read_json(records.record_path(live_run, STAGE)).get("status"),
+                                (live_run / CALLS).is_file(), (live_run / OUTPUT).is_file()]),
+                    json.dumps(["partial", True, True]))
+            again_summary, _doc = live(live_run, supervisor(live_run, live_root / "cells", plan_path))
+            control("a re-run reuses every accepted attempt and calls only the one that failed",
+                    json.dumps(again_summary["counts"]["reused"]),
+                    json.dumps(sum(1 for cid in wanted if holds[cid])))
+            clean("the report prints counts and codes and no proposal's text",
+                  [line for line in live_report_lines(live_summary) if "what_happened" in line])
+    finally:
+        shutil.rmtree(live_root, ignore_errors=True)
+
     root = pathlib.Path(tempfile.mkdtemp(prefix="s7-e2e-", dir="/tmp"))
     try:
         made = None
@@ -2124,10 +2599,16 @@ def _self_test_body(failures, ran):
                                       capture_output=True, text=True, timeout=600, env=env,
                                       cwd=str(HERE.parent))
                 return done.returncode, done.stdout + done.stderr
-            code, said_dry = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root), "--dry")
-            control("`distill.py propose --dry` reports the packets it would send, as a subprocess",
-                    f"{code}:{said_dry[:0]}{'packet' if 'packet' in said_dry else said_dry[-120:]}",
-                    "0:packet")
+            from runlib import declare, stage_read
+            declare.amend(cli_run, [("seats.S7", "claude:claude-opus-5-5/high"),
+                                    ("budget.per_stage.S7", 5_000_000)],
+                          "S7's golden seat and budget")
+            code, said_dry = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root), "--dry",
+                                 "--checkout-ledger", str(stage_read.CHECKOUT_LEDGER))
+            control("`distill.py propose --dry` reports who it would ask and the packets' measure, as "
+                    "a subprocess",
+                    f"{code}:{'S7 propose (dry)' if 'S7 propose (dry)' in said_dry else said_dry[-200:]}",
+                    "0:S7 propose (dry)")
             code, said = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root),
                              "--answers", str(answers_path))
             control("`distill.py propose --answers` runs the stage from the command line",
