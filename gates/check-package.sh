@@ -437,6 +437,34 @@ JPLANT5B
   case_is "a rule the SUITE alone calls is not a runtime reader, whatever the suite is named" \
           "never calls it outside its own suite"
 
+  # The same hole one hop further out: the call sits in a HELPER, and the helper's only caller is
+  # the suite. One hop of exclusion counted that as a runtime reader (the round-4 review), so the
+  # closure is computed to a fixpoint and this case is what proves it.
+  fresh
+  python3 - "$W" <<'JPLANT5C'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+# A top-level helper that calls it, called only from the suite's own body.
+mark = "def _self_test_body(failures, ran):\n"
+if mark not in held:
+    sys.exit("self-test mutation is stale: destinations.py has no _self_test_body to call from")
+held = held.replace(mark,
+                    "def fixture_reader():\n    return author_rows_absent(None)\n\n\n" + mark
+                    + "    fixture_reader()\n", 1)
+if "def fixture_reader():" not in held or "    fixture_reader()\n" not in held:
+    sys.exit("self-test mutation is stale: the planted helper or its call did not survive")
+p.write_text(held, encoding="utf-8")
+JPLANT5C
+  case_is "a rule reached only through a helper the suite alone calls is not a runtime reader "\
+"either, which one hop of exclusion could not see" \
+          "never calls it outside its own suite"
+
   # The exemption is keyed to the ROW. The same path written in a second row is a reference nothing
   # has excused, and keyed by (file, path) alone it was excused anyway.
   fresh
@@ -1225,10 +1253,32 @@ def rule_reader(rel, name):
     # function whose name begins `self_test` or `_self_test` is the suite, and so is a function the
     # suite alone calls — but one hop is what this gate needs, because the rule it asks about is
     # invoked from the manifest's own entry point or from nowhere.
-    suite = {node.name for node in tree.body
-             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-             and (node.name == "self_test" or node.name.startswith("_self_test")
-                  or node.name.startswith("self_test"))}
+    functions = {node.name: node for node in tree.body
+                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    suite = {name for name in functions
+             if name == "self_test" or name.startswith("_self_test")
+             or name.startswith("self_test")}
+    # To a FIXPOINT, not one hop: a helper whose only caller is the suite is the suite, and the
+    # gate counted `author_rows_absent` as read because a fixture helper called it — a helper the
+    # suite alone called (the round-4 review). The closure is computed the way the effect audit
+    # computes its own test-only set, and a function with no caller at all is not suite: an entry
+    # point reached from outside this file would otherwise disappear.
+    callers = {name: set() for name in functions}
+    for held_name, held_node in functions.items():
+        for node in ast.walk(held_node):
+            if isinstance(node, ast.Call):
+                held_called = ast.unparse(node.func).split(".")[-1]
+                if held_called in callers:
+                    callers[held_called].add(held_name)
+    moved = True
+    while moved:
+        moved = False
+        for held_name in functions:
+            if held_name in suite or not callers[held_name]:
+                continue
+            if callers[held_name] <= suite:
+                suite.add(held_name)
+                moved = True
     runtime = ast.Module(body=[node for node in tree.body
                                if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                                        and node.name in suite)],

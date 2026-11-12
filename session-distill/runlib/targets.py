@@ -36,6 +36,7 @@ import os
 import stat
 import pathlib
 import posixpath
+import unicodedata
 import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
@@ -56,7 +57,12 @@ def identity(target):
     """
     if not isinstance(target, str) or not target:
         return None
-    return posixpath.normpath(target)
+    # NFC, because a name is bytes on disk and a CHARACTER SEQUENCE here. `é` composed and `é`
+    # decomposed are the same file on macOS and were two identities: the chain, the journal and the
+    # layer map keyed on different strings for one file, and the collision check grouped them apart
+    # (the round-4 review). The policy is NFC everywhere identity is taken, and the spelling on disk
+    # is compared as the directory entry gives it — see `_spelling_on_disk`.
+    return unicodedata.normalize("NFC", posixpath.normpath(target))
 
 
 def lexical_problems(target):
@@ -209,10 +215,23 @@ def _spelling_on_disk(parts, parent_fd, target):
                 f"be established"]
     if name in held:
         return []
-    folded = [entry for entry in held if entry.casefold() == name.casefold()]
+    # Canonical equivalence is ONE NAME, not a different one: `é` composed and `é` decomposed are
+    # the same characters and the same file, which is why `identity` normalises to NFC. An entry
+    # that is canonically equal to the approved name is therefore the approved name, and `in` is
+    # the only test that could not see it (the round-4 review). A CASE difference is a different
+    # name and stays reported below.
+    if any(unicodedata.normalize("NFC", entry) == unicodedata.normalize("NFC", name)
+           for entry in held):
+        return []
+    folded = [entry for entry in held if entry.casefold() == name.casefold()
+              or unicodedata.normalize("NFC", entry).casefold()
+              == unicodedata.normalize("NFC", name).casefold()]
     if folded:
         return [f"TARGET_CASE_ON_DISK {target!r}: the file is spelled {folded[0]!r} on disk, and an "
                 f"operation that names it otherwise writes under a name the owner did not approve"]
+    # No entry matches, which is the ordinary case for a `create`: the walk runs over the components
+    # that EXIST, and a leaf that does not exist yet has no entry to be spelled differently from. A
+    # refusal here would refuse every creation.
     return []
 
 
@@ -549,7 +568,49 @@ def _self_test_body(failures, ran):
                     "spelled 'CLAUDE' on disk")
             clean("while the spelling the disk carries passes",
                   filesystem_problems("CLAUDE/guides/g.md", str(probe_root)))
-            # An unreadable parent is not an approved spelling.
+            # ---- the Unicode identity policy ----------------------------------------------
+            #
+            # `é` composed (U+00E9) and `é` decomposed (U+0065 U+0301) are the same file on macOS
+            # and were two identities: the chain, the journal and the layer map keyed on different
+            # strings for one file, and the collision check grouped them apart (the round-4 review).
+            composed = unicodedata.normalize("NFC", "guides/\u00e9.md")
+            decomposed = unicodedata.normalize("NFD", "guides/\u00e9.md")
+            control("the two spellings really are different strings, so this control is not "
+                    "comparing a value with itself",
+                    json.dumps(composed != decomposed), "true")
+            control("and they resolve to ONE identity, so the chain and the journal key on one file",
+                    json.dumps(identity(composed) == identity(decomposed)), "true")
+            clean("so an approved set naming both is a chain over one file, which §10.5 sequences, "
+                  "and not two files the collision rule must separate",
+                  collision_problems([composed, decomposed]))
+            # And the spelling on disk is the entry's own: a decomposed entry does not make a
+            # composed operation approved.
+            (probe_root / "nfd").mkdir()
+            (probe_root / "nfd" / unicodedata.normalize("NFD", "\u00e9.md")).write_text(
+                "x", encoding="utf-8")
+            held_entries = os.listdir(probe_root / "nfd")
+            control("the fixture really carries the decomposed entry, so what follows is not a "
+                    "filesystem that normalised it away",
+                    json.dumps([unicodedata.normalize("NFD", name) == name
+                                for name in held_entries]), "[true]")
+            clean("a composed operation over a decomposed entry is the SAME name — canonical "
+                  "equivalence is one name, which is why identity normalises — and `in` was the "
+                  "only test that could not see it",
+                  filesystem_problems(f"nfd/{unicodedata.normalize('NFC', chr(0xe9))}.md",
+                                      str(probe_root)))
+            clean("and so is the entry's own spelling",
+                  filesystem_problems(f"nfd/{unicodedata.normalize('NFD', chr(0xe9))}.md",
+                                      str(probe_root)))
+            # A CASE difference is a different name, canonical equivalence or not: the policy
+            # separates the two questions rather than folding one into the other.
+            (probe_root / "nfd" / unicodedata.normalize("NFD", "\u00c9x.md")).write_text(
+                "x", encoding="utf-8")
+            control("while a case difference over canonically equal characters is still refused, so "
+                    "normalising did not swallow the case rule",
+                    "; ".join(filesystem_problems(
+                        f"nfd/{unicodedata.normalize('NFC', chr(0xe9))}x.md", str(probe_root))),
+                    "TARGET_CASE_ON_DISK")
+
             # An unreadable parent is not an approved spelling. The realistic cause is a
             # permission, and macOS checks that at OPEN: a descriptor taken while the directory was
             # readable keeps listing after the mode drops, so the branch is reached here through the

@@ -59,7 +59,13 @@ SCHEMA = json.loads((pathlib.Path(__file__).resolve().parents[1] / "schemas" / "
                     .read_text(encoding="utf-8"))
 VALIDATOR = validate.compile_schema(SCHEMA)
 STRATA = tuple(SCHEMA["properties"]["actor_seats"]["items"]["properties"]["stratum"]["enum"])  # design §8.4
-DESTINATIONS = tuple(SCHEMA["properties"]["destinations"]["required"])
+# The destination VOCABULARY is the schema's declared properties, not the classes a declaration
+# must carry: release 1 requires only the roots its own writers need (D-20261112-2cf1c4), and
+# reading `required` here narrowed the vocabulary with it, so every other writer's class became
+# undeclared (the round-4 review). `required` is what S0 refuses a declaration for; this is what
+# names exist at all.
+DESTINATIONS = tuple(SCHEMA["properties"]["destinations"]["properties"])
+DESTINATIONS_REQUIRED = tuple(SCHEMA["properties"]["destinations"]["required"])
 # A change to these top-level fields makes the results of the named stage, and every later
 # stage that has a record, stale: criteria applied by S3 no longer describe what it read, and a
 # window S2 cut while reserving one output cap is not the window a call reserving another may

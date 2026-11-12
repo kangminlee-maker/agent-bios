@@ -29,7 +29,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import declare, records, targets  # noqa: E402
+from runlib import declare, records, targets, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -911,6 +911,22 @@ CHANNEL_RULES = {
         re.compile(r"(?:--login\b|\b(?:ba|z)?sh\s+-[A-Za-z]*l\b)"),
         "starts a login shell, which re-reads the user's profile and restores what was scrubbed"),
 }
+# The path-argument channels THIS TREE declares, by writer. Written out so the control over the
+# live table compares against a specification rather than against the table it is judging: a keyed
+# comparison fails for a row that appears, disappears or changes its option (the round-4 review).
+CHANNEL_STATED_ARGUMENTS = {
+    "compose/assemble.py": ("--state-dir",),
+    "compose/instructions-state.py": ("--state-dir",),
+    "compose/instructions_app.py": ("--state-dir",),
+    "compose/instructions_import.py": ("--state-dir",),
+    "compose/instructions_understand.py": ("--state-dir",),
+    "compose/prune-backups.py": ("--state-dir",),
+    "compose/windows_deploy.py": ("--root",),
+    "install.sh": ("--state-dir",),
+    "wrappers/claude-run.sh": ("--home", "--root"),
+    "wrappers/codex-helm.sh": ("--home",),
+    "wrappers/codex-run.sh": ("--home",),
+}
 CHANNEL_STATED = {
     "absolute_literals": (
         # The token is the literal's first whitespace-free run: `"/Library/Application Support/x"`
@@ -1100,6 +1116,7 @@ ISOLATIONS = {
     "git": GIT_ENVIRONMENT,
 }
 RELEASE_1_UNINVOKED = "not_invoked_in_release_1"
+READ_NOT_WRITTEN = "read_not_written"
 RELEASE_1_WHY = ("not invoked by release-1 S11: the apply writes the declared checkout and commits, "
                  "and names the install command for the owner to run instead of running it "
                  "(D-20261112-2cf1c4)")
@@ -1261,6 +1278,30 @@ def _hooks_problems(base, value, config, number):
     return []
 
 
+def claim_problems(declaration, environ, scope="release_1"):
+    """Where the caller's CLAIM about the environment differs from what the run produces.
+
+    This used to be asked per destination row, which tied it to a row resting on an override. Once
+    `inventory.py`'s HOME became a read (the round-4 review), release 1 had no such row left and the
+    check went silent — while the run still HANDS every invoked writer a HOME and git its isolation.
+    The question belongs to the produced mapping, so it is asked there: for every writer the scope
+    invokes, a name the caller says it will run with and the run produces differently is refused.
+    """
+    problems = []
+    for row in writers():
+        if scope == "release_1" and not row.get("release_1_invoked"):
+            continue
+        produced = environment_for(row, declaration)
+        for name, value in sorted(produced.items()):
+            claimed = (environ or {}).get(name)
+            if claimed is not None and claimed != value:
+                problems.append(
+                    f"ENVIRONMENT_CLAIM_DIFFERS {row['writer']} {name}: the caller says it will run "
+                    f"with {claimed!r} and the run produces {value!r}, so what this writer is handed "
+                    f"is not established and no effect may proceed")
+    return problems
+
+
 def resolved_rows(declaration, environ, root=None, scope="release_1"):
     """One row per writer: `{class, writer, path, root, inside}` as N#4 names it.
 
@@ -1313,6 +1354,15 @@ def resolved_rows(declaration, environ, root=None, scope="release_1"):
         # of the same writer that is in root.
         for entry in row.get("destinations") or ():
             override, cls = entry.get("override"), entry.get("class")
+            if entry.get("read_only"):
+                # A READ, not a destination. The row exists because the derivation sees the read
+                # reach a write, and a row that came back certified presented the owner's home as a
+                # place this release may write (the round-4 review). The state is named and carries
+                # no path, in every scope: what the writer does with the value does not change.
+                rows.append({"class": cls, "writer": f"{row['writer']} [{override}]",
+                             "path": None, "root": None, "inside": None,
+                             "certification": READ_NOT_WRITTEN, "why": entry["read_only"]})
+                continue
             if scope == "release_1" and not entry_invoked_in_release_1(row, entry):
                 # The scope is per DESTINATION, because S11 is itself a writer here: the apply
                 # stage edits the declared checkout (invoked) and patches a personal layer (not
@@ -1439,6 +1489,10 @@ def resolution_problems(rows):
             # Judging it would produce DESTINATION_ROOT_ABSENT for a writer that cannot write,
             # which is how the packaged manifest refused over a file npm does not ship.
             continue
+        if row.get("certification") == READ_NOT_WRITTEN:
+            # A read has nothing to confine and needs no root: requiring one would make the owner
+            # declare a destination for a value the writer only reads (the round-4 review).
+            continue
         if row.get("certification") == RELEASE_1_UNINVOKED:
             # Not an escape and not a certification: a writer this release does not invoke has
             # nothing to confine. It is named in the manifest and S11 refuses any operation that
@@ -1474,6 +1528,7 @@ def resolution_problems(rows):
 def problems(declaration, environ, root=None):
     """Everything wrong, table and resolution together. Empty means apply may take its first effect."""
     held = (environment_problems(declaration)
+            + claim_problems(declaration, environ)
             + git_problems(((declaration or {}).get("destinations") or {}).get("checkout"))
             + layout_problems(root) + channel_problems(root)
             + table_problems(root) + fidelity_problems(root) + inventory_problems(root))
@@ -1489,6 +1544,7 @@ def document(declaration, environ, root=None):
     # destination the tree writes and the table does not carry is exactly the hole this manifest
     # exists to close, so `apply` refuses before any effect rather than recording a partial answer.
     held = (environment_problems(declaration)
+            + claim_problems(declaration, environ)
             + git_problems(((declaration or {}).get("destinations") or {}).get("checkout"))
             + layout_problems(root) + channel_problems(root)
             + table_problems(root) + fidelity_problems(root) + inventory_problems(root)
@@ -1582,10 +1638,22 @@ def _self_test_branch(node):
     rendered = ast.unparse(node.test)
     if "--self-test" not in rendered:
         return None
-    negated = isinstance(node.test, ast.UnaryOp) and isinstance(node.test.op, ast.Not)
-    if isinstance(node.test, ast.Compare):
-        negated = negated or any(isinstance(op, (ast.NotIn, ast.NotEq)) for op in node.test.ops)
-    return "body" if negated else "orelse"
+    # Only the two predicates this audit can PROVE. `"--self-test" not in sys.argv and True` was
+    # read as the negated form and its body — real runtime code — was skipped (the round-4 review).
+    # Anything else mentioning the flag is unsupported, and an unsupported guard means both halves
+    # are scanned rather than one being trusted: a wrong skip hides an effect, a wrong scan only
+    # reports one.
+    if isinstance(node.test, ast.Compare) and len(node.test.ops) == 1:
+        # The right side must be the ARGUMENT VECTOR, not any container that happens to hold the
+        # flag: `'--self-test' in held.flags()` is a call this audit cannot evaluate, and reading it
+        # as dispatch skipped a half on the strength of a method name.
+        held = ast.unparse(node.test.comparators[0])
+        if held in ("sys.argv", "argv", "sys.argv[1:]", "argv[1:]"):
+            if isinstance(node.test.ops[0], ast.In):
+                return "orelse"
+            if isinstance(node.test.ops[0], ast.NotIn):
+                return "body"
+    return None
 
 
 def _effect_reachable(tree):
@@ -1711,6 +1779,12 @@ def effect_audit(source):
     # And the METHODS the reachability found. Walking only top-level functions left them out of the
     # scan even once they were reached, which is the half of the finding that mattered: the effect
     # sits in the method body.
+    # A class BODY runs at definition time, so a statement there is runtime code with no function
+    # to be reached through: `open('/outside', 'w')` beside the methods was invisible (the round-4
+    # review). Included under the class's own name, before its methods.
+    scope += [(held.name, node) for held in tree.body if isinstance(held, ast.ClassDef)
+              for node in held.body
+              if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
     scope += [(f"{held.name}.{node.name}", node) for held in tree.body
               if isinstance(held, ast.ClassDef) for node in held.body
               if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -2447,13 +2521,23 @@ def _self_test_body(failures, ran):
             "; ".join(with_source("compose/instructions_setup.py",
                                   "parser.add_argument('--state-dir')\n", channel_problems)),
             "CHANNEL_UNSTATED compose/instructions_setup.py path_arguments: --state-dir")
-    equals("and every option in this tree is recorded with the reason it is preferred",
-            json.dumps(sorted(
-                (table()["writers"][i]["channels"]["path_arguments"]["tokens"]
-                 for i in range(len(table()["writers"]))
-                 if (table()["writers"][i].get("channels") or {}).get("path_arguments")),
-                key=len)[0]),
-            '["--state-dir"]')
+    # KEYED, not positional, and non-empty before anything is indexed: sorting the live rows and
+    # asserting element [0] ignored every other row and raised instead of failing by name when the
+    # set was empty (the round-4 review).
+    held_arguments = {row["writer"]: tuple(row["channels"]["path_arguments"]["tokens"])
+                      for row in writers()
+                      if (row.get("channels") or {}).get("path_arguments")}
+    control("the tree really declares path-argument channels, so the assertions below are not over "
+            "an empty set", "yes" if held_arguments else "the set is empty", "yes")
+    equals("and every option in this tree is recorded, keyed by its writer, so a row this control "
+            "does not name fails it rather than hiding behind a sorted first element",
+            json.dumps({name: list(tokens) for name, tokens in sorted(held_arguments.items())}),
+            json.dumps({name: list(tokens) for name, tokens
+                        in sorted(CHANNEL_STATED_ARGUMENTS.items())}))
+    clean("and each one carries the reason it is preferred, in its own row",
+          [name for name, row in ((row["writer"], row) for row in writers())
+           if (row.get("channels") or {}).get("path_arguments")
+           and not str(row["channels"]["path_arguments"].get("reason") or "").strip()])
 
     # ---- git's own configuration, before any git effect --------------------------------------
     #
@@ -2621,6 +2705,45 @@ def _self_test_body(failures, ran):
                                                   "session-distill/runlib/recovery.py",
                                                   "session-distill/runlib/stage_apply.py",
                                                   "session-distill/runlib/stage_close.py")])
+    # The permitted ENTRIES, asked independently of the writer-name allowlist: the scope control
+    # above strips the `[OVERRIDE]` suffix, so a row for a writer in the set was accepted whatever
+    # destination it carried — which is how `inventory.py [HOME]` came back certified at the
+    # personal-layers root (the round-4 review). This asks the (class, override) pairs themselves.
+    equals("the destination ENTRIES release 1 may write are exactly the checkout-and-state set, "
+            "asked by class and override rather than by the writer's name",
+            json.dumps(sorted({(r["class"], r["writer"].split(" [")[1][:-1]
+                               if " [" in r["writer"] else "")
+                              for r in release_rows
+                              if r["certification"] not in (RELEASE_1_UNINVOKED,
+                                                            READ_NOT_WRITTEN)})),
+            json.dumps(sorted([("checkout", ""), ("runtime_state", ""), ("recovery", "")])))
+    clean("so no destination resting on an environment OVERRIDE is certified in this release at "
+          "all: every writer it invokes is passed its root",
+          [r["writer"] for r in release_rows
+           if " [" in r["writer"] and "[fixed:" not in r["writer"]
+           and r["certification"] not in (RELEASE_1_UNINVOKED, READ_NOT_WRITTEN)])
+    equals("and the owner's home is a READ with no path, not a destination this release may write",
+            json.dumps([(r["certification"], r["path"]) for r in release_rows
+                        if r["class"] == "personal_layers"
+                        and r["certification"] == READ_NOT_WRITTEN]),
+            json.dumps([[READ_NOT_WRITTEN, None]]))
+    control("and the row says so in its own words rather than leaving the reader to the table",
+            next(r["why"] for r in release_rows if r["certification"] == READ_NOT_WRITTEN),
+            "nothing of this writer's is written under it")
+    # The claim check survived the narrowing because it is asked of the produced MAPPING: with no
+    # override-rooted row left in the release, a check keyed on such a row would have gone silent.
+    control("a caller that says it will run with another HOME is refused by name even though no "
+            "destination rests on HOME any more",
+            "; ".join(claim_problems(fx_declaration(), {"HOME": "/srv/elsewhere"})),
+            "ENVIRONMENT_CLAIM_DIFFERS")
+    control("and the refusal names the writer whose environment it would have been",
+            "; ".join(claim_problems(fx_declaration(), {"HOME": "/srv/elsewhere"})), "git HOME")
+    control("git's own isolation is claimed over too, so a caller cannot say it will run git with "
+            "the global config open",
+            "; ".join(claim_problems(fx_declaration(), {"GIT_CONFIG_GLOBAL": "/dev/zero"})),
+            "GIT_CONFIG_GLOBAL")
+    clean("while a claim that matches what the run produces is no disagreement",
+          claim_problems(fx_declaration(), fx_env()))
     clean("every named row says WHY in its own words rather than leaving the reader to the decision "
           "record", [r["writer"] for r in release_rows
                      if r["certification"] == RELEASE_1_UNINVOKED
@@ -2659,10 +2782,12 @@ def _self_test_body(failures, ran):
     # What the narrowing BUYS the declaration: the classes only uninvoked writers write no longer
     # need a root. The lead asked what `environment.home` is still needed for, and this is the other
     # half of that answer — the home is required, the class roots for those writers are not.
+    # A read needs no root, so it is not one of the classes the declaration must carry: this set is
+    # what `required` in S0's schema is held against.
     held_classes = {entry.get("class") for row in writers()
                     for entry in list(row.get("destinations") or ())
                     + list(row.get("fixed_roots") or ())
-                    if entry_invoked_in_release_1(row, entry)}
+                    if entry_invoked_in_release_1(row, entry) and not entry.get("read_only")}
     held_classes |= {row.get("writes_without_override") for row in writers()
                      if row.get("release_1_invoked")}
     narrowed = {k: v for k, v in fx_declaration()["destinations"].items()
@@ -2671,6 +2796,28 @@ def _self_test_body(failures, ran):
           "refusal, so the owner no longer has to name a root for a writer S11 will not run",
           resolution_problems(resolved_rows({**fx_declaration(), "destinations": narrowed},
                                             fx_env())))
+    # Through the SCHEMA as well as the resolution: a clean resolution says the code accepts the
+    # narrowed declaration and nothing about whether S0 would admit it, and the schema still
+    # required all seven roots (the round-4 review).
+    held_declaration = {**fx_declaration(), "destinations": narrowed}
+    equals("the narrowed declaration passes S0's own schema, so the release can actually be "
+            "declared and not only resolved",
+            json.dumps(validate.violations(declare.VALIDATOR, held_declaration)), "[]")
+    equals("and the schema's required classes ARE the table's release-1 classes, so the two cannot "
+            "drift apart",
+            json.dumps(sorted(declare.DESTINATIONS_REQUIRED)),
+            json.dumps(sorted(name for name in held_classes if name)))
+    clean("while the vocabulary stays the whole set, so a wider declaration is still typed and "
+          "still judged rather than becoming undeclared",
+          [name for name in ("install_roots", "personal_layers", "launcher_shell_integration",
+                             "nudge") if name not in declare.DESTINATIONS])
+    control("while a declaration missing a class release 1 DOES write is still refused by the "
+            "schema, so the narrowing did not make the requirement empty",
+            "; ".join(str(held) for held in validate.violations(
+                declare.VALIDATOR,
+                {**fx_declaration(),
+                 "destinations": {k: v for k, v in narrowed.items() if k != "checkout"}})),
+            "checkout")
     control("and the same declaration at the WIDER scope refuses by name, which is what says the "
             "narrowing is the release's and not the mechanism's",
             "; ".join(resolution_problems(resolved_rows(
@@ -2949,26 +3096,27 @@ def _self_test_body(failures, ran):
            "to be inferred from an absent field — at the release's scope `computed` does not "
            "appear, because the only writer with a computed root is one release 1 never invokes",
            json.dumps(sorted({str(r.get("certification")) for r in doc["resolved"]})),
-           '["argument", "forward", "given", "not_invoked_in_release_1"]')
+           '["argument", "forward", "not_invoked_in_release_1", "read_not_written"]')
     equals("and at the WIDER scope the same rows are certified rather than named, so the release "
            "narrows what S11 may invoke without retiring the confinement that judges the rest "
            "(this control and the one above were the same assertion written twice until round 3; "
            "they now ask the two scopes)",
            json.dumps(sorted({str(r.get("certification")) for r
                               in resolved_rows(fx_declaration(), fx_env(), scope="all")})),
-           '["argument", "computed", "forward", "given"]')
+           '["argument", "computed", "forward", "given", "read_not_written"]')
     clean("with every row that HAS a path inside its root",
           [r["writer"] for r in doc["resolved"] if r["inside"] is False])
     equals("and the rows with nothing to confine say which they are, by a named state, rather "
             "than reading as escapes or as certified",
             json.dumps(sorted({str(r.get("certification") or r.get("not_installed"))
                                for r in doc["resolved"] if r["inside"] is None})),
-            '["forward", "not_invoked_in_release_1"]')
+            '["forward", "not_invoked_in_release_1", "read_not_written"]')
     control("a document over an environment the caller claims and the run does not produce is "
-            "refused instead of written",
+            "refused instead of written — asked of the produced MAPPING, so the narrowing that made "
+            "release 1's only override-rooted row a read did not take the check with it",
             refusal(lambda: document(fx_declaration(),
                                      fx_env(HOME=f"{root}-other/home"))),
-            "DESTINATION_UNCERTIFIED")
+            "ENVIRONMENT_CLAIM_DIFFERS")
     control("and so is one over a mutated table, so the manifest cannot be written from a broken "
             "inventory",
             with_table(lambda t: t.__setitem__("writers", []),
@@ -3000,7 +3148,7 @@ def _self_test_body(failures, ran):
         other = held_root / "r2"
         declare.create(other, fx_declaration())
         said = refusal(lambda: write(other, declaration, fx_env(HOME=f"{root}-other/home")))
-        control("a refused resolution writes nothing", said, "DESTINATION_UNCERTIFIED")
+        control("a refused resolution writes nothing", said, "ENVIRONMENT_CLAIM_DIFFERS")
         clean("not even an empty manifest, and no stage record either",
               [name for name in (OUTPUT, "records") if (other / name).exists() and name == OUTPUT]
               + ([f"an S11 record exists"] if records.record_path(other, "S11").exists() else []))
@@ -3065,6 +3213,36 @@ def _self_test_body(failures, ran):
             "; ".join(effects_in("import os\ndef self_test():\n    os.symlink('a', 'b')\n"
                                  "def run():\n    return self_test()\n")),
             "os.symlink (in self_test)")
+    # Round 4: a class BODY runs at definition time, and a guard the audit cannot prove is not a
+    # guard.
+    control("a statement in a class BODY is runtime code — it runs at definition time and there is "
+            "no function to reach it through",
+            "; ".join(effects_in("class K:\n    open('/outside', 'w')\n"
+                                 "    def m(self):\n        pass\n")),
+            "open(mode='w') (in K)")
+    control("and it is reported under the class's own name, so the reader knows where to look",
+            "; ".join(effects_in("class Held:\n    import os\n    os.system('x')\n")),
+            "(in Held)")
+    control("a compound test mentioning the flag is NOT a self-test guard, so both halves are "
+            "scanned: trusting it skipped real runtime code",
+            "; ".join(effects_in("import sys\ndef main():\n"
+                                 "    if '--self-test' not in sys.argv and True:\n"
+                                 "        open('/x', 'w')\n")),
+            "open(mode='w') (in main)")
+    control("and so is a membership test on something other than argv, by the same rule",
+            "; ".join(effects_in("def main(held):\n"
+                                 "    if '--self-test' in held.flags():\n"
+                                 "        open('/x', 'w')\n")),
+            "open(mode='w') (in main)")
+    equals("the two predicates the audit DOES prove are the plain membership tests, and they are "
+            "read in opposite directions",
+            json.dumps([_self_test_branch(ast.parse(
+                "if '--self-test' in sys.argv:\n    pass\n").body[0]),
+                        _self_test_branch(ast.parse(
+                            "if '--self-test' not in sys.argv:\n    pass\n").body[0]),
+                        _self_test_branch(ast.parse(
+                            "if '--self-test' not in sys.argv and True:\n    pass\n").body[0])]),
+            json.dumps(["orelse", "body", None]))
     clean("while a `self_test` reached only through the flag's own branch is fixtures, which is "
           "reachability deciding the exclusion rather than the name",
           effects_in("import os\ndef self_test():\n    os.symlink('a', 'b')\n"

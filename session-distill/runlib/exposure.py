@@ -267,6 +267,34 @@ def predicate_names(expression):
     return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
 
 
+def predicate_reads(row):
+    """Every fact name the row's own predicates READ, taken from their source.
+
+    Derived rather than listed: `requires` is the floor the answer cannot be given without, and the
+    predicate reads more than that. An OPTIONAL fact the predicate reads decides the answer when it
+    is supplied — `required_replacement` turned `exposure_unknown` into `eligible` — so giving it
+    without a position was a way past the before-the-decision rule (the round-4 review).
+    """
+    held = set()
+    for expression in (row.get("shown_when"), row.get("unknown_when")):
+        if expression:
+            # The names come from the one reader that already parses these expressions, so this
+            # cannot disagree with what the predicate actually reads.
+            held |= set(predicate_names(str(expression)))
+    return held
+
+
+def positioned_facts(row, occasion):
+    """The facts this answer must have a position for: what the predicate reads and the occasion gave.
+
+    Optionality says whether a fact must EXIST. It says nothing about the timing of one that was
+    supplied and is read, which is what the ordering rule is for.
+    """
+    held = set(required_facts(row, occasion))
+    supplied = set((occasion.get("facts") or {}))
+    return sorted(held | (predicate_reads(row) & supplied))
+
+
 def required_facts(row, occasion):
     """The facts this row's predicate cannot be shown without, for THIS occasion's operation.
 
@@ -308,7 +336,7 @@ def verdict(occasion):
     if row is None:
         raise Refused(f"EXPOSURE_RULE_ABSENT {occasion.get('locator')}: no §11 branch answers for "
                       f"operation={occasion.get('operation')!r} role={occasion.get('role')!r}")
-    held = ordering_problems(occasion, required_facts(row, occasion))
+    held = ordering_problems(occasion, positioned_facts(row, occasion))
     if held:
         return {"verdict": UNKNOWN, "rule": row["id"], "why": "; ".join(held)}
     facts = _facts_of(occasion)
@@ -596,6 +624,12 @@ def _self_test_body(failures, ran):
         ran.append(name)
         if want not in str(got):
             failures.append((name, f"expected {want!r} in {str(got)[:400]!r}"))
+
+    def equals(name, got, want):
+        """A control whose expectation is the WHOLE answer, not a fragment of it."""
+        ran.append(name)
+        if str(got) != str(want):
+            failures.append((name, f"expected exactly {want!r}, got {str(got)[:400]!r}"))
 
     def clean(name, held):
         ran.append(name)
@@ -895,6 +929,48 @@ def _self_test_body(failures, ran):
     control("the same occasion with both facts positioned before the decision is eligible, so the "
             "refusal is the missing position and not the fact",
             said(occasion(locator="p-2")), ELIGIBLE)
+    # Round 4: optionality is about EXISTENCE, not timing. An optional fact the predicate READS
+    # decides the answer when it is supplied — giving `required_replacement` with no position turned
+    # exposure_unknown into eligible, so leaving it out of the position rule was a way past it.
+    held_optional = {"locator": "p-4", "operation": "delete", "role": "hook", "at_record": 10,
+                     "facts": {"resolved_path": {"value": "/a", "at_record": 5},
+                               "resolved_sha256": {"value": "s", "at_record": 5},
+                               "required_replacement": "new"}}
+    # The WHY, not the verdict: this occasion is exposure_unknown either way — without the fix
+    # because its required facts are absent — so a control reading only the verdict passed for the
+    # wrong reason, which the revert trial reported as silent.
+    control("an OPTIONAL fact the predicate reads must carry a position too, and the refusal is "
+            "THAT fact's missing position rather than anything else about the occasion",
+            said(held_optional, "why"), "FACT_UNPOSITIONED p-4 required_replacement")
+    control("and the verdict it produces is exposure_unknown, never eligible",
+            said(held_optional), UNKNOWN)
+    clean("the same fact positioned before the decision is no longer an unpositioned-fact "
+          "refusal, so what the rule caught was the missing position and not the fact",
+          [held for held in [said({**held_optional, "locator": "p-5",
+                                   "facts": {**held_optional["facts"],
+                                             "required_replacement": {"value": "new",
+                                                                      "at_record": 5}}}, "why")]
+           if "FACT_UNPOSITIONED" in str(held)])
+    control("and positioned AFTER it is refused by the ordering rule, which is the half that was "
+            "already working",
+            said({**held_optional, "locator": "p-6",
+                  "facts": {**held_optional["facts"],
+                            "required_replacement": {"value": "new", "at_record": 11}}}, "why"),
+            "FACT_AFTER_DECISION")
+    equals("the names held to the rule are the required ones plus the supplied ones the predicate "
+            "reads, derived from the predicate's own source rather than listed twice",
+            json.dumps(positioned_facts(
+                next(row for row in table()["rules"] if row["id"] == "executable_deleted"),
+                held_optional)),
+            json.dumps(sorted(set(required_facts(
+                next(row for row in table()["rules"] if row["id"] == "executable_deleted"),
+                held_optional)) | {"required_replacement"})))
+    clean("while a fact the predicate does not read at all is still not held to it, however it is "
+          "supplied",
+          [name for name in positioned_facts(
+              next(row for row in table()["rules"] if row["id"] == "executable_deleted"),
+              {**held_optional, "facts": {**held_optional["facts"], "a_note": "x"}})
+           if name == "a_note"])
     clean("a fact the rule does NOT require may be unpositioned: it is not part of the answer",
           [said({"locator": "p-3", "operation": "create", "at_record": 10,
                  "facts": {"delivered_version": {"value": APPLIED, "at_record": 5},
