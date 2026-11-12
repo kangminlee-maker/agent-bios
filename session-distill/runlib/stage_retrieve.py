@@ -27,7 +27,12 @@ Code only: no model is called. For every candidate of S4's population - formed a
   (derive.absence) the current point S2 recorded decides, and when it is not complete every candidate is withheld from
   an absence sweep, with the count and the reason travelling by name to the summary and the report (D-20261111-eaa2a8).
 
-The output holds names, ids, hashes, scores and counts; no unit text, lesson or quote.
+Three outputs, each with its own boundary. `checks.json` and `controls.json` hold names, ids, hashes, scores and
+counts: no unit text, lesson or quote. `checked-candidates.json` (POPULATION_FILE) is the population S6 builds its
+packets from, and it is evidence-bearing by design: every candidate whole (S4's formed ones with their lessons, the
+lifecycle intake's, the planted controls) and the evidence records S6 shows beside them - the origin quotes S4
+verified and kept, and a planted quote - redacted text included. It is private to the run and goes to a model only through S6's packets (Codex WP-10 X r1 #9:
+a counts-only sentence covered all three).
   stage_retrieve.py --self-test
 """
 import collections
@@ -746,6 +751,37 @@ def self_test():
             raw = guarded(lambda: (gold / "checks.json").read_text(encoding="utf-8"), "")
             control("checks.json holds names, ids, scores and counts: no unit text and no lesson",
                     raw and not [t for t in texts if t and t in raw], f"{[t for t in texts if t and t in raw][:2]}")
+            # Codex WP-10 X r1 #9: each output's boundary on its own, against the texts the run's stores hold - the
+            # library's units, S4's lessons, and the redacted text of every quote S4's formed candidates cite
+            cited_q = set()
+            for k in cands:
+                if k["source"] == "formed":
+                    cited_q |= set(guarded(lambda k=k: cited(k, stage_form.subject(gold))[0], []))
+            quote_texts = []
+            for path in sorted((gold / "evidence").glob("*.jsonl")):
+                for line in path.read_text(encoding="utf-8").splitlines():
+                    rec = json.loads(line) if line.strip() else {}
+                    if rec.get("evidence_id") in cited_q and len(rec.get("redacted_text") or "") > 12:
+                        quote_texts.append(rec["redacted_text"])
+
+            def holds(raw_text, text):   # as written, or as JSON escapes it
+                return any(form in raw_text for form in (text, json.dumps(text)[1:-1],
+                                                         json.dumps(text, ensure_ascii=False)[1:-1]))
+            outputs = {name: guarded(lambda name=name: (gold / name).read_text(encoding="utf-8"), "") for name in OUTPUTS}
+            lessons = [k["lesson"] for k in cands if k["source"] == "formed" and len(k.get("lesson") or "") > 12]
+            leaked = {name: [t[:30] for t in texts + quote_texts if holds(outputs[name], t)]
+                      for name in ("checks.json", controls.CONTROLS_FILE)}
+            # what the population carries beyond the candidates: the origin quotes S4 verified and kept
+            origin_texts = [r["redacted_text"] for r in (guarded(lambda: records.read_json(gold / "candidates.json"), {})
+                                                         .get("origin_evidence") or {}).values()
+                            if len(r.get("redacted_text") or "") > 12]
+            carried = [t[:30] for t in lessons + origin_texts if not holds(outputs[POPULATION_FILE], t)]
+            control("Codex WP-10 X r1 #9: checks.json and controls.json hold no unit text, lesson or quote, and "
+                    "checked-candidates.json, the evidence-bearing population, holds every formed lesson and the redacted "
+                    "text of every origin quote S4 kept", bool(lessons) and bool(quote_texts) and bool(origin_texts)
+                    and all(outputs.values()) and not any(leaked.values()) and not carried,
+                    f"{len(lessons)} lessons {len(quote_texts)} quotes {len(origin_texts)} origins leaked {leaked} "
+                    f"not carried {carried[:2]}")
 
             # quote checks: an altered quote in the store fails by code and id
             altered = copy_of("altered")
