@@ -2341,7 +2341,9 @@ def fx_seats(root, capacity_a=None, name="seats.json", capacities=None, codex_al
         held["seat_capacity"]["claude:claude-opus-5-5/high"]["context_capacity"] = capacity_a
     held["hosts"]["codex"]["host_allowance"] = {"hermetic": {"allowance_tokens": None, "measured": False,
                                                              "basis": "unmeasured: D13"}}
-    held["seat_capacity"].pop("codex:gpt-6-astra/xhigh", None)
+    # every Codex seat's capacity, declared since from the pinned binary's catalogue: the fixture is D13's state
+    for seat in [seat for seat in held["seat_capacity"] if seat.startswith("codex:")]:
+        held["seat_capacity"].pop(seat)
     for seat, tokens in (capacities or {}).items():
         held["seat_capacity"][seat] = {"context_capacity": tokens, "basis": "planted by a control",
                                        "host_version": held["hosts"][seat.partition(":")[0]]["version"]}

@@ -6414,9 +6414,17 @@ def self_test(scratch=None):
     found, basis = gate.seat_capacity(vseat, pinned_claude)
     control("the-checkout-declares-the-S3-seat-s-host-reported-capacity",
             found is not None and "modelUsage.contextWindow" in (basis or ""), f"{found} {basis}")
-    control("the-checkout-leaves-every-codex-seat-undeclared",
-            all(not str(k).startswith("codex:") for k in (gate.seats().get("seat_capacity") or {})),
-            "a Codex seat carries a capacity no capture reports")
+    # Codex captures report no context size, so a Codex seat's capacity is the pinned binary's own catalogue, said so,
+    # and never presented as a host-reported window (D13 follow-up, 2026-11-12)
+    codex_capacities = {seat: entry for seat, entry in (gate.seats().get("seat_capacity") or {}).items()
+                        if str(seat).startswith("codex:")}
+    control("the-checkout-declares-every-codex-seat-from-the-pinned-host-catalogue",
+            bool(codex_capacities)
+            and all(gate.seat_capacity(seat, pinned_codex)[0] == entry.get("context_capacity")
+                    and "host catalogue" in str(entry.get("basis")) and f"codex-cli {pinned_codex}" in str(entry.get("basis"))
+                    and "contextWindow" not in str(entry.get("basis"))
+                    for seat, entry in codex_capacities.items()),
+            f"{ {seat: (entry.get('context_capacity'), str(entry.get('basis'))[:60]) for seat, entry in codex_capacities.items()} }")
 
     # ---- BA#2: a non-empty appended prompt, through dispatch and through the gate ----------------
     prompted = run_dir("run-seam-prompt", {"S6": 400_000}, allowance=4000)
