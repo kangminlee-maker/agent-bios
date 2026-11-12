@@ -886,80 +886,106 @@ def _self_test_body(failures, ran, reporting):
         return sorted(str(p.relative_to(checkout)) for p in checkout.rglob("*") if p.is_file())
 
     made, kept = [], []
-    try:
-        base, run_dir, checkout = fx("unconfirmed")
-        control("an unconfirmed final set is not applied", refusal(lambda: run(run_dir)).split(":")[0],
-                "CONFIRMATION_ABSENT S11")
-        base, run_dir, checkout = confirmed("applied")
-        out = run(run_dir)
-        control("the confirmed set is written: the create is there, the delete is gone, and nothing else moved",
-                [tree_of(checkout), (checkout / "claude/guides/g.md").read_bytes()], [["claude/guides/g.md"], b"text"])
-        control("apply.json counts what was written and names the files",
-                [out["counts"], sorted(out["paths"]), [r["state"] for r in out["effects"]]],
-                [{"items": 2, "effects": 2, "applied": 2, "done_before": 0, "files": 2},
-                 ["claude/guides/g.md", "claude/guides/k.md"], ["applied", "applied"]])
-        held = journal.read(run_dir / JOURNAL)["records"]
-        control("every write has its plan record before it and its done record after, with both states",
-                [[r["kind"] for r in held], sorted({(r["target"], r["before_sha256"], r["after_sha256"]) for r in held})],
-                [["planned", "done", "planned", "done"],
-                 sorted([("claude/guides/g.md", ABSENT, sha_of(b"text")), ("claude/guides/k.md", sha_of(K), ABSENT)])])
-        control("the stage names the two commands and says what it did not do",
-                [out["owner_commands"]["commit"].startswith(f"git -C '{checkout}' add -- "),
-                 out["owner_commands"]["install"], out["not_done_by_this_stage"]],
-                [True, f"bash '{checkout}'/install.sh install --non-interactive",
-                 ["git", "install", "personal layers", "state roots"]])
-        rec = records.stage_records(run_dir).get(STAGE) or {}
-        control("the stage's record holds the plan, the journal and apply.json",
-                [rec.get("status"), sorted(o["artifact"] for o in rec.get("outputs") or [])],
-                ["complete", sorted([PLAN, JOURNAL, OUTPUT])])
-        again = refusal(lambda: kept.append(run(run_dir)))
-        control("a second apply writes nothing: every write is the journal's already",
-                [again, (kept[-1]["counts"] if kept else None), tree_of(checkout)],
-                ["", {"items": 2, "effects": 2, "applied": 0, "done_before": 2, "files": 2}, ["claude/guides/g.md"]])
-
-        base, run_dir, checkout = confirmed("moved")
-        (checkout / "claude/guides/k.md").write_bytes(b"# K\n\nchanged by the owner\n")
-        control("a file that moved after the proposal is refused before ANY write: the create is not made either",
-                [refusal(lambda: run(run_dir)).split()[0], tree_of(checkout), (run_dir / JOURNAL).exists()],
-                ["APPLY_BEFORE_MISMATCH", ["claude/guides/k.md"], False])
-
-        base, run_dir, checkout = confirmed("edited")
-        manifest = run_dir / stage_confirm.manifest_rel(1)
-        manifest.write_text(manifest.read_text(encoding="utf-8").replace("k-place", "k-other"), encoding="utf-8")
-        control("a manifest edited after the confirmation is refused before anything is read from it",
-                [refusal(lambda: run(run_dir)).split()[0], tree_of(checkout)],
-                ["INPUT_INVALID", ["claude/guides/k.md"]])
-
-        base, run_dir, checkout = confirmed("linked")
-        (checkout / "claude/guides/k.md").unlink()
-        (base / "elsewhere.md").write_bytes(K)
-        os.symlink(base / "elsewhere.md", checkout / "claude/guides/k.md")
-        control("a target that became a link is refused by the target contract, with nothing written",
-                [bool(refusal(lambda: run(run_dir))), (base / "elsewhere.md").read_bytes(),
-                 (checkout / "claude/guides/g.md").exists()], [True, K, False])
-
-        base, run_dir, checkout = confirmed("global", place="claude/CLAUDE.md")
-        control("an addition to the always-loaded file that S7b did not judge a faithful merge is refused, "
-                "with nothing written",
-                [refusal(lambda: run(run_dir)).split()[0], tree_of(checkout)],
-                ["GLOBAL_OP_UNJUDGED", ["claude/guides/k.md"]])
-
-        base, run_dir, checkout = confirmed("cut")
-        real_take = Checkout.take
-
-        def cut(self, effect):
-            if effect["path"].endswith("k.md"):
-                raise Refused("FIXTURE_CUT the write did not end")
-            return real_take(self, effect)
-        Checkout.take = cut
+    def section(title, body):
+        """One scenario: a break inside it fails under ITS name, and the scenarios after it still run."""
         try:
-            first = refusal(lambda: run(run_dir)).split()[0]
-        finally:
-            Checkout.take = real_take
-        second = refusal(lambda: run(run_dir))
-        control("a write that did not end is not run again: the re-run names the file and the state it is at",
-                [first, second.split(":")[0], "its before-state" in second, (checkout / "claude/guides/k.md").exists()],
-                ["FIXTURE_CUT", "APPLY_UNRECONCILED claude/guides/k.md", True, True])
+            body()
+        except Exception as exc:  # noqa: BLE001 - reported by name, never swallowed
+            control(title, f"{type(exc).__name__}: {exc}"[:600], "ran to its end")
+
+    def code(call):
+        return (refusal(call).split() or [""])[0]
+
+    try:
+        def scenario_0():
+            base, run_dir, checkout = fx("unconfirmed")
+            control("an unconfirmed final set is not applied", refusal(lambda: run(run_dir)).split(":")[0],
+                    "CONFIRMATION_ABSENT S11")
+        section('an unconfirmed final set (section)', scenario_0)
+
+        def scenario_1():
+            base, run_dir, checkout = confirmed("applied")
+            out = run(run_dir)
+            control("the confirmed set is written: the create is there, the delete is gone, and nothing else moved",
+                    [tree_of(checkout), (checkout / "claude/guides/g.md").read_bytes()], [["claude/guides/g.md"], b"text"])
+            control("apply.json counts what was written and names the files",
+                    [out["counts"], sorted(out["paths"]), [r["state"] for r in out["effects"]]],
+                    [{"items": 2, "effects": 2, "applied": 2, "done_before": 0, "files": 2},
+                     ["claude/guides/g.md", "claude/guides/k.md"], ["applied", "applied"]])
+            held = journal.read(run_dir / JOURNAL)["records"]
+            control("every write has its plan record before it and its done record after, with both states",
+                    [[r["kind"] for r in held], sorted({(r["target"], r["before_sha256"], r["after_sha256"]) for r in held})],
+                    [["planned", "done", "planned", "done"],
+                     sorted([("claude/guides/g.md", ABSENT, sha_of(b"text")), ("claude/guides/k.md", sha_of(K), ABSENT)])])
+            control("the stage names the two commands and says what it did not do",
+                    [out["owner_commands"]["commit"].startswith(f"git -C '{checkout}' add -- "),
+                     out["owner_commands"]["install"], out["not_done_by_this_stage"]],
+                    [True, f"bash '{checkout}'/install.sh install --non-interactive",
+                     ["git", "install", "personal layers", "state roots"]])
+            rec = records.stage_records(run_dir).get(STAGE) or {}
+            control("the stage's record holds the plan, the journal and apply.json",
+                    [rec.get("status"), sorted(o["artifact"] for o in rec.get("outputs") or [])],
+                    ["complete", sorted([PLAN, JOURNAL, OUTPUT])])
+            again = refusal(lambda: kept.append(run(run_dir)))
+            control("a second apply writes nothing: every write is the journal's already",
+                    [again, (kept[-1]["counts"] if kept else None), tree_of(checkout)],
+                    ["", {"items": 2, "effects": 2, "applied": 0, "done_before": 2, "files": 2}, ["claude/guides/g.md"]])
+        section('the apply of a confirmed set (section)', scenario_1)
+
+        def scenario_2():
+            base, run_dir, checkout = confirmed("moved")
+            (checkout / "claude/guides/k.md").write_bytes(b"# K\n\nchanged by the owner\n")
+            control("a file that moved after the proposal is refused before ANY write: the create is not made either",
+                    [code(lambda: run(run_dir)), tree_of(checkout), (run_dir / JOURNAL).exists()],
+                    ["APPLY_BEFORE_MISMATCH", ["claude/guides/k.md"], False])
+        section('a file that moved after the proposal (section)', scenario_2)
+
+        def scenario_3():
+            base, run_dir, checkout = confirmed("edited")
+            manifest = run_dir / stage_confirm.manifest_rel(1)
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("k-place", "k-other"), encoding="utf-8")
+            control("a manifest edited after the confirmation is refused before anything is read from it",
+                    [code(lambda: run(run_dir)), tree_of(checkout)],
+                    ["INPUT_INVALID", ["claude/guides/k.md"]])
+        section('a manifest edited after the confirmation (section)', scenario_3)
+
+        def scenario_4():
+            base, run_dir, checkout = confirmed("linked")
+            (checkout / "claude/guides/k.md").unlink()
+            (base / "elsewhere.md").write_bytes(K)
+            os.symlink(base / "elsewhere.md", checkout / "claude/guides/k.md")
+            control("a target that became a link is refused by the target contract, with nothing written",
+                    [bool(refusal(lambda: run(run_dir))), (base / "elsewhere.md").read_bytes(),
+                     (checkout / "claude/guides/g.md").exists()], [True, K, False])
+        section('a target that became a link (section)', scenario_4)
+
+        def scenario_5():
+            base, run_dir, checkout = confirmed("global", place="claude/CLAUDE.md")
+            control("an addition to the always-loaded file that S7b did not judge a faithful merge is refused, "
+                    "with nothing written",
+                    [code(lambda: run(run_dir)), tree_of(checkout)],
+                    ["GLOBAL_OP_UNJUDGED", ["claude/guides/k.md"]])
+        section('an unjudged addition to the always-loaded file (section)', scenario_5)
+
+        def scenario_6():
+            base, run_dir, checkout = confirmed("cut")
+            real_take = Checkout.take
+
+            def cut(self, effect):
+                if effect["path"].endswith("k.md"):
+                    raise Refused("FIXTURE_CUT the write did not end")
+                return real_take(self, effect)
+            Checkout.take = cut
+            try:
+                first = code(lambda: run(run_dir))
+            finally:
+                Checkout.take = real_take
+            second = refusal(lambda: run(run_dir))
+            control("a write that did not end is not run again: the re-run names the file and the state it is at",
+                    [first, second.split(":")[0], "its before-state" in second, (checkout / "claude/guides/k.md").exists()],
+                    ["FIXTURE_CUT", "APPLY_UNRECONCILED claude/guides/k.md", True, True])
+        section('a write that did not end (section)', scenario_6)
+
     finally:
         for base in made:
             shutil.rmtree(base, ignore_errors=True)

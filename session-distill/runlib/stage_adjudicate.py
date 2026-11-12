@@ -118,9 +118,11 @@ def recomputed(cid, given, s6_verdict, current, adjudication, earlier=()):
     return verdict, []
 
 
-def document(version, parse, derivations, candidates, given_of, answers=None, reviews=None, earlier=()):
+def document(version, parse, derivations, candidates, given_of, answers=None, reviews=None, earlier=(), ask=None):
     """`(derivations_doc, proposals_doc, review_doc, problems)` for one committed parse. `given_of(cid)` is S6's input
-    for a candidate; `earlier` the adjudicated documents of earlier versions, laid under this one's."""
+    for a candidate; `earlier` the adjudicated documents of earlier versions, laid under this one's. `ask` is the
+    second pass's supervised calls (`SecondPass`): where the caller hands no answers it asks S7 for the newly
+    admitted, and where the caller hands no reviews it asks S7b for what S7 proposed."""
     s6 = (derivations or {}).get("verdicts") or {}
     verdicts = dict(s6)
     for held in earlier:
@@ -156,16 +158,21 @@ def document(version, parse, derivations, candidates, given_of, answers=None, re
                  for cid in sorted(set(answers) - set(newly))]
     proposals_doc = review_doc = None
     if newly and not problems:
+        merged = {**(derivations or {}), "verdicts": {**verdicts, **out}}
+        if not answers and ask is not None:
+            answers = ask.answers(newly, merged)
         if not answers:
-            problems.append(f"CALL_NOT_WIRED adjudicate: S7's second pass is asked for {', '.join(newly)}, and its "
-                            "supervised call has not landed; give the answers to run it over answers already in hand")
+            problems.append(f"CALL_NOT_WIRED adjudicate: S7's second pass is asked for {', '.join(newly)}, and it was "
+                            "given neither answers in hand nor a supervisor to ask through (--answers PATH, or "
+                            "--cells DIR)")
         else:
-            merged = {**(derivations or {}), "verdicts": {**verdicts, **out}}
             proposals_doc = stage_propose.document(merged, candidates, answers, only=newly)
             proposed = [p["candidate_id"] for p in proposals_doc["proposals"]]
             problems += [f"REVIEW_UNASKED {cid}: S7b's second pass reviews only what S7 proposed in it"
                          for cid in sorted(set(reviews) - set(proposed))]
             if proposed and not problems:
+                if not reviews and ask is not None:
+                    reviews = ask.reviews(proposals_doc, proposed)
                 review_doc = stage_review_proposals.document(proposals_doc, reviews, only=proposed)
     names = outputs_of(version)
     doc = {"stage": STAGE, "part": PART, "version": version, "parse_seq": parse.get("parse_seq"),
@@ -178,9 +185,102 @@ def document(version, parse, derivations, candidates, given_of, answers=None, re
     return doc, proposals_doc, review_doc, problems
 
 
-def run(run_dir, version=None, answers=None, reviews=None):
+# ---- the second pass's supervised calls (release 1) ---------------------------------------------------------------
+# A parse is adjudicated ONCE, so a second pass that wrote its documents over a call that did not end would fix
+# "no proposal" for that candidate for good. The calls therefore all end accepted or nothing is written
+# (SECOND_PASS_INCOMPLETE): a re-run asks again and reuses every accepted attempt. The seats are S7's and S7b's own
+# models declared for THIS stage, since the dispatcher admits a seat only for the stage that declares it.
+PROPOSE_SEAT_KEY, REVIEW_SEAT_KEY = "S10.propose", "S10.review"
+
+
+class SecondPass:
+    """S7 and S7b asked again for the candidates an adjudication newly admitted, through `supervisor`."""
+
+    def __init__(self, run_dir, declaration, supervisor, candidates, tranche="calibration"):
+        self.run_dir, self.declaration, self.supervisor = pathlib.Path(run_dir), declaration, supervisor
+        self.rows = {r["candidate_id"]: r for r in (candidates or {}).get("candidates") or []}
+        self.tranche, self.calls = tranche, []
+        self.checks = {r["candidate_id"]: r for r in records.read_json(self.run_dir / "checks.json")["candidates"]}
+        self.current = {u["unit_id"]: u for u in
+                        records.read_json(self.run_dir / "inventory" / "current.json")["units"]}
+        episode = declaration["budget"]["per_episode"]
+        self.caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
+
+    def _seat(self, key):
+        seat = ((self.declaration or {}).get("seats") or {}).get(key)
+        if not seat:
+            raise Refused(f"SEAT_UNDECLARED {key}: the second pass's seat is named by run.json's seats")
+        return seat
+
+    def _item(self, kind, cid):
+        import hashlib
+        return kind + hashlib.sha256(cid.encode("utf-8")).hexdigest()[:12]
+
+    def _ask(self, kind, cid, seat, text, schema_bytes, case, cap, check, code):
+        from runlib import gate, stage_judge
+        limits = stage_judge.limits_of(seat, self.run_dir, self.declaration, self.supervisor.seats_path, case=case,
+                                       output_cap=cap, stage=STAGE)
+        out = self.supervisor.item(
+            STAGE, self._item(kind, cid), seat, text, json.loads(schema_bytes.decode("utf-8")), case_type=case,
+            caps=self.caps, view_window=False, tranche=self.tranche, max_output_tokens=cap, resume=True,
+            context_capacity=limits["capacity"], stage_check=check(limits["capacity"]),
+            packet_check=lambda built: stage_judge.attempt_problems(built, limits, schema_bytes, STAGE, code=code))
+        self.calls.append({"candidate_id": cid, "kind": kind, **stage_judge.call_row(out)})
+        return gate.accepted(pathlib.Path(out["accepted"]), judged=True) if out["outcome"] == "accepted" else None
+
+    def _incomplete(self, who):
+        failed = [c for c in self.calls if c["outcome"] != "accepted"]
+        if failed:
+            raise Refused(f"SECOND_PASS_INCOMPLETE adjudicate: {who}'s call for "
+                          + ", ".join(f"{c['candidate_id']} ended {c['outcome']}"
+                                      + (f" ({', '.join(c['codes'])})" if c["codes"] else "") for c in failed)
+                          + "; nothing is written, and a re-run asks again")
+
+    def answers(self, newly, merged):
+        """`{cid: answer}` for every newly admitted candidate, each with its before-states set by code."""
+        seat = self._seat(PROPOSE_SEAT_KEY)
+        checkout = ((self.declaration or {}).get("destinations") or {}).get("checkout")
+        if not checkout or not pathlib.Path(checkout).is_dir():
+            raise Refused("CHECKOUT_UNDECLARED S10: an operation's before-state is read from the declared checkout")
+        verdicts, out = merged.get("verdicts") or {}, {}
+        for cid in newly:
+            row = self.rows.get(cid) or {"candidate_id": cid}
+            text = stage_propose.payload_for(row, merged, verdicts.get(cid),
+                                             stage_propose.unit_rows(self.checks.get(cid), self.current, checkout),
+                                             None)
+            held = self._ask("p", cid, seat, text, stage_propose.schema_bytes(), stage_propose.CASE,
+                             stage_propose.OUTPUT_CAP,
+                             lambda capacity, row=row, cid=cid: stage_propose.live_check(
+                                 row, merged, verdicts.get(cid), False, checkout, capacity),
+                             "PROPOSE_OVER_CAPACITY")
+            if held is not None:
+                out[cid] = stage_propose.with_before_states(held, checkout)[0]
+        self._incomplete("S7")
+        return out
+
+    def reviews(self, proposals_doc, proposed):
+        """`{cid: review}` for every proposal the second pass's S7 made."""
+        seat = self._seat(REVIEW_SEAT_KEY)
+        by_id, out = {p["candidate_id"]: p for p in proposals_doc["proposals"]}, {}
+        for cid in proposed:
+            text = stage_review_proposals.payload_for(self.rows.get(cid) or {"candidate_id": cid}, by_id[cid],
+                                                      stage_propose.unit_rows(self.checks.get(cid), self.current))
+            held = self._ask("b", cid, seat, text, stage_review_proposals.schema_bytes(),
+                             stage_review_proposals.CASE, stage_review_proposals.OUTPUT_CAP,
+                             lambda capacity, cid=cid: stage_review_proposals.live_check(by_id[cid], capacity),
+                             "REVIEW_OVER_CAPACITY")
+            if held is not None:
+                out[cid] = held
+        self._incomplete("S7b")
+        return out
+
+
+def run(run_dir, version=None, answers=None, reviews=None, *, supervisor=None, tranche="calibration"):
     """S10's adjudicate part for one committed parse (default: the latest with adjudications), through the shared
-    mechanism: nothing is written on refusal, and a parse is adjudicated once (ADJUDICATED_ALREADY)."""
+    mechanism: nothing is written on refusal, and a parse is adjudicated once (ADJUDICATED_ALREADY). With
+    `supervisor`, the second pass's answers and reviews are what its calls return (`SecondPass`)."""
+    if supervisor is not None and (answers is not None or reviews is not None):
+        raise Refused("INPUT_INVALID adjudicate: answers in hand and a supervisor are two sources for one second pass")
     run_dir = pathlib.Path(run_dir)
     parses = committed(run_dir)
     held = {v: p for v, p in parses.items() if p.get("adjudications")}
@@ -209,9 +309,13 @@ def run(run_dir, version=None, answers=None, reviews=None):
         earlier = [read_version(run_dir, v) for v in versions_written(run_dir) if v != version]
         derivations = records.read_json(run_dir / stage_judge.DERIVATIONS)
         candidates = records.read_json(run_dir / "checked-candidates.json")
+        ask = None
+        if supervisor is not None:
+            supervisor.interrupted(STAGE)
+            ask = SecondPass(run_dir, stage.declaration, supervisor, candidates, tranche)
         doc, proposals_doc, review_doc, problems = document(
             version, parse, derivations, candidates, lambda cid: stage_judge.given_from_run(run_dir, cid),
-            answers, reviews, earlier)
+            answers, reviews, earlier, ask)
         if problems:
             raise Refused("\n".join(problems))
         # the second pass's documents first, so the derivations' document names files that are there
@@ -223,7 +327,8 @@ def run(run_dir, version=None, answers=None, reviews=None):
             for rel in outputs_of(v):
                 if (run_dir / rel).is_file():
                     stage.output(rel)
-        return {"version": version, "resumed": False, **doc["counts"]}
+        return {"version": version, "resumed": False, **doc["counts"],
+                **({"calls": len(ask.calls)} if ask is not None else {})}
 
 
 def versions_written(run_dir):
@@ -598,6 +703,43 @@ def self_test():
                                          destination={"layer": "incubator", "carrier": None})
         control("the newly admitted candidate with no answers says the call is not wired",
                 said(lambda: run(run_dir)), f"CALL_NOT_WIRED adjudicate: S7's second pass is asked for {admit}")
+        # the second pass by its supervised calls, on a copy: S7's seat and S7b's declared for this stage
+        from runlib import declare, placement
+        live_out = root / "live"
+        shutil.copytree(run_dir.parent, live_out)
+        live_run = live_out / run_dir.name
+        seats_now = records.declaration_state(live_run, who="S10 self-test")[0]["seats"]
+        declare.amend(live_run, [("seats", {**seats_now, PROPOSE_SEAT_KEY: "claude:claude-opus-5-5/high",
+                                            REVIEW_SEAT_KEY: "codex:gpt-6-astra/xhigh"}),
+                                 ("budget.per_stage.S10", 5_000_000)], "the second pass's golden seats and budget")
+        s7b_review = {"verdict": "agree",
+                      "disposition_review": {"holds": True, "reason": "그렇다", "evidence": []},
+                      "destination_review": {"holds": True, "reason": "그렇다", "evidence": []},
+                      "merge_findings": None, "faithful_merge": "n/a", "alternative": None,
+                      "bars": [{"bar": bar, "holds": True, "reason": "충족"} for bar in placement.contract_bars()],
+                      "notes": "동의한다"}
+        plan_path = root / "second-pass-plan.json"
+
+        def planned(propose, review):
+            plan_path.write_text(json.dumps([{"match": ["the proposal S7 made for it"], "answer": review},
+                                             {"match": [json.dumps(admit)], "answer": propose}],
+                                            ensure_ascii=False), encoding="utf-8")
+            return stage_judge.supervisor(live_run, root / "live-cells", plan_path)
+        control("a second-pass call that does not end accepted writes nothing, so a re-run can ask again",
+                said(lambda: run(live_run, supervisor=planned({"disposition": "none"}, s7b_review))),
+                "SECOND_PASS_INCOMPLETE adjudicate: S7's call for")
+        equal("and the parse is still not adjudicated", (live_run / outputs_of(1)[0]).exists(), False)
+        live = run(live_run, supervisor=planned(answer, s7b_review))
+        live_review = records.read_json(live_run / outputs_of(1)[2]) if (live_run / outputs_of(1)[2]).is_file() else {}
+        equal("with a supervisor the second pass asks S7 for the newly admitted and S7b for what S7 proposed, and "
+              "writes both documents",
+              (live.get("admitted"), live.get("calls"),
+               [p["candidate_id"] for p in records.read_json(live_run / outputs_of(1)[1])["proposals"]],
+               [r["item_id"] for r in live_review.get("reviews") or []]),
+              (1, 2, [admit], [admit]))
+        control("answers in hand and a supervisor are two sources, refused by name",
+                said(lambda: run(live_run, answers={admit: answer}, supervisor=planned(answer, s7b_review))),
+                "INPUT_INVALID adjudicate")
         out = run(run_dir, answers={admit: answer})
         equal("the adjudicate part recomputes both and admits one", (out["version"], out["adjudicated"],
                                                                     out["admitted"], out["rejected"]), (1, 2, 1, 1))

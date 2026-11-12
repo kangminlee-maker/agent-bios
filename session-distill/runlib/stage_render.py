@@ -961,6 +961,7 @@ def header_lines(meta, counts):
     out = [f"# 세션 정리 검토 v{meta['version']}", "",
            "이 파일은 코드가 만든 렌더이고 고치지 않습니다. 결정은 같은 버전의 decisions 파일에서 각 항목의 "
            "소유자 블록 안에만 씁니다.", "",
+           owner_lines.APPROVAL_EFFECT, "",
            "## 머리말", "",
            f"- 실행: {inline(meta['run_id'])} · 종류 {inline(d.get('kind'))} · 자세 {inline(d.get('posture'))} · 선언 순번 "
            f"{inline(d.get('declaration_seq'))}",
@@ -2164,6 +2165,9 @@ def self_test():
               ["decisions.ko.v1.md", "frozen-proposals.v1.json", "review.ko.v1.md", "review.v1.json"])
         if names:
             text1 = (run_dir / "review.ko.v1.md").read_text(encoding="utf-8")
+            control("the review says what approving does in release 1: files change, and the commit and the install "
+                    "are the owner's", text1,
+                    "승인하면 선언된 체크아웃의 파일이 바뀝니다. 커밋과 설치는 소유자가 직접 합니다")
             held = records.read_json(run_dir / "review.v1.json")
             got, probs = owner_lines.parse(text1, (run_dir / "decisions.ko.v1.md").read_text(encoding="utf-8"),
                                            spec=held["spec"], render_name="review.ko.v1.md")

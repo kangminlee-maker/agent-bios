@@ -190,6 +190,7 @@ def page(manifest, version):
     out = [f"# 최종 확인 v{version}", "",
            f"검토 v{manifest['review_version']}에서 승인한 항목으로 만든 최종 집합입니다. 확정하면 S11이 이 집합을 "
            "아래 순서대로 적용합니다.", "",
+           owner_lines.APPROVAL_EFFECT.replace("승인하면", "확정하면", 1), "",
            f"- 구성 해시: {manifest['configuration_sha'][:16]}", f"- 시험: {S8_DEFERRED} (S8은 다음 릴리스에 들어옵니다)", "",
            "## 라이브러리를 바꾸는 항목 (F)", ""]
     out += [f"- {i['item_id']}: " + ", ".join(f"{op.get('type')} {op.get('target')}" for op in i["operations"])
@@ -608,6 +609,10 @@ def self_test():
                sorted(i["artifact"] for i in rec.get("inputs") or [])),
               ("complete", sorted([manifest_rel(1), render_name(1), copy_name(1)]),
                sorted(["review.v1.json", "approvals.jsonl", "review-s7b.json", INVENTORY, "parsed.v1.json"])))
+        control("the page says what confirming does in release 1: files change, and the commit and the install are "
+                "the owner's",
+                (run_dir / render_name(1)).read_text(encoding="utf-8"),
+                "확정하면 선언된 체크아웃의 파일이 바뀝니다. 커밋과 설치는 소유자가 직접 합니다")
         control("an undecided copy confirms nothing", str(attempt(confirm, run_dir)), "NOTHING_DECIDED v1")
         later = shutil.copytree(root / "out", root / "later")
         again = attempt(build, later / "r1")

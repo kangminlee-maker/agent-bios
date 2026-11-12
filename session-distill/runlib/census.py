@@ -213,6 +213,8 @@ def rows(document):
 READER_MODULES = ("distill.py", "runlib/*.py")
 READER_EXCEPTIONS = {
     ("runlib/views.py", "run"): "declares census.json as S2's input artifact; the census itself is read through load",
+    ("runlib/stage_close.py", "inputs_of"): "declares census.json as S12's S1 input artifact for a periodic run; the "
+                                            "census itself is read through load and folded through reconcile",
     ("runlib/stage_read.py", "run"): "declares census.json as S3's input artifact; the census itself is read through load "
                                      "and rows, and folded back through reconcile",
     ("runlib/inventory.py", "<module>"): "CENSUS names the file the inventory part declares and opens",

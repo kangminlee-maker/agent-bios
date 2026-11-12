@@ -622,12 +622,11 @@
       "writer": "session-distill/runlib/stage_close.py",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "The close writes the ledger, the version registry and the coverage state, all inside the checkout. The nudge is its own class because it is written last and by another writer. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
+      "$comment": "Release 1's S12: the run's decisions and window written to the checkout's ledger and, for a periodic run, the coverage state - both tracked files inside the declared checkout, whose root the stage reads from the declaration it is passed. It starts no process and reads no override and no HOME: the launcher's state file is an owner command the stage names (update-state.py is that file's writer, with its own row), so there is no nudge destination here. Its allocation, lock and record are inside the run directory.",
       "destinations": [],
       "writes_without_override": "checkout",
-      "writer_unwritten": true,
       "root_from": "argument",
-      "$comment_root_from": "the run directory and the checkout are passed to the stage, as they are to every stage",
+      "$comment_root_from": "the declared checkout, read from the run's declaration: the root is never taken from the environment",
       "release_1_invoked": true
     },
     {

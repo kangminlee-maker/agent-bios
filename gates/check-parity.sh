@@ -568,6 +568,12 @@ if [ -f session-distill/runlib/stage_apply.py ]; then
   leg -q "FAIL: session-distill S11 apply self-test (session-distill/runlib/stage_apply.py)" \
     python3 session-distill/runlib/stage_apply.py --self-test
 fi
+# S12 close, release 1: the run's decisions and window in the checkout's ledger, a periodic run's coverage promoted,
+# and nothing outside the checkout and the run directory. The suite writes under its own temp trees only.
+if [ -f session-distill/runlib/stage_close.py ]; then
+  leg -q "FAIL: session-distill S12 close self-test (session-distill/runlib/stage_close.py)" \
+    python3 session-distill/runlib/stage_close.py --self-test
+fi
 # S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
 if [ -f session-distill/runlib/stage_approvals.py ]; then
   leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \

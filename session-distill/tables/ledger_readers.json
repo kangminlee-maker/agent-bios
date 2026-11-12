@@ -125,6 +125,15 @@
       "via": "direct",
       "path_built": "argument",
       "witness": "def placed_entries\\("
+    },
+    {
+      "path": "session-distill/runlib/stage_close.py",
+      "reads": [
+        "the whole ledger"
+      ],
+      "via": "direct, over the reference its caller names (`ledger_ref`, or the driver's --checkout-ledger through lifecycle_intake.CHECKOUT_LEDGER); the module itself builds none, and it is the one stage that also WRITES the ledger, through ledger.write_atomic",
+      "path_built": "argument",
+      "witness": "ledger_ref"
     }
   ],
   "mentions_only": [

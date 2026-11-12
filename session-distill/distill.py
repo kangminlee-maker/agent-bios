@@ -108,7 +108,7 @@ STARTUP_WITHHELD = entry.WITHHELD
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_delivery, \
         stage_form, stage_judge, \
-        stage_adjudicate, stage_apply, stage_approvals, stage_confirm, stage_propose, stage_render, stage_retrieve, \
+        stage_adjudicate, stage_apply, stage_approvals, stage_close, stage_confirm, stage_propose, stage_render, stage_retrieve, \
         stage_review_korean, stage_review_proposals, \
         stagelock, views
     from runlib import ledger as ledger_lib
@@ -515,11 +515,20 @@ def cmd_review_korean(args):
 
 def cmd_adjudicate(args):
     """S10's adjudicate part (runlib/stage_adjudicate.py): a committed parse's adjudications recomputed with the
-    owner's values, and the candidates they newly admit through S7 and S7b again, over the answers the caller supplies;
-    the supervised calls have not landed, as S7's and S7b's have not."""
+    owner's values, and the candidates they newly admit through S7 and S7b again - by the second pass's supervised
+    calls (--cells), or over the answers the caller supplies."""
     load = lambda path: records.read_json(pathlib.Path(path)) if path else None  # noqa: E731
+    run_dir = run_dir_of(args)
+    if (args.answers or args.reviews) and (args.cells or args.golden_plan):
+        raise Refused("INPUT_INVALID adjudicate --answers: answers in hand make no call, so they take no --cells or "
+                      "--golden-plan")
+    supervisor = None
+    if args.cells:
+        supervisor = (stage_judge.supervisor(run_dir, args.cells, args.golden_plan) if args.golden_plan
+                      else stage_propose.supervisor(run_dir, args.cells))
     try:
-        out = stage_adjudicate.run(run_dir_of(args), args.version, load(args.answers), load(args.reviews))
+        out = stage_adjudicate.run(run_dir, args.version, load(args.answers), load(args.reviews),
+                                   supervisor=supervisor)
     except Refused as exc:
         if str(exc).startswith("CALL_NOT_WIRED"):
             say(str(exc), sys.stderr)
@@ -561,6 +570,19 @@ def cmd_apply(args):
     """S11 (runlib/stage_apply.py), release 1: the confirmed final set written into files of the declared checkout,
     and nothing else. It starts no process; its report ends with the two commands the owner runs."""
     say("\n".join(stage_apply.report_lines(stage_apply.run(run_dir_of(args)))))
+    return 0
+
+
+def cmd_close(args):
+    """S12 (runlib/stage_close.py), release 1: the run's decisions and window recorded in the checkout's ledger, a
+    periodic run's coverage promoted, and nothing outside the checkout and the run directory. It starts no process;
+    its report ends with the commands the owner runs. The recovery close stays reserved."""
+    if args.recovery:
+        say("RECOVERY_RESERVED close --recovery: the recovery close is reserved and not implemented", sys.stderr)
+        return 2
+    name_checkout_ledger(args)
+    say("\n".join(stage_close.report_lines(stage_close.run(run_dir_of(args), args.checkout_ledger,
+                                                           args.checkout_coverage))))
     return 0
 
 
@@ -672,7 +694,7 @@ HANDLERS.update({"census": cmd_census, "views": cmd_views, "inventory": cmd_inve
                  "form": cmd_form, "retrieve": cmd_retrieve, "deliver": cmd_deliver, "judge": cmd_judge,
                  "render": cmd_render, "parse-decisions": cmd_parse_decisions, "propose": cmd_propose,
                  "review-proposals": cmd_review_proposals, "review-korean": cmd_review_korean,
-                 "adjudicate": cmd_adjudicate, "confirm": cmd_confirm, "apply": cmd_apply})
+                 "adjudicate": cmd_adjudicate, "confirm": cmd_confirm, "apply": cmd_apply, "close": cmd_close})
 
 
 def build_parser():
@@ -708,11 +730,18 @@ def build_parser():
                  "adjudicate": f"{stage}: the owner's adjudications recomputed, the newly admitted through S7 and S7b",
                  "confirm": f"{stage}: the final set built for the owner's confirmation, or (--decide) the owner's 확인",
                  "apply": f"{stage}: the confirmed final set written into files of the declared checkout; runs no git "
-                          f"and no installer, and names the two commands the owner runs"}
+                          f"and no installer, and names the two commands the owner runs",
+                 "close": f"{stage}: the run's decisions and window recorded in the checkout's ledger and a periodic "
+                          f"run's coverage promoted; names the commands the owner runs"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
             sub.add_argument("--recovery", action="store_true", help="the recovery close (reserved)")
+            sub.add_argument("--checkout-ledger", help="the ledger's path INSIDE the declaration's checkout "
+                                                       "destination, which the caller names; without it the stage is "
+                                                       "refused LEDGER_UNNAMED rather than writing a guess")
+            sub.add_argument("--checkout-coverage", help="the coverage state's path INSIDE the declaration's checkout "
+                                                         "destination (a coverage.json), which a periodic run promotes")
         if name == "inventory":
             sub.add_argument("--to", help="write inventory/<reference>.json here instead of into a run directory")
             sub.add_argument("--pin", help="HOST:SESSION_ID, the activation pin whose selection and release to read")
@@ -772,6 +801,8 @@ def build_parser():
                                                          "(default: the latest parse holding any)")
             sub.add_argument("--answers", help="a JSON object of S7's second-pass answers by candidate id")
             sub.add_argument("--reviews", help="a JSON object of S7b's second-pass reviews by item id")
+            sub.add_argument("--cells", help="the cell root the second pass's calls run under (made mode 700)")
+            sub.add_argument("--golden-plan", help="a golden host's plan: the calls are answered from it and start no model")
         if name == "confirm":
             sub.add_argument("--decide", action="store_true", help="read the owner's 확인 line in the latest version's copy")
             sub.add_argument("--version", type=int, help="with --decide: the confirmation version (default: the latest)")
@@ -1042,7 +1073,7 @@ def self_test():
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
         implemented = ("census", "views", "inventory", "form", "retrieve", "deliver", "judge", "propose",
                        "review-proposals", "render", "parse-decisions", "review-korean", "adjudicate", "confirm",
-                       "apply")
+                       "apply", "close")
         # The structural half, which is what this suite lacked: a `cmd_` function the parser never
         # dispatches to is an implemented command that answers STAGE_NOT_IMPLEMENTED, and the loop
         # below cannot see it — it ASSERTED that answer for `deliver` while `cmd_deliver` sat in the
@@ -1095,6 +1126,13 @@ def self_test():
         control("apply (S11) over a run whose final set is not confirmed is refused by name, and no stage record is "
                 "written or changed",
                 code == 1 and "CONFIRMATION_ABSENT S11" in err and stage_files() == before, f"{code} {err}")
+        code, err = cli("close", "--run-id", "r1")
+        control("close (S12) with no ledger reference is refused by name: no path inside a checkout is assumed",
+                code == 1 and "LEDGER_UNNAMED S12" in err and stage_files() == before, f"{code} {err}")
+        code, err = cli("close", "--run-id", "r1", "--checkout-ledger", "book/ledger.json")
+        control("close (S12) over a run whose final set is not confirmed is refused by name, and no stage record is "
+                "written or changed",
+                code == 1 and "CONFIRMATION_ABSENT S12" in err and stage_files() == before, f"{code} {err}")
         code, err = cli("judge", "--run-id", "r1")
         control("judge (S6) with neither --dry nor --cells is refused by name before anything is recorded",
                 code == 1 and "INPUT_INVALID judge --cells" in err and stage_files() == before, f"{code} {err}")

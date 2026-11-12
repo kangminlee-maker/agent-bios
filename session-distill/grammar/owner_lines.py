@@ -58,6 +58,10 @@ CONFIRM_VERBS = {"확정": "confirm", "반려": "return"}   # lead decision E1: 
 ALTERNATIVE_WORD = "대안"
 JUDGES = ("A", "B")
 FIELDS = {"review": ("item", "sha"), "confirm": ("set",)}
+# What approving does in release 1, in the owner's words (D-20261113-f22b7d and its dated record): S11 edits files
+# and nothing else, and the commit and the install are the owner's. S9's review page and S10b's confirmation page both say this sentence.
+APPROVAL_EFFECT = ("승인하면 선언된 체크아웃의 파일이 바뀝니다. 커밋과 설치는 소유자가 직접 합니다 — 적용이 끝나면 "
+                   "실행할 명령을 그대로 보여 드립니다.")
 CLOSE = "<!-- /owner-block -->"
 _VALUE = r"[^\s=<>]+"
 OPEN = re.compile(rf"^<!-- owner-block (review|confirm)((?: [a-z]+={_VALUE})+) -->$")

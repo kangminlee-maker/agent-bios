@@ -735,6 +735,11 @@ DECLARATION_READERS = {
     ("runlib/views.py", "self_test"): "the S2 self-test reads its scratch runs' declarations, to check what S2 recorded",
     ("runlib/stage_review_korean.py", "self_test"): "the S9b suite reads the seats its golden run declares, to amend them "
                                                     "with the stage's two seats (a dotted key is assigned as a whole map)",
+    ("runlib/stage_adjudicate.py", "self_test"): "the S10 suite reads the seats its golden run declares, to amend "
+                                                 "them with the second pass's two seats (a dotted key is assigned as "
+                                                 "a whole map)",
+    ("runlib/stage_close.py", "_self_test_body"): "the S12 suite reads the declaration of the run S3's own fixture made, "
+                                                  "to fold its results as the stage does under its admission",
     ("runlib/stage_read.py", "fx_reader"): "the S3 fixture reads the seat its golden run declared, to seed the supervisor "
                                            "before S3 runs",
     ("runlib/stage_read.py", "self_test"): "the S3 self-test reads its scratch runs' declarations, to check what S3 "
