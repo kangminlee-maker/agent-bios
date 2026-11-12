@@ -557,6 +557,11 @@ if [ -f session-distill/runlib/stage_adjudicate.py ]; then
   leg -q "FAIL: session-distill S10 adjudicate self-test (session-distill/runlib/stage_adjudicate.py)" \
     python3 session-distill/runlib/stage_adjudicate.py --self-test
 fi
+# S10b confirm: the final set S10's approvals leave, and the owner's confirmation bound to it (WP-20 K6).
+if [ -f session-distill/runlib/stage_confirm.py ]; then
+  leg -q "FAIL: session-distill S10b confirm self-test (session-distill/runlib/stage_confirm.py)" \
+    python3 session-distill/runlib/stage_confirm.py --self-test
+fi
 # S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
 if [ -f session-distill/runlib/stage_approvals.py ]; then
   leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \

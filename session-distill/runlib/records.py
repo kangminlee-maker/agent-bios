@@ -66,8 +66,10 @@ STAGES = ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S7b", "S8", "S9", "S9b", "S
 # here keeps the single-producer record shape exactly as it was, and its readers do not change: S2
 # produces the reading views and the inventory of the library, which neither calls the other nor
 # may overwrite the other's record (design §6.1, §6.3). S10 parses the owner's decisions and, for a 판정, adjudicates
-# them (design §10.1, §10.2; plan WP-20): two producers whose outputs neither may replace.
-STAGE_PARTS = {"S2": ("views", "inventory"), "S10": ("parse", "adjudicate")}
+# them (design §10.1, §10.2; plan WP-20): two producers whose outputs neither may replace. S10b builds the final set
+# the owner confirms and reads the owner's confirmation of it (design §10.3; plan WP-20 K6): the confirmation reads
+# the build's manifest as its input, so the two are parts of one record rather than one producer replacing itself.
+STAGE_PARTS = {"S2": ("views", "inventory"), "S10": ("parse", "adjudicate"), "S10b": ("build", "confirm")}
 STATUSES = ("running", "complete", "partial", "failed")
 OUTCOMES = ("retained", "merged", "rejected", "quarantined")  # design §3.2 item 5
 
@@ -1332,8 +1334,9 @@ def self_test():
         pinned_s10 = ((held_s10.get("parts") or {}).get("parse") or held_s10).get("inputs") or []
         if [row.get("producer_seq") for row in pinned_s10] != [0]:
             failures.append(f"S10 pinned its producer's sequence as its own: {pinned_s10}")
+        # S10b has parts too (STAGE_PARTS), so the start names one; the declaration is judged before the part is
         expect("amendment does not list S10b",
-               start("S10b", [{"artifact": "S1.out", "producer_stage": "S1"}]), "DECLARATION_DRIFT S10b")
+               start("S10b", [{"artifact": "S1.out", "producer_stage": "S1"}], part="build"), "DECLARATION_DRIFT S10b")
         # a log that is not a numbered sequence, or not readable, is named
         good_log = amendments_path(run_dir).read_text(encoding="utf-8")
         amendments_path(run_dir).write_text(good_log.splitlines()[0] + "\n" + json.dumps(amend(2)) + "\n", encoding="utf-8")

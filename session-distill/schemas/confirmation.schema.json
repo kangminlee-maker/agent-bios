@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "S10b's confirmation record (confirmation.json): design §10.3's binding of the approval ids to F's configuration_sha and the confirmation manifest and results hashes, which is what S11 applies; plus the plan's confirmation_id (code-generated), confirm_version (the confirmation version the owner decided), decision_input_sha (the owner's copy's sha256, as S10's approvals carry it) and at. Release 1 runs no S8 (D-20261111-818391), so results_sha carries the named state 'untested: s8_deferred', never null (lead decision E2); manifest_sha is the sha256 of confirm/v<k>/manifest.json as S10b's build part recorded it.",
+  "title": "S10b confirmation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["confirmation_id", "approval_ids", "configuration_sha", "manifest_sha", "results_sha", "confirm_version",
+               "decision_input_sha", "at"],
+  "properties": {
+    "confirmation_id": {"type": "string", "pattern": "^C-[0-9a-f]{16}(?![\\s\\S])"},
+    "approval_ids": {"type": "array", "minItems": 1, "uniqueItems": true,
+                     "items": {"type": "string", "pattern": "^A-[0-9a-f]{16}(?![\\s\\S])"}},
+    "configuration_sha": {"$ref": "#/$defs/sha256"},
+    "manifest_sha": {"$ref": "#/$defs/sha256"},
+    "results_sha": {"type": "string", "pattern": "^([0-9a-f]{64}|untested: s8_deferred)(?![\\s\\S])",
+      "$comment": "The confirmation's results hash; in release 1 the named state, since no S8 ran."},
+    "confirm_version": {"type": "integer", "minimum": 1},
+    "decision_input_sha": {"$ref": "#/$defs/sha256"},
+    "at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})(?![\\s\\S])"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])"}
+  }
+}

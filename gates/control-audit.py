@@ -112,6 +112,7 @@ SUBJECTS = [
     "session-distill/runlib/stage_approvals.py",
     "session-distill/runlib/stage_review_korean.py",
     "session-distill/runlib/stage_adjudicate.py",
+    "session-distill/runlib/stage_confirm.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying

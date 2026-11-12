@@ -682,11 +682,37 @@ def inline(text):
 # character written as itself. Everything else is written in visible notation: format characters and controls (Cf,
 # Cc), a lone surrogate (Cs, which UTF-8 cannot write), unassigned and private-use code points (Cn, Co), every other
 # space (Zs but U+0020, Zl, Zp), an enclosing mark (Me), and a mark with no base. BLANK_LOOKALIKES are characters of an
-# allowed category that show nothing, or a blank: the Hangul fillers (U+115F, U+1160, U+3164, U+FFA0; ordinary Korean
-# prose is written in precomposed syllables and never holds one, which is why one is used to fake a blank name), the
-# braille blank, the combining grapheme joiner, the two invisible Khmer inherent vowels and every variation selector.
-BLANK_LOOKALIKES = frozenset({0x115F, 0x1160, 0x3164, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5,
-                              0x180B, 0x180C, 0x180D, 0x180F, *range(0xFE00, 0xFE10), *range(0xE0100, 0xE01F0)})
+# allowed category that show nothing, or a blank. They are derived, not listed: every Default_Ignorable_Code_Point of an
+# allowed category (the Hangul fillers U+115F, U+1160, U+3164, U+FFA0, which ordinary Korean prose written in
+# precomposed syllables never holds and which fake a blank name; the combining grapheme joiner; the two invisible Khmer
+# inherent vowels; every variation selector), plus the one blank that is not default-ignorable: the braille blank
+# U+2800, a symbol that renders as an empty cell.
+#
+# DEFAULT_IGNORABLE is Unicode's Default_Ignorable_Code_Point as DerivedCoreProperties.txt lists it. Python's
+# unicodedata does not carry the property, so its ranges are copied here. Perl's Unicode::UCD (Unicode 13.0.0) lists the
+# same ranges but U+180F, which Unicode 14.0.0 added as a variation selector, and every variation selector is
+# default-ignorable. The suite holds the copy to the property's own derivation (DI_FORMAT_EXCLUDED): every format
+# character but the ones the derivation excludes, and every character the database names a variation selector.
+DEFAULT_IGNORABLE = ((0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5),
+                     (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x3164, 0x3164),
+                     (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8), (0x1BCA0, 0x1BCA3),
+                     (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF))
+# The derivation's exclusions from "Cf": Prepended_Concatenation_Mark, the interlinear annotation characters
+# FFF9..FFFB and the Egyptian hieroglyph format controls (DerivedCoreProperties.txt, the Default_Ignorable_Code_Point
+# header).
+DI_FORMAT_EXCLUDED = ((0x0600, 0x0605), (0x06DD, 0x06DD), (0x070F, 0x070F), (0x0890, 0x0891), (0x08E2, 0x08E2),
+                      (0xFFF9, 0xFFFB), (0x110BD, 0x110BD), (0x110CD, 0x110CD), (0x13430, 0x1345F))
+BRAILLE_BLANK = 0x2800
+
+
+def _written_category(cp):
+    """Whether a code point's category is one the allowlist writes as itself (a mark only after a base)."""
+    category = unicodedata.category(chr(cp))
+    return category[0] in "LNPS" or category in ("Mn", "Mc")
+
+
+BLANK_LOOKALIKES = frozenset({cp for lo, hi in DEFAULT_IGNORABLE for cp in range(lo, hi + 1) if _written_category(cp)}
+                             | {BRAILLE_BLANK})
 
 
 def notation(ch):
@@ -722,32 +748,22 @@ def invisible_in(text, keep=""):
     return [ch for ch, hide in zip(text, unshown(text, keep)) if hide]
 
 
-NOTATION_SHAPE = {"u": re.compile(r"[0-9A-Fa-f]{4}"), "U": re.compile(r"[0-9A-Fa-f]{8}")}
-
-
 def fence_line(line):
-    """`(shown, replaced, doubled)` for one line inside a fence. A fence doubles no backslash in general, since the
-    owner reads a file's content there as written; but before a replaced character, and before text a line holds in
-    the notation's own shape (`\\uXXXX`, `\\UXXXXXXXX`), its backslash run is doubled. So a notation is always the
-    last of an odd run of backslashes and the content's own `\\u....` the end of an even one: the two never look alike
-    (option (a), lead decision 2026-11-12)."""
+    """`(shown, replaced, doubled)` for one line inside a fence: every backslash the line holds is shown doubled, and
+    every character the allowlist does not write as itself but a tab is replaced by its notation, whose one backslash is
+    the renderer's own; `doubled` counts the line's backslashes. So a notation is always the last of an odd run of
+    backslashes and the content's own `\\u....` the end of an even one, whatever the line holds around it: the rule
+    `inline` follows outside fences (lead decision 2026-11-12, which replaced doubling only a run before a notation or
+    its imitation)."""
     hide = unshown(line, keep="\t")
-    out, run, replaced, doubled = [], 0, [], 0
+    out, replaced = [], []
     for i, ch in enumerate(line):
-        if ch == "\\":
-            run += 1
-            continue
-        imitation = ch in NOTATION_SHAPE and run > 0 and NOTATION_SHAPE[ch].match(line, i + 1) is not None
-        out.append("\\" * (2 * run if hide[i] or imitation else run))
-        doubled += 1 if imitation else 0
-        run = 0
         if hide[i]:
             replaced.append(f"U+{ord(ch):04X}")
             out.append(notation(ch))
         else:
-            out.append(ch)
-    out.append("\\" * run)
-    return "".join(out), replaced, doubled
+            out.append("\\\\" if ch == "\\" else ch)
+    return "".join(out), replaced, line.count("\\")
 
 
 def live_markup(line):
@@ -783,10 +799,14 @@ def fenced(text):
     doubled = sum(d for _s, _r, d in lines)
     note = []
     if replaced or doubled:   # every line named, never cut short: the note is the owner's list of what was changed
-        listed = "; ".join(f"{n}번째 줄 {points}" for n, points in replaced) or "없음"
-        note = [f"- 위 펜스 안에서 보이지 않거나 빈칸처럼 보이는 문자를 \\uXXXX 표기로 바꿨습니다: {listed}. 원문에 같은 "
-                f"모양으로 적혀 있던 곳 {doubled}군데는 그 앞의 백슬래시를 두 배로 보였습니다. 그래서 홀수 개의 백슬래시 "
-                "뒤에 오는 표기는 바꾼 문자이고, 짝수 개 뒤에 오는 것은 원문의 글자입니다."]
+        said = []
+        if replaced:
+            listed = "; ".join(f"{n}번째 줄 {points}" for n, points in replaced)
+            said.append(f"보이지 않거나 빈칸처럼 보이는 문자를 \\uXXXX 표기로 바꿨습니다: {listed}.")
+        if doubled:
+            said.append(f"원문의 백슬래시 {doubled}개는 모두 두 개씩 보였습니다. 그래서 홀수 개의 백슬래시 뒤에 오는 "
+                        "표기는 바꾼 문자이고, 짝수 개 뒤에 오는 것은 원문의 글자입니다.")
+        note = ["- 위 펜스 안에서 " + " ".join(said)]
     return [fence, *body, fence, *note]
 
 
@@ -1825,7 +1845,7 @@ def self_test():
                 live.append(value if not page.startswith("REFUSED") else f"{value}: {page[:160]}")
         equal(f"markup planted in {label} is shown as typed", live, [])
     # blank-looking characters of an allowed category, named rather than listed: no code point is copied from
-    # BLANK_LOOKALIKES, so the explicit set is held to the database's own names
+    # BLANK_LOOKALIKES, so the derived set is held to the database's own names
     def looks_blank(c):
         name = unicodedata.name(c, "")
         return (("HANGUL" in name and "FILLER" in name) or "VARIATION SELECTOR" in name
@@ -1853,9 +1873,23 @@ def self_test():
                 if not ok:
                     found.append(f"U+{ord(c):04X}")
         return found
-    equal("the explicit blank-lookalike set is every character the database names a Hangul filler, a variation "
+    equal("the derived blank-lookalike set is every character the database names a Hangul filler, a variation "
           "selector, the braille blank, the grapheme joiner or an invisible Khmer inherent vowel",
           sorted(BLANK_LOOKALIKES), [c for c in range(0x110000) if looks_blank(chr(c))])
+
+    def within(cp, ranges):
+        return any(lo <= cp <= hi for lo, hi in ranges)
+    equal("the copied Default_Ignorable_Code_Point holds what its derivation puts there: every format character but "
+          "the excluded ones, and every character the database names a variation selector",
+          ([f"U+{c:04X}" for c in range(0x110000) if unicodedata.category(chr(c)) == "Cf"
+            and not within(c, DI_FORMAT_EXCLUDED) and not within(c, DEFAULT_IGNORABLE)],
+           [f"U+{c:04X}" for c in range(0x110000) if "VARIATION SELECTOR" in unicodedata.name(chr(c), "")
+            and not within(c, DEFAULT_IGNORABLE)],
+           [f"U+{c:04X}" for c in range(0x110000) if within(c, DI_FORMAT_EXCLUDED) and within(c, DEFAULT_IGNORABLE)]),
+          ([], [], []))
+    equal("every default-ignorable code point is written in notation, after a letter as alone",
+          [f"U+{c:04X}" for lo, hi in DEFAULT_IGNORABLE for c in range(lo, hi + 1)
+           if not (invisible_in(chr(c)) == [chr(c)] and invisible_in("a" + chr(c)) == [chr(c)])], [])
     unseen_plant = ("x\u202ey\u202a\u2066\u2069\u200b\u200c\u200d\u2060\ufeff\u061c\u200e\u200f\x00\x07\x1b\x7f\x9b"
                     "\u00ad\U000e0001\ud800\u115f\u1160\u3164\uffa0\u2800\u034f\ufe0f\U000e0100\u180b\u17b4"
                     "\u0378\ue000\U000f0000\u00a0\u3000\u2028\u0301\u20dd \\u202E z")
@@ -1887,8 +1921,16 @@ def self_test():
     equal("past line twenty a replaced character and an imitation of its notation still look different, and the note "
           "names every line",
           (len(runs), runs[22:24], all(r == [1] for i, r in enumerate(runs) if i not in (22, 23)),
-           all(f"{n}번째 줄 U+202E" in note for n in range(1, 26)), "1군데" in note),
+           all(f"{n}번째 줄 U+202E" in note for n in range(1, 26)), "원문의 백슬래시 2개는 모두 두 개씩" in note),
           (25, [[1, 0], [1, 1]], True, True, True))
+    # a file's own backslashes, with no replaced character and no notation-shaped text near them, are doubled too, so
+    # the reading of a run never depends on what follows it
+    held, page = planted(at("proposal", "operations", 0, "content"), "re a\\d+ \\\\ b")
+    lines_ = page.split("\n")
+    note = next((line for line in lines_ if line.startswith("- 위 펜스 안에서")), "")
+    equal("inside a fence every backslash of the file is shown doubled, and the note says so",
+          ("re a\\\\d+ \\\\\\\\ b" in lines_, "원문의 백슬래시 3개는 모두 두 개씩" in note, "\\uXXXX 표기로" in note),
+          (True, True, False))
     tricky = 'a\n``````\n~~~~~~~\n<div style="display:none">\n&lt;x&gt; [l](u "t")'
     for label, plant in fenced_plants:
         held, page = planted(plant, tricky)
@@ -1982,11 +2024,17 @@ def self_test():
     clean("the rendered marks are all there", mark_problems(over, over_text))
     equal("the marked ids are S9b's own", over.get("marked"), ["k-a"])
     lost = copy.deepcopy(over)
-    next(r for r in lost["rows"] if r["item_id"] == "k-a")["s9b"]["mark"] = False
-    try:
-        dropped = f"rendered {len(render_text(lost, meta, {}))} bytes"
-    except Refused as exc:
-        dropped = str(exc)
+    # found, not assumed: a reverted rule upstream can leave the overlay without the marked row, and that must fail this
+    # control by name rather than end the suite
+    marked = next((r for r in lost.get("rows") or [] if r.get("item_id") == "k-a"), None)
+    if marked is None or not isinstance(marked.get("s9b"), dict):
+        dropped = "NO_MARKED_ROW: the overlay holds no row k-a with an S9b state to drop the mark from"
+    else:
+        marked["s9b"]["mark"] = False
+        try:
+            dropped = f"rendered {len(render_text(lost, meta, {}))} bytes"
+        except Refused as exc:
+            dropped = str(exc)
     control("a row S9b marked, rendered without its mark, is refused by name", dropped, "MARK_MISSING k-a")
     control("an overlay for an item S7 did not propose is refused by name",
             "\n".join(overlaid(lambda d: d["s9b_regenerated"]["proposals"].update({"k-zz": better}))["problems"]),

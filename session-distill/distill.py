@@ -106,8 +106,8 @@ STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
-        stage_adjudicate, stage_approvals, stage_propose, stage_render, stage_retrieve, stage_review_korean, \
-        stage_review_proposals, \
+        stage_adjudicate, stage_approvals, stage_confirm, stage_propose, stage_render, stage_retrieve, \
+        stage_review_korean, stage_review_proposals, \
         stagelock, views
     from runlib import ledger as ledger_lib
     from runlib.records import Refused
@@ -531,6 +531,23 @@ def cmd_parse_decisions(args):
         f"{out['adjudications']} adjudications" + ("; resumed a parse cut short" if out["resumed"] else ""))
 
 
+def cmd_confirm(args):
+    """S10b (runlib/stage_confirm.py): without --decide, the final set S10's approvals leave, built as the next
+    confirmation version for the owner to read and decide; with it, the owner's 확인 line in that version's copy, which
+    confirms the set (confirmation.json) or returns it."""
+    run_dir = run_dir_of(args)
+    if not args.decide:
+        out = stage_confirm.build(run_dir)
+        say(f"S10b confirm: version {out['version']} built, {out['F']} in F, {out['ledger_only']} ledger-only, "
+            f"{out['apart']} apart; " + (f"the owner decides it in {out['copy']}" if out["confirmable"]
+                                         else "nothing in it can be confirmed"))
+        return 0
+    out = stage_confirm.confirm(run_dir, args.version, args.copy)
+    say(f"S10b confirm: version {out['version']} " + ("confirmed" if out["decision"] == "confirm" else "returned")
+        + f", {out['approvals']} approvals")
+    return 0
+
+
 def cmd_render(args):
     """S9 (runlib/stage_render.py): the review of S4's population through S7, its owner copy and its rows, written once
     as the next version. It reads the pinned ledger S4 read, for the legacy groups."""
@@ -639,7 +656,8 @@ def build_parser():
                  "render": f"{stage}: the review, the owner's decision copy and the rows",
                  "parse-decisions": f"{stage}: the owner's decision copy into approvals and adjudications",
                  "review-korean": f"{stage}: the review's Korean against its English payload, one regeneration",
-                 "adjudicate": f"{stage}: the owner's adjudications recomputed, the newly admitted through S7 and S7b"}
+                 "adjudicate": f"{stage}: the owner's adjudications recomputed, the newly admitted through S7 and S7b",
+                 "confirm": f"{stage}: the final set built for the owner's confirmation, or (--decide) the owner's 확인"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -695,6 +713,10 @@ def build_parser():
                                                          "(default: the latest parse holding any)")
             sub.add_argument("--answers", help="a JSON object of S7's second-pass answers by candidate id")
             sub.add_argument("--reviews", help="a JSON object of S7b's second-pass reviews by item id")
+        if name == "confirm":
+            sub.add_argument("--decide", action="store_true", help="read the owner's 확인 line in the latest version's copy")
+            sub.add_argument("--version", type=int, help="with --decide: the confirmation version (default: the latest)")
+            sub.add_argument("--copy", help="with --decide: the owner's copy (default: confirm-decision.ko.v<k>.md in the run)")
         if name == "review-korean":
             sub.add_argument("--reviews", help="a JSON object of S9b reviews by item id, the first pass")
             sub.add_argument("--regenerations", help="a JSON object of S7's regenerated answers by item id")
@@ -705,7 +727,7 @@ def build_parser():
                                   "propose": cmd_propose,
                                   "review-proposals": cmd_review_proposals,
                                   "review-korean": cmd_review_korean,
-                                  "adjudicate": cmd_adjudicate}.get(name, cmd_stage))
+                                  "adjudicate": cmd_adjudicate, "confirm": cmd_confirm}.get(name, cmd_stage))
     return parser
 
 
@@ -964,7 +986,7 @@ def self_test():
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
         implemented = ("census", "views", "inventory", "form", "retrieve", "judge", "propose",
-                       "review-proposals", "render", "parse-decisions", "review-korean", "adjudicate")
+                       "review-proposals", "render", "parse-decisions", "review-korean", "adjudicate", "confirm")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue
