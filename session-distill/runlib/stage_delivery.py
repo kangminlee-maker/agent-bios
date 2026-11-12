@@ -44,6 +44,8 @@ nothing".
 
   stage_delivery.py --self-test
 """
+import inspect
+import collections
 import json
 import pathlib
 import re
@@ -53,6 +55,7 @@ import tempfile
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from runlib import bound, delivery_evidence, derive, dispatch, projection, records  # noqa: E402
+from runlib import stagelock  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -63,7 +66,12 @@ EVENTS_DIR = "events"
 VIEWS_FILE = "views.json"
 # Admitted against every producer whose records this stage reads, so the shared staleness judgement applies: a
 # `checks.json` or an inventory written again after this stage ran makes the next reader refuse rather than trust it.
+# Every artifact this stage READS, with the stage that produced it. `checked-candidates.json` is
+# S5's own population — S4's candidates plus the planted controls of design §6.5, which is what S6
+# judges — and it was not declared or read, so a planted control and its retrieved units were
+# excluded from the pairs this stage owes an answer for, silently (the WP-11b review).
 INPUTS = ({"artifact": "checks.json", "producer_stage": "S5"},
+          {"artifact": "checked-candidates.json", "producer_stage": "S5"},
           {"artifact": VIEWS_FILE, "producer_stage": "S2"},
           {"artifact": "candidates.json", "producer_stage": "S4"},
           {"artifact": "inventory/current.json", "producer_stage": "S2"},
@@ -153,7 +161,30 @@ def sessions_index(sessions):
     return by_name, by_transcript
 
 
-def pairs_of(checks, candidates, decisions, by_name, by_transcript):
+def view_index(views):
+    """`{event-file stem: the views transcript row}` — the EXPLICIT mapping S2 published.
+
+    The join used to be string surgery on the file stem: `stem.split("_", 1)[-1]`. S2 names a
+    transcript's files with `views.safe_name(coverage_key)`, and a Codex coverage key is
+    `codex:<id>@<segment>`, which becomes `codex_<id>_<segment>` — so removing the first underscore
+    prefix leaves `<id>_<segment>`, which is no transcript id at all and matched nothing. Every
+    Codex event therefore joined to no session and was reported `session_unmatched` (the WP-11b
+    review). The row carries `name`, `transcript` and `session` itself; this reads them.
+
+    Keyed on `name` AND on `segment`, because the event files S3 writes are per segment: a
+    transcript split across several rollout files has one row per segment, and keying on the
+    transcript alone would make the last one win.
+    """
+    held = {}
+    for row in (views or {}).get("transcripts") or []:
+        for key in (row.get("name"), row.get("segment")):
+            if key:
+                held.setdefault(str(key), row)
+    return held
+
+
+def pairs_of(checks, candidates, decisions, by_name, by_transcript, by_view=None,
+             population=None):
     """Every (session, unit, decision) this run owes an answer for.
 
     Re-anchored on the artifacts' own shapes (WP-11b commit 2). Commit 1 read `session_ref`,
@@ -179,13 +210,20 @@ def pairs_of(checks, candidates, decisions, by_name, by_transcript):
         events = []
         for event_id in row.get("event_ids") or []:
             stem, ordinal = decisions.get(event_id, (None, None))
-            transcript = (stem or "").split("_", 1)[-1] if stem else None
-            session = by_transcript.get(transcript)
+            # The views row S2 published for that file, then the session it names. No string
+            # surgery: a Codex stem carries the segment as well as the id, and splitting it left
+            # neither (the WP-11b review).
+            view = (by_view or {}).get(str(stem)) if stem else None
+            transcript = view.get("transcript") if view else None
+            session = by_transcript.get(transcript) or (
+                by_name.get(view.get("session")) if view and view.get("session") else None)
             events.append({"event_id": event_id, "decision_at": ordinal,
                            "session_ref": (session or {}).get("session_ref"),
                            "session": (session or {}).get("session"),
+                           # Which half of the join failed, so an unmatched pair says what to fix.
                            "reason": None if ordinal is not None and session else
-                                     ("event_record_absent" if ordinal is None else "session_unmatched")})
+                                     ("event_record_absent" if ordinal is None else
+                                      "view_unmatched" if view is None else "session_unmatched")})
         if not events:
             # The candidate's own sessions, so the pair still names where it would be judged.
             for name in row.get("sessions") or [None]:
@@ -195,7 +233,27 @@ def pairs_of(checks, candidates, decisions, by_name, by_transcript):
                                "reason": "no_decision_event"})
         for event in events:
             for unit in units:
-                owed.append({"candidate_id": cid, "unit_id": unit, **event})
+                owed.append({"candidate_id": cid, "unit_id": unit, "producer": "S4", **event})
+    # S5's own population: S4's candidates PLUS the planted controls of design §6.5, which is the
+    # population S6 judges. Enumerating only S4's excluded every planted control and its retrieved
+    # units from the pairs this stage owes — silently, so the denominator shrank with no row saying
+    # so (the WP-11b review). A planted control carries a fabricated session id, so its pair is
+    # answered with a reason; that is the point, and it is not the same as not being asked.
+    seen = {row.get("candidate_id") for row in candidates.get("candidates") or []}
+    for row in (population or {}).get("candidates") or []:
+        cid = row.get("candidate_id")
+        if cid in seen or not cid:
+            continue
+        units = units_by_candidate.get(cid) or [None]
+        for name in row.get("sessions") or [None]:
+            session = by_name.get(name) if name else None
+            for unit in units:
+                owed.append({"candidate_id": cid, "unit_id": unit, "producer": "S5",
+                             "event_id": None, "decision_at": None,
+                             "session_ref": (session or {}).get("session_ref"),
+                             "session": name,
+                             "reason": "no_decision_event" if session
+                                       else "session_absent_from_inventory"})
     return owed
 
 
@@ -221,6 +279,57 @@ def selected_items(shared, store):
             carrier.get("version_sha256")) or {}
         if version.get("item_ref"):
             held[version["item_ref"]] = stated.get(version["item_ref"])
+    return held
+
+
+def version_universe(current, store):
+    """`{path: {version_sha256: [lines]}}` over every carrier version THIS RUN names.
+
+    `delivery_evidence.delivery` defaults its `versions` to the CURRENT units alone, and this stage
+    passed none — so the shared store's historical versions were invisible to the byte binding, and
+    a fragment shared by two versions could not be told apart (the WP-11b review). The run does hold
+    them: `shared/store.json` keys every carrier version it names, each version lists its
+    `unit_refs` in order, and each store unit carries its own projected `text`. The universe is
+    assembled from those records, unioned with the current document's units, so a read of an older
+    version is matched against the version it actually belongs to instead of against the current one.
+
+    The lines of one version are its units' lines in the version's own order, which is the same rule
+    `delivery_evidence.versions_of` uses for the current document — reached rather than restated
+    where the shape allows it.
+    """
+    held = delivery_evidence.versions_of((current or {}).get("units") or [])
+    units = (store or {}).get("units") or {}
+    for carrier_id, by_version in ((store or {}).get("versions") or {}).items():
+        for version_sha, version in (by_version or {}).items():
+            path = (version or {}).get("path")
+            if not path:
+                continue
+            lines = []
+            for ref in (version or {}).get("unit_refs") or []:
+                unit = units.get(ref) or {}
+                if unit.get("text"):
+                    lines += delivery_evidence.text_lines(unit["text"])
+            if not lines:
+                continue
+            # The current document wins where both hold the same (path, version): it is the same
+            # bytes, and its units are the ones the judge's requirements are keyed to.
+            held.setdefault(path, {}).setdefault(version_sha, lines)
+    return held
+
+
+def released_items(shared, store):
+    """The item refs ONE shared inventory holds, for the release's reference point.
+
+    Not `selected_items`, which answers a different question: that one is what a SESSION received,
+    so it walks the carriers the snapshot gave that session and resolves each through the store —
+    an inventory naming no carrier yields nothing there, correctly. The release asks what the
+    owner's library HELD at the reference point, which is the inventory's stated items as well as
+    whatever its carriers resolve to. Reading the session question's answer for the release question
+    is what made `items` empty for every session.
+    """
+    held = {item.get("ref") for item in shared.get("items") or []
+            if isinstance(item, dict) and item.get("ref")}
+    held |= set(selected_items(shared, store))
     return held
 
 
@@ -285,7 +394,35 @@ def coverage_facts(shared, units):
 # the call's own argument, not a guess about a command line.
 NAMED_READERS = {"Read", "NotebookRead", "view", "read_file"}
 # The tools that run a command, where the path has to be read out of the command text.
-SHELL_READERS = {"Bash", "shell", "local_shell", "container.exec"}
+SHELL_READERS = {"Bash", "shell", "local_shell", "container.exec", "exec_command"}
+# The argument names a shell tool carries its command under. `exec_command` uses `cmd`, and reading
+# only `command` discarded every one of its calls as non-reading — silently, since a call with no
+# command simply fell through (the WP-11b review). Named as data so a new shape is one entry.
+COMMAND_ARGUMENTS = ("command", "cmd", "commands")
+# What a host writes into a result when the call FAILED or when it elided the bytes. Either way the
+# returned text is not what the file holds, so it is uncertainty rather than a read: a result saying
+# "Process exited with code 1" was being counted as delivered bytes, and a truncation warning as
+# the whole file (the WP-11b review).
+EXIT_MARKER = re.compile(r"Process exited with code (\d+)")
+ELISION_MARKERS = ("Warning: truncated", "[truncated]", "<response clipped>",
+                   "… +", "... +", "[output elided]", "(output truncated)")
+
+
+def result_defect(returned):
+    """`("result_failed", detail)` / `("result_elided", detail)` / None for one returned text.
+
+    Read before any read is admitted from it, in both adapters: the bytes a failed or elided result
+    carries are not the file's, and admitting them makes a delivery claim out of an error message.
+    """
+    if not isinstance(returned, str):
+        return None
+    held = EXIT_MARKER.search(returned)
+    if held and held.group(1) != "0":
+        return "result_failed", f"exit code {held.group(1)}"
+    for marker in ELISION_MARKERS:
+        if marker in returned:
+            return "result_elided", marker
+    return None
 # A command that returns a file's bytes. `grep` is one: it returns the lines it matched, which can
 # cover a requirement.
 READING_VERBS = ("cat", "sed", "head", "tail", "less", "more", "bat", "grep", "rg", "awk")
@@ -347,6 +484,10 @@ def _claude_reads(lines):
                 counts["errors"] += 1
                 continue
             returned = _text_of(block.get("content"))
+            # The same judgment as the Codex adapter's: a result whose text says the call failed or
+            # that the host elided the bytes is uncertainty, not a read. `is_error` above catches
+            # the structured case; a host that writes the failure into the TEXT does not set it.
+            defect = result_defect(returned)
             if name in NAMED_READERS:
                 path = arguments.get("file_path") or arguments.get("path") or arguments.get("notebook_path")
                 if not path:
@@ -354,10 +495,18 @@ def _claude_reads(lines):
                 if returned is None:
                     counts["no_text"] += 1
                     unparsed.append({"at": at, "path": path, "reason": "result_not_text"})
+                elif defect:
+                    counts[defect[0]] = counts.get(defect[0], 0) + 1
+                    unparsed.append({"at": at, "path": path, "reason": defect[0],
+                                     "detail": defect[1]})
                 else:
                     reads.append({"at": at, "path": path, "returned": returned})
             elif name in SHELL_READERS:
-                command = arguments.get("command") or arguments.get("script") or ""
+                command = next((arguments.get(key) for key in COMMAND_ARGUMENTS
+                                if arguments.get(key) is not None), None) \
+                    or arguments.get("script") or ""
+                if isinstance(command, list):
+                    command = " ".join(str(part) for part in command)
                 if not any(verb in command for verb in READING_VERBS):
                     continue
                 named = _paths_in(command)
@@ -367,6 +516,10 @@ def _claude_reads(lines):
                 elif returned is None:
                     counts["no_text"] += 1
                     unparsed += [{"at": at, "path": path, "reason": "result_not_text"} for path in named]
+                elif defect:
+                    counts[defect[0]] = counts.get(defect[0], 0) + 1
+                    unparsed += [{"at": at, "path": path, "reason": defect[0], "detail": defect[1]}
+                                 for path in named]
                 else:
                     reads += [{"at": at, "path": path, "returned": returned} for path in named]
     return reads, unparsed, counts
@@ -402,9 +555,13 @@ def _codex_reads(lines):
             continue
         output = payload.get("output")
         returned = output if isinstance(output, str) else _text_of(output)
-        command = arguments.get("command")
+        command = next((arguments.get(key) for key in COMMAND_ARGUMENTS
+                        if arguments.get(key) is not None), None)
         if isinstance(command, list):
             command = " ".join(str(part) for part in command)
+        elif command is not None and not isinstance(command, str):
+            command = str(command)
+        defect = result_defect(returned)
         if name in NAMED_READERS:
             path = arguments.get("path") or arguments.get("file_path")
             if not path:
@@ -412,10 +569,21 @@ def _codex_reads(lines):
             if returned is None:
                 counts["no_text"] += 1
                 unparsed.append({"at": at, "path": path, "reason": "result_not_text"})
+            elif defect:
+                counts[defect[0]] = counts.get(defect[0], 0) + 1
+                unparsed.append({"at": at, "path": path, "reason": defect[0],
+                                 "detail": defect[1]})
             else:
                 reads.append({"at": at, "path": path, "returned": returned})
         elif name in SHELL_READERS or command:
             if not any(verb in (command or "") for verb in READING_VERBS):
+                if command is None:
+                    # A shell tool whose argument shape this adapter does not know. Kept as named
+                    # uncertainty rather than dropped: a discarded call is indistinguishable from a
+                    # call nobody made, which is how `exec_command` disappeared.
+                    counts["call_shape_unsupported"] = counts.get("call_shape_unsupported", 0) + 1
+                    unparsed.append({"at": at, "path": None, "reason": "call_shape_unsupported",
+                                     "detail": f"{name}: {sorted(arguments)}"})
                 continue
             named = _paths_in(command)
             if not named:
@@ -424,21 +592,43 @@ def _codex_reads(lines):
             elif returned is None:
                 counts["no_text"] += 1
                 unparsed += [{"at": at, "path": path, "reason": "result_not_text"} for path in named]
+            elif defect:
+                counts[defect[0]] = counts.get(defect[0], 0) + 1
+                unparsed += [{"at": at, "path": path, "reason": defect[0], "detail": defect[1]}
+                             for path in named]
             else:
                 reads += [{"at": at, "path": path, "returned": returned} for path in named]
     return reads, unparsed, counts
 
 
-def reads_of(copy_path, host):
+def reads_of(run_dir, copy, host):
     """(reads, unparsed, counts) read from ONE immutable copy of a transcript version.
 
     The copy S2 wrote is the only place these bytes are read from: the views are clipped, so they
     cannot carry what a result returned, and the owner's own files are not this stage's to open. The
-    bytes stay in this process — the document carries counts, paths and states, never text."""
-    path = pathlib.Path(copy_path)
+    bytes stay in this process — the document carries counts, paths and states, never text.
+
+    `copy` is a LABEL from S2's manifest and is confined before the filesystem is touched. It used
+    to be joined with `/`, which discards `run_dir` entirely for an absolute label, follows `..`,
+    and follows a symlink out — so a manifest row could point this stage at any file the owner can
+    read, and `reads_of` would open it (the WP-11b review). A run artifact is data, and containment
+    cannot rest on its producer being honest. The confinement lives HERE rather than at the call
+    site because a caller can forget it; `run_dir` is therefore a parameter, not a convenience.
+    """
+    try:
+        path = stagelock.confine(run_dir, pathlib.Path(run_dir) / str(copy))
+    except stagelock.Escaped as exc:
+        raise Refused(f"EVIDENCE_OUTSIDE_RUN {copy!r}: {exc}. S2's manifest names a copy beneath "
+                      f"the run; a label that leaves it is refused rather than read") from exc
     if not path.is_file():
         return [], [], {"copy_missing": True}
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    # The repository's JSONL splitter, not `str.splitlines()`. `splitlines()` also splits U+2028,
+    # U+2029 and U+0085, so one JSONL record carrying a separator inside a JSON string became two
+    # lines: the record ordinals this stage reports were on a different scale from S2's, and a
+    # record could be discarded as unparsable (the WP-11b review, the same defect as the journal's).
+    # `errors="replace"` was the old behaviour and is kept: a transcript byte this stage cannot
+    # decode is not a reason to refuse an entire session's evidence.
+    lines = records.jsonl_read(path, errors="replace")
     reads, unparsed, counts = (_codex_reads(lines) if host == "codex" else _claude_reads(lines))
     return reads, unparsed, {**counts, "records": len(lines)}
 
@@ -518,26 +708,69 @@ def native_events_of(session_row, events_by_ref, by_version):
     return sorted(rows, key=lambda row: row["at"]), undated
 
 
-def release_of(release_doc, session_ref):
+def release_of(release_doc, session_ref, segment_ref=None, shared_of=None, store=None):
     """The reference point `derive.absence` reads for this session: `{complete, layers, items}`.
 
-    The release document states a session's completeness per layer through the reasons it could not
-    resolve; a layer it does not name is complete. `items` is what the release holds, and an empty
-    one is why `_absence` answers `unknown` rather than `not_delivered` — an absence is only read
-    where the release is known to hold the item."""
-    for row in release_doc.get("sessions") or []:
-        if row.get("session_ref") != session_ref:
+    Three things were wrong here, and together they made the catalogue absence unreachable (the
+    WP-11b review):
+
+    * `items` was read from `unsegmented.items`, and `release_rows` HAS NO SUCH FIELD — its members
+      are `inventory_refs`, `layers`, `complete` and `incomplete_reasons`. So `items` was always
+      empty, `_absence` always answered `unknown` rather than `not_delivered`, and no catalogue
+      absence could ever be found. Item membership belongs to the shared inventories the row set
+      REFERENCES, which is where it is read from now.
+    * `segments` was ignored. A session a segment covers has `unsegmented: null`, so the row set
+      came out `{}` and every such session was reported incomplete. The applicable row set is the
+      segment the decision belongs to — the transcript file the event record was read from, which
+      the views row names — and `unsegmented` only for a session no segment covers.
+    * `layers` was derived from `incomplete_reasons`, which names only the layers that are NOT
+      complete. The per-layer status lives in `layers` (one `release_row` each); a complete layer
+      had no entry at all, so a reader could not tell "complete" from "not mentioned".
+
+    `shared_of` and `store` are how item membership is resolved; without them the items are reported
+    as unresolved rather than as empty, because an empty set is the claim that made this reachable.
+    """
+    held = next((row for row in release_doc.get("sessions") or []
+                 if row.get("session_ref") == session_ref), None)
+    if held is None:
+        return {"complete": False, "layers": {}, "items": [],
+                "absent_from_release_document": True}
+    segments = [row for row in held.get("segments") or [] if isinstance(row, dict)]
+    point = None
+    if segment_ref is not None:
+        point = next((row for row in segments if row.get("segment_ref") == segment_ref), None)
+    if point is None and not segments:
+        point = held.get("unsegmented")
+    if point is None:
+        # Segments exist and none of them is the one this decision belongs to. Not an absence and
+        # not a completeness: the reference point for this decision was not resolved.
+        return {"complete": False, "layers": {}, "items": [],
+                "segment_unresolved": segment_ref, "segments": len(segments)}
+    layers = {row.get("layer"): row.get("status") for row in point.get("layers") or []
+              if isinstance(row, dict) and row.get("layer")}
+    refs = [ref for ref in point.get("inventory_refs") or [] if ref]
+    for row in point.get("layers") or []:
+        source = (row or {}).get("source") or {}
+        if source.get("inventory_ref"):
+            refs.append(source["inventory_ref"])
+    items, unresolved = set(), []
+    for ref in sorted(set(refs)):
+        shared = shared_of(ref) if shared_of else None
+        if shared is None:
+            unresolved.append(ref)
             continue
-        point = row.get("unsegmented") or {}
-        layers = {entry.get("layer"): entry.get("status")
-                  for entry in point.get("incomplete_reasons") or []}
-        return {"complete": point.get("complete") is True, "layers": layers,
-                "items": sorted(point.get("items") or [])}
-    return {"complete": False, "layers": {}, "items": [], "absent_from_release_document": True}
+        items.update(released_items(shared, store or {}))
+    return {"complete": point.get("complete") is True, "layers": layers,
+            "items": sorted(items),
+            # The references this run could not open. Reported rather than folded into an empty
+            # `items`: an empty set says the release holds nothing, which is an absence claim.
+            "items_unresolved": unresolved,
+            "items_from": sorted(set(refs)),
+            "point": "segment" if point is not held.get("unsegmented") else "unsegmented"}
 
 
 def session_evidence(session_row, events_by_ref, by_version, release_doc, shared_of, store,
-                     run_dir=None, copies=None, unit_records=()):
+                     run_dir=None, copies=None, unit_records=(), segment_ref=None):
     """The judge's `session` input: selection and the snapshot's facts, the events, the release, and
     the bytes the session read back.
 
@@ -551,7 +784,10 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
     evidence = {"session_ref": session_row.get("session_ref"), "basis": basis,
                 "selected": selected, "history_selected": history,
                 "native_events": native,
-                "release": release_of(release_doc, session_row.get("session_ref"))}
+                # The reference point for THIS session's segment, with the items resolved through
+                # the inventories the row set references.
+                "release": release_of(release_doc, session_row.get("session_ref"),
+                                      segment_ref, shared_of, store)}
     # The instant the selected instructions were put in front of the session, on the record-ordinal
     # scale: the FIRST recorded injection, because the ladder asks whether the session had been given
     # the selection before the decision, and the earliest recorded one is the earliest this run can
@@ -600,14 +836,32 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
     found = (copies or {}).get(key) or (copies or {}).get((session_row.get("transcript") or {}).get("id"))
     if found and run_dir is not None:
         copy, host = found
-        reads, unparsed, read_counts = reads_of(pathlib.Path(run_dir) / copy, host)
-        evidence["reads"] = reads
-        evidence["unparsed"] = [row for row in unparsed if row.get("path")]
-        counts.update({"reads": len(reads), "unparsed": len(unparsed),
-                       "unparsed_without_a_path": sum(1 for row in unparsed if not row.get("path")),
-                       **{f"records_{k}": v for k, v in read_counts.items()}})
+        reads, unparsed, read_counts = reads_of(run_dir, copy, host)
+        if read_counts.get("copy_missing"):
+            # The manifest NAMES a copy and the file is not there. Installing `reads = []` here made
+            # that "the session read nothing", which is a claim — and the judge then reported an
+            # exposed guide as not read, from evidence nobody acquired (the WP-11b review). The
+            # acquisition state is carried instead, and the pair is answered unknown by name.
+            counts["copy"] = "missing"
+            evidence["read_evidence"] = {"status": "unavailable", "reason": "copy_missing",
+                                         "copy": str(copy)}
+        else:
+            evidence["reads"] = reads
+            evidence["unparsed"] = [row for row in unparsed if row.get("path")]
+            evidence["read_evidence"] = {"status": "available", "reason": None,
+                                        "copy": str(copy)}
+            counts.update({"reads": len(reads), "unparsed": len(unparsed),
+                           "unparsed_without_a_path": sum(1 for row in unparsed
+                                                          if not row.get("path")),
+                           **{f"records_{k}": v for k, v in read_counts.items()}})
     else:
+        # No manifest entry at all: this run holds no copy for the session, which is a different
+        # thing from a copy it holds and cannot open. Both are unknown, and the reason says which.
+        # No manifest entry at all: `reads` stays ABSENT, which the judge already reads as "this
+        # run cannot say" — that half was right. Only a copy the manifest NAMES and this run cannot
+        # open was installing an empty `reads` as a claim, so only that half gains a reason.
         counts["copy"] = "absent"
+        evidence["read_evidence"] = {"status": "absent", "reason": "copy_absent", "copy": None}
     return evidence, counts
 
 
@@ -662,10 +916,52 @@ def unit_index(current):
 REDACTED = projection.FLOOR.PLACEHOLDER
 
 
+def consumed_binding(run_dir, paths):
+    """`[{path, sha256}]` for every file this stage READ that its declaration cannot pin.
+
+    `records.run_stage` pins each DECLARED input against its producer's recorded output digest.
+    Three kinds of file this stage reads are not declarable that way: the event records under
+    `events/`, `inventory/shared/store.json`, and the per-session
+    `inventory/shared/selection-<ref>.json` — the last two because which ones exist depends on the
+    run, and a static declaration of a file a run does not hold would refuse the run
+    (`INPUT_INVALID`). They determine the verdict all the same, so their bytes are published HERE,
+    with the document that rests on them: a reader can then tell whether the evidence moved under a
+    later stage, which was not knowable at all before (the WP-11b review).
+
+    This is a BINDING, not a check. Nothing in this run holds an earlier digest to compare it with,
+    and saying so is the honest half; `records.provenance_problems` is what compares, and it can
+    only compare what a producer recorded.
+    """
+    root = pathlib.Path(run_dir)
+    held = []
+    for path in sorted(set(str(one) for one in paths)):
+        path = pathlib.Path(path)
+        if not path.is_file():
+            continue
+        try:
+            relative = str(path.relative_to(root))
+        except ValueError:
+            relative = str(path)
+        held.append({"path": relative, "sha256": records.sha256_file(path)})
+    return held
+
+
 def document(run_dir, checks, candidates, current, sessions, release_doc, store, shared_of, sources,
-             views=None):
+             views=None, population=None):
     """The stage's document: one row per owed pair, and the summary a reader counts from."""
+    # Every file read below whose bytes the declaration cannot pin, collected as they are opened.
+    consumed = sorted((pathlib.Path(run_dir) / EVENTS_DIR).glob("*.jsonl")) \
+        if (pathlib.Path(run_dir) / EVENTS_DIR).is_dir() else []
+    consumed.append(pathlib.Path(run_dir) / "inventory" / "shared" / "store.json")
+    for held_row in (sessions or {}).get("sessions") or []:
+        held_ref = (held_row.get("selection") or {}).get("inventory_ref")
+        if held_ref:
+            consumed.append(pathlib.Path(run_dir) / "inventory" / "shared"
+                            / f"selection-{held_ref}.json")
     units = unit_index(current)
+    # Every carrier version this run names, with its lines: the binding a read's bytes are matched
+    # against. One assembly per document, because it is the same for every pair.
+    universe = version_universe(current, store)
     # The inventory's own `r-` reference per unit id: S2 keys its per-unit facts by it, and the judge
     # asks by unit id.
     refs_by_unit = {row.get("unit_id"): row.get("unit_ref") for row in current.get("units") or []}
@@ -680,15 +976,24 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
         ref = row.get("session_ref")
         rows_by_ref[ref] = row
     rows = []
-    for pair in pairs_of(checks, candidates, decisions, by_name, by_transcript):
+    for pair in pairs_of(checks, candidates, decisions, by_name, by_transcript,
+                         view_index(views), population):
         unit = units.get(pair["unit_id"]) if pair["unit_id"] else None
         session_row = rows_by_ref.get(pair["session_ref"])
         evidence, session_counts, session_surfaces = None, {}, {}
         if session_row is not None:
             if pair["session_ref"] not in counts_by_ref:
+                # The SEGMENT this session's records were read from, as S2's views row names it:
+                # the reference point for a decision belongs to the segment the record is in, and a
+                # session several rollout files cover has one row set per segment.
+                held_view = next((row for row in (views or {}).get("transcripts") or []
+                                  if row.get("session") == session_row.get("session")
+                                  or row.get("transcript")
+                                  == (session_row.get("transcript") or {}).get("id")), None)
                 built, counts = session_evidence(session_row, events_by_ref, by_version, release_doc,
                                                  shared_of, store, run_dir,
-                                                 copies_of(views or {}), current.get("units") or ())
+                                                 copies_of(views or {}), current.get("units") or (),
+                                                 (held_view or {}).get("segment"))
                 # The per-unit catalogue surfaces are kept beside the evidence rather than inside it:
                 # they are keyed by the inventory's `r-` reference and belong to the pair, where the
                 # unit id is known, and the judge's input shape is not widened to carry them.
@@ -701,6 +1006,10 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
         # another: a pair can lack a decision AND name a unit the inventory does not carry, and a
         # row that reported only the last of those would send someone to the wrong artifact.
         reasons = []
+        # Reasons that are RECORDED but do not stop the judge: an input the ladder this pair is
+        # judged on does not need. They reach the row like any other reason, so nothing is hidden;
+        # what they do not do is turn a judgeable pair into an unknown (the WP-11b review).
+        carried = []
         if pair.get("reason"):
             reasons.append(pair["reason"])
         if pair["unit_id"] and unit is None:
@@ -714,7 +1023,25 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
         if evidence is None:
             reasons.append("session_absent_from_inventory")
         elif evidence.get("basis") is None:
-            reasons.append(evidence.get("pin_reason") or "unpinned")
+            # The missing pin is RECORDED either way, because a reader counts it. Whether it also
+            # stops the judge depends on the LADDER: §6.3's native rung is answered by the session's
+            # own events — an event that loaded this unit's carrier version is evidence of delivery
+            # on its own, and the selection pin says nothing about it. Treating every absent basis
+            # as a missing input made an unpinned session with a native event answer
+            # `unknown: unpinned`, over evidence that was already sufficient (the WP-11b review).
+            held_native = [row for row in evidence.get("native_events") or []
+                           if pair["unit_id"] and pair["unit_id"] in (row.get("unit_ids") or ())]
+            if held_native:
+                carried.append(evidence.get("pin_reason") or "unpinned")
+            else:
+                reasons.append(evidence.get("pin_reason") or "unpinned")
+        # Whether the session's RECORDS could be read at all. An empty `reads` from a copy this run
+        # cannot open is not "it read nothing": the pair is named unknown with the acquisition's own
+        # reason, so a missing copy cannot become a claim that an exposed guide went unread.
+        if evidence is not None:
+            held_acquisition = evidence.get("read_evidence") or {}
+            if held_acquisition.get("status") == "unavailable":
+                reasons.append(held_acquisition.get("reason") or "read_evidence_unavailable")
         # A coverage row S2 published that resolved to no unit of this run. Named on every pair of
         # that session whose unit the block could not answer for, so a block that lost its rows is
         # visible as a resolution failure rather than as a session nobody published facts for. It
@@ -749,14 +1076,20 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
             # instead of `not_in_recorded_injection` (found by the frozen native fixture).
             classified = delivery_evidence.surface_row(unit) is not None
             subject = unit if classified or not surface else {**unit, "surface": surface}
-            answer = delivery_evidence.delivery(subject, units, evidence, pair["decision_at"])
+            # The version universe this run names, not the current units alone: see
+            # `version_universe`. Computed once per document, above the pair loop.
+            answer = delivery_evidence.delivery(subject, units, evidence, pair["decision_at"],
+                                                versions=universe)
         else:
             reasons.append(UNJUDGED)
         held = (answer or {}).get("requirements") or []
         rows.append({**{k: v for k, v in pair.items() if k != "reason"},
                      "state": (answer or {}).get("state", "unknown"),
                      "level": (answer or {}).get("level"),
-                     "reasons": (answer or {}).get("reasons") or reasons,
+                     # The judge's own reasons, then the pair's, then the ones carried past the
+                     # judge: a reader sees the missing pin even when it did not block the answer.
+                     "reasons": list(dict.fromkeys(
+                         ((answer or {}).get("reasons") or reasons) + carried)),
                      "surface": (answer or {}).get("surface"),
                      "selection": (answer or {}).get("selection"),
                      "decision_ordinal": "event.at_record" if pair.get("decision_at") is not None else None,
@@ -807,6 +1140,13 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
                               f"`unknown` naming it ({PENDING}); this is the per-pair state inside a file "
                               f"that exists, not S6's `delivery_assembly_waiting`",
             "sources": {"count": len(sources), "dir": SOURCES_DIR},
+            # The bytes this stage read that its declaration cannot pin. See `consumed_binding`:
+            # published rather than checked, because nothing here holds an earlier digest.
+            "consumed": consumed_binding(run_dir, consumed),
+            "consumed_unpinnable": ("the event records, the shared store and the per-session "
+                                    "selection inventories are read by this stage and are not "
+                                    "declarable inputs; their digests are published here so a "
+                                    "later reader can tell whether they moved"),
             "context_source": "inventory.edges",
             "ordinal_source": {"decision": "the first component of an event record's at_record",
                                "events": "the inventory event's line; its `at` is an ISO instant and "
@@ -814,6 +1154,10 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
             "rows": rows,
             "installer": installer,
             "summary": {"pairs": len(rows), "states": states,
+                        # Which producer's population each pair came from, so a reader can see the
+                        # planted controls were asked about rather than left out of the denominator.
+                        "pairs_by_producer": dict(sorted(collections.Counter(
+                            row.get("producer") or "unknown" for row in rows).items())),
                         "sessions": len({row["session_ref"] for row in rows if row["session_ref"]}),
                         "units": len({row["unit_id"] for row in rows if row["unit_id"]}),
                         "decisions": len({row["decision_at"] for row in rows if row["decision_at"] is not None}),
@@ -837,6 +1181,13 @@ def run(run_dir):
     if not sources:
         raise Refused(f"DELIVERY_SOURCES_MISSING {run_dir / SOURCES_DIR}: the bytes a session read back are read from "
                       f"the run's immutable copy, which S2 writes; nothing else is an acquisition this stage may make")
+    # BEFORE the stage record is published. `run_stage` writes `status: running` on entry and
+    # `status: failed` on the way out of a refusal, so a prerequisite checked inside it leaves a
+    # failed attempt behind for a condition that was knowable first — and a stage record that says
+    # an attempt failed is read as an attempt (the WP-11b review). The edges export is S2's, so
+    # whether it is there is decidable from S2's own document with nothing of this stage's written.
+    held_current = records.read_json(run_dir / "inventory" / "current.json")
+    unit_index(held_current)
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         checks = records.read_json(run_dir / "checks.json")
         candidates = records.read_json(run_dir / "candidates.json")
@@ -943,9 +1294,28 @@ def _records_fixture(path_id):
                                    "delivery": {"status": "unknown", "reason": None, "event_refs": []}}],
                      "events": [{"event_id": "e-1", "kind": "session_injection", "session_ref": session_ref,
                                  "line": 10, "at": "2026-09-16T07:44:40+00:00", "members": []}]},
+        # The row set in the shape `inventory.schema.json` `release_rows` REQUIRES: the item
+        # membership is the referenced inventory's, not a field of this row set (it has none), and
+        # `layers` carries the per-layer status with `minItems: 1`. The fixture carried `items` and
+        # no `layers`, which no producer writes — and `release_of` read exactly that invented shape
+        # (the WP-11b review).
         "release": {"sessions": [{"session_ref": session_ref, "segments": [],
-                                  "unsegmented": {"complete": True, "items": [item_ref],
+                                  "unsegmented": {"inventory_refs": ["i-" + "b" * 24],
+                                                  "layers": [{"layer": "catalog",
+                                                              "status": "complete", "reasons": [],
+                                                              "source": {"inventory_ref":
+                                                                         "i-" + "b" * 24,
+                                                                         "layer": "catalog",
+                                                                         "basis":
+                                                                         "selection_history"}}],
+                                                  "complete": True,
                                                   "incomplete_reasons": []}}]},
+        # The release's own inventory, keyed by its ref: what the owner's library HELD at the
+        # session's reference point, which is not what the session received.
+        # ITEMS only, no carriers: `selected_items` resolves a carrier's version through the store,
+        # and this fixture's store deliberately maps that version to another item — so carrying the
+        # carrier here would overwrite the release's own membership with the selection's.
+        "shared_by_ref": {"i-" + "b" * 24: {"items": [{"ref": item_ref, "surface": "always"}]}},
         "store": {"versions": {carrier_id: {version: {"item_ref": item_ref}}}, "units": {}},
         "shared": {"carriers": [{"carrier_id": carrier_id, "version_sha256": version}],
                    "items": [{"ref": item_ref, "surface": "always"}],
@@ -1106,6 +1476,10 @@ FIXTURE_UNSCHEMAED = {
     "events": "an event record is validated by event.schema.json per LINE, not as a list; the "
               "fixture's rows are written into a .jsonl by `run_fixture` and read back by the stage",
     "copy": "a list of file names",
+    "shared_by_ref": "one selection-inventory block per inventory ref, and that block has no "
+                     "published schema of its own (the same reason as `shared`); the REFS are "
+                     "judged by `release_of` reading them, and the fixture would fail its own "
+                     "state path if a ref it names were not the one the release points at",
 }
 
 
@@ -1159,12 +1533,34 @@ def run_fixture(root, fixture):
     artifacts = fixture["artifacts"]
     run_dir = pathlib.Path(root) / f"fx-{fixture['id'].replace('/', '-')}"
     (run_dir / EVENTS_DIR).mkdir(parents=True)
-    (run_dir / EVENTS_DIR / "claude_t-1.jsonl").write_text(
-        "".join(json.dumps(row) + "\n" for row in artifacts["events"]), encoding="utf-8")
+    # The event file is named the way the PRODUCER names it, and the views row the fixture hands
+    # `document` carries that same name. Both come from `views.safe_name`, imported rather than
+    # imitated: the join these fixtures exercise is the name mapping S2 publishes, and a fixture
+    # that spelled the name itself would be testing a spelling nobody writes (the WP-11b review,
+    # whose finding was exactly that the spelling and the reader disagreed).
+    from runlib import views as _views
     session = dict(artifacts["sessions"])
+    transcript_id = ((session.get("sessions") or [{}])[0].get("transcript") or {}).get("id") \
+        or "claude:t-1"
+    stem = _views.safe_name(transcript_id)
+    (run_dir / EVENTS_DIR / f"{stem}.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in artifacts["events"]), encoding="utf-8")
+    fixture_views = {"transcripts": [
+        {"name": stem, "segment": stem, "transcript": transcript_id,
+         "session": (session.get("sessions") or [{}])[0].get("session"),
+         "host": (session.get("sessions") or [{}])[0].get("host") or "claude"}]}
+    # One answer per REF, not one answer for every ref: the release's reference point and the
+    # session's selection are different inventories, and a `shared_of` that answered alike could not
+    # express a release holding an item the session was not given — which is §6.3's catalogue
+    # absence (the WP-11b review).
+    by_ref = artifacts.get("shared_by_ref") or {}
+
+    def fixture_shared_of(ref):
+        return by_ref.get(ref, artifacts["shared"])
+
     doc = document(run_dir, artifacts["checks"], artifacts["candidates"], artifacts["current"], session,
-                   artifacts["release"], artifacts["store"], lambda ref: artifacts["shared"],
-                   artifacts["copy"] or ["aa.jsonl"])
+                   artifacts["release"], artifacts["store"], fixture_shared_of,
+                   artifacts["copy"] or ["aa.jsonl"], fixture_views)
     # The subject is named by the fixture, because the unit id now comes from the producer and is a
     # digest, not "u-1". A hardcoded id here would silently select nothing and the fixture would
     # report FIXTURE_NO_ROW for every path.
@@ -1296,20 +1692,308 @@ def _self_test_body(failures, ran):
                                                 "inventory_ref": None},
                                   "delivery": {"status": "unknown", "reason": "input_failed", "event_refs": []}}]}
         release_doc = {"sessions": [{"session_ref": "p-" + "1" * 24, "segments": [],
-                                     "unsegmented": {"complete": False, "items": [],
+                                     "unsegmented": {"inventory_refs": [],
+                                                     "layers": [{"layer": "catalog",
+                                                                 "status": "unknown",
+                                                                 "reasons": [
+                                                                     "release_history_deferred"],
+                                                                 "source": None}],
+                                                     "complete": False,
                                                      "incomplete_reasons": [
                                                          {"layer": "catalog", "status": "unknown",
                                                           "reasons": ["release_history_deferred"],
                                                           "inventory_ref": None}]}}]}
         store = {"versions": {}, "units": {}}
+        # The views document S2 publishes, named with the producer's own namer so the suite cannot
+        # spell the join differently from the stage. `claude:t-1` -> `claude_t-1`, which is also
+        # what the event file above is called.
+        from runlib import views as _views_mod
+        suite_views = {"transcripts": [
+            {"name": _views_mod.safe_name("claude:t-1"), "segment": _views_mod.safe_name("claude:t-1"),
+             "transcript": "t-1", "session": "claude:t-1", "host": "claude"}]}
         doc = document(fixture, checks, candidates, current, sessions, release_doc, store,
-                       lambda ref: None, ["aa.jsonl"])
+                       lambda ref: None, ["aa.jsonl"], suite_views)
         # k-1: two events x two units (one retrieved, one named-absent) = 4; k-2: one session, no event, no unit = 1.
         control("a pair is owed per decision event and unit", str(doc["summary"]["pairs"]), "5")
         control("an event's ordinal is read from its at_record", json.dumps((doc.get("rows") or [{}])[0]),
                 '"decision_at": 76837')
         control("and the session comes from the transcript the event record belongs to",
                 json.dumps((doc.get("rows") or [{}])[0]), '"session_ref": "p-111111111111111111111111"')
+        # ---- the version universe this run names --------------------------------------------------
+        #
+        # `delivery` defaults `versions` to the CURRENT units alone and this stage passed none, so
+        # the shared store's historical versions were invisible to the byte binding: a read of an
+        # older version of a carrier was matched against the current text only (the WP-11b review).
+        # The run holds those versions — the store keys each one, lists its `unit_refs` in order,
+        # and each store unit carries its own projected text.
+        older = "a" * 64
+        store_with_history = {
+            "versions": {"c-" + "1" * 24: {older: {"layer": "catalog", "path": "claude/guides/g.md",
+                                                   "item_ref": "claude:guides/g",
+                                                   "package_id": None, "form": "guide",
+                                                   "length": 20, "split": True,
+                                                   "unit_refs": ["r-" + "1" * 24]}}},
+            "units": {"r-" + "1" * 24: {"carrier_id": "c-" + "1" * 24, "version_sha256": older,
+                                        "n": 0, "start": 0, "end": 20, "sha": "b" * 64,
+                                        "heading": None, "text": "- the older line\n",
+                                        "class": "operative", "block": "list-item",
+                                        "redaction_version": "r22"}}}
+        held_universe = version_universe(current, store_with_history)
+        control("the store's historical version is in the universe, keyed by its own path",
+                json.dumps(sorted(held_universe.get("claude/guides/g.md") or {})), older)
+        control("and its lines are the version's own units, in the version's order",
+                json.dumps((held_universe.get("claude/guides/g.md") or {}).get(older)),
+                "- the older line")
+        clean("the current document's versions are still there, so the universe is a union and not "
+              "a replacement",
+              [] if len(held_universe.get(
+                  [unit["path"] for unit in current["units"]][0]) or {}) >= 1
+              else ["the current version was lost from the universe"])
+        control("a store version whose units this run holds no text for is left out rather than "
+                "entered with an empty line set, since empty lines match everything",
+                json.dumps(sorted(version_universe(current, {
+                    "versions": {"c-" + "2" * 24: {"c" * 64: {"path": "claude/guides/h.md",
+                                                              "unit_refs": ["r-gone"]}}},
+                    "units": {}}).get("claude/guides/h.md") or {})),
+                "[]")
+        control("the line rule is the judge's own, reached rather than restated",
+                next((line.strip() for line in inspect.getsource(version_universe).splitlines()
+                      if "versions_of(" in line), "<no such line>"),
+                "delivery_evidence.versions_of(")
+        control("and the document hands the judge that universe rather than letting it default to "
+                "the current units",
+                next((line.strip() for line in inspect.getsource(document).splitlines()
+                      if "versions=" in line), "<no such line>"),
+                "versions=universe")
+
+        # ---- the bytes that decided the verdict, published ---------------------------------------
+        #
+        # `run_stage` pins every DECLARED input against its producer's recorded output digest. The
+        # event records, the shared store and the per-session selection inventories are read by
+        # this stage and are not declarable that way — which ones exist depends on the run — so a
+        # change to them between S2 and a later reader was not knowable at all (the WP-11b review).
+        # Their digests are published with the document that rests on them.
+        bound_doc = document(fixture, checks, candidates, current, sessions, release_doc, store,
+                             lambda ref: None, ["aa.jsonl"], suite_views)
+        control("the event records this stage read are bound by digest in its own document",
+                json.dumps([row["path"] for row in bound_doc["consumed"]]),
+                f"{EVENTS_DIR}/claude_t-1.jsonl")
+        clean("every bound row carries a full sha256, so the binding is a value and not a label",
+              [row for row in bound_doc["consumed"]
+               if len(row.get("sha256") or "") != 64])
+        control("the digest is the file's own, not a recomputation of something else",
+                [row["sha256"] for row in bound_doc["consumed"]
+                 if row["path"].endswith("claude_t-1.jsonl")][0],
+                records.sha256_file(fixture / EVENTS_DIR / "claude_t-1.jsonl"))
+        clean("a file the run does not hold is not bound, since a digest of nothing is a claim",
+              [row for row in bound_doc["consumed"] if "store.json" in row["path"]])
+        control("and the document says why these are published rather than declared",
+                bound_doc["consumed_unpinnable"], "not declarable inputs")
+        # The binding MOVES when the bytes move: this is what makes it worth publishing.
+        (fixture / EVENTS_DIR / "claude_t-1.jsonl").write_text(
+            json.dumps({"event_id": "v-1", "at_record": "76837/message/content",
+                        "kind": "request"}) + "\n"
+            + json.dumps({"event_id": "v-2", "at_record": "9/message/content/0",
+                          "kind": "request"}) + "\n"
+            + json.dumps({"event_id": "v-3", "at_record": "11/message", "kind": "request"}) + "\n",
+            encoding="utf-8")
+        moved_doc = document(fixture, checks, candidates, current, sessions, release_doc, store,
+                             lambda ref: None, ["aa.jsonl"], suite_views)
+        control("a change to an event record changes the binding, which is the whole point of "
+                "publishing it",
+                json.dumps(bound_doc["consumed"] != moved_doc["consumed"]), "true")
+
+        # ---- S5's checked population, planted controls included ----------------------------------
+        #
+        # S5 publishes `checked-candidates.json`: S4's candidates PLUS the planted controls of
+        # design §6.5, which is the population S6 judges. This stage enumerated only S4's, so a
+        # planted control and its retrieved units were never pairs it owed an answer for — silently,
+        # so the denominator shrank with no row saying so (the WP-11b review). A planted control
+        # carries a fabricated session id, so its pair is answered with a reason; that is the point,
+        # and it is not the same as never being asked.
+        planted_population = {"candidates": [
+            {"candidate_id": "k-1", "source": "g_cluster", "sessions": ["claude:t-1"]},
+            {"candidate_id": "k-planted", "source": "control_absence",
+             "sessions": ["claude:fabricated-0001"]}]}
+        planted_checks = {"candidates": checks["candidates"] + [
+            {"candidate_id": "k-planted", "source": "control_absence",
+             "retrieved_units": [{"unit_id": u1, "layer": "catalog", "rank": 1, "score": 1.0,
+                                  "named": True, "copies": 1}],
+             "named_units_absent": []}]}
+        doc_pl = document(fixture, planted_checks, candidates, current, sessions, release_doc,
+                          store, lambda ref: None, ["aa.jsonl"], suite_views, planted_population)
+        pl_rows = [row for row in doc_pl["rows"] if row["candidate_id"] == "k-planted"]
+        control("a planted control S5 checked is a pair this stage owes an answer for",
+                json.dumps([row["unit_id"] for row in pl_rows]), u1)
+        control("and the row says which producer's population it came from",
+                json.dumps([row["producer"] for row in pl_rows]), "S5")
+        control("its fabricated session is answered with a reason, which is not the same as the "
+                "pair never being asked",
+                json.dumps([row["reasons"] for row in pl_rows]), "session_absent_from_inventory")
+        control("the summary counts the pairs by producer, so a shrinking denominator is visible",
+                json.dumps(doc_pl["summary"]["pairs_by_producer"]), '"S5": 1')
+        clean("a candidate S4 already names is not enumerated twice",
+              [cid for cid in {row["candidate_id"] for row in doc_pl["rows"]}
+               if len([row for row in doc_pl["rows"]
+                       if row["candidate_id"] == cid and row["unit_id"] == u1
+                       and row["event_id"] is None]) > 1])
+        control("and without the population nothing is lost for S4's own pairs, so the enumeration "
+                "only adds",
+                str(len([row for row in document(
+                    fixture, planted_checks, candidates, current, sessions, release_doc, store,
+                    lambda ref: None, ["aa.jsonl"], suite_views)["rows"]
+                    if row["candidate_id"] == "k-planted"])),
+                "0")
+        control("the stage declares that artifact with its producer, so a change to it invalidates "
+                "this stage",
+                json.dumps([row for row in INPUTS if "checked" in row["artifact"]]),
+                '"producer_stage": "S5"')
+
+        # ---- the required inputs depend on the LADDER, not on the pin ----------------------------
+        #
+        # Any `basis is None` added a reason, and the judge was called only when NO reason held: an
+        # unpinned session with a native event that explicitly loaded the unit answered
+        # `unknown: unpinned` over evidence that was already sufficient (the WP-11b review). §6.3's
+        # native rung is answered by the session's own events; the selection pin says nothing about
+        # it. The reason is still CARRIED onto the row, because a reader counts it.
+        native_doc, native_unit = _producer_current(text="- the native rule\n", path="CLAUDE.md",
+                                                    layer="native_global", item_ref="native:global")
+        native_id = native_unit["unit_id"]
+        native_carrier = native_unit["carrier_id"]
+        native_version = native_unit["version_sha256"]
+        unpinned_ref = "p-" + "7" * 24
+        unpinned_sessions = {"sessions": [
+            {"session_ref": unpinned_ref, "session": "claude:t-np", "host": "claude",
+             "transcript": {"host": "claude", "id": "t-np", "source": "claude_projects"},
+             # NOT pinned: the inventory could not read the pin at all.
+             "pin": {"status": "unknown", "content_ref": None, "baseline_ref": None,
+                     "include_global_instructions": True, "reason": "pin_unreadable"},
+             "selection": {"status": "unknown", "reason": "input_failed", "inventory_ref": None},
+             "delivery": {"status": "unknown", "reason": "input_failed", "event_refs": []}}],
+            "events": [{"event_id": "e-np", "kind": "native", "session_ref": unpinned_ref,
+                        "line": 3, "at": "2026-11-01T00:00:00+00:00",
+                        "members": [{"carrier_id": native_carrier,
+                                     "version_sha256": native_version, "ordinal": 0}]}]}
+        (fixture / EVENTS_DIR / "claude_t-np.jsonl").write_text(
+            json.dumps({"event_id": "v-np", "at_record": "9/message/content",
+                        "kind": "request"}) + "\n", encoding="utf-8")
+        unpinned_views = {"transcripts": [
+            {"name": "claude_t-np", "segment": "claude_t-np", "transcript": "t-np",
+             "session": "claude:t-np", "host": "claude"}]}
+        unpinned_doc = document(
+            fixture,
+            {"candidates": [{"candidate_id": "k-np", "named_units_absent": [],
+                             "retrieved_units": [{"unit_id": native_id, "layer": "native_global",
+                                                  "rank": 1, "score": 1.0, "named": True,
+                                                  "copies": 1}]}]},
+            {"candidates": [{"candidate_id": "k-np", "sessions": ["claude:t-np"],
+                             "event_ids": ["v-np"]}]},
+            native_doc, unpinned_sessions,
+            {"sessions": [{"session_ref": unpinned_ref, "segments": [],
+                           "unsegmented": {"inventory_refs": [], "complete": True,
+                                           "layers": [{"layer": "catalog", "status": "complete",
+                                                       "reasons": [], "source": None}],
+                                           "incomplete_reasons": []}}]},
+            {"versions": {}, "units": {}}, lambda ref: None, ["aa.jsonl"], unpinned_views)
+        np_rows = [row for row in unpinned_doc["rows"] if row["unit_id"] == native_id]
+        clean("an unpinned session whose own event loaded the unit is JUDGED rather than answered "
+              "unknown for want of a pin",
+              [row["state"] for row in np_rows if row["state"] == "unknown"])
+        # `basis_of` reports the SELECTION's reason first, which is the one that actually failed
+        # here; the control names what the code says rather than what the fixture's pin field says.
+        control("and the missing basis is still on the row, because a reader counts it",
+                json.dumps([row["reasons"] for row in np_rows]), "selection_input_failed")
+        control("the judge answered on the native rung, which needs no selection",
+                json.dumps([row["state"] for row in np_rows]), "delivered")
+        # And the other direction: a unit the session's events do NOT load still needs the pin,
+        # because nothing else in this run can say whether the session was given it.
+        other_doc, other_unit = _producer_current(text="- another rule\n", path="CLAUDE.md",
+                                                  layer="native_global", item_ref="native:other")
+        unloaded_doc = document(
+            fixture,
+            {"candidates": [{"candidate_id": "k-nq", "named_units_absent": [],
+                             "retrieved_units": [{"unit_id": other_unit["unit_id"],
+                                                  "layer": "native_global", "rank": 1,
+                                                  "score": 1.0, "named": True, "copies": 1}]}]},
+            {"candidates": [{"candidate_id": "k-nq", "sessions": ["claude:t-np"],
+                             "event_ids": ["v-np"]}]},
+            other_doc, unpinned_sessions,
+            {"sessions": [{"session_ref": unpinned_ref, "segments": [],
+                           "unsegmented": {"inventory_refs": [], "complete": True,
+                                           "layers": [{"layer": "catalog", "status": "complete",
+                                                       "reasons": [], "source": None}],
+                                           "incomplete_reasons": []}}]},
+            {"versions": {}, "units": {}}, lambda ref: None, ["aa.jsonl"], unpinned_views)
+        nq_rows = [row for row in unloaded_doc["rows"]
+                   if row["unit_id"] == other_unit["unit_id"]]
+        control("a unit no event of that session loaded still needs the basis, and says so",
+                json.dumps([row["reasons"] for row in nq_rows]), "selection_input_failed")
+        control("and that unjudged pair says the judge was not called",
+                json.dumps([row["reasons"] for row in nq_rows]), "delivery_unjudged")
+        control("and that pair is unknown, since nothing in this run can say it was given",
+                json.dumps([row["state"] for row in nq_rows]), "unknown")
+
+        # ---- the session join reads S2's mapping, not the file stem's spelling -------------------
+        #
+        # `views.safe_name` turns a Codex coverage key `codex:<id>@<segment>` into
+        # `codex_<id>_<segment>`. The join removed the first underscore prefix and used the rest as
+        # a transcript id, which for Codex left `<id>_<segment>` — no transcript at all — so every
+        # Codex event joined to nothing and was reported `session_unmatched` (the WP-11b review).
+        # The key below is built with `census.coverage_key`'s own shape through `safe_name`, so the
+        # control cannot spell it differently from the producer.
+        codex_key = "codex:0199c3f7-aaaa-bbbb-cccc-00000000@rollout-2026-11-01"
+        codex_stem = _views_mod.safe_name(codex_key)
+        control("a Codex event file's name carries the segment as well as the id, which is why "
+                "splitting it left neither",
+                f"{codex_stem} -> {codex_stem.split('_', 1)[-1]}",
+                "codex_0199c3f7-aaaa-bbbb-cccc-00000000_rollout-2026-11-01 -> "
+                "0199c3f7-aaaa-bbbb-cccc-00000000_rollout-2026-11-01")
+        (fixture / EVENTS_DIR / f"{codex_stem}.jsonl").write_text(
+            json.dumps({"event_id": "v-cx", "at_record": "41/message/content",
+                        "kind": "request"}) + "\n", encoding="utf-8")
+        codex_views = {"transcripts": suite_views["transcripts"] + [
+            {"name": codex_stem, "segment": codex_stem, "transcript": "cx-1",
+             "session": codex_key, "host": "codex"}]}
+        codex_sessions = {"sessions": sessions["sessions"] + [
+            {**sessions["sessions"][0], "session_ref": "p-" + "2" * 24, "session": codex_key,
+             "transcript": {"host": "codex", "id": "cx-1", "source": "codex_sessions"}}],
+            "events": sessions.get("events") or []}
+        codex_candidates = {"candidates": candidates["candidates"] + [
+            {"candidate_id": "k-cx", "sessions": [codex_key], "event_ids": ["v-cx"]}]}
+        codex_checks = {"candidates": checks["candidates"] + [
+            {"candidate_id": "k-cx", "retrieved_units": [], "named_units_absent": []}]}
+        doc_cx = document(fixture, codex_checks, codex_candidates, current, codex_sessions,
+                          release_doc, store, lambda ref: None, ["aa.jsonl"], codex_views)
+        cx_rows = [row for row in doc_cx["rows"] if row["event_id"] == "v-cx"]
+        control("a Codex event joins to its session through that mapping",
+                json.dumps(cx_rows), '"session_ref": "p-222222222222222222222222"')
+        clean("and is not reported unmatched, which is what every Codex pair was",
+              [row for row in cx_rows if row.get("reason") in ("session_unmatched",
+                                                               "view_unmatched")])
+        control("and its ordinal comes from its own event record", json.dumps(cx_rows),
+                '"decision_at": 41')
+        # A stem no views row names is `view_unmatched`, which says WHICH half of the join failed.
+        (fixture / EVENTS_DIR / "codex_unlisted.jsonl").write_text(
+            json.dumps({"event_id": "v-un", "at_record": "7/message", "kind": "request"}) + "\n",
+            encoding="utf-8")
+        doc_un = document(fixture, {"candidates": checks["candidates"] + [
+            {"candidate_id": "k-un", "retrieved_units": [], "named_units_absent": []}]},
+            {"candidates": candidates["candidates"] + [
+                {"candidate_id": "k-un", "sessions": [], "event_ids": ["v-un"]}]},
+            current, codex_sessions, release_doc, store, lambda ref: None, ["aa.jsonl"],
+            codex_views)
+        # The reason reaches the row's `reasons` list, which is where a reader counts them.
+        un_reasons = [row["reasons"] for row in doc_un["rows"] if row["event_id"] == "v-un"]
+        control("an event file no views row names is reported as the view half failing, not as an "
+                "unmatched session",
+                json.dumps(un_reasons), "view_unmatched")
+        clean("and it is NOT reported as an unmatched session, which would point at the wrong half",
+              [reasons for reasons in un_reasons if "session_unmatched" in reasons])
+        control("a Codex pair whose view IS named reports neither half failing",
+                json.dumps(sorted({reason for row in cx_rows for reason in row["reasons"]
+                                   if reason in ("view_unmatched", "session_unmatched")})),
+                "[]")
+
         control("a candidate with no decision event keeps its pair and says why",
                 json.dumps((doc.get("rows") or [{}])[-1]), "no_decision_event")
         control("and a candidate naming no unit keeps it too", json.dumps((doc.get("rows") or [{}])[-1]),
@@ -1447,7 +2131,8 @@ def _self_test_body(failures, ran):
         def facts_document(shared, current=None):
             """The rows and summary this stage writes when the session's inventory publishes `shared`."""
             doc_f = document(fixture, checks, candidates, current or facts_current, facts_sessions,
-                             release_doc, facts_store, lambda ref: shared, ["aa.jsonl"])
+                             release_doc, facts_store, lambda ref: shared, ["aa.jsonl"],
+                             suite_views)
             return {row["unit_id"]: row for row in doc_f["rows"]}, doc_f
 
         # The pair this fixture owes is u-1's, so the block that cannot answer for it is the one
@@ -1697,12 +2382,86 @@ def _self_test_body(failures, ran):
         control("a session the release document does not carry is named, not read as complete",
                 json.dumps(absent), "absent_from_release_document")
 
+        # ---- the reference point, against `release_rows` as it is PUBLISHED -----------------------
+        #
+        # Three defects met here and together made the catalogue absence unreachable (the WP-11b
+        # review): `items` was read from a field `release_rows` does not have, `segments` was
+        # ignored so every segmented session came out incomplete, and `layers` was derived from
+        # `incomplete_reasons`, which names only the layers that are NOT complete.
+        held_ref_a, held_ref_b = "i-" + "e" * 24, "i-" + "f" * 24
+        rel_doc = {"sessions": [{"session_ref": "p-seg", "segments": [
+            {"segment_ref": "rollout-one", "inventory_refs": [held_ref_a],
+             "layers": [{"layer": "catalog", "status": "complete", "reasons": [],
+                         "source": {"inventory_ref": held_ref_a, "layer": "catalog",
+                                    "basis": "pin"}}],
+             "complete": True, "incomplete_reasons": []},
+            {"segment_ref": "rollout-two", "inventory_refs": [held_ref_b],
+             "layers": [{"layer": "catalog", "status": "unknown",
+                         "reasons": ["release_history_deferred"], "source": None}],
+             "complete": False,
+             "incomplete_reasons": [{"layer": "catalog", "status": "unknown",
+                                     "reasons": ["release_history_deferred"],
+                                     "inventory_ref": None}]}], "unsegmented": None}]}
+        inventories = {held_ref_a: {"items": [{"ref": "claude:one", "surface": "always"}]},
+                       held_ref_b: {"items": [{"ref": "claude:two", "surface": "always"}]}}
+        first = release_of(rel_doc, "p-seg", "rollout-one", lambda ref: inventories.get(ref), {})
+        second = release_of(rel_doc, "p-seg", "rollout-two", lambda ref: inventories.get(ref), {})
+        control("the reference point is the SEGMENT the decision belongs to",
+                json.dumps(first["items"]), "claude:one")
+        control("and another segment of the same session answers differently, which is why one "
+                "answer per session was wrong",
+                json.dumps(second["items"]), "claude:two")
+        control("each segment's own completeness is read, not the session's",
+                json.dumps({"one": first["complete"], "two": second["complete"]}),
+                '{"one": true, "two": false}')
+        control("the point it answered on is named, so a reader knows which row set was used",
+                first["point"], "segment")
+        control("a COMPLETE layer carries its status, which deriving from incomplete_reasons could "
+                "not say at all",
+                json.dumps(first["layers"]), '"catalog": "complete"')
+        control("and an incomplete one carries its own", json.dumps(second["layers"]),
+                '"catalog": "unknown"')
+        control("a segmented session whose segment this decision names none of is reported "
+                "unresolved, not complete and not absent",
+                json.dumps(release_of(rel_doc, "p-seg", "rollout-gone",
+                                      lambda ref: inventories.get(ref), {})),
+                '"segment_unresolved": "rollout-gone"')
+        control("an inventory this run cannot open is named rather than folded into an empty item "
+                "set, because an empty set is the absence claim",
+                json.dumps(release_of(rel_doc, "p-seg", "rollout-one", lambda ref: None, {})),
+                f'"items_unresolved": ["{held_ref_a}"]')
+        clean("and `items` is not claimed for it",
+              release_of(rel_doc, "p-seg", "rollout-one", lambda ref: None, {})["items"])
+        # `unsegmented` is for a session NO segment covers, and only then.
+        unseg_doc = {"sessions": [{"session_ref": "p-un", "segments": [],
+                                   "unsegmented": {"inventory_refs": [held_ref_a],
+                                                   "layers": [{"layer": "catalog",
+                                                               "status": "complete",
+                                                               "reasons": [], "source": None}],
+                                                   "complete": True,
+                                                   "incomplete_reasons": []}}]}
+        control("a session no segment covers is answered from `unsegmented`",
+                release_of(unseg_doc, "p-un", None, lambda ref: inventories.get(ref), {})["point"],
+                "unsegmented")
+        control("and its items come from the inventory that row set references",
+                json.dumps(release_of(unseg_doc, "p-un", None,
+                                      lambda ref: inventories.get(ref), {})["items"]),
+                "claude:one")
+        control("the release's item reader is not the SESSION's: one asks what the library held, "
+                "the other what the session received",
+                json.dumps(sorted(released_items(
+                    {"items": [{"ref": "claude:stated"}]}, {}))),
+                '["claude:stated"]')
+        clean("and the session reader answers nothing for the same inventory, which is correct for "
+              "its own question and was the bug for this one",
+              sorted(selected_items({"items": [{"ref": "claude:stated"}]}, {})))
+
         # A unit whose text this run cannot see is answered unknown by name rather than judged on a
         # placeholder: the comparison would fail for every line and claim a miss from nothing read.
         redacted = {"units": [{**unit, "text": REDACTED} if unit["unit_id"] == u1 else unit
                               for unit in current["units"]]}
         doc_red = document(fixture, checks, candidates, redacted, sessions, release_doc, store,
-                           lambda ref: None, ["aa.jsonl"])
+                           lambda ref: None, ["aa.jsonl"], suite_views)
         control("a redacted unit is not judged on its placeholder",
                 json.dumps(([r["reasons"] for r in doc_red["rows"] if r["unit_id"] == u1]
                             or [["NO_ROW_FOR_THE_SUBJECT_UNIT"]])[0]),
@@ -1741,7 +2500,7 @@ def _self_test_body(failures, ran):
             {"type": "user", "message": {"content": [
                 {"type": "tool_result", "tool_use_id": "t5", "content": "- opaque"}]}},
         ]) + "\n", encoding="utf-8")
-        reads, unparsed, counts = reads_of(claude_copy, "claude")
+        reads, unparsed, counts = reads_of(fixture, claude_copy.relative_to(fixture), "claude")
         control("a named reader's path is its own argument", json.dumps((reads or [{}])[0]),
                 '"path": "/x/guides/g.md"')
         control("and the read is attributed to the line its RESULT arrived on",
@@ -1767,7 +2526,7 @@ def _self_test_body(failures, ran):
             {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "c1",
                                                   "output": "- Read the log before you retry."}},
         ]) + "\n", encoding="utf-8")
-        codex_reads, _codex_unparsed, _codex_counts = reads_of(codex_copy, "codex")
+        codex_reads, _codex_unparsed, _codex_counts = reads_of(fixture, codex_copy.relative_to(fixture), "codex")
         # Dumped whole rather than indexed: a revert that returns no read would end the suite with an
         # IndexError here and print nothing, which is the control-that-cannot-speak shape this branch
         # has now paid for twice (the ledger migrator's `[0]`, and `evidence["pin_reason"]`).
@@ -1775,9 +2534,234 @@ def _self_test_body(failures, ran):
                 '"path": "/x/guides/g.md"')
         control("and at the line of its output", json.dumps((codex_reads or [{}])[0]), '"at": 2')
 
-        missing = reads_of(fixture / SOURCES_DIR / "nope.jsonl", "claude")
+        # ---- Codex's exec_command, and a result that failed or was elided ------------------------
+        #
+        # `exec_command` carries its command under `cmd` and was absent from SHELL_READERS, so
+        # every one of its calls fell through as non-reading — silently, since a call with no
+        # `command` simply continued (the WP-11b review). And neither adapter read the result's own
+        # text for a failure or an elision: "Process exited with code 1" was counted as the file's
+        # delivered bytes, and a truncation warning as the whole file.
+        shapes_copy = fixture / SOURCES_DIR / "shapes.jsonl"
+        shapes_copy.write_text("\n".join(json.dumps(row) for row in [
+            {"type": "response_item", "payload": {
+                "type": "function_call", "call_id": "e1", "name": "exec_command",
+                "arguments": json.dumps({"cmd": "cat /x/guides/exec.md"})}},
+            {"type": "response_item", "payload": {
+                "type": "function_call_output", "call_id": "e1",
+                "output": "- the text of exec.md"}},
+            {"type": "response_item", "payload": {
+                "type": "function_call", "call_id": "e2", "name": "shell",
+                "arguments": json.dumps({"command": ["cat", "/x/guides/failed.md"]})}},
+            {"type": "response_item", "payload": {
+                "type": "function_call_output", "call_id": "e2",
+                "output": "cat: no such file\nProcess exited with code 1"}},
+            {"type": "response_item", "payload": {
+                "type": "function_call", "call_id": "e3", "name": "shell",
+                "arguments": json.dumps({"command": ["cat", "/x/guides/elided.md"]})}},
+            {"type": "response_item", "payload": {
+                "type": "function_call_output", "call_id": "e3",
+                "output": "- the first line\nWarning: truncated output"}},
+            {"type": "response_item", "payload": {
+                "type": "function_call", "call_id": "e4", "name": "shell",
+                "arguments": json.dumps({"command": ["cat", "/x/guides/ok.md"]})}},
+            {"type": "response_item", "payload": {
+                "type": "function_call_output", "call_id": "e4",
+                "output": "- all of it\nProcess exited with code 0"}},
+            {"type": "response_item", "payload": {
+                "type": "function_call", "call_id": "e5", "name": "local_shell",
+                "arguments": json.dumps({"invocation": {"argv": ["cat", "/x/guides/odd.md"]}})}},
+            {"type": "response_item", "payload": {
+                "type": "function_call_output", "call_id": "e5", "output": "- something"}},
+        ]) + "\n", encoding="utf-8")
+        shape_reads, shape_unparsed, shape_counts = reads_of(
+            fixture, shapes_copy.relative_to(fixture), "codex")
+
+        def read_paths(held):
+            return sorted(row["path"] for row in held if row.get("path"))
+
+        control("an exec_command call carrying its command under `cmd` is a read",
+                json.dumps(read_paths(shape_reads)), "/x/guides/exec.md")
+        control("a result whose text says the call FAILED is uncertainty, not delivered bytes",
+                json.dumps([row for row in shape_unparsed
+                            if row.get("path") == "/x/guides/failed.md"]),
+                '"reason": "result_failed"')
+        control("and the refusal says which exit code it read",
+                json.dumps([row for row in shape_unparsed
+                            if row.get("path") == "/x/guides/failed.md"]),
+                "exit code 1")
+        clean("so the failed call contributes no read",
+              [row for row in shape_reads if row["path"] == "/x/guides/failed.md"])
+        control("a result the host ELIDED is uncertainty too, since the bytes are not the file's",
+                json.dumps([row for row in shape_unparsed
+                            if row.get("path") == "/x/guides/elided.md"]),
+                '"reason": "result_elided"')
+        clean("and it contributes no read either",
+              [row for row in shape_reads if row["path"] == "/x/guides/elided.md"])
+        control("an exit code of ZERO is not a failure, which is what makes the marker a status "
+                "rather than a word to look for",
+                json.dumps(read_paths(shape_reads)), "/x/guides/ok.md")
+        control("a shell call whose argument shape this adapter does not know is kept as named "
+                "uncertainty, not discarded as a call nobody made",
+                json.dumps([row for row in shape_unparsed
+                            if row.get("reason") == "call_shape_unsupported"]),
+                "local_shell")
+        control("and the counts say how many of each there were",
+                json.dumps({key: shape_counts.get(key) for key in
+                            ("result_failed", "result_elided", "call_shape_unsupported")}),
+                '{"result_failed": 1, "result_elided": 1, "call_shape_unsupported": 1}')
+        control("the command argument names are data, so a new shape is one entry",
+                json.dumps(list(COMMAND_ARGUMENTS)), '["command", "cmd", "commands"]')
+        # What the SHELL_READERS entry itself buys: a call of that tool whose argument shape this
+        # adapter does not know is VISIBLE rather than dropped. Without the entry it matches neither
+        # branch and falls through, which is how every `exec_command` call disappeared.
+        odd_exec = fixture / SOURCES_DIR / "odd-exec.jsonl"
+        odd_exec.write_text("\n".join(json.dumps(row) for row in [
+            {"type": "response_item", "payload": {
+                "type": "function_call", "call_id": "x1", "name": "exec_command",
+                "arguments": json.dumps({"shell": {"argv": ["cat", "/x/guides/odd2.md"]}})}},
+            {"type": "response_item", "payload": {
+                "type": "function_call_output", "call_id": "x1", "output": "- bytes"}},
+        ]) + "\n", encoding="utf-8")
+        _odd_reads, odd_unparsed, odd_counts = reads_of(fixture, odd_exec.relative_to(fixture),
+                                                        "codex")
+        control("an exec_command call whose argument shape is unknown is named, which is what "
+                "listing the tool buys: without it the call matches no branch and is dropped",
+                json.dumps(odd_unparsed), '"reason": "call_shape_unsupported"')
+        control("and it says which tool and which arguments, so the next shape is one entry",
+                json.dumps(odd_unparsed), "exec_command: ['shell']")
+        control("the tools whose calls are read as shell commands are named in one place",
+                json.dumps(sorted(SHELL_READERS)),
+                json.dumps(sorted(["Bash", "shell", "local_shell", "container.exec",
+                                   "exec_command"])))
+
+        # The SAME judgment on the Claude side: a host that writes the failure into the text does
+        # not set `is_error`, so the structured check above it does not catch this one.
+        cl_defect = fixture / SOURCES_DIR / "cl-defect.jsonl"
+        cl_defect.write_text("\n".join(json.dumps(row) for row in [
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "d1", "name": "Bash",
+                 "input": {"command": "cat /x/guides/cl-failed.md"}}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "d1",
+                 "content": "cat: missing\nProcess exited with code 2"}]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "d2", "name": "Read",
+                 "input": {"file_path": "/x/guides/cl-elided.md"}}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "d2",
+                 "content": "- the head\n<response clipped>"}]}},
+        ]) + "\n", encoding="utf-8")
+        cl_reads, cl_unparsed, cl_counts = reads_of(fixture, cl_defect.relative_to(fixture),
+                                                    "claude")
+        clean("a Claude result that failed in its TEXT rather than in `is_error` admits no read",
+              [row for row in cl_reads if "cl-failed" in row["path"]])
+        control("and is named as the failure it is",
+                json.dumps([row for row in cl_unparsed if "cl-failed" in (row.get("path") or "")]),
+                '"reason": "result_failed"')
+        clean("an elided Read result admits no read either",
+              [row for row in cl_reads if "cl-elided" in row["path"]])
+        control("and the one judgment serves both adapters, named in one place",
+                next((line.strip() for line in inspect.getsource(_claude_reads).splitlines()
+                      if "result_defect(" in line), "<no such line>"),
+                "result_defect(returned)")
+        control("with the Codex adapter reaching the same function",
+                next((line.strip() for line in inspect.getsource(_codex_reads).splitlines()
+                      if "result_defect(" in line), "<no such line>"),
+                "result_defect(returned)")
+
+        missing = reads_of(fixture, pathlib.PurePosixPath(SOURCES_DIR) / "nope.jsonl", "claude")
         control("a copy the run does not hold is named, not read as an empty session",
                 json.dumps(missing[2]), "copy_missing")
+
+        # ---- the label is CONFINED before the filesystem is touched -----------------------------
+        #
+        # The path was `pathlib.Path(run_dir) / copy`, which discards `run_dir` entirely for an
+        # absolute label, follows `..`, and follows a symlink out. S2's manifest is a run artifact
+        # and therefore DATA: a row in it could point this stage at any file the owner can read,
+        # and it would open it and report its reads (the WP-11b review). The confinement lives in
+        # `reads_of` rather than at the call site, because a caller can forget it.
+        outside = pathlib.Path(fixture).parent / "outside-the-run.jsonl"
+        outside.write_text(json.dumps(
+            {"type": "assistant",
+             "message": {"content": [{"type": "tool_use", "id": "x1", "name": "Read",
+                                      "input": {"file_path": "/x/guides/secret.md"}}]}}) + "\n",
+            encoding="utf-8")
+
+        def _linked_label(root, target):
+            """A label INSIDE the run whose own path is a symlink pointing at `target`.
+
+            No string test catches this one: the label is relative, holds no `..` and starts with
+            no slash. Only resolving it does.
+            """
+            link = pathlib.Path(root) / SOURCES_DIR / "linked.jsonl"
+            if link.is_symlink() or link.exists():
+                link.unlink()
+            link.symlink_to(target)
+            return str(link.relative_to(root))
+
+        def document_probe_reads(root):
+            """Every read of every copy this fixture's manifest names, as the stage would gather it.
+
+            Used to assert that the file outside the run contributed nothing — an assertion about
+            the OUTPUT, not only about the refusal, since a refusal that is caught somewhere above
+            would still leave the read in the document.
+            """
+            held = []
+            for label in (claude_copy.relative_to(root), codex_copy.relative_to(root)):
+                try:
+                    held.extend(reads_of(root, label, "claude")[0])
+                except Exception:  # noqa: BLE001 - a refusal contributes nothing, which is the point
+                    continue
+            return held
+
+        def escaped(label):
+            try:
+                reads_of(fixture, label, "claude")
+            except Exception as exc:  # noqa: BLE001 - the refusal IS the answer
+                return f"{type(exc).__name__}: {exc}"
+            return "<no refusal>"
+
+        control("an ABSOLUTE label is refused rather than read, which is the case `/` silently "
+                "allowed by discarding the run",
+                escaped(str(outside)), "EVIDENCE_OUTSIDE_RUN")
+        control("a traversing label is refused", escaped("../outside-the-run.jsonl"),
+                "EVIDENCE_OUTSIDE_RUN")
+        control("and a label inside the run that SYMLINKS out, which no string test catches",
+                escaped(_linked_label(fixture, outside)), "EVIDENCE_OUTSIDE_RUN")
+        clean("the file outside the run was never opened: it still holds exactly what the control "
+              "wrote, and no read of it reached any document",
+              [] if "secret.md" not in json.dumps(document_probe_reads(fixture))
+              else ["a read of the file outside the run reached the document"])
+        control("and an ordinary label still works, so the confinement is not refusing everything",
+                json.dumps(reads_of(fixture, claude_copy.relative_to(fixture), "claude")[0]),
+                '"path": "/x/guides/g.md"')
+
+        # ---- the JSONL splitter, not `str.splitlines()` ------------------------------------------
+        #
+        # `splitlines()` also splits U+2028, U+2029 and U+0085, so ONE record carrying a separator
+        # inside a JSON string became two lines: the record ordinals this stage reports were on a
+        # different scale from S2's, and the second half was discarded as unparsable. The same
+        # defect as the journal's, in a different file (the WP-11b review).
+        sep_copy = fixture / SOURCES_DIR / "sep.jsonl"
+        sep_copy.write_text("\n".join([
+            json.dumps({"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "s1", "name": "Read",
+                 "input": {"file_path": "/x/guides/sep\u2028ated.md"}}]}}),
+            json.dumps({"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "s1", "content": "- the text"}]}}),
+        ]) + "\n", encoding="utf-8")
+        sep_reads, sep_unparsed, sep_counts = reads_of(fixture,
+                                                       sep_copy.relative_to(fixture), "claude")
+        control("a record carrying a Unicode line separator inside a JSON string is ONE record",
+                str(sep_counts.get("records")), "2")
+        control("and its read is attributed to the physical line its result arrived on, which is "
+                "the ordinal S2 counts in",
+                json.dumps((sep_reads or [{}])[0]), '"at": 2')
+        clean("and nothing was discarded as unparsable", [row for row in sep_unparsed])
+        control("the splitter is the repository's one, reached rather than re-implemented",
+                next((line.strip() for line in inspect.getsource(reads_of).splitlines()
+                      if "lines = " in line), "<no such line>"),
+                "records.jsonl_read(path")
 
         # The manifest is what says which copy belongs to which session.
         # The manifest row's SESSION is what the session row names; its transcript string is deliberately
@@ -1801,6 +2785,45 @@ def _self_test_body(failures, ran):
         clean("a session with no copy carries no `reads` key at all", [k for k in without if k == "reads"])
         control("and the counts say the copy is absent", json.dumps(no_copy), '"copy": "absent"')
 
+        # ---- a copy the manifest NAMES and this run cannot open ----------------------------------
+        #
+        # `reads_of` returns empty reads plus `copy_missing`, and this installed `reads = []` —
+        # "the session read nothing", which is a claim. The judge then reported an exposed guide as
+        # NOT READ from evidence nobody acquired (the WP-11b review). The no-entry case was already
+        # right, and the two are different answers: one says this run holds no copy, the other that
+        # it holds a copy it cannot open.
+        gone_views = {"transcripts": [{**views["transcripts"][0],
+                                       "source_copy": f"{SOURCES_DIR}/not-written.jsonl"}]}
+        gone, gone_counts = session_evidence(session_row, events_by_ref,
+                                             units_by_version(unit_index(current)), release_doc,
+                                             lambda ref: None, store, fixture,
+                                             copies_of(gone_views))
+        clean("a copy the manifest names and the run cannot open installs NO reads, so nothing "
+              "claims the session read nothing",
+              [key for key in gone if key == "reads"])
+        control("and the acquisition is carried as unavailable, with its own reason",
+                json.dumps(gone.get("read_evidence")),
+                '"status": "unavailable"')
+        control("named `copy_missing`, which is not the same answer as holding no copy",
+                json.dumps(gone.get("read_evidence")), '"reason": "copy_missing"')
+        control("the counts distinguish the two", json.dumps(gone_counts), '"copy": "missing"')
+        control("while holding no copy at all is `absent`, and says so in the evidence too",
+                json.dumps(without.get("read_evidence")), '"reason": "copy_absent"')
+        control("and an available copy records that it was read", json.dumps(
+            with_reads.get("read_evidence")), '"status": "available"')
+        # And the judge's side: the pair is answered unknown with that reason rather than judged.
+        gone_doc = document(fixture, checks, candidates, current, sessions, release_doc, store,
+                            lambda ref: None, ["aa.jsonl"],
+                            {"transcripts": suite_views["transcripts"] + gone_views["transcripts"]})
+        control("a pair whose session's records could not be acquired is answered unknown naming "
+                "the acquisition, not judged against an empty read set",
+                json.dumps([row["reasons"] for row in gone_doc["rows"]
+                            if row.get("session") == "claude:t-1"]),
+                "copy_missing")
+        clean("and no such pair comes out delivered or missed",
+              [row["state"] for row in gone_doc["rows"]
+               if row.get("session") == "claude:t-1" and row["state"] != "unknown"])
+
         # The two refusals, each before any write.
         empty = root / "r-empty"
         (empty / SOURCES_DIR).mkdir(parents=True)
@@ -1810,6 +2833,36 @@ def _self_test_body(failures, ran):
         gone = root / "r-nosources"
         gone.mkdir()
         control("so is a run with no copy at all", refusal(lambda: run(gone)), "DELIVERY_SOURCES_MISSING")
+
+        # The EDGES prerequisite, through `run`, before any stage record is published. It used to
+        # be checked inside `document`, after `run_stage` had written `status: running` — so a
+        # condition knowable from S2's own document left a FAILED attempt behind, and a stage record
+        # that says an attempt failed is read as an attempt (the WP-11b review).
+        no_edge_run = root / "r-noedges"
+        (no_edge_run / SOURCES_DIR).mkdir(parents=True)
+        (no_edge_run / SOURCES_DIR / "aa.jsonl").write_text("{}\n", encoding="utf-8")
+        (no_edge_run / "inventory").mkdir(parents=True)
+        stripped = {"units": [{key: value for key, value in unit.items() if key != "edges"}
+                              for unit in current["units"]]}
+        records.write_json(no_edge_run, no_edge_run / "inventory" / "current.json", stripped)
+        control("a run whose current units carry no `edges` is refused by name",
+                refusal(lambda: run(no_edge_run)), "DELIVERY_EDGES_ABSENT")
+        clean("and NO stage record was published for it, so the refusal is not read as an attempt",
+              sorted(str(held.relative_to(no_edge_run))
+                     for held in (no_edge_run / "stages").rglob("*")
+                     if held.is_file()) if (no_edge_run / "stages").is_dir() else [])
+        clean("and this stage's output is not there either",
+              [OUTPUT] if (no_edge_run / OUTPUT).is_file() else [])
+        control("the prerequisite is read before the stage is entered, from S2's own document",
+                next((line.strip() for line in inspect.getsource(run).splitlines()
+                      if "unit_index(" in line), "<no such line>"),
+                "unit_index(held_current)")
+        clean("and the line that reads it comes BEFORE the one that enters the stage",
+              [] if [n for n, line in enumerate(inspect.getsource(run).splitlines())
+                     if "unit_index(held_current)" in line][0]
+              < [n for n, line in enumerate(inspect.getsource(run).splitlines())
+                 if "records.run_stage(" in line][0]
+              else ["the prerequisite is read after the stage is entered"])
 
         stopped = root / "r-stopped"
         (stopped / SOURCES_DIR).mkdir(parents=True)
