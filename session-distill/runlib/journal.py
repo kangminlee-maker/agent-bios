@@ -38,7 +38,7 @@ import unicodedata
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import destinations  # noqa: E402
+from runlib import destinations, targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 # §10.5's own four, and the three the plan adds. Held against the design sentence below by
@@ -300,16 +300,16 @@ def record_problems(record):
                             f"not admissible in a value this journal carries on one line")
     target = record.get("target")
     if isinstance(target, str) and target:
-        # The target is a path an effect will open, judged by component as §10.5's operations are.
-        parts = target.split("/")
-        if target.startswith("/") or target.startswith("~"):
-            problems.append(f"JOURNAL_TARGET_ABSOLUTE {kind}: {target!r} is not a path inside the "
-                            f"checkout")
-        if ".." in parts:
-            problems.append(f"JOURNAL_TARGET_TRAVERSAL {kind}: {target!r} carries a `..` segment")
-        if "" in parts[1:-1] or target.endswith("/"):
-            problems.append(f"JOURNAL_TARGET_SPELLING {kind}: {target!r} has an empty path "
-                            f"component, so two spellings would name one file")
+        # The target is a path an effect will open, and ONE contract says what it names:
+        # `runlib/targets.py`. These rules were a second copy, and the copies disagreed — this one
+        # accepted `./claude/CLAUDE.md` where `drift` refused the same spelling, so an approval was
+        # valid or invalid according to which surface was asked (the round-2 review). The codes keep
+        # the `JOURNAL_` namespace by prefix, so a record still says which surface judged it while
+        # the rule has one owner.
+        for held in targets.lexical_problems(target):
+            code, _, detail = held.partition(" ")
+            problems.append(f"JOURNAL_{code} {kind}: {detail}" if detail
+                            else f"JOURNAL_{code} {kind}")
     return problems
 
 
@@ -887,7 +887,12 @@ def self_test():
                                  ("~/.claude/CLAUDE.md", "JOURNAL_TARGET_ABSOLUTE"),
                                  ("claude/../../etc/x", "JOURNAL_TARGET_TRAVERSAL"),
                                  ("claude//guides/g.md", "JOURNAL_TARGET_SPELLING"),
-                                 ("claude/guides/", "JOURNAL_TARGET_SPELLING")):
+                                 ("claude/guides/", "JOURNAL_TARGET_SPELLING"),
+                                 # The spelling the two surfaces disagreed on: this suite took it
+                                 # and `drift` refused it, so one approval was valid or invalid by
+                                 # which surface was asked. One contract now answers both.
+                                 ("./claude/CLAUDE.md", "JOURNAL_TARGET_SPELLING"),
+                                 ("claude/./CLAUDE.md", "JOURNAL_TARGET_SPELLING")):
             control(f"a target spelled {bad_target!r} is refused by name",
                     "; ".join(record_problems({**fx_plan(), "target": bad_target})), want)
         control("and a control character in the approval id is refused too, since every value here "
@@ -895,6 +900,11 @@ def self_test():
                 "; ".join(record_problems({**fx_plan(), "approval_id": "A-1\u0085x"})),
                 "JOURNAL_CONTROL_CHARACTER")
         clean("while an ordinary target passes", record_problems(fx_plan()))
+        control("the rule is the identity contract's, not a second copy here: the two surfaces "
+                "answer one question with one answer",
+                "; ".join(f"{held}|{targets.lexical_problems('./claude/CLAUDE.md')[0].split(' ')[0]}"
+                          for held in ["journal"]),
+                "journal|TARGET_SPELLING")
 
         # A control character in a record's own fields is a different question, and the record
         # rules answer it: the framing must carry any payload, and the rules decide which payloads

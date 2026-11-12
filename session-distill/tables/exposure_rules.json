@@ -9,70 +9,187 @@
   "rules": [
     {
       "id": "create_or_edit",
-      "applies_to": {"operation": ["create", "edit"]},
-      "requires": ["delivered_version", "applied_version"],
+      "applies_to": {
+        "operation": [
+          "create",
+          "edit"
+        ]
+      },
+      "requires": [
+        "delivered_version",
+        "applied_version"
+      ],
       "shown_when": "delivered_version == applied_version",
       "design": "create or edit — delivery of the applied unit version at its surface's level (§6.3)",
-      "$comment": "The version is bound by bytes, never by path (WP-10's ladder), so the comparison is of digests the delivery evidence already produced."
+      "$comment": "The version is bound by bytes, never by path (WP-10's ladder), so the comparison is of digests the delivery evidence already produced.",
+      "optional_facts": []
     },
     {
       "id": "delete_or_merge",
-      "applies_to": {"operation": ["delete", "merge"]},
-      "requires": ["pin_units"],
+      "applies_to": {
+        "operation": [
+          "delete",
+          "merge"
+        ]
+      },
+      "requires": [
+        "pin_units"
+      ],
       "shown_when": "removed_unit not in pin_units and (merged_unit is None or merged_unit in pin_units)",
       "design": "delete or merge — the session's pin shows the removed unit absent (and the merged unit present)",
-      "$comment": "Both halves, or a merge that dropped its content would read as exposed because the removal alone succeeded."
+      "$comment": "Both halves, or a merge that dropped its content would read as exposed because the removal alone succeeded.",
+      "requires_by_operation": {
+        "delete": [
+          "removed_unit"
+        ],
+        "merge": [
+          "removed_unit",
+          "merged_unit"
+        ]
+      },
+      "optional_facts": [
+        "merged_unit"
+      ],
+      "$comment_reads": "A pin alone proves nothing: 'the removed unit is absent' needs the unit that was removed, and a merge needs the unit it merged into. With both absent as None, an occasion carrying only `pin_units: []` came back eligible. `merged_unit` stays optional for a plain delete, where its absence means no merge was asked for."
     },
     {
       "id": "route",
-      "applies_to": {"operation": ["route"]},
-      "requires": ["pin_routes", "pin_units"],
+      "applies_to": {
+        "operation": [
+          "route"
+        ]
+      },
+      "requires": [
+        "pin_routes",
+        "pin_units",
+        "route_entry",
+        "routed_unit"
+      ],
       "shown_when": "route_entry in pin_routes and routed_unit in pin_units",
       "design": "route — the pin shows the route entry and the unit reached by it",
-      "$comment": "A route entry whose unit the pin does not hold is a route to nothing, which is not exposure."
+      "$comment": "A route entry whose unit the pin does not hold is a route to nothing, which is not exposure.",
+      "optional_facts": [],
+      "$comment_reads": "the route's own entry and the unit it reaches are the identities being looked for; without them the two memberships read None and the branch would answer not_exposed where nothing was shown."
     },
     {
       "id": "executable_invoked",
-      "applies_to": {"role": ["hook", "script", "tool", "wrapper"]},
-      "requires": ["invocation_path", "invocation_sha256"],
+      "applies_to": {
+        "role": [
+          "hook",
+          "script",
+          "tool",
+          "wrapper"
+        ]
+      },
+      "requires": [
+        "invocation_path",
+        "invocation_sha256"
+      ],
       "shown_when": "invocation_path == applied_path and invocation_sha256 == applied_sha256",
       "design": "executable, by its role — invoked directly (a hook, script, tool, or wrapper): the invocation at that occasion names the applied artifact's path and hash",
-      "$comment": "Path AND hash: a path that still resolves to the old bytes is the case §6.3's levels exist to catch."
+      "$comment": "Path AND hash: a path that still resolves to the old bytes is the case §6.3's levels exist to catch.",
+      "optional_facts": [
+        "applied_path",
+        "applied_sha256"
+      ],
+      "$comment_reads": "the applied artifact's own identity is the other side of the comparison; it comes from the applied item, not from the occasion."
     },
     {
       "id": "executable_compiler",
-      "applies_to": {"role": ["catalog_compiler"]},
-      "requires": ["compiler_digest"],
+      "applies_to": {
+        "role": [
+          "catalog_compiler"
+        ]
+      },
+      "requires": [
+        "compiler_digest"
+      ],
       "shown_when": "compiler_digest == applied_sha256",
       "design": "producing an artifact others consume (the catalog compiler): the session consumed an artifact produced by the applied version, shown by the version digest the artifact records (the snapshot's `inputs.compiler_digest`)",
-      "$comment": "O9's fixture: a compiler change with the OLD compiler digest on the snapshot is shown not exposed, not unknown - the snapshot answered the question."
+      "$comment": "O9's fixture: a compiler change with the OLD compiler digest on the snapshot is shown not exposed, not unknown - the snapshot answered the question.",
+      "optional_facts": [
+        "applied_sha256"
+      ],
+      "$comment_reads": "as above: the applied digest is the item's, not the occasion's."
     },
     {
       "id": "executable_installer",
-      "applies_to": {"role": ["installer"]},
-      "requires": ["installer_digest"],
+      "applies_to": {
+        "role": [
+          "installer"
+        ]
+      },
+      "requires": [
+        "installer_digest"
+      ],
       "shown_when": "installer_digest == applied_sha256 and begun_by_installer_digest in (None, applied_sha256)",
       "unknown_when": "installer_digest is None or (begun_by_installer_digest is not None and begun_by_installer_digest != applied_sha256)",
       "design": "for the installer, the installation receipt bound to the session's snapshot (§6.3) names the applied installer digest as `installer_digest` and, where the transaction was recovered, as `begun_by_installer_digest` too — a transaction begun or finished by another installer version, or an unbound one, is `exposure_unknown`; this is the single installer-exposure predicate",
-      "$comment": "The one rule §11 writes the unknown case into itself. A receipt with no digest is an unbound transaction; a recovery whose two digests disagree is a transaction two versions touched. `compose/instructions_install.py::_receipt_body` is what writes both fields."
+      "$comment": "The one rule §11 writes the unknown case into itself. A receipt with no digest is an unbound transaction; a recovery whose two digests disagree is a transaction two versions touched. `compose/instructions_install.py::_receipt_body` is what writes both fields.",
+      "optional_facts": [
+        "applied_sha256",
+        "begun_by_installer_digest"
+      ],
+      "$comment_reads": "the applied digest is the item's; `begun_by_installer_digest` is optional because its absence means no second version began the transaction, which is what §11's unknown case turns on."
     },
     {
       "id": "executable_deleted",
-      "applies_to": {"operation": ["delete"], "role": ["hook", "script", "tool", "wrapper", "installer", "catalog_compiler"]},
-      "requires": ["resolved_path", "resolved_sha256"],
+      "applies_to": {
+        "operation": [
+          "delete"
+        ],
+        "role": [
+          "hook",
+          "script",
+          "tool",
+          "wrapper",
+          "installer",
+          "catalog_compiler"
+        ]
+      },
+      "requires": [
+        "resolved_path",
+        "resolved_sha256"
+      ],
       "shown_when": "resolved_sha256 != removed_sha256 and resolved_sha256 != fallback_sha256 and (required_replacement is None or resolved_sha256 == required_replacement)",
       "unknown_when": "resolved_path is None and resolved_sha256 is None",
       "design": "deleted: the effective resolution recorded at that occasion — the launcher binding or the invocation record's resolved path and artifact hash — shows neither the removed artifact nor an older fallback carrier, and shows any required replacement; when the occasion recorded no resolution, exposure is `exposure_unknown`",
-      "$comment": "O9's fixture: a removed wrapper that resolves to an OLDER carrier is shown not exposed. The older carrier is the case a path-only check misses, which is why the hash decides."
+      "$comment": "O9's fixture: a removed wrapper that resolves to an OLDER carrier is shown not exposed. The older carrier is the case a path-only check misses, which is why the hash decides.",
+      "requires_by_operation": {
+        "delete": [
+          "removed_sha256",
+          "fallback_sha256"
+        ]
+      },
+      "optional_facts": [
+        "required_replacement"
+      ],
+      "$comment_reads": "'the resolution is neither the removed artifact nor an older carrier' needs both of those digests; without them the two inequalities are trivially true and a wrapper carrying only its own resolution came back eligible. `required_replacement` is genuinely optional: absent means no particular replacement was required."
     },
     {
       "id": "personal",
-      "applies_to": {"operation": ["personal"]},
-      "requires": ["layer_sha256", "loading_record"],
+      "applies_to": {
+        "operation": [
+          "personal"
+        ]
+      },
+      "requires": [
+        "layer_sha256",
+        "loading_record"
+      ],
       "shown_when": "layer_sha256 == applied_sha256 and loading_record is True",
       "unknown_when": "loading_record is None",
       "design": "personal — the layer's identity matches the applied hash and the host's loading record shows it loaded",
-      "$comment": "O9's fixture: a personal change with no loading record is exposure_unknown, because the host never said whether it loaded the layer."
+      "$comment": "O9's fixture: a personal change with no loading record is exposure_unknown, because the host never said whether it loaded the layer.",
+      "optional_facts": [
+        "applied_sha256"
+      ],
+      "$comment_reads": "the applied digest is the item's."
     }
-  ]
+  ],
+  "precedence": [
+    "role",
+    "operation"
+  ],
+  "$comment_precedence": "Which applies_to key outranks which, when two rows match one occasion. Read by `rule_for`, which weights a row by the keys it is matched on in this order and REFUSES a tie: an occasion of operation 'edit' and role 'installer' matched both `create_or_edit` (operation only) and `executable_installer` (role only) at one key each, and the earlier row in this list won by position. §11 writes the executable branches by ROLE, so role is the more specific claim and says so here instead of being implied by order."
 }

@@ -31,13 +31,14 @@ from the owner's homes, and its suite asserts it spawns nothing.
     drift.py --self-test
 """
 import json
+import os
 import pathlib
 import posixpath
 import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import sequencing  # noqa: E402
+from runlib import destinations, sequencing, targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -92,42 +93,22 @@ def table_problems():
 def target_identity(target):
     """The canonical identity of a target path, or None when it is not a target at all.
 
-    One identity for validation, layer mapping, chaining, journalling and application, because
-    anything less makes two spellings of one file into two files. `claude/guides//g.md` and
-    `claude/guides/g.md` both passed the producer's path rules and both mapped to the guides layer
-    while the hash chain keyed on the RAW string, so one file could be edited twice with neither
-    operation seeing the other's after-hash (found by the WP-21 review).
-
-    Spellings that could name one file two ways are refused rather than silently normalized, which
-    is `target_problems`'s job; this function answers what the identity IS.
+    One identity for validation, layer mapping, chaining, journalling and application — and one
+    OWNER for it: `runlib/targets.py`. This was a copy of those rules, and the journal carried a
+    third, which is how `./claude/CLAUDE.md` came to be refused here and accepted there.
     """
-    if not isinstance(target, str) or not target:
-        return None
-    return posixpath.normpath(target)
+    return targets.identity(target)
 
 
-def target_problems(target):
-    """Why this target may not be applied, by name. Empty means its spelling is canonical.
+def target_problems(target, checkout=None):
+    """Why this target may not be applied, by name. Empty means it is canonical and contained.
 
-    Refusing is the half that matters: normalizing quietly would let an approval naming
-    `claude/guides//g.md` apply to `claude/guides/g.md`, and the owner approved the text they read.
+    With a checkout, the path the KERNEL will walk is judged too: a symlink anywhere in the chain
+    is refused, because `claude/guides/to-root/CLAUDE.md` reaches the always-loaded global file
+    while being classified as a guide, and the global-file judgment, the merge requirement and the
+    ceiling all belong to the layer the path was classified as.
     """
-    if not isinstance(target, str) or not target:
-        return [f"TARGET_ABSENT {target!r}: an operation names a path"]
-    problems = []
-    if target.startswith("/") or target.startswith("~"):
-        problems.append(f"TARGET_ABSOLUTE {target!r}: a target is a path inside the checkout")
-    parts = target.split("/")
-    if ".." in parts:
-        problems.append(f"TARGET_TRAVERSAL {target!r}: a `..` segment leaves the checkout")
-    if "." in parts or "" in parts[1:] or target.endswith("/"):
-        problems.append(f"TARGET_SPELLING {target!r}: an empty or `.` component makes two spellings "
-                        f"of one file, and the chain, the layer and the journal would key on "
-                        f"different ones")
-    if target != posixpath.normpath(target):
-        problems.append(f"TARGET_UNCANONICAL {target!r}: its canonical form is "
-                        f"{posixpath.normpath(target)!r}")
-    return problems
+    return targets.problems(target, checkout)
 
 
 def layer_of(target):
@@ -219,6 +200,13 @@ def operation_problems(f, declaration):
     (`OPERATION_LAYER_UNKNOWN`) — the second is a table gap, the first a declaration gap.
     """
     problems, held = [], set(declared_layers(declaration))
+    # The declared checkout root, which is what the identity contract is bound to. Absent, the
+    # spelling is still judged and the walk is not claimed — `targets.problems` says which.
+    checkout = ((declaration or {}).get("destinations") or {}).get("checkout")
+    held_targets = [operation.get("target") for item in f or ()
+                    for operation in item.get("operations") or ()]
+    problems += targets.set_problems(held_targets, checkout if checkout
+                                     and pathlib.Path(checkout).is_dir() else None)
     for item in f or ():
         for operation in item.get("operations") or ():
             target = operation.get("target")
@@ -298,31 +286,36 @@ def order_problems(f, gate=None, base=None):
     if not items:
         return {"ordered": [], "problems": []}
     approved = [item["item_id"] for item in items]
-    answer = sequencing.subset_answer(items, gate=gate or sequencing.route_integrity, base=base)
-    # `subset_answer` returns the order as a list of ITEM IDS and says whether it sequenced at all,
-    # which is the row WP-12 built for exactly this caller.
+    held_gate = gate or sequencing.route_integrity
+    # The APPROVED order is what the owner read and what the hash chain was validated against, so it
+    # is the order this function asks about FIRST and returns when it holds.
+    #
+    # Round 2 found the cost of asking the other question: this used to run the SEARCH and compare
+    # its answer with the approved order. The search returns the first passing order it reaches in
+    # sorted-id order, so a valid approved order was reported as ORDER_REARRANGED whenever another
+    # valid order sorted earlier — `z-first` then `a-second`, both orders passing, and the approved
+    # one refused. A valid approved order is now validated directly, in one pass and with no search.
+    answer = sequencing.order_answer(items, approved, gate=held_gate, base=base)
     if answer.get("sequenced"):
-        held_order = list(answer.get("order") or [])
-        # The APPROVED order is what the owner read and what the hash chain was validated against.
-        # `sequence` searches item ids in sorted order, so it can return a DIFFERENT order that also
-        # passes — and this function returned that one. Applying it would apply a set in an order
-        # nobody approved and whose chain was never checked, so a rearrangement is refused and the
-        # owner is asked again (the WP-21 review).
-        if held_order != approved:
-            return {"ordered": [], "answer": answer,
-                    "problems": [f"ORDER_REARRANGED {', '.join(held_order)}: an order exists but it "
-                                 f"is not the approved one ({', '.join(approved)}); the chain was "
-                                 f"validated against the approved order, so applying this one "
-                                 f"would apply a sequence nobody approved"]}
-        return {"ordered": held_order, "problems": [], "answer": answer}
-    reason = answer.get("reason") or answer.get("refusal") or "no order admits every intermediate state"
-    return {"ordered": [], "answer": answer,
-            "problems": [f"ORDER_NONE {reason}: the approved set has no order whose every "
-                         f"intermediate state passes, so the items are returned rather than "
-                         f"applied"]}
+        return {"ordered": list(answer.get("order") or []), "problems": [], "answer": answer}
+    # Only now is the search worth running, and only to say WHICH of two things is true: another
+    # order exists (the owner is asked again, because applying that one would apply a sequence
+    # nobody approved and whose chain was never checked), or none does.
+    reason = answer.get("reason") or "the approved order does not hold"
+    found = sequencing.subset_answer(items, gate=held_gate, base=base)
+    if found.get("sequenced"):
+        return {"ordered": [], "answer": answer, "alternative": found,
+                "problems": [f"ORDER_REARRANGED {', '.join(found.get('order') or [])}: the approved "
+                             f"order ({', '.join(approved)}) does not hold — {reason} — and this "
+                             f"other order does; the chain was validated against the approved one, "
+                             f"so applying this one would apply a sequence nobody approved"]}
+    return {"ordered": [], "answer": answer, "alternative": found,
+            "problems": [f"ORDER_NONE {found.get('reason') or reason}: the approved set has no "
+                         f"order whose every intermediate state passes, so the items are returned "
+                         f"rather than applied"]}
 
 
-# The global file takes deletions and merges only (§7.4, WP-14). `gates/check-global-file.py` holds
+# The global file takes deletions and merges only (§7.4, WP-14). The author-side ceiling gate holds
 # it to a 20 KiB CEILING and DISCLOSES every added line without blocking it, which makes S11's
 # refusal the only thing between "an unrelated line entered the always-loaded file under cover of a
 # deletion" and the owner's global file: below the ceiling the gate passes any edit, so a deletion
@@ -497,15 +490,30 @@ def self_test():
 
     # ---- the order that comes back is the order that was approved ---------------------------------
     #
-    # `sequence` searches item ids in sorted order, so it can find a DIFFERENT order that also
-    # passes. Returning that one would apply a sequence nobody approved and whose chain was never
-    # checked against it.
+    # The APPROVED order is validated directly and returned when it holds. Asking the search instead
+    # and comparing its answer refused a valid approved order whenever another valid order sorted
+    # earlier, which is what round 2 found with exactly this pair: `z-first` then `a-second`, both
+    # orders passing, the approved one reported as ORDER_REARRANGED.
     reordered = order_problems([fx_item("z-first", target="claude/guides/z.md"),
                                 fx_item("a-second", target="claude/guides/a.md")])
-    control("an order that is not the approved one is refused by name",
-            "; ".join(reordered["problems"]) or json.dumps(reordered["ordered"]),
-            "ORDER_REARRANGED")
-    clean("and nothing is returned to apply", reordered["ordered"])
+    clean("an approved order that holds is not refused because another order sorts earlier",
+          reordered["problems"])
+    control("and it is the APPROVED order that comes back, not the search's",
+            json.dumps(reordered["ordered"]), '["z-first", "a-second"]')
+    # ORDER_REARRANGED is for the case it names: the approved order does NOT hold and another does.
+    # A route cannot be applied before the carrier it names, so the approved order fails at step 1
+    # while the reverse passes.
+    rearranged = order_problems([
+        {"item_id": "b-route", "operations": [{"type": "route", "target": "claude/CLAUDE.md",
+                                               "names": "claude/guides/g.md",
+                                               "before_state_sha256": A}]},
+        {"item_id": "a-carrier", "operations": [{"type": "create", "target": "claude/guides/g.md",
+                                                 "before_state_sha256": A}]}])
+    control("while an approved order that does NOT hold, where another one does, is refused by name",
+            "; ".join(rearranged["problems"]), "ORDER_REARRANGED")
+    control("and the refusal says why the approved order failed, not only that another exists",
+            "; ".join(rearranged["problems"]), "SEQUENCE_ORDER_FAILS at b-route")
+    clean("with nothing returned to apply", rearranged["ordered"])
     held_in_order = order_problems([fx_item("a-first", target="claude/guides/a.md"),
                                     fx_item("z-second", target="claude/guides/z.md")])
     control("while the approved order is returned unchanged when it is the one that passes",
@@ -674,8 +682,58 @@ def self_test():
     clean("an empty F has an empty order rather than a refusal", order_problems([])["problems"])
     control("the order question goes to the module that owns it, not a second implementation here",
             next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
-                 if "subset_answer" in line and "answer = " in line),
+                 if "order_answer" in line and "answer = " in line),
+            "sequencing.order_answer")
+    control("and the search is still that module's too, consulted only after the approved order "
+            "fails",
+            next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                 if "subset_answer" in line and "found = " in line),
             "sequencing.subset_answer")
+
+    # ---- the target's identity, bound to the DECLARED checkout -----------------------------------
+    #
+    # The lexical rules are `runlib/targets.py`'s now, and so is the walk. What this suite shows is
+    # that the walk REACHES an approved operation: `claude/guides/to-root/CLAUDE.md` passes every
+    # spelling rule, and with `to-root` a link to `claude/` it reaches the always-loaded global file
+    # while `layer_of` calls it a guide — so the global-file judgment, the merge requirement and the
+    # ceiling were all decided for the wrong layer (the round-2 review).
+    import shutil as _shutil
+    import tempfile as _tempfile
+    held_checkout = pathlib.Path(_tempfile.mkdtemp(prefix="drift-checkout-", dir="/tmp"))
+    try:
+        (held_checkout / "claude" / "guides").mkdir(parents=True)
+        (held_checkout / "claude" / "CLAUDE.md").write_text("global\n", encoding="utf-8")
+        (held_checkout / "claude" / "guides" / "g.md").write_text("guide\n", encoding="utf-8")
+        bound = fx_declaration()
+        bound["destinations"] = {"checkout": str(held_checkout)}
+        clean("an ordinary target inside the declared checkout passes the walk",
+              operation_problems([fx_item()], bound))
+        os.symlink(held_checkout / "claude", held_checkout / "claude" / "guides" / "to-root")
+        held_reach = operation_problems([fx_item(target="claude/guides/to-root/CLAUDE.md")], bound)
+        control("a target reaching the global file through a symlinked directory is refused before "
+                "any effect", "; ".join(held_reach), "TARGET_SYMLINK")
+        control("while `layer_of` alone still calls that path a guide, which is why the walk has to "
+                "happen", str(layer_of("claude/guides/to-root/CLAUDE.md")), "guides")
+        control("and the refusal reaches `problems`, not only this function",
+                "; ".join(problems({"global": A, "guides": B}, bound,
+                                   [fx_item(target="claude/guides/to-root/CLAUDE.md")])),
+                "TARGET_SYMLINK")
+        control("two targets of one set that differ only by case are judged for collision, with "
+                "the filesystem asked rather than assumed",
+                "; ".join(operation_problems(
+                    [fx_item("i-1", target="claude/guides/g.md"),
+                     fx_item("i-2", target="claude/guides/G.md")], bound)),
+                "TARGET_CASE")
+        clean("with no checkout declared, the spelling is still judged and the walk is not claimed",
+              operation_problems([fx_item()], fx_declaration()))
+        control("and a declaration naming a checkout that is not there does not make the walk "
+                "silently pass: the spelling rules still answer",
+                "; ".join(operation_problems(
+                    [fx_item(target="claude/guides//g.md")],
+                    {**fx_declaration(), "destinations": {"checkout": "/nonexistent-checkout"}})),
+                "TARGET_SPELLING")
+    finally:
+        _shutil.rmtree(held_checkout, ignore_errors=True)
 
     # ---- the document ----------------------------------------------------------------------------
     doc = document({"global": A, "guides": B}, fx_declaration(), [fx_item()])
@@ -754,49 +812,23 @@ def self_test():
     # `getattr(os, "system")(...)` passed, and its read assertion only required `TABLE_PATH.read_text`
     # to occur SOMEWHERE in the collected set — a second read of another file would have joined it
     # without changing the answer. All three were the WP-21 review's finding.
-    WATCHED = ("subprocess", "os", "shutil", "tempfile", "socket", "urllib", "http")
-    ALLOWED = ("os.path.normpath", "os.environ.get", "os.path.join", "os.fspath")
-
-    def effects_in(source):
-        """The watched calls a module's runtime code makes, by canonical name."""
-        tree = ast.parse(source)
-        runtime = ast.Module(body=[node for node in tree.body
-                                   if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                           and node.name in ("self_test", "main"))],
-                             type_ignores=[])
-        bindings, held = {}, set()
-        for node in ast.walk(runtime):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    bindings[alias.asname or alias.name.split(".")[0]] = alias.name.split(".")[0]
-                    if alias.asname and alias.name.split(".")[0] in WATCHED:
-                        held.add(f"import {alias.name} as {alias.asname} (an alias on a watched "
-                                 f"module hides its calls from this check)")
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                for alias in node.names:
-                    bindings[alias.asname or alias.name] = node.module.split(".")[0]
-        for node in ast.walk(runtime):
-            if not isinstance(node, ast.Call):
-                continue
-            rendered = ast.unparse(node.func)
-            root_name = rendered.split(".")[0].split("(")[0]
-            if bindings.get(root_name) in WATCHED or root_name in WATCHED:
-                canonical = rendered.replace(root_name, bindings.get(root_name, root_name), 1)
-                if canonical not in ALLOWED:
-                    held.add(canonical)
-            if isinstance(node.func, ast.Call) and getattr(node.func.func, "id", "") == "getattr":
-                inner = node.func
-                if inner.args and ast.unparse(inner.args[0]).split(".")[0] in WATCHED:
-                    held.add(f"getattr({ast.unparse(inner.args[0])}, ...) — a dynamic lookup on a "
-                             f"watched module")
-        return sorted(held)
+    # The audit itself lives in `destinations.py`, which owns what may write where. Two copies of
+    # one vocabulary is what round 2 found: each module watched a different tuple of module names,
+    # and neither watched a filesystem write. One owner, imported.
+    effects_in = destinations.effect_audit
 
     def reads_in(source):
-        """Every path this module's runtime code reads, by the expression it reads from."""
+        """Every path this module's reachable runtime code reads, by the expression it reads from.
+
+        The scope is `destinations.effect_scope`'s, so the reads and the effects are judged over
+        one set of functions: `main` is in it, and a `self_test` is out of it only while the flag's
+        own branch is the only way to reach it.
+        """
         tree = ast.parse(source)
+        scoped = set(destinations.effect_scope(source))
         runtime = ast.Module(body=[node for node in tree.body
-                                   if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                           and node.name in ("self_test", "main"))],
+                                   if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                                   or node.name in scoped],
                              type_ignores=[])
         held = set()
         for node in ast.walk(runtime):
@@ -817,9 +849,22 @@ def self_test():
             "import subprocess as sp")
     control("and a dynamic lookup",
             "; ".join(effects_in("import os\ndef f():\n    getattr(os, 'system')('x')\n")),
-            "getattr(os, ...)")
+            "getattr(os, 'system')")
+    control("and a dynamic import, which names no watched module at its first component",
+            "; ".join(effects_in("def f():\n    __import__('os').system('x')\n")),
+            "cannot name")
+    control("and a filesystem write, which names no module at all",
+            "; ".join(effects_in("import pathlib\ndef f():\n"
+                                 "    pathlib.Path('a').write_text('x')\n")),
+            "write_text")
     clean("while the allowed path helpers are not effects",
           effects_in("import os\ndef f():\n    return os.path.normpath('a')\n"))
+    # The scope, asserted rather than assumed: a clean answer over nothing is not a clean answer.
+    # `main` is in it — `python3 runlib/drift.py` runs `main` — and so is the function that decides
+    # every operation this module refuses.
+    for held_name in ("<module>", "main", "problems", "global_op_problems", "order_problems"):
+        control(f"the audit scanned {held_name}",
+                json.dumps(destinations.effect_scope(own_source)), f'"{held_name}"')
     # The read assertion is an EXACT set, not a containment: a second read would have joined the
     # old answer without changing it.
     control("and the only file it reads is its own table",

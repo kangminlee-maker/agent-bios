@@ -1,0 +1,428 @@
+#!/usr/bin/env python3
+"""One identity contract for an operation's target (WP-21, review round 2, item C).
+
+Four places judged what a target IS and judged it differently. `runlib/drift.py` refused
+`./claude/CLAUDE.md` while `runlib/journal.py` accepted it, so one spelling was two answers
+depending on which surface was asked. `claude/guides/to-root/CLAUDE.md` passed every lexical rule
+there was, and with `to-root` a symlink to `claude/` that path REACHES the always-loaded global file
+while being classified as a guide — the global-file judgment, the merge requirement and the ceiling
+all belong to the layer the path was classified as, so a symlink moved an operation out from under
+all three. And on a case-insensitive filesystem `claude/guides/G.md` and `claude/guides/g.md` are
+one file and two identities: two operations, each with its own before-hash, neither seeing the
+other's write.
+
+So there is one owner for the question, and `drift`, `journal`, sequencing and application all ask
+it here. The contract has three layers, and each says what it cannot establish rather than guessing:
+
+* **lexical** — the spelling. A target is a relative path inside the checkout in canonical form.
+  Two spellings of one file are REFUSED, never normalized: the owner approved the text they read,
+  and an approval naming `claude/guides//g.md` must not apply to `claude/guides/g.md`.
+* **filesystem** — the path as the kernel will walk it, from the DECLARED checkout root, one
+  component at a time with `O_NOFOLLOW`. A symlink anywhere in the chain is refused. A component
+  that does not exist yet is not a defect (a `create` names a path that should not be there), and
+  the walk stops there rather than claiming anything about what follows.
+* **identity collision** — two targets of one approved set that name one file. Case is the live
+  case: whether two spellings collide depends on the filesystem, so the filesystem is asked, and
+  when it cannot be established the collision is refused rather than allowed.
+
+`identity()` answers what the identity IS; the `*_problems` functions answer why a target may not be
+applied. The hash chain, the layer map, the journal and the application all key on `identity()`, so
+there is one string per file rather than one per spelling.
+
+    targets.py --self-test
+"""
+import errno
+import os
+import stat
+import pathlib
+import posixpath
+import sys
+
+if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+
+# Whether a root's filesystem folds case, by root. Probed READ-ONLY (see `folds_case`) and cached,
+# because the answer cannot change under one run and the probe costs a directory listing.
+_FOLDS_CASE = {}
+
+
+def identity(target):
+    """The identity of the file this target names, or None when the target is not a path.
+
+    Canonical, relative, POSIX. `drift.layer_of`, the hash chain, the journal and the application
+    all key on this, so one file has one identity however it was spelled — anything less makes two
+    spellings of one file into two files, and the chain keyed on the raw string let one file be
+    edited twice with neither operation seeing the other's after-hash.
+    """
+    if not isinstance(target, str) or not target:
+        return None
+    return posixpath.normpath(target)
+
+
+def lexical_problems(target):
+    """Why this target's SPELLING may not be applied, by name. Empty means it is canonical."""
+    if not isinstance(target, str) or not target:
+        return [f"TARGET_ABSENT {target!r}: an operation names a path"]
+    problems = []
+    if target.startswith("/") or target.startswith("~"):
+        problems.append(f"TARGET_ABSOLUTE {target!r}: a target is a path inside the checkout")
+    parts = target.split("/")
+    if ".." in parts:
+        problems.append(f"TARGET_TRAVERSAL {target!r}: a `..` segment leaves the checkout")
+    if "." in parts or "" in parts[1:] or target.endswith("/"):
+        problems.append(f"TARGET_SPELLING {target!r}: an empty or `.` component makes two spellings "
+                        f"of one file, and the chain, the layer and the journal would key on "
+                        f"different ones")
+    if target != posixpath.normpath(target):
+        problems.append(f"TARGET_UNCANONICAL {target!r}: its canonical form is "
+                        f"{posixpath.normpath(target)!r}")
+    return problems
+
+
+def folds_case(root):
+    """Whether this root's filesystem treats two cases of one name as one file, or None if unknown.
+
+    Probed WITHOUT WRITING: an existing entry's name is stat'd in a flipped case and compared by
+    inode. The checkout is the owner's working tree, and a containment contract that creates a probe
+    file in it to decide a question about it has already failed at its own job.
+
+    None means the filesystem did not say — an empty directory, or no entry with a letter in its
+    name. Callers refuse a case collision under None rather than allowing it: 'nobody knows whether
+    these two names are one file' is not a licence to apply both.
+    """
+    base = pathlib.Path(root)
+    key = str(base)
+    if key in _FOLDS_CASE:
+        return _FOLDS_CASE[key]
+    answer = None
+    try:
+        with os.scandir(base) as entries:
+            for entry in entries:
+                flipped = entry.name.swapcase()
+                if flipped == entry.name:          # no letters to flip
+                    continue
+                try:
+                    answer = os.stat(base / flipped, follow_symlinks=False).st_ino == \
+                        os.stat(base / entry.name, follow_symlinks=False).st_ino
+                except OSError:
+                    answer = False
+                break
+    except OSError:
+        answer = None
+    _FOLDS_CASE[key] = answer
+    return answer
+
+
+def filesystem_problems(target, checkout):
+    """Why the path the KERNEL will walk is not the path the target names, by name.
+
+    The walk starts at the declared checkout root and opens one component at a time with
+    `O_NOFOLLOW`, so a symlink anywhere in the chain is refused rather than followed. `O_NOFOLLOW`
+    on the leaf alone protects nothing: `claude/guides/to-root/CLAUDE.md` has its symlink in the
+    middle, and that is the case that reached the global file while being judged a guide.
+    """
+    held = lexical_problems(target)
+    if held:
+        return held                      # an unspellable target has no path to walk
+    problems = []
+    parts = identity(target).split("/")
+    try:
+        root_fd = os.open(checkout, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError as exc:
+        return [f"CHECKOUT_UNOPENABLE {checkout}: {exc.strerror} — the declared checkout root must "
+                f"be a real directory that is not itself a symlink, or no target under it can be "
+                f"judged"]
+    open_fds = [root_fd]
+    try:
+        for index, part in enumerate(parts):
+            last = index == len(parts) - 1
+            flags = os.O_RDONLY | os.O_NOFOLLOW | (0 if last else os.O_DIRECTORY)
+            try:
+                held_fd = os.open(part, flags, dir_fd=open_fds[-1])
+            except OSError as exc:
+                reached = "/".join(parts[:index + 1])
+                # WHAT the component is decides, not which errno the platform chose to report.
+                # `O_DIRECTORY|O_NOFOLLOW` over a symlink to a directory raises ELOOP on Linux and
+                # ENOTDIR on macOS (measured on darwin 25.5), so a rule written on either errno
+                # alone reads a symlink as an ordinary non-directory on the other platform — and
+                # this walk is the containment, so it may not depend on that.
+                linked = False
+                try:
+                    linked = stat.S_ISLNK(os.lstat(part, dir_fd=open_fds[-1]).st_mode)
+                except OSError:
+                    linked = False
+                if linked or exc.errno in (errno.ELOOP, errno.EMLINK):
+                    problems.append(f"TARGET_SYMLINK {target!r}: {reached} is a symbolic link, so "
+                                    f"the path the kernel walks is not the path this target names "
+                                    f"and the layer it was classified as is not the layer it "
+                                    f"reaches")
+                elif exc.errno == errno.ENOENT:
+                    # Nothing there yet. A `create` names exactly that, and what lies beyond a
+                    # component that does not exist is not a question this walk can answer.
+                    pass
+                elif exc.errno == errno.ENOTDIR:
+                    problems.append(f"TARGET_NOT_A_DIRECTORY {target!r}: {reached} is not a "
+                                    f"directory, so the components after it name nothing")
+                else:
+                    problems.append(f"TARGET_UNWALKABLE {target!r}: {reached} could not be opened "
+                                    f"({exc.strerror}), so containment cannot be established")
+                break
+            open_fds.append(held_fd)
+            if last:
+                problems += _spelling_on_disk(parts, open_fds[-2], target)
+    finally:
+        for held_fd in open_fds:
+            try:
+                os.close(held_fd)
+            except OSError:
+                pass
+    return problems
+
+
+def _spelling_on_disk(parts, parent_fd, target):
+    """Whether the entry's own spelling is the one the target used.
+
+    On a case-folding filesystem `os.open` of `G.md` happily opens `g.md`, so the walk succeeding
+    says nothing about which name the owner approved. The approved spelling must be the spelling on
+    disk: otherwise the journal, the chain and the file itself carry two different names for one
+    thing.
+    """
+    name = parts[-1]
+    try:
+        held = os.listdir(parent_fd)
+    except OSError:
+        return []
+    if name in held:
+        return []
+    folded = [entry for entry in held if entry.casefold() == name.casefold()]
+    if folded:
+        return [f"TARGET_CASE_ON_DISK {target!r}: the file is spelled {folded[0]!r} on disk, and an "
+                f"operation that names it otherwise writes under a name the owner did not approve"]
+    return []
+
+
+def collision_problems(targets, checkout=None):
+    """Two targets of one set that name ONE file, by name.
+
+    Identity collisions are refused for the set, not for one target: whether two spellings are one
+    file is a property of the pair. An exact repeat is one file by any rule; a case difference is
+    one file only where the filesystem folds case, so the filesystem is asked — and when it will
+    not say, the pair is refused rather than applied, because the cost of being wrong is two
+    operations writing one file with neither seeing the other's hash.
+    """
+    held = [identity(target) for target in targets or () if identity(target)]
+    problems = []
+    seen = {}
+    for one in held:
+        if one in seen:
+            problems.append(f"TARGET_REPEATED {one!r}: two operations of one set name this file, so "
+                            f"the second writes over a state the first did not record")
+        seen[one] = True
+    folds = folds_case(checkout) if checkout else None
+    groups = {}
+    for one in held:
+        groups.setdefault(one.casefold(), set()).add(one)
+    for folded, spellings in sorted(groups.items()):
+        if len(spellings) < 2:
+            continue
+        if folds is True:
+            problems.append(f"TARGET_CASE_ALIAS {', '.join(sorted(spellings))}: this filesystem "
+                            f"folds case, so these are one file under two identities and each "
+                            f"operation's before-hash describes a state the other overwrote")
+        elif folds is None:
+            problems.append(f"TARGET_CASE_UNDECIDED {', '.join(sorted(spellings))}: whether this "
+                            f"filesystem folds case could not be established, so whether these are "
+                            f"one file or two is unknown and the set is refused rather than applied")
+    return problems
+
+
+def problems(target, checkout=None):
+    """Every reason this target may not be applied: the spelling, and the path the kernel walks.
+
+    With no checkout the answer is the spelling alone, and the caller is told so rather than being
+    left to read silence as containment.
+    """
+    if checkout is None:
+        return lexical_problems(target)
+    return filesystem_problems(target, checkout)
+
+
+def set_problems(targets, checkout=None):
+    """Every target of a set judged, plus the collisions between them."""
+    held = []
+    for target in targets or ():
+        held += problems(target, checkout)
+    return held + collision_problems(targets, checkout)
+
+
+def self_test():
+    """One identity contract, each rule with a planted violation and its clean counterpart.
+
+    The body is wrapped so a control that DIES still speaks: a traceback is not a control firing,
+    and a revert trial that reads any output counts one as if it were.
+    """
+    failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"targets --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"targets --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"targets --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} failed "
+              f"before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
+    import shutil
+    import tempfile
+
+    def control(name, got, want):
+        ran.append(name)
+        if want not in str(got):
+            failures.append((name, f"expected {want!r} in {str(got)[:400]!r}"))
+
+    def clean(name, held):
+        ran.append(name)
+        if held:
+            failures.append((name, f"expected nothing, got {held}"))
+
+    def guarded(call):
+        try:
+            return call()
+        except BaseException as exc:  # noqa: BLE001 - the exception is the answer here
+            return f"RAISED {type(exc).__name__}: {exc}"
+
+    # ---- the identity ----------------------------------------------------------------------------
+    control("one file has one identity however it was spelled",
+            identity("claude/guides//g.md"), "claude/guides/g.md")
+    control("and a leading `./` is the same file", identity("./claude/CLAUDE.md"),
+            "claude/CLAUDE.md")
+    control("a target that is not a path has no identity", str(identity(None)), "None")
+
+    # ---- the spelling ----------------------------------------------------------------------------
+    clean("a canonical relative path is spelled correctly",
+          lexical_problems("claude/guides/g.md"))
+    for bad, want in (("/etc/passwd", "TARGET_ABSOLUTE"), ("~/x", "TARGET_ABSOLUTE"),
+                      ("a/../../x", "TARGET_TRAVERSAL"), ("a/./x", "TARGET_SPELLING"),
+                      ("claude/guides//g.md", "TARGET_SPELLING"),
+                      ("claude/guides/", "TARGET_SPELLING"), ("", "TARGET_ABSENT"),
+                      (None, "TARGET_ABSENT")):
+        control(f"a target spelled {bad!r} is refused by name",
+                "; ".join(lexical_problems(bad)), want)
+    # The two surfaces disagreed on exactly this one: drift refused it and the journal took it.
+    control("`./claude/CLAUDE.md` is refused, and by the ONE contract both surfaces ask",
+            "; ".join(lexical_problems("./claude/CLAUDE.md")), "TARGET_SPELLING")
+
+    root = pathlib.Path(tempfile.mkdtemp(prefix="targets-", dir="/tmp"))
+    try:
+        # ---- the path the kernel walks -----------------------------------------------------------
+        (root / "claude" / "guides").mkdir(parents=True)
+        (root / "claude" / "CLAUDE.md").write_text("global\n", encoding="utf-8")
+        (root / "claude" / "guides" / "g.md").write_text("guide\n", encoding="utf-8")
+        clean("a real path inside the checkout walks clean",
+              filesystem_problems("claude/guides/g.md", root))
+        clean("and so does a path that does not exist yet, which is what a `create` names",
+              filesystem_problems("claude/guides/new.md", root))
+        # The review's case: a symlinked DIRECTORY in the middle, reaching the global file while the
+        # path says guides.
+        os.symlink(root / "claude", root / "claude" / "guides" / "to-root")
+        held_link = filesystem_problems("claude/guides/to-root/CLAUDE.md", root)
+        control("a symlinked component in the MIDDLE is refused, which `O_NOFOLLOW` on the leaf "
+                "alone does not catch", "; ".join(held_link), "TARGET_SYMLINK")
+        control("and the refusal names the component that is the link",
+                "; ".join(held_link), "claude/guides/to-root is a symbolic link")
+        control("and says what it costs: the layer it reaches is not the layer it was classified as",
+                "; ".join(held_link), "not the layer it")
+        os.symlink(root / "claude" / "CLAUDE.md", root / "claude" / "guides" / "leaf.md")
+        control("a symlinked LEAF is refused too",
+                "; ".join(filesystem_problems("claude/guides/leaf.md", root)), "TARGET_SYMLINK")
+        control("a component that is a file where a directory was named is refused by its own name",
+                "; ".join(filesystem_problems("claude/CLAUDE.md/x.md", root)),
+                "TARGET_NOT_A_DIRECTORY")
+        control("a checkout root that is itself a symlink is refused, since nothing under it can "
+                "be judged",
+                "; ".join(filesystem_problems("claude/guides/g.md",
+                                              guarded(lambda: _linked_root(root)))),
+                "CHECKOUT_UNOPENABLE")
+        control("and an unspellable target is refused before any walk",
+                "; ".join(filesystem_problems("../x", root)), "TARGET_TRAVERSAL")
+
+        # ---- case -------------------------------------------------------------------------------
+        folds = folds_case(root)
+        control("the filesystem's case behaviour is established by reading, never by writing a "
+                "probe into the checkout",
+                "answered" if folds in (True, False) else f"unknown ({folds})", "answered")
+        clean("two files that differ by more than case are two files",
+              collision_problems(["claude/guides/g.md", "claude/guides/h.md"], root))
+        control("an exact repeat in one set is refused whatever the filesystem does",
+                "; ".join(collision_problems(["claude/guides/g.md", "claude/guides//g.md"], root)),
+                "TARGET_REPEATED")
+        held_case = collision_problems(["claude/guides/G.md", "claude/guides/g.md"], root)
+        if folds:
+            control("on a case-folding filesystem two cases of one name are refused as one file",
+                    "; ".join(held_case), "TARGET_CASE_ALIAS")
+        else:
+            clean("on a case-sensitive filesystem they are genuinely two files", held_case)
+        # Whatever this machine does, both answers are exercised: the probe's answer is forced.
+        _FOLDS_CASE[str(root)] = True
+        control("with the filesystem folding case, the pair is refused",
+                "; ".join(collision_problems(["claude/guides/G.md", "claude/guides/g.md"], root)),
+                "TARGET_CASE_ALIAS")
+        _FOLDS_CASE[str(root)] = False
+        clean("with it case-sensitive, the same pair is two files",
+              collision_problems(["claude/guides/G.md", "claude/guides/g.md"], root))
+        _FOLDS_CASE[str(root)] = None
+        control("and when it will not say, the pair is REFUSED rather than applied: unknown is not "
+                "a licence",
+                "; ".join(collision_problems(["claude/guides/G.md", "claude/guides/g.md"], root)),
+                "TARGET_CASE_UNDECIDED")
+        del _FOLDS_CASE[str(root)]
+        # The on-disk spelling, which a case-folding filesystem would otherwise hide.
+        held_spelling = _spelling_on_disk(["claude", "guides", "G.md"],
+                                          os.open(root / "claude" / "guides", os.O_RDONLY),
+                                          "claude/guides/G.md")
+        control("a file spelled one way on disk and another in the approval is refused by name",
+                "; ".join(held_spelling), "TARGET_CASE_ON_DISK")
+        control("and the refusal carries the spelling that is really there",
+                "; ".join(held_spelling), "'g.md'")
+
+        # ---- the set ----------------------------------------------------------------------------
+        held_set = set_problems(["claude/guides/g.md", "claude/guides/to-root/CLAUDE.md",
+                                 "claude/guides/g.md"], root)
+        control("a set is judged target by target", "; ".join(held_set), "TARGET_SYMLINK")
+        control("and for the collisions between its targets", "; ".join(held_set),
+                "TARGET_REPEATED")
+        clean("with no checkout the answer is the spelling alone, and a real path passes it",
+              problems("claude/guides/g.md"))
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    print(f"targets --self-test: {'FAILED' if failures else 'OK'} ({len(ran)} controls: one "
+          f"identity per file, the spelling rules both surfaces now share, the component walk that "
+          f"refuses a symlink anywhere in the chain, the on-disk spelling, and a case collision "
+          f"refused where the filesystem folds case and where it will not say)")
+    for name, detail in failures:
+        print(f"targets --self-test [FAIL] {name}: {detail}")
+    return 1 if failures else 0
+
+
+def _linked_root(root):
+    """A symlink pointing at `root`, for the control that refuses a linked checkout root."""
+    held = pathlib.Path(str(root) + "-link")
+    if not held.exists():
+        os.symlink(root, held)
+    return held
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    print(__doc__)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

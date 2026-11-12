@@ -82,7 +82,7 @@ def class_of_override():
     return held, conflicts
 
 
-def table_problems():
+def table_problems(root=None):
     """What is wrong with the table itself, by name.
 
     A writer naming a class the declaration does not hold cannot be confined, and a declared class
@@ -117,7 +117,7 @@ def table_problems():
                 problems.append(f"FIXED_ROOT_UNCLASSED {row['writer']}: "
                                 f"{row['writes_without_override']!r} is not a destination class")
             derived_fixed_here = any(e["writer"] == row["writer"] and e["override"] is None
-                                     for e in closure())
+                                     for e in closure(root))
             if derived_fixed_here and not row.get("fixed_roots"):
                 problems.append(f"FIXED_ROOT_UNSHOWN {row['writer']}: the closure derived a "
                                 f"HOME-fixed root for this writer and the row shows none of the "
@@ -240,16 +240,22 @@ _HOME_ROOT = re.compile(r'(Path\.home\(\)|expanduser\(\s*["\']~|\$HOME|\$\{HOME\
 _ROOTISH = re.compile(r'(\.local/|\.config/|\.claude|\.codex|\.cache/|\.zsh|/share/|/bin\b)')
 
 
-def shipped_writers():
+def shipped_writers(root=None):
     """Every shipped script the package carries, from `package.json` `files[]`.
 
     Derived rather than listed: a writer added to the package is scanned without this module being
     told about it, which is the whole point of deriving the inventory.
+
+    `root` is the installation being INSPECTED, which is not always the tree this file sits in. A
+    packaged install has no `gates/` and no author-side writers, and with the global `REPO` wired
+    in here the derivation read the author's checkout instead — so a real package could not produce
+    a manifest at all (round 2). The default stays `REPO`, which is what a checkout run means.
     """
-    manifest = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
-    held = [REPO / rel for rel in sorted(_author_writers()) if (REPO / rel).is_file()]
+    base = pathlib.Path(root or REPO)
+    manifest = json.loads((base / "package.json").read_text(encoding="utf-8"))
+    held = [base / rel for rel in sorted(_author_writers()) if (base / rel).is_file()]
     for entry in manifest.get("files") or ():
-        path = REPO / entry
+        path = base / entry
         if path.is_file() and path.suffix in (".py", ".sh", ".zsh"):
             held.append(path)
         elif path.is_dir():
@@ -487,7 +493,7 @@ def _sh_destination_reads(text):
 _CLOSURE_CACHE = {}
 
 
-def closure():
+def closure(root=None):
     """The (writer, override) pairs and HOME-fixed roots the shipped tree really carries.
 
     Each entry is `{writer, override|None, line, text}`. `override=None` means the writer defines a
@@ -497,12 +503,13 @@ def closure():
     # Scanning every shipped script costs real time, and `table_problems` asks this question once
     # per row: without a cache the self-test's table mutations re-scan the tree dozens of times.
     # The key is the declared author-side set, the only input a caller can vary in one process.
-    key = tuple(sorted(_author_writers()))
+    base = pathlib.Path(root or REPO)
+    key = (str(base), tuple(sorted(_author_writers())))
     if key in _CLOSURE_CACHE:
         return _CLOSURE_CACHE[key]
     held = []
-    for path in shipped_writers():
-        rel = str(path.relative_to(REPO))
+    for path in shipped_writers(base):
+        rel = str(path.relative_to(base))
         text = path.read_text(encoding="utf-8", errors="replace")
         lines = text.splitlines()
         reached = (_py_destination_reads(text) if path.suffix == ".py"
@@ -511,40 +518,11 @@ def closure():
             line = lines[number - 1] if number - 1 < len(lines) else ""
             held.append({"writer": rel, "override": override, "line": number,
                          "text": line.strip()[:160]})
-        continue
-        # (the line-scan below is retired: it could not tell a read from a write)
-        matcher = _PY_OVERRIDE if path.suffix == ".py" else _SH_OVERRIDE
-        claimed = set()
-        for match in matcher.finditer(text):
-            number = text.count("\n", 0, match.start()) + 1
-            line = lines[number - 1] if number - 1 < len(lines) else ""
-            if line.strip().startswith("#"):
-                continue
-            fallback = match.group("fb") or ""
-            # The fallback decides: a path means a destination, a literal means a flag. With no
-            # fallback at all, the surrounding statement has to look like a path.
-            context = match.group(0) + " " + line
-            if not _PATHISH.search(fallback) and not _PATHISH.search(context):
-                continue
-            claimed.add(number)
-            held.append({"writer": rel, "override": match.group(1),
-                         "line": number, "text": line.strip()[:160]})
-        for match in _PY_SUBSCRIPT.finditer(text) if path.suffix == ".py" else ():
-            number = text.count("\n", 0, match.start()) + 1
-            claimed.add(number)
-            held.append({"writer": rel, "override": match.group(1), "line": number,
-                         "text": lines[number - 1].strip()[:160]})
-        for number, line in enumerate(lines, 1):
-            if number in claimed or line.strip().startswith("#") or not line.strip():
-                continue
-            if _HOME_ROOT.search(line) and _ROOTISH.search(line):
-                held.append({"writer": rel, "override": None, "line": number,
-                             "text": line.strip()[:160]})
     _CLOSURE_CACHE[key] = held
     return held
 
 
-def inventory_problems():
+def inventory_problems(root=None):
     """Where the table and the derived closure disagree, in both directions.
 
     `INVENTORY_INCOMPLETE` is a (writer, override) pair the tree carries and the table does not — the
@@ -553,6 +531,7 @@ def inventory_problems():
     so the certificate is about a value that cannot reach the writer. A pair may be excused only by
     name, in the table's `not_a_destination`, with its own reason.
     """
+    base = pathlib.Path(root or REPO)
     table_data = table()
     excused = {(row["writer"], row.get("override")): row.get("reason")
                for row in table_data.get("not_a_destination") or ()}
@@ -564,7 +543,7 @@ def inventory_problems():
             fixed.add(row["writer"])
     problems = []
     derived_pairs, derived_fixed = set(), set()
-    for entry in closure():
+    for entry in closure(base):
         if entry["override"] is None:
             derived_fixed.add(entry["writer"])
             continue
@@ -576,12 +555,19 @@ def inventory_problems():
                         f"override as a destination and no table row carries the pair")
     forward = {row["writer"] for row in writers() if row.get("writer_unwritten")}
     for writer in sorted(forward):
-        if (REPO / writer).exists():
+        if (base / writer).exists():
             problems.append(f"INVENTORY_FORWARD_LANDED {writer}: the row is declared as a writer "
                             f"that does not exist yet, and the file now exists — the declaration "
                             f"must give way to the derived closure")
+    # A writer the table declares author-side and this installation does not have writes nothing
+    # here, so its pairs are neither certified nor missing: they are NOT INSTALLED, which is what
+    # `author_rows_absent` and the resolved row already say. Without this, a real packaged install
+    # could not produce a manifest at all — the table's author-scope rows came back as certifying
+    # overrides no source reads, and the only source that reads them is the one npm leaves out.
+    # Round 2's finding; the fidelity check already made this exclusion and the inventory did not.
+    uninstalled = set(author_rows_absent(base))
     for pair in sorted(declared - derived_pairs):
-        if pair in excused or pair[0] in forward:
+        if pair in excused or pair[0] in forward or pair[0] in uninstalled:
             continue
         problems.append(f"INVENTORY_UNWRITTEN {pair[0]} {pair[1]}: the table certifies a destination "
                         f"class for an override this writer's source never reads, so the class is "
@@ -589,19 +575,24 @@ def inventory_problems():
     for writer in sorted(derived_fixed):
         if any(w == writer for w, _ in declared) or writer in fixed or writer in forward:
             continue
+        if writer in uninstalled:
+            continue
         if (writer, None) in excused:
             continue
         problems.append(f"INVENTORY_FIXED_ROOT {writer}: the writer derives a destination root from "
                         f"HOME with no override, and the table neither carries the writer nor "
                         f"excuses it — a run cannot point that writer anywhere")
-    shipped_rel = {str(p.relative_to(REPO)) for p in shipped_writers()}
-    packed = set(json.loads((REPO / "package.json").read_text(encoding="utf-8")).get("files") or ())
+    shipped_rel = {str(p.relative_to(base)) for p in shipped_writers(base)}
+    packed = set(json.loads((base / "package.json").read_text(encoding="utf-8")).get("files") or ())
     for writer in sorted(_author_writers()):
         if writer in packed or any(writer.startswith(entry) for entry in packed if entry.endswith("/")):
             problems.append(f"INVENTORY_SCOPE_WRONG {writer}: declared author-side while "
                             f"package.json files[] ships it, so the declaration excuses a writer "
                             f"the derivation can see")
-        elif not (REPO / writer).is_file():
+        elif not (base / writer).is_file() and install_layout(base) == "checkout":
+            # In a CHECKOUT the file must be there: the declaration says the owner runs it from one.
+            # In a package its absence is the layout, not a defect, and `author_rows_absent` is what
+            # reports it.
             problems.append(f"INVENTORY_SCOPE_ABSENT {writer}: declared author-side and not present "
                             f"in this tree at all")
     if not shipped_rel:
@@ -728,7 +719,7 @@ def resolution_problems(rows):
 
 def problems(declaration, environ, root=None):
     """Everything wrong, table and resolution together. Empty means apply may take its first effect."""
-    held = table_problems() + fidelity_problems(root) + inventory_problems()
+    held = table_problems(root) + fidelity_problems(root) + inventory_problems(root)
     if held:
         return held
     return resolution_problems(resolved_rows(declaration, environ, root))
@@ -740,14 +731,14 @@ def document(declaration, environ, root=None):
     # The derived inventory is part of the manifest's own correctness, not a separate audit: a
     # destination the tree writes and the table does not carry is exactly the hole this manifest
     # exists to close, so `apply` refuses before any effect rather than recording a partial answer.
-    held = (table_problems() + fidelity_problems(root) + inventory_problems()
+    held = (table_problems(root) + fidelity_problems(root) + inventory_problems(root)
             + resolution_problems(rows))
     if held:
         raise Refused("; ".join(held))
     return {"stage": "S11", "resolved": rows,
             "overrides_required": list(required_overrides()),
             "classes": list(CLASSES),
-            "writers_scanned": sorted({entry["writer"] for entry in closure()}),
+            "writers_scanned": sorted({entry["writer"] for entry in closure(root)}),
             "layout": install_layout(root),
             "not_installed": author_rows_absent(root),
             "$comment": "design §10.5 / N#4: every writer's destination, resolved from the "
@@ -775,6 +766,190 @@ def write(run_dir, declaration, environ):
 
 
 # ---- self-test ---------------------------------------------------------------------------------
+
+
+# ─── The effect audit ───────────────────────────────────────────────────────────────────────────
+# One owner for one vocabulary. `drift.py` holds itself to this same function rather than carrying a
+# second copy of the rules, because two copies drift and the first round's copies did: each module
+# watched a different tuple of module names.
+#
+# What the round-2 review found the old rules passing, every item reachable: `__import__('os')
+# .system(...)` and `importlib.import_module('os').system(...)`, because the call's first printed
+# component is neither `os` nor `subprocess`; `pathlib.Path(x).write_text(...)` and `open(x, 'w')`,
+# because a filesystem write names no watched module at all; anything inside `main`, because `main`
+# was excluded by name although `python3 -m runlib.destinations` runs it; and the effects of a
+# `self_test` that a runtime function calls, because `self_test` was excluded by name too.
+#
+# So the exclusions are now by REACHABILITY, not by name. `self_test` is skipped only while every
+# path to it passes a branch guarded by a `--self-test` test; called from anywhere else, its effects
+# are the module's effects.
+EFFECT_MODULES = ("subprocess", "os", "shutil", "tempfile", "socket", "urllib", "http", "ftplib",
+                  "smtplib", "multiprocessing", "ctypes", "signal", "pty", "fcntl", "webbrowser")
+# Reading a path out of the environment and joining it is not an effect; this is the whole list.
+EFFECT_ALLOWED = ("os.path.normpath", "os.path.join", "os.path.sep", "os.path.basename",
+                  "os.path.dirname", "os.path.isabs", "os.path.splitdrive", "os.path.split",
+                  "os.sep", "os.fspath", "os.environ", "os.environ.get", "os.name")
+# Filesystem writes by METHOD NAME, on any object: `pathlib.Path(p).write_text(...)` names no
+# watched module, and neither does a handle the function was handed by its caller.
+EFFECT_METHODS = ("write_text", "write_bytes", "writelines", "mkdir", "makedirs", "touch", "unlink",
+                  "rmdir", "rmtree", "rename", "symlink_to", "hardlink_to", "chmod", "chown",
+                  "truncate", "copy", "copy2", "copytree", "move")
+# Anything that can produce a call whose name this audit cannot read.
+EFFECT_DYNAMIC = ("__import__", "exec", "eval", "compile", "importlib.import_module",
+                  "importlib.__import__", "runpy.run_path", "runpy.run_module")
+EFFECT_WRITE_MODES = set("wax+")
+
+
+def _effect_reachable(tree):
+    """The top-level function names a runtime entry point can reach.
+
+    Roots are the module's top level and every top-level function except `self_test`; an edge
+    through a branch whose test names `--self-test` is not followed, which is what keeps a suite's
+    own fixture building out of the answer without excluding the suite by name.
+    """
+    functions = {node.name: node for node in tree.body
+                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+    def called_in(node):
+        held = set()
+
+        def walk(parent):
+            # The node itself first: a top-level `f()` is the root of its own statement, and a walk
+            # that only looked at children never saw it.
+            if isinstance(parent, ast.Call):
+                rendered = ast.unparse(parent.func)
+                held.add(rendered)
+                held.add(rendered.split(".")[0].split("(")[0])
+            for child in ast.iter_child_nodes(parent):
+                if isinstance(child, ast.If) and "--self-test" in ast.unparse(child.test):
+                    for part in child.orelse:   # the unguarded half still counts
+                        walk(part)
+                    continue
+                walk(child)
+
+        walk(node)
+        return held
+
+    frontier = {name for name in functions if name != "self_test"}
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            frontier |= called_in(node) & set(functions)
+    held = set()
+    while frontier:
+        name = frontier.pop()
+        if name in held or name not in functions:
+            continue
+        held.add(name)
+        frontier |= called_in(functions[name]) & set(functions)
+    return held
+
+
+def effect_scope(source):
+    """What `effect_audit` scanned: the module's top level and the functions it reached.
+
+    An audit that scanned nothing reports nothing, so the suites assert this set rather than
+    reading a clean answer as proof.
+    """
+    return sorted(_effect_reachable(ast.parse(source)) | {"<module>"})
+
+
+def effect_audit(source):
+    """Every effect a module's reachable runtime code performs, by canonical name.
+
+    A function over source text rather than a block over one file, so each widened rule can be
+    shown to fire on a planted call. The answer carries the function the call sits in, because
+    `in main` is the difference between a reported effect and an excluded one.
+    """
+    tree = ast.parse(source)
+    bindings = {}                                 # local name -> the module it is bound to
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bindings[alias.asname or alias.name.split(".")[0]] = alias.name.split(".")[0]
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                bindings[alias.asname or alias.name] = node.module.split(".")[0]
+
+    reachable = _effect_reachable(tree)
+    scope = [("<module>", node) for node in tree.body
+             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+    scope += [(node.name, node) for node in tree.body
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+              and node.name in reachable]
+
+    held = set()
+
+    def say(where, text):
+        held.add(text if where == "<module>" else f"{text} (in {where})")
+
+    def mode_of(node):
+        """The mode an `open` call was given: the string, None for a default read, or '?'."""
+        asked = None
+        if len(node.args) > 1:
+            asked = node.args[1]
+        for keyword in node.keywords:
+            if keyword.arg == "mode":
+                asked = keyword.value
+        if asked is None:
+            return None
+        if isinstance(asked, ast.Constant) and isinstance(asked.value, str):
+            return asked.value
+        return "?"
+
+    for where, root_node in scope:
+        def walk(parent):
+            # Look at `parent`, then recurse. A walk that looked only at CHILDREN never saw a
+            # top-level `import os as _o` or a top-level `os.system(...)`, because each is the root
+            # of its own statement — which is how the alias control came back empty.
+            look(parent)
+            for child in ast.iter_child_nodes(parent):
+                if isinstance(child, ast.If) and "--self-test" in ast.unparse(child.test):
+                    for part in child.orelse:
+                        walk(part)
+                    continue
+                walk(child)
+
+        def look(child):
+                if isinstance(child, ast.Import):
+                    for alias in child.names:
+                        if alias.asname and alias.name.split(".")[0] in EFFECT_MODULES:
+                            say(where, f"import {alias.name} as {alias.asname} (an alias on a "
+                                       f"watched module hides its calls from this very check)")
+                if isinstance(child, ast.Call):
+                    rendered = ast.unparse(child.func)
+                    root_name = rendered.split(".")[0].split("(")[0]
+                    # A watched module, under its own name or an alias.
+                    if bindings.get(root_name) in EFFECT_MODULES or root_name in EFFECT_MODULES:
+                        canonical = rendered.replace(root_name,
+                                                     bindings.get(root_name, root_name), 1)
+                        if canonical not in EFFECT_ALLOWED:
+                            say(where, canonical)
+                    # A dynamic import or dispatch anywhere in the callee expression.
+                    for mark in EFFECT_DYNAMIC:
+                        if re.search(rf"(?<![\w.]){re.escape(mark)}(?![\w])", rendered):
+                            say(where, f"{rendered} — {mark} reaches a module this audit "
+                                       f"cannot name")
+                    # A filesystem write by method name, on whatever object.
+                    if rendered.split(".")[-1] in EFFECT_METHODS:
+                        say(where, rendered)
+                    # `open` for writing, builtin or method, including an undecidable mode.
+                    if rendered.split(".")[-1] == "open":
+                        mode = mode_of(child)
+                        if mode == "?":
+                            say(where, f"{rendered}(mode=<not a literal>) — a mode this audit "
+                                       f"cannot read")
+                        elif mode is not None and set(mode) & EFFECT_WRITE_MODES:
+                            say(where, f"{rendered}(mode={mode!r})")
+                    # `getattr(os, "system")(...)`: the callee is itself a getattr over a module.
+                    if isinstance(child.func, ast.Call) \
+                            and getattr(child.func.func, "id", "") == "getattr":
+                        inner = child.func
+                        if inner.args and ast.unparse(inner.args[0]).split(".")[0] in EFFECT_MODULES:
+                            say(where, f"getattr({ast.unparse(inner.args[0])}, "
+                                       f"{ast.unparse(inner.args[1]) if len(inner.args) > 1 else '?'})")
+
+        walk(root_node)
+    return sorted(held)
 
 
 def self_test():
@@ -1096,18 +1271,23 @@ def self_test():
         pack = layout_root / "package"
         (pack / "session-distill" / "tables").mkdir(parents=True)
         (pack / "package.json").write_bytes((REPO / "package.json").read_bytes())
-        # Every writer source the table names, EXCEPT the author-scope one — which is exactly what
-        # npm packs and what it leaves out. `files[]` decides membership, so the fixture cannot
-        # drift from the real package.
-        for held_row in writers():
-            source = held_row.get("fallback_source")
-            if not source or held_row.get("writer_scope") == "author":
-                continue
-            if not any(source == entry or source.startswith(entry) for entry in packed):
-                continue
-            target = pack / source
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes((REPO / source).read_bytes())
+        # EVERY script `files[]` ships, not only the writer sources the table happens to name.
+        # The thin fixture is what let the "a packaged install produces a manifest" control pass
+        # while the thing it claimed to test was broken: with the global `REPO` wired into the
+        # derivation, `inventory_problems` scanned the AUTHOR'S CHECKOUT, agreed with the table
+        # there, and never looked at the fixture at all. Scanning the fixture required the fixture
+        # to be a real package — npm installs the whole of `files[]`, and the author-scope writer
+        # is the only thing it leaves out.
+        for entry in packed:
+            source = REPO / entry
+            held_sources = ([source] if source.is_file()
+                            else sorted(p for p in source.rglob("*") if p.is_file()))
+            for held_path in held_sources:
+                if held_path.suffix not in (".py", ".sh", ".zsh"):
+                    continue
+                target = pack / held_path.relative_to(REPO)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(held_path.read_bytes())
         control("the package layout is recognised without `gates/`", install_layout(pack), "package")
         control("and a checkout is recognised by its presence",
                 install_layout(REPO), "checkout")
@@ -1129,10 +1309,28 @@ def self_test():
                 "dict" if isinstance(held_doc, dict) else str(held_doc)[:160], "dict")
         control("and the manifest says which layout it was written in",
                 held_doc.get("layout") if isinstance(held_doc, dict) else "none", "package")
+        # The derivation must read the root it was GIVEN. It read the module's own checkout through
+        # a global instead, so every answer about a packaged install was an answer about the
+        # author's tree — and the control above passed while what it named was broken.
+        pack_writers = {entry["writer"] for entry in closure(pack)}
+        repo_writers = {entry["writer"] for entry in closure(REPO)}
+        control("the closure scanned the package tree rather than nothing",
+                "scanned" if len(pack_writers) > 3 else f"only {sorted(pack_writers)}", "scanned")
+        control("and the set is the PACKAGE's: the author-scope writer is in the checkout's "
+                "closure and not in the package's, which is the difference npm makes",
+                "differs" if author_writer and author_writer in repo_writers
+                and author_writer not in pack_writers
+                else f"the same answer for both roots ({author_writer})", "differs")
+        clean("the inventory agrees with the table in the packaged layout too, because a writer "
+              "this install does not have certifies nothing", inventory_problems(pack))
         # The checkout half: the same absence IS a failure where the source is audited.
         checkout = layout_root / "checkout"
         (checkout / "gates").mkdir(parents=True)
         (checkout / "session-distill").mkdir(parents=True)
+        (checkout / "package.json").write_bytes((REPO / "package.json").read_bytes())
+        control("while in a CHECKOUT the author-scope writer's absence is a defect, so the "
+                "exclusion is the layout's and not a blanket excuse",
+                "; ".join(inventory_problems(checkout)), "INVENTORY_SCOPE_ABSENT")
         control("in a checkout, an author-scope writer whose file is missing fails by name, "
                 "because that is where the fallback literal is held against its source",
                 "; ".join(fidelity_problems(checkout)), "WRITER_SOURCE_ABSENT")
@@ -1247,53 +1445,7 @@ def self_test():
     #    whose unparse starts with neither `os` nor `subprocess`.
     import ast
 
-    def effects_in(source):
-        """The watched calls a module's RUNTIME code makes, by name.
-
-        A function over source text rather than a block over this one file, so the widened rules
-        can be shown to fire on planted aliases and getattr forms. A check nobody has seen fail is
-        not a check, and the old version of this one was green only because the fixture code used
-        aliases.
-        """
-        tree = ast.parse(source)
-        WATCHED = ("subprocess", "os", "shutil", "tempfile")
-        ALLOWED = ("os.path.normpath", "os.environ.get", "os.environ", "os.path.join",
-                   "os.path.sep", "os.sep", "os.fspath")
-        runtime = ast.Module(body=[node for node in tree.body
-                                   if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                           and node.name in ("self_test", "main"))],
-                             type_ignores=[])
-        bindings = {}            # local name -> the module it is bound to
-        for node in ast.walk(runtime):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    bindings[alias.asname or alias.name.split(".")[0]] = alias.name.split(".")[0]
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                for alias in node.names:
-                    bindings[alias.asname or alias.name] = node.module.split(".")[0]
-        spawners = set()
-        for node in ast.walk(runtime):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.asname and alias.name.split(".")[0] in WATCHED:
-                        spawners.add(f"import {alias.name} as {alias.asname} (an alias on a watched "
-                                     f"module hides its calls from this very check)")
-            if not isinstance(node, ast.Call):
-                continue
-            rendered = ast.unparse(node.func)
-            root_name = rendered.split(".")[0].split("(")[0]
-            if bindings.get(root_name) in WATCHED or root_name in WATCHED:
-                canonical = rendered.replace(root_name, bindings.get(root_name, root_name), 1)
-                if canonical not in ALLOWED:
-                    spawners.add(canonical)
-            # `getattr(os, "system")(...)`: the callee is itself a getattr over a watched module.
-            if isinstance(node.func, ast.Call) and getattr(node.func.func, "id", "") == "getattr":
-                inner = node.func
-                if inner.args and ast.unparse(inner.args[0]).split(".")[0] in WATCHED:
-                    spawners.add(f"getattr({ast.unparse(inner.args[0])}, "
-                                 f"{ast.unparse(inner.args[1]) if len(inner.args) > 1 else '?'})")
-        return sorted(spawners)
-
+    effects_in = effect_audit            # the module's own function, not a second copy here
     own_source = pathlib.Path(__file__).read_text(encoding="utf-8")
     spawners = effects_in(own_source)
     control("the no-effects check fires on a PLAIN call",
@@ -1307,10 +1459,47 @@ def self_test():
     control("and on a getattr form, which the review of this unit named",
             "; ".join(effects_in("import os\ndef f():\n    getattr(os, 'system')('x')\n")),
             "getattr(os, 'system')")
+    # Round 2: five shapes the audit passed. Each is the real form, not a near miss.
+    control("and on `__import__`, whose call names no watched module at its first component",
+            "; ".join(effects_in("def f():\n    __import__('os').system('x')\n")),
+            "__import__ reaches a module this audit cannot name")
+    control("and on importlib, for the same reason",
+            "; ".join(effects_in("import importlib\ndef f():\n"
+                                 "    importlib.import_module('os').system('x')\n")),
+            "importlib.import_module reaches a module this audit cannot name")
+    control("and on a filesystem write that names no module at all",
+            "; ".join(effects_in("import pathlib\ndef f():\n"
+                                 "    pathlib.Path('a').write_text('x')\n")),
+            "pathlib.Path('a').write_text")
+    control("and on an open for writing, by its mode",
+            "; ".join(effects_in("def f():\n    open('a', 'w').close()\n")),
+            "open(mode='w')")
+    control("and on an open whose mode this audit cannot read, rather than assuming a read",
+            "; ".join(effects_in("def f(m):\n    open('a', m).close()\n")),
+            "a mode this audit cannot read")
+    control("an effect in `main` is reported, and `main` is a real entry point: "
+            "`python3 runlib/destinations.py` runs it",
+            "; ".join(effects_in("import os\ndef main(argv):\n    os.system('x')\n")),
+            "os.system (in main)")
+    control("and so is one in a `self_test` a runtime function calls outright",
+            "; ".join(effects_in("import os\ndef self_test():\n    os.symlink('a', 'b')\n"
+                                 "def run():\n    return self_test()\n")),
+            "os.symlink (in self_test)")
+    clean("while a `self_test` reached only through the flag's own branch is fixtures, which is "
+          "reachability deciding the exclusion rather than the name",
+          effects_in("import os\ndef self_test():\n    os.symlink('a', 'b')\n"
+                     "def main(argv):\n"
+                     "    if '--self-test' in argv:\n        return self_test()\n    return 0\n"))
     clean("while the allowed path helpers are not effects",
           effects_in("import os\ndef f():\n    return os.path.normpath('a')\n"))
-    clean("and the self-test's own fixture building is out of scope, since it is fixtures",
-          effects_in("import os\ndef self_test():\n    os.symlink('a', 'b')\n"))
+    clean("and a read is not a write",
+          effects_in("def f():\n    return open('a').read()\n"))
+    # An audit that scanned nothing reports nothing: the scope is asserted, not assumed.
+    control("the audit scanned this module's own entry point",
+            json.dumps(effect_scope(own_source)), '"main"')
+    control("and its top level", json.dumps(effect_scope(own_source)), '"<module>"')
+    control("and the resolution path a destination row is judged by",
+            json.dumps(effect_scope(own_source)), '"resolved_rows"')
     clean("this module runs nothing and spawns nothing: the code that confines writes cannot itself "
           "be a writer", spawners)
     control("and the only file it writes is its own manifest",

@@ -555,6 +555,14 @@ if [ -f session-distill/runlib/drift.py ]; then
     python3 session-distill/runlib/drift.py --self-test
 fi
 
+# WP-21's identity contract: what an operation's target NAMES, for every surface that asks. Its own
+# leg because it is the OWNER of that question — `drift` and `journal` carried a copy each, and the
+# copies disagreed about `./claude/CLAUDE.md`.
+if [ -f session-distill/runlib/targets.py ]; then
+  leg -q "FAIL: session-distill target identity self-test (session-distill/runlib/targets.py)" \
+    python3 session-distill/runlib/targets.py --self-test
+fi
+
 # WP-21's write-ahead journal: §10.5's record, its framing, and the order no effect may precede.
 if [ -f session-distill/runlib/journal.py ]; then
   leg -q "FAIL: session-distill side-effect journal self-test (session-distill/runlib/journal.py)" \

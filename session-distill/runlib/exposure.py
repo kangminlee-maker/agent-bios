@@ -26,6 +26,7 @@ exposure, and this module refuses it by name rather than reading it.
 
     exposure.py --self-test
 """
+import ast
 import json
 import pathlib
 import sys
@@ -83,36 +84,90 @@ def table_problems():
                 _unknown(row, {"facts": {}})
             except Refused as exc:
                 problems.append(f"RULE_UNKNOWN_UNREAD {name}: {exc}")
+        # Every fact a predicate READS must be declared, as required or as optional. Undeclared, an
+        # absent fact compares equal to None and the branch answers from nothing: `pin_units: []`
+        # alone was certified eligible because `removed_unit` and `merged_unit` were neither
+        # required nor declared optional.
+        declared = set(row.get("requires") or ())
+        for held_names in (row.get("requires_by_operation") or {}).values():
+            declared |= set(held_names)
+        declared |= set(row.get("optional_facts") or ())
+        for field in ("shown_when", "unknown_when"):
+            if not row.get(field):
+                continue
+            try:
+                _eval(row[field], {}, f"{name}.{field}")
+            except Refused as exc:
+                problems.append(f"RULE_PREDICATE_UNREADABLE {name}: {exc}")
+                continue
+            undeclared = sorted(predicate_names(row[field]) - declared)
+            if undeclared:
+                problems.append(f"RULE_FACT_UNDECLARED {name}.{field}: reads "
+                                f"{', '.join(undeclared)}, which the row declares neither in "
+                                f"requires/requires_by_operation nor in optional_facts — an "
+                                f"undeclared fact answers from its own absence")
+        for operation in (row.get("requires_by_operation") or {}):
+            if operation not in ((row.get("applies_to") or {}).get("operation") or ()):
+                problems.append(f"RULE_OPERATION_UNCLAIMED {name}: requires_by_operation names "
+                                f"{operation}, which this row does not apply to")
         if not (row.get("applies_to") or {}).get("operation") and not (row.get("applies_to") or {}).get("role"):
             problems.append(f"RULE_APPLIES_TO_NOTHING {name}: a row answering for no operation and "
                             f"no role is never picked")
+        for key in (row.get("applies_to") or {}):
+            if key not in precedence():
+                problems.append(f"RULE_KEY_UNRANKED {name}: applies_to names {key}, which the "
+                                f"table's precedence does not rank, so two rows matching on it "
+                                f"could not be separated")
+    if not precedence():
+        problems.append("PRECEDENCE_UNSTATED: with no key order, a row matching one key and a row "
+                        "matching another are separated by their position in the file")
     return problems
 
 
+def precedence():
+    """The applies_to keys, most specific first, as the table declares them."""
+    return tuple(table().get("precedence") or ())
+
+
 def rule_for(occasion):
-    """The one row that answers for this occasion, or None.
+    """The one row that answers for this occasion, or None. Refuses an ambiguous match.
 
     A role is more specific than an operation: a DELETED executable is answered by
-    `executable_deleted`, not by `delete_or_merge`, because §11 writes that branch separately. The
-    table states it with both keys, and the longest `applies_to` wins — so the rule is the table's,
-    not a precedence written here.
+    `executable_deleted`, not by `delete_or_merge`, because §11 writes that branch separately.
+
+    Counting MATCHED KEYS was not enough, and round 2 found what that let through: an occasion of
+    operation `edit` and role `installer` matches `create_or_edit` on its one key and
+    `executable_installer` on its one key, and the loop kept whichever came FIRST in the file —
+    `create_or_edit`, so an installer's exposure was judged by a library unit's rule. The weights
+    come from the table's `precedence` now, and a genuine tie is REFUSED rather than broken by
+    position: two rows claiming one occasion is a table defect, not something to answer by guessing.
     """
     operation, role = occasion.get("operation"), occasion.get("role")
-    best, best_keys = None, -1
+    order = precedence()
+    asked = {"operation": operation, "role": role}
+    matched = []
     for row in rules():
         applies = row.get("applies_to") or {}
-        wants_operation = applies.get("operation")
-        wants_role = applies.get("role")
-        if wants_operation and operation not in wants_operation:
+        wants = {key: applies.get(key) for key in order}
+        if not any(wants.values()):
             continue
-        if wants_role and role not in wants_role:
+        if any(value and asked.get(key) not in value for key, value in wants.items()):
             continue
-        if not wants_operation and not wants_role:
-            continue
-        keys = bool(wants_operation) + bool(wants_role)
-        if keys > best_keys:
-            best, best_keys = row, keys
-    return best
+        # Most specific first: more matched keys outranks fewer, and among equal counts a row
+        # matched on an EARLIER key in the declared precedence outranks one matched on a later key.
+        weight = tuple(1 if wants.get(key) else 0 for key in order)
+        matched.append((weight, row))
+    if not matched:
+        return None
+    rank = lambda held: (sum(held), held)                                       # noqa: E731
+    best = max(matched, key=lambda held: rank(held[0]))
+    tied = sorted(row["id"] for weight, row in matched if rank(weight) == rank(best[0]))
+    if len(tied) > 1:
+        raise Refused(f"EXPOSURE_RULE_AMBIGUOUS {occasion.get('locator')}: {', '.join(tied)} claim "
+                      f"one occasion (operation={operation!r} role={role!r}) at the same "
+                      f"specificity, and the table's precedence {list(order)} does not separate "
+                      f"them")
+    return best[1]
 
 
 def ordering_problems(occasion):
@@ -135,6 +190,93 @@ def ordering_problems(occasion):
                             f"record {held['at_record']} and the decision is at {at}, so it is not "
                             f"exposure to it")
     return problems
+
+
+# ─── The predicate itself ────────────────────────────────────────────────────────────────────────
+# `shown_when` and `unknown_when` are EXECUTED, over a grammar small enough to read in one sitting.
+# They used to be prose beside a branch that dispatched on the row's id, and round 2 showed what
+# that costs: replacing `create_or_edit.shown_when` with `False` left every answer unchanged, so
+# the table described the predicate without being it. The only way a declaration cannot drift from
+# the code is for the code to have no second copy to drift from.
+#
+# What the grammar admits: names (facts), the constants None/True/False and literal strings and
+# numbers, `and`/`or`/`not`, the comparisons `== != is is not in not in`, and tuple and list
+# literals. No calls, no attributes, no subscripts, no arithmetic — a predicate that needed one
+# would be a branch in code again, and the table would have stopped being the authority.
+_EVAL_COMPARISONS = {ast.Eq: lambda a, b: a == b, ast.NotEq: lambda a, b: a != b,
+                     ast.Is: lambda a, b: a is b, ast.IsNot: lambda a, b: a is not b,
+                     ast.In: lambda a, b: a in (b if b is not None else ()),
+                     ast.NotIn: lambda a, b: a not in (b if b is not None else ())}
+
+
+def _eval(expression, facts, where):
+    """The expression's truth over `facts`, or Refused if it is outside the grammar."""
+    def refuse(node):
+        return Refused(f"EXPOSURE_PREDICATE_UNREADABLE {where}: {expression!r} uses "
+                       f"{type(node).__name__}, which this module does not execute; a predicate "
+                       f"outside the grammar would have to be a branch in code, and then the table "
+                       f"would no longer be the authority")
+
+    def value(node):
+        if isinstance(node, ast.BoolOp):
+            held = [value(part) for part in node.values]
+            return all(held) if isinstance(node.op, ast.And) else any(held)
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            return not value(node.operand)
+        if isinstance(node, ast.Compare):
+            left = value(node.left)
+            for operator, right in zip(node.ops, node.comparators):
+                held = _EVAL_COMPARISONS.get(type(operator))
+                if held is None:
+                    raise refuse(operator)
+                right_value = value(right)
+                if not held(left, right_value):
+                    return False
+                left = right_value
+            return True
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, (ast.Tuple, ast.List)):
+            return tuple(value(part) for part in node.elts)
+        if isinstance(node, ast.Name):
+            return facts.get(node.id)
+        raise refuse(node)
+
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as exc:
+        raise Refused(f"EXPOSURE_PREDICATE_UNPARSED {where}: {expression!r} ({exc})") from exc
+    return bool(value(tree.body))
+
+
+def predicate_names(expression):
+    """Every fact name an expression reads. Derived, so a declaration cannot omit one silently."""
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError:
+        return set()
+    return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+
+
+def required_facts(row, occasion):
+    """The facts this row's predicate cannot be shown without, for THIS occasion's operation.
+
+    `requires` is the row's floor; `requires_by_operation` adds what a particular operation needs.
+    A merge needs the unit it merged into, a plain delete does not — and with neither required, an
+    occasion carrying only `pin_units: []` was certified eligible because every absent fact
+    compared equal to None. An absent fact is 'cannot be shown', which is `exposure_unknown`.
+    """
+    held = list(row.get("requires") or ())
+    by_operation = row.get("requires_by_operation") or {}
+    for name in by_operation.get(occasion.get("operation"), ()):
+        if name not in held:
+            held.append(name)
+    return held
+
+
+def _facts_of(occasion):
+    """Every fact the occasion carries, by name, with positioned facts unwrapped."""
+    return {name: _value(occasion, name) for name in (occasion.get("facts") or {})}
 
 
 def _value(occasion, name):
@@ -160,7 +302,8 @@ def verdict(occasion):
     held = ordering_problems(occasion)
     if held:
         return {"verdict": UNKNOWN, "rule": row["id"], "why": "; ".join(held)}
-    missing = [name for name in row["requires"] if _value(occasion, name) is None]
+    facts = _facts_of(occasion)
+    missing = [name for name in required_facts(row, occasion) if facts.get(name) is None]
     if missing:
         return {"verdict": UNKNOWN, "rule": row["id"],
                 "why": f"EXPOSURE_FACT_ABSENT {', '.join(missing)}: the branch cannot be shown "
@@ -170,16 +313,25 @@ def verdict(occasion):
     # unbound one, is exposure_unknown"), and a condition like that answered as `not_exposed` would
     # say the item could not have fired where the design says nobody knows. The field had no reader
     # for one commit, which is the label-nobody-reads trap in its own right.
+    #
+    # Both conditions are the TABLE's expressions, executed. `_unknown` and `_shown` are consulted
+    # for the sentence a reader needs and for nothing else: they no longer decide, so a row whose
+    # condition is edited changes the answer.
     if row.get("unknown_when"):
-        unknown, why = _unknown(row, occasion)
-        if unknown:
-            return {"verdict": UNKNOWN, "rule": row["id"], "why": why}
-    shown, why = _shown(row, occasion)
-    return {"verdict": ELIGIBLE if shown else NOT_EXPOSED, "rule": row["id"], "why": why}
+        if _eval(row["unknown_when"], facts, f"{row['id']}.unknown_when"):
+            return {"verdict": UNKNOWN, "rule": row["id"], "why": _unknown(row, occasion)[1]}
+    shown = _eval(row["shown_when"], facts, f"{row['id']}.shown_when")
+    return {"verdict": ELIGIBLE if shown else NOT_EXPOSED, "rule": row["id"],
+            "why": _shown(row, occasion)[1]}
 
 
 def _unknown(row, occasion):
-    """Whether this row's own unknown condition holds, and why. One branch per rule that declares one."""
+    """The sentence for this row's unknown condition, when it holds.
+
+    The table's `unknown_when` decides; this says it in words. The boolean it returns is the
+    SENTENCE's subject, read by `table_problems` to show the two agree — never by `verdict`, which
+    executes the expression. One decider, one explainer.
+    """
     get = lambda name: _value(occasion, name)                                   # noqa: E731
     name = row["id"]
     if name == "executable_installer":
@@ -202,7 +354,13 @@ def _unknown(row, occasion):
 
 
 def _shown(row, occasion):
-    """Whether this row's condition holds, and the sentence a reader needs. One branch per rule id."""
+    """The sentence a reader needs for this row, and the subject of that sentence.
+
+    As with `_unknown`: the table's `shown_when` is what `verdict` executes. This function explains
+    the answer in the words of the facts, and `table_problems` holds its boolean against the
+    executed expression for every generated fixture, so an explanation that says the opposite of
+    the answer is a named failure rather than a surprise in a report.
+    """
     get = lambda name: _value(occasion, name)                                   # noqa: E731
     name = row["id"]
     if name == "create_or_edit":
@@ -390,8 +548,28 @@ def document():
 
 
 def self_test():
-    failures, ran = [], []
+    """Every §11 branch, each table defect planted, and the three verdicts.
 
+    The body is wrapped so a control that DIES still speaks: a traceback is not a control firing,
+    and a revert trial that reads any output counts one as if it were. Found here by a revert trial
+    of this unit's own round-2 fixes — the precedence row made `rule_for` refuse, a control read its
+    answer without guarding, and the suite ended in a traceback with no [FAIL] line at all.
+    """
+    failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"exposure --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"exposure --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"exposure --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} failed "
+              f"before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
     def control(name, got, want):
         ran.append(name)
         if want not in str(got):
@@ -410,6 +588,42 @@ def self_test():
         except Exception as exc:  # noqa: BLE001 - a control that dies is not a control
             return f"RAISED {type(exc).__name__}: {exc}"
         return ""
+
+    def answered_by(**occasion):
+        """`rule=<id>` for this occasion, or the exception as text.
+
+        The prefix is the point: `EXPOSURE_RULE_AMBIGUOUS create_or_edit, executable_installer ...`
+        CONTAINS the id a control is looking for, so a bare substring check read a refusal as the
+        right answer — this unit's own revert trial found the precedence control passing under a
+        mutation that made every match a tie.
+        """
+        try:
+            return f"rule={rule_for(occasion)['id']}"
+        except BaseException as exc:  # noqa: BLE001 - the exception is the answer here
+            return f"RAISED {type(exc).__name__}: {exc}"
+
+    def guarded(call):
+        """The call's answer, or the exception as text.
+
+        A control that reads an answer a revert can make raise must not die on it: the exception IS
+        the finding, and it has to reach a [FAIL] line to be one.
+        """
+        try:
+            return call()
+        except BaseException as exc:  # noqa: BLE001 - the exception is the answer here
+            return f"RAISED {type(exc).__name__}: {exc}"
+
+    def row_of(held, name):
+        """The mutable row with this id, inside a `with_table` copy.
+
+        By id rather than by position: a control that indexes `rules[4]` mutates whatever sits
+        there, and a table reordered later would leave the control green while testing another
+        branch.
+        """
+        for row in held["rules"]:
+            if row["id"] == name:
+                return row
+        raise AssertionError(f"the suite's own fixture is stale: no rule {name!r} to mutate")
 
     def with_table(mutate, call):
         held = json.loads(json.dumps(table()))
@@ -453,6 +667,34 @@ def self_test():
     control("an occasion no branch answers for is refused by name, with what it carried",
             refusal(lambda: verdict({"locator": "x", "operation": "rename"})),
             "EXPOSURE_RULE_ABSENT x")
+    # Round 2: an EDITED installer. Both rows match at one key each, and the generic row used to
+    # win by sitting earlier in the file, so an installer's exposure was judged by the rule for a
+    # library unit's delivered version.
+    control("an edited INSTALLER is answered by the installer's own branch, not by the generic "
+            "create-or-edit row both rows match at one key",
+            answered_by(operation="edit", role="installer"), "rule=executable_installer")
+    control("and so is a created hook",
+            answered_by(operation="create", role="hook"), "rule=executable_invoked")
+    control("the role precedence is the TABLE's: with the key order reversed, the generic row wins "
+            "and the answer changes, so the declaration is what decides",
+            str(guarded(lambda: with_table(
+                lambda held: held.__setitem__("precedence", ["operation", "role"]),
+                lambda: answered_by(operation="edit", role="installer")))),
+            "rule=create_or_edit")
+    control("a genuine tie is REFUSED rather than broken by position",
+            refusal(lambda: with_table(
+                lambda held: row_of(held, "executable_compiler").__setitem__("applies_to", {"role": ["installer"]}),
+                lambda: verdict({"locator": "tie", "role": "installer", "at_record": 2,
+                                 "facts": {}}))),
+            "EXPOSURE_RULE_AMBIGUOUS tie")
+    control("and an unranked applies_to key is a table defect, since nothing could separate two "
+            "rows matching on it",
+            str(with_table(lambda held: row_of(held, "create_or_edit")["applies_to"].__setitem__("host", ["claude"]),
+                           table_problems)),
+            "RULE_KEY_UNRANKED")
+    control("a table with no precedence at all is refused",
+            str(with_table(lambda held: held.__setitem__("precedence", []), table_problems)),
+            "PRECEDENCE_UNSTATED")
 
     # ---- the three verdicts ----------------------------------------------------------------------
     def occasion(**over):
@@ -478,6 +720,59 @@ def self_test():
                                "applied_path": "bin/w", "applied_sha256": APPLIED}})["verdict"],
             NOT_EXPOSED)
     control("exposure shown makes the occasion eligible", verdict(occasion())["verdict"], ELIGIBLE)
+    # Round 2: the table's predicate is EXECUTED. With `shown_when` set to a constant, the answer
+    # has to follow the table — and before this it did not move at all, because the branch keyed on
+    # the row's id decided and the field was prose beside it.
+    control("a row's shown_when set to False makes a shown occasion not_exposed: the table decides",
+            with_table(lambda held: row_of(held, "create_or_edit").__setitem__("shown_when", "False"),
+                       lambda: verdict(occasion())["verdict"]),
+            NOT_EXPOSED)
+    control("and set to True it makes an unshown one eligible, so neither direction is the code's",
+            with_table(lambda held: row_of(held, "create_or_edit").__setitem__("shown_when", "True"),
+                       lambda: verdict(occasion(facts={"delivered_version": OTHER,
+                                                       "applied_version": APPLIED}))["verdict"]),
+            ELIGIBLE)
+    control("a predicate outside the grammar is refused by name rather than evaluated",
+            refusal(lambda: with_table(
+                lambda held: row_of(held, "create_or_edit").__setitem__(
+                    "shown_when", "__import__('os').system('x')"),
+                lambda: verdict(occasion()))),
+            "EXPOSURE_PREDICATE_UNREADABLE create_or_edit.shown_when")
+    control("and an unparseable one too",
+            str(with_table(lambda held: row_of(held, "create_or_edit").__setitem__("shown_when", "a =="),
+                           table_problems)),
+            "RULE_PREDICATE_UNREADABLE create_or_edit")
+    # Round 2: incomplete evidence was CERTIFIED. Both shapes are the review's own.
+    control("a merge carrying only an empty pin is unanswerable, not exposed: without the unit that "
+            "was removed, 'the pin does not hold it' is true of every pin",
+            verdict({"locator": "m-2", "operation": "merge", "at_record": 5,
+                     "facts": {"pin_units": []}})["verdict"], UNKNOWN)
+    control("and it names both identities it lacks",
+            verdict({"locator": "m-2", "operation": "merge", "at_record": 5,
+                     "facts": {"pin_units": []}})["why"], "removed_unit, merged_unit")
+    control("while a plain DELETE needs only the removed unit, since no merge was asked for",
+            verdict({"locator": "d-2", "operation": "delete", "at_record": 5,
+                     "facts": {"pin_units": [], "removed_unit": "u-gone"}})["verdict"], ELIGIBLE)
+    control("a deleted wrapper carrying only its own resolution is unanswerable: 'neither the "
+            "removed artifact nor an older carrier' needs both of those digests",
+            verdict({"locator": "x-2", "operation": "delete", "role": "wrapper", "at_record": 5,
+                     "facts": {"resolved_path": "bin/w", "resolved_sha256": APPLIED}})["verdict"],
+            UNKNOWN)
+    control("and names them",
+            verdict({"locator": "x-2", "operation": "delete", "role": "wrapper", "at_record": 5,
+                     "facts": {"resolved_path": "bin/w", "resolved_sha256": APPLIED}})["why"],
+            "removed_sha256, fallback_sha256")
+    control("an operation-conditional requirement must belong to a row that claims the operation",
+            str(with_table(
+                lambda held: row_of(held, "delete_or_merge").__setitem__(
+                    "requires_by_operation", {"route": ["removed_unit"]}),
+                table_problems)),
+            "RULE_OPERATION_UNCLAIMED delete_or_merge")
+    control("a fact a predicate reads and the row declares nowhere is a table defect",
+            str(with_table(lambda held: row_of(held, "create_or_edit").__setitem__(
+                "shown_when", "delivered_version == applied_version and vouched is True"),
+                table_problems)),
+            "RULE_FACT_UNDECLARED create_or_edit.shown_when")
     control("exposure shown ABSENT makes it not_exposed, which is an answer",
             verdict(occasion(facts={"delivered_version": OTHER,
                                     "applied_version": APPLIED}))["verdict"], NOT_EXPOSED)

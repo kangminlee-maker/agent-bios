@@ -19,17 +19,51 @@ set -u
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# ─── Sanitization, before ANY git command this script runs — including the ones that build the
+# --self-test's decoy. It used to sit after the self-test branch, which is to say after a `git init`
+# and three `git config` writes. With `GIT_CONFIG` inherited, and under the commit hook it is,
+# `git config core.worktree` run inside the decoy writes `core.worktree` into the repository
+# `GIT_CONFIG` names instead (measured on git 2.50.1: the other repository's config changed and
+# carried the decoy's worktree path). That is AGENTS.md's first trap, and the decoy was performing
+# it on whatever repository the caller's environment pointed at.
+#
+# EVERY inherited GIT_* variable, swept from the environment rather than listed. A list is what the
+# first version of this script had, and it named five: `GIT_CONFIG`, `GIT_CONFIG_COUNT` with its
+# `GIT_CONFIG_KEY_n`/`VALUE_n` pairs, `GIT_COMMON_DIR` and `GIT_TEMPLATE_DIR` all survived it, and
+# each of them can send this harness's writes into the REAL repository's config. Under the commit
+# hook those variables are exactly what is set.
+while IFS='=' read -r held _; do
+  case "$held" in GIT_*) unset "$held" || true ;; esac
+done < <(env)
+# `git` also reads these two without a GIT_ prefix.
+unset XDG_CONFIG_HOME GIT_CEILING_DIRECTORIES 2>/dev/null || true
+export GIT_CONFIG_NOSYSTEM=1        # no /etc/gitconfig either
+export GIT_CONFIG_GLOBAL=/dev/null  # and no ~/.gitconfig, whatever HOME happens to be
+# Nothing here writes a .pyc: the gate and the refusal below run out of the REAL checkout, and a
+# stale bytecode file planted there outlives this run.
+export PYTHONDONTWRITEBYTECODE=1
+
 # --self-test: run the check again with HOSTILE GIT_* variables pointing at a DECOY repository, and
 # assert the decoy is untouched. That is the negative control for the finding this script was fixed
 # for: a list of five variables to unset let GIT_CONFIG and the GIT_CONFIG_COUNT family through, and
 # any of them can redirect a git write into the repository they name. The decoy stands in for the
 # real one so the control can be run without risking it.
 if [ "${1:-}" = "--self-test" ]; then
-  DECOY="$(mktemp -d "/tmp/global-op-decoy.XXXXXX")"
+  # mktemp's success is checked before any path is built out of it: `set -u` does not catch an empty
+  # DECOY, and "$DECOY/.git" would then be "/.git".
+  DECOY="$(mktemp -d "/tmp/global-op-decoy.XXXXXX")" || { echo "FAIL: mktemp refused"; exit 1; }
+  [ -n "$DECOY" ] && [ -d "$DECOY" ] || { echo "FAIL: mktemp gave no usable directory"; exit 1; }
   trap 'rm -rf "$DECOY"' EXIT
-  mkdir -p "$DECOY/worktree"
-  ( cd "$DECOY" && git init -q . && git config core.worktree "$DECOY/worktree"       && git config user.email d@e.invalid && git config user.name d ) || {
+  mkdir -p "$DECOY/worktree" "$DECOY/home" || { echo "FAIL: could not build the decoy tree"; exit 1; }
+  # The decoy's own HOME as well, so `git init` cannot read the caller's templates or hooksPath.
+  ( cd "$DECOY" && HOME="$DECOY/home" git init -q . && HOME="$DECOY/home" git config core.worktree "$DECOY/worktree" \
+      && HOME="$DECOY/home" git config user.email d@e.invalid && HOME="$DECOY/home" git config user.name d ) || {
     echo "FAIL: could not build the decoy repository"; exit 1; }
+  # The canary control below re-enters this branch only to reach this point. It stops here, so the
+  # recursion is one level deep by construction and no inner run spawns a third.
+  if [ -n "${GLOBAL_OP_DECOY_ONLY:-}" ]; then
+    echo "decoy built at $DECOY"; exit 0
+  fi
   before=$(shasum "$DECOY/.git/config" | cut -d' ' -f1)
   GIT_DIR="$DECOY/.git" GIT_WORK_TREE="$DECOY" GIT_CONFIG="$DECOY/.git/config"     GIT_COMMON_DIR="$DECOY/.git" GIT_TEMPLATE_DIR="$DECOY/template"     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="core.worktree" GIT_CONFIG_VALUE_0="/hijacked"     GIT_OBJECT_DIRECTORY="$DECOY/.git/objects" GIT_INDEX_FILE="$DECOY/.git/index"     bash "${BASH_SOURCE[0]}" > "$DECOY/run.log" 2>&1
   code=$?
@@ -40,6 +74,27 @@ if [ "${1:-}" = "--self-test" ]; then
   if git -C "$DECOY" config --get core.worktree | grep -q hijacked; then
     held+=("core.worktree in the decoy was rewritten to the hijacked value")
   fi
+  # The canary. The assertions above watch the DECOY, which is what the child run could have
+  # written; they say nothing about the git commands that BUILD the decoy, and those ran before the
+  # sweep did. So: a third repository nothing in this script is allowed to touch, named by a hostile
+  # GIT_CONFIG while a nested run builds its own decoy. `GLOBAL_OP_DECOY_ONLY` stops that run as
+  # soon as its decoy stands, so what is measured is the decoy-building commands alone.
+  CANARY="$DECOY/canary"
+  mkdir -p "$CANARY/home" || { echo "FAIL: could not build the canary tree"; exit 1; }
+  ( cd "$CANARY" && HOME="$CANARY/home" git init -q . && HOME="$CANARY/home" git config user.email c@e.invalid ) || {
+    echo "FAIL: could not build the canary repository"; exit 1; }
+  canary_before=$(shasum "$CANARY/.git/config" | cut -d' ' -f1)
+  GIT_CONFIG="$CANARY/.git/config" GIT_DIR="$CANARY/.git" GIT_WORK_TREE="$CANARY" \
+    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="core.worktree" GIT_CONFIG_VALUE_0="/hijacked" \
+    GLOBAL_OP_DECOY_ONLY=1 bash "${BASH_SOURCE[0]}" --self-test > "$DECOY/canary.log" 2>&1
+  canary_code=$?
+  canary_after=$(shasum "$CANARY/.git/config" | cut -d' ' -f1)
+  [ "$canary_code" -eq 0 ] || held+=("building the decoy under hostile GIT_* variables failed (exit $canary_code): $(tail -3 "$DECOY/canary.log")")
+  [ "$canary_before" = "$canary_after" ] || held+=("the canary repository's config CHANGED while the decoy was being built: a git command ran before the sweep")
+  if grep -q hijacked "$CANARY/.git/config" 2>/dev/null; then
+    held+=("the canary's config carries the hijacked worktree: the decoy's git commands wrote into the repository GIT_CONFIG named")
+  fi
+
   if [ "${#held[@]}" -gt 0 ]; then
     for row in "${held[@]}"; do echo "FAIL: $row"; done
     echo "global-op-unjudged-check --self-test: FAILED (${#held[@]})"
@@ -52,21 +107,13 @@ if [ "${1:-}" = "--self-test" ]; then
   exit 0
 fi
 LIMIT="${GLOBAL_OP_CHECK_TIMEOUT:-180}"
-WORK="$(mktemp -d "/tmp/global-op.XXXXXX")"
+WORK="$(mktemp -d "/tmp/global-op.XXXXXX")" || { echo "FAIL: mktemp refused"; exit 1; }
+[ -n "$WORK" ] && [ -d "$WORK" ] || { echo "FAIL: mktemp gave no usable directory"; exit 1; }
 trap 'rm -rf "$WORK"' EXIT
 
-# EVERY inherited GIT_* variable, swept from the environment rather than listed. A list is what the
-# first version of this script had, and it named five: `GIT_CONFIG`, `GIT_CONFIG_COUNT` with its
-# `GIT_CONFIG_KEY_n`/`VALUE_n` pairs, `GIT_COMMON_DIR` and `GIT_TEMPLATE_DIR` all survived it, and
-# each of them can send this harness's writes into the REAL repository's config — which is
-# AGENTS.md's first trap, with a wider mouth than the trap describes. Under the commit hook those
-# variables are exactly what is set.
-while IFS='=' read -r held _; do
-  case "$held" in GIT_*) unset "$held" || true ;; esac
-done < <(env)
-# `git` also reads these two without a GIT_ prefix.
-unset XDG_CONFIG_HOME GIT_CEILING_DIRECTORIES 2>/dev/null || true
-export GIT_CONFIG_NOSYSTEM=1                 # no /etc/gitconfig either
+# The GIT_* sweep and the config isolation are at the top of this file, ahead of the self-test's own
+# git commands. What is left here is the fixture's own HOME, which cannot be set before the temp
+# directory exists.
 export HOME="$WORK/home" CLAUDE_CONFIG_DIR="$WORK/home/.claude" CODEX_HOME="$WORK/home/.codex"
 export TMPDIR="$WORK/tmp"
 

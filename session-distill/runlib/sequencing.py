@@ -186,6 +186,52 @@ def sequence(items, gate=route_integrity, base=None, limit=SET_LIMIT):
             "gate": getattr(gate, "__name__", "gate")}
 
 
+def validate_order(items, order, gate=route_integrity, base=None):
+    """The row `sequence` returns, for the order the caller GIVES, or Refused naming the step.
+
+    "Does an order exist" and "does THIS order hold" are different questions, and a caller that
+    needed the second asked the first and compared answers. `sequence` returns the first passing
+    order its sorted-id search reaches, so a perfectly valid approved order was rejected whenever
+    another valid order sorted earlier (the WP-21 round-2 review). Validating is also one pass with
+    no search.
+    """
+    rows = list(items)
+    if not rows:
+        raise Refused("SEQUENCE_SET_EMPTY: an order over no item proves nothing about any apply")
+    by_id = {item["item_id"]: item for item in rows}
+    asked = list(order or ())
+    if sorted(asked) != sorted(by_id):
+        raise Refused(f"SEQUENCE_ORDER_NOT_A_PERMUTATION {', '.join(asked)}: the order names "
+                      f"{len(asked)} item(s) and the set holds {len(by_id)} "
+                      f"({', '.join(sorted(by_id))})")
+    tree = dict(base or {})
+    trail = []
+    for item_id in asked:
+        tree = apply_to(tree, by_id[item_id])
+        problems = gate(tree)
+        trail.append((item_id, tree, problems))
+        if problems:
+            raise Refused(f"SEQUENCE_ORDER_FAILS at {item_id} (step {len(trail)} of {len(asked)}): "
+                          f"{'; '.join(problems)}")
+    return {"set_hash": set_hash(rows),
+            "order": [item_id for item_id, _tree, _problems in trail],
+            "tree_hashes": [tree_hash(held) for _item_id, held, _problems in trail],
+            "hook_results": [{"item_id": item_id, "problems": problems}
+                             for item_id, _tree, problems in trail],
+            "gate": getattr(gate, "__name__", "gate")}
+
+
+def order_answer(items, order, gate=route_integrity, base=None):
+    """`validate_order`'s row, RETURNED rather than raised, as `subset_answer` is `sequence`'s."""
+    try:
+        return {**validate_order(items, order, gate, base), "sequenced": True}
+    except Refused as exc:
+        return {"set_hash": set_hash(list(items)), "sequenced": False,
+                "refusal": str(exc).split(":")[0].split(" at ")[0], "reason": str(exc),
+                "order": [], "tree_hashes": [], "hook_results": [],
+                "gate": getattr(gate, "__name__", "gate")}
+
+
 def subset_answer(items, gate=route_integrity, base=None):
     """One `sequencing.json` row for one set, RETURNED rather than raised.
 
@@ -273,6 +319,18 @@ def _self_test_body(failures, ran):
             return str(exc)
         return ""
 
+    def guarded(call):
+        """The call's answer as text, or the exception as text.
+
+        `refusal` catches only `Refused`; a revert that makes a control raise KeyError instead ends
+        the suite in a traceback, and a trial reading any output counts that as the control firing.
+        Found by this unit's own round-2 revert trial on the permutation guard.
+        """
+        try:
+            return str(call())
+        except BaseException as exc:  # noqa: BLE001 - the exception is the answer here
+            return f"RAISED {type(exc).__name__}: {exc}"
+
     def sequenced(name, call):
         """A positive control's answer, or a named failure when the call refuses.
 
@@ -311,6 +369,48 @@ def _self_test_body(failures, ran):
             "arrive in", json.dumps(pair["order"]), '["i-carrier", "i-route"]')
     clean("and every intermediate tree of that order passed",
           [row for row in pair["hook_results"] if row["problems"]])
+
+    # ---- validating ONE given order, which is a different question from searching ----------------
+    #
+    # "Does an order exist" and "does THIS order hold" are not the same, and WP-21's caller needed
+    # the second: it asked the first and compared the answers, so a valid APPROVED order was refused
+    # whenever another valid order sorted earlier. The pair below is that case — both orders pass,
+    # and the one validated is the one asked about.
+    given = sequenced("a given order that holds is returned as given",
+                      lambda: validate_order([carrier, route], ["i-carrier", "i-route"]))
+    control("a given order that holds is returned as given", json.dumps(given["order"]),
+            '["i-carrier", "i-route"]')
+    control("and its trees are the trees of THAT order, one per step",
+            str(len(given["tree_hashes"])), "2")
+    control("a given order that does not hold is refused at the step that failed, with the gate's "
+            "own words",
+            refusal(lambda: validate_order([carrier, route], ["i-route", "i-carrier"])),
+            "SEQUENCE_ORDER_FAILS at i-route (step 1 of 2)")
+    control("while the search, asked the other question about the same set, finds the order that "
+            "does hold — which is why a caller must not read one as the other",
+            json.dumps(sequenced("the search on that same set",
+                                 lambda: sequence([carrier, route]))["order"]),
+            '["i-carrier", "i-route"]')
+    control("an order naming an item the set does not hold is refused rather than validated",
+            guarded(lambda: refusal(
+                lambda: validate_order([carrier, route], ["i-carrier", "i-ghost"]))),
+            "SEQUENCE_ORDER_NOT_A_PERMUTATION")
+    control("and so is one that leaves an item out",
+            guarded(lambda: refusal(
+                lambda: validate_order([carrier, route], ["i-carrier"]))),
+            "SEQUENCE_ORDER_NOT_A_PERMUTATION")
+    control("an empty set is refused by the same name as the search's, since an order over no item "
+            "proves nothing either way",
+            refusal(lambda: validate_order([], [])), "SEQUENCE_SET_EMPTY")
+    control("`order_answer` returns the refusal as a row, like `subset_answer`",
+            json.dumps(order_answer([carrier, route], ["i-route", "i-carrier"])["sequenced"]),
+            "false")
+    control("and the row carries the reason, so the caller can say which step failed",
+            order_answer([carrier, route], ["i-route", "i-carrier"])["reason"],
+            "SEQUENCE_ORDER_FAILS at i-route")
+    control("while a holding order comes back sequenced",
+            json.dumps(order_answer([carrier, route], ["i-carrier", "i-route"])["sequenced"]),
+            "true")
 
     # F17 / done-when 7: the route and a carrier NOBODY creates. No order can help, and the set is
     # named before the freeze rather than after half of it is applied.
