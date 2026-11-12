@@ -2269,17 +2269,20 @@ def self_test():
             refusal(lambda: validate.compile_schema(held)))
     control("done-when 8: the judgment schema's per-unit and per-candidate fields are §6.2's", not contract_problems(held),
             f"{contract_problems(held)}")
+    # each plant tolerates a schema that already lacks what it removes, so a mutation of the schema itself fails the
+    # control above by name instead of ending the suite here (Codex WP-11 r1 #6)
     dropped = json.loads(json.dumps(held))
-    del dropped["$defs"]["unit_judgment"]["properties"]["quote"]
-    dropped["$defs"]["unit_judgment"]["required"].remove("quote")
+    dropped["$defs"]["unit_judgment"]["properties"].pop("quote", None)
+    dropped["$defs"]["unit_judgment"]["required"] = [f for f in dropped["$defs"]["unit_judgment"]["required"]
+                                                     if f != "quote"]
     named("control: a §6.2 field dropped from the schema is CONTRACT_DRIFT", contract_problems(dropped), "CONTRACT_DRIFT")
     added = json.loads(json.dumps(held))
     added["$defs"]["unit_judgment"]["properties"]["confidence"] = {"type": "string"}
     named("control: a schema field §6.2 does not name and no reason declares is CONTRACT_DRIFT",
           contract_problems(added), "CONTRACT_DRIFT")
     gone = json.loads(json.dumps(held))
-    del gone["properties"]["no_longer_arises"]
-    gone["required"].remove("no_longer_arises")
+    gone["properties"].pop("no_longer_arises", None)
+    gone["required"] = [f for f in gone["required"] if f != "no_longer_arises"]
     named("control: a declared extra field the schema no longer holds is CONTRACT_DRIFT", contract_problems(gone),
           "CONTRACT_DRIFT stage_judge.EXTRA_FIELDS")
     control("the schema's paths are read through its references (the requirements and the units are reached)",
@@ -2863,12 +2866,15 @@ def self_test():
                     any(p.startswith("JUDGE_OVER_CAPACITY A") for p in guarded(lambda: attempt_problems(
                         sent, {**limits_a, "capacity": 1000}, held_schema_bytes, "A"), [])), "")
             moved_dir = root / "capacity-moved"
-            shutil.copytree(called / "calls" / some_call, moved_dir)
-            call_record = records.read_json(moved_dir / "call.json")
-            call_record["bound"]["context_capacity"] = 999
-            (moved_dir / "call.json").chmod(0o600)
-            (moved_dir / "call.json").write_text(json.dumps(call_record), encoding="utf-8")
-            said = refusal(lambda: check(packets[judged_ids[0]][0], limits_a.get("capacity"))(moved_dir))
+            if some_call and (called / "calls" / some_call / "call.json").is_file():
+                shutil.copytree(called / "calls" / some_call, moved_dir)
+                call_record = records.read_json(moved_dir / "call.json")
+                call_record["bound"]["context_capacity"] = 999
+                (moved_dir / "call.json").chmod(0o600)
+                (moved_dir / "call.json").write_text(json.dumps(call_record), encoding="utf-8")
+                said = refusal(lambda: check(packets[judged_ids[0]][0], limits_a.get("capacity"))(moved_dir))
+            else:   # the call this copies was not accepted: the control says so rather than the suite ending here
+                said = f"no accepted call of Judge A to copy ({some_call!r})"
             control("control: an attempt whose call record carries another capacity than S6 was admitted against is "
                     "CAPACITY_UNRECORDED", said.startswith("CAPACITY_UNRECORDED"), said[:200])
             # ---- done-when 4's decidable halves (J2b deferred, D-20261111-c4fa71) -------------------------------------
@@ -3177,6 +3183,13 @@ def self_test():
                 c0 = claims_known[0] if claims_known else ""
                 kept_summary = guarded(lambda: records.read_json(stale / SUMMARY), {})
 
+                def rewrite(path, data):   # a file an earlier part failed to write is reported by the control, not here
+                    if not path.is_file():
+                        return False
+                    path.chmod(0o600)
+                    path.write_text(json.dumps(data), encoding="utf-8")
+                    return True
+
                 def current_of(given):
                     return guarded(lambda: derive.unit_outcome(given, {}, TEST_STATE)["candidate_diagnosis"]["current"]
                                    ["diagnosis"], "RAISED")
@@ -3185,29 +3198,26 @@ def self_test():
                 for r in (shrunk.get("reconsiderations") or {}).get("reconsidered") or []:
                     if r["candidate_id"] == c0:
                         r["returned"] = 0
-                (stale / SUMMARY).chmod(0o600)
-                (stale / SUMMARY).write_text(json.dumps(shrunk), encoding="utf-8")
+                rewrite(stale / SUMMARY, shrunk)
                 as_returned_none = current_of(guarded(lambda: given_from_run(stale, c0), {}))
                 control("Codex WP-11 r1 #2: a claim this invocation reconsidered with nothing returned is derived from its "
                         "first judgments alone, though an earlier invocation's reconsiderations of it are still on disk",
                         as_reconsidered == "covered" and as_returned_none == "gap"
                         and all((stale / reconsideration_rel(item_of(c0), w)).is_file() for w in SEAT_KEYS),
                         f"{as_reconsidered} {as_returned_none}")
-                (stale / SUMMARY).write_text(json.dumps(kept_summary), encoding="utf-8")
+                rewrite(stale / SUMMARY, kept_summary)
                 foreign = stale / reconsideration_rel(item_of(c0), "B")
                 held_b = guarded(lambda: records.read_json(foreign), {})
-                foreign.chmod(0o600)
-                foreign.write_text(json.dumps({**held_b, "call_id": "another-run-S6-x-a1"}), encoding="utf-8")
+                rewrite(foreign, {**held_b, "call_id": "another-run-S6-x-a1"})
                 said = refusal(lambda: given_from_run(stale, c0))
                 control("Codex WP-11 r1 #2: a reconsideration file naming another call than the one the invocation accepted "
                         "is RECONSIDERATION_STALE, never derived from", said.startswith(f"RECONSIDERATION_STALE {c0} B"),
                         said[:200])
-                foreign.write_text(json.dumps(held_b), encoding="utf-8")
+                rewrite(foreign, held_b)
                 other = next((c for c in sorted(whole_packets) if c not in claims_known), "")
                 first_a = stale / judgment_rel(item_of(other), "A")
                 held_a = guarded(lambda: records.read_json(first_a), {})
-                first_a.chmod(0o600)
-                first_a.write_text(json.dumps({**held_a, "call_id": "another-run-S6-y-a1"}), encoding="utf-8")
+                rewrite(first_a, {**held_a, "call_id": "another-run-S6-y-a1"})
                 said = refusal(lambda: given_from_run(stale, other))
                 control("Codex WP-11 r1 #2: a first judgment file naming another call than the summary's is JUDGMENT_STALE "
                         "to S10's reader", said.startswith(f"JUDGMENT_STALE {other} A"), said[:200])
@@ -3244,6 +3254,8 @@ def self_test():
                                 cross_stage(capped, stg, sup, stg.declaration, swept_w, item_of, {}, "calibration")
                         except Refused as exc:
                             said = str(exc)
+                        except Exception as exc:  # noqa: BLE001 - an earlier part's failure, read by the control
+                            said = f"RAISED {exc!r}"
                         stg.record["status"] = "partial"
                     return said, sup.items
                 sweep_seat, cross_seat = "claude:claude-sonnet-5-5/medium", "codex:gpt-6-astra/xhigh"
@@ -3370,9 +3382,12 @@ def self_test():
                     named("control (done-when 3): a cross-review missing one partial flag is CROSS_REVIEW_INCOMPLETE",
                           cross_review_problems({**rec, "partial_flags": rec["partial_flags"][1:]}, flags_c, neg_c, built_sha),
                           "CROSS_REVIEW_INCOMPLETE")
+                    # another sample is always built and always judged by the checker: the drawn ones reversed, or with
+                    # a unit nobody drew added when there are fewer than two (Codex WP-11 r1 #7)
+                    kept_negatives = list(rec["seeded_negatives"])
+                    another = kept_negatives[::-1] if len(set(kept_negatives)) > 1 else kept_negatives + ["u-not-drawn"]
                     named("control: a cross-review whose negatives are another sample is CROSS_REVIEW_INCOMPLETE",
-                          cross_review_problems({**rec, "seeded_negatives": rec["seeded_negatives"][::-1]}, flags_c, neg_c,
-                                                built_sha) if len(neg_c) > 1 else ["CROSS_REVIEW_INCOMPLETE vacuous"],
+                          cross_review_problems({**rec, "seeded_negatives": another}, flags_c, neg_c, built_sha),
                           "CROSS_REVIEW_INCOMPLETE")
                     corrupted = json.loads(json.dumps(marks_c))
                     some_neg = (neg_c or flags_c)[0]
