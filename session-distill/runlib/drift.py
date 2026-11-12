@@ -276,16 +276,20 @@ def chain_problems(f):
                     problems.append(f"TARGET_MISMATCH {item.get('item_id')} {target}: its "
                                     f"before-hash {str(before)[:12]}… is not the previous "
                                     f"operation's after-hash {str(after)[:12]}…")
-            last[target] = {"after": operation.get("after_state_sha256"),
-                            "item": item.get("item_id")}
             # A merge REMOVES its units, and a removed file's state is `absent` for whatever comes
             # next. The chain read the target alone, so an edit expecting the removed file's old
             # hash followed the merge that deleted it and nothing said so (the round-6 review).
+            # The units FIRST and the target after, as `sequencing.apply_to` does: a merge whose
+            # units include its own target removes it and then leaves it, so the target's state is
+            # its after-hash, and written the other way round the survivor was recorded absent (the
+            # round-7 review).
             if operation.get("type") == "merge":
                 for unit in operation.get("units") or ():
                     for held in target_problems(unit):
                         problems.append(f"{held.split()[0]} {item.get('item_id')}: {held}")
                     last[target_identity(unit)] = {"after": "absent", "item": item.get("item_id")}
+            last[target] = {"after": operation.get("after_state_sha256"),
+                            "item": item.get("item_id")}
     return problems
 
 
@@ -809,6 +813,18 @@ def self_test():
                           {"item_id": "i-new", "operations": [
                               {"type": "create", "target": "claude/guides/h.md",
                                "before_state_sha256": "absent"}]}]))
+    survivor = {"item_id": "i-fold", "operations": [
+        {"type": "merge", "target": "claude/guides/g.md",
+         "units": ["claude/guides/g.md", "claude/guides/h.md"],
+         "before_state_sha256": A, "after_state_sha256": B}]}
+    clean("a merge whose units include its own target leaves that target at its after-hash: an edit "
+          "expecting it chains",
+          chain_problems([survivor, {"item_id": "i-next", "operations": [
+              {"type": "edit", "target": "claude/guides/g.md", "before_state_sha256": B}]}]))
+    control("and a create of the surviving target after it is refused, since the file is there",
+            [held.split(":")[0] for held in chain_problems([survivor, {"item_id": "i-again", "operations": [
+                {"type": "create", "target": "claude/guides/g.md", "before_state_sha256": "absent"}]}])],
+            "['TARGET_MISMATCH i-again claude/guides/g.md']")
     control("and so is one over drift",
             refusal(lambda: document({"global": C, "guides": B}, fx_declaration(), [fx_item()])),
             "DRIFT_UNTARGETED")

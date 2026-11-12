@@ -564,6 +564,39 @@ JPLANT5G
 "reader" \
           "never calls it outside its own suite"
 
+  # Round 7: the same guard at the module's TOP LEVEL, in both spellings.
+  fresh
+  python3 - "$W" <<'JPLANT5H'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+held += "\n\nif '--self-test' in sys.argv:\n    author_rows_absent(None)\n"
+p.write_text(held, encoding="utf-8")
+JPLANT5H
+  case_is "a rule called only under a TOP-LEVEL self-test guard is not a runtime reader" \
+          "never calls it outside its own suite"
+
+  fresh
+  python3 - "$W" <<'JPLANT5I'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+held += "\n\nif '--self-test' not in sys.argv:\n    pass\nelse:\n    author_rows_absent(None)\n"
+p.write_text(held, encoding="utf-8")
+JPLANT5I
+  case_is "nor is one called only in the else of a top-level `not in` guard" \
+          "never calls it outside its own suite"
+
   # The exemption is keyed to the ROW. The same path written in a second row is a reference nothing
   # has excused, and keyed by (file, path) alone it was excused anyway.
   fresh
@@ -1404,17 +1437,21 @@ def rule_reader(rel, name):
         held = set()
 
         def walk(node):
+            # The guard is asked of the node ITSELF, not of a child: an `if` handed in directly —
+            # every statement of the module's top level is — was walked whole, so a rule called
+            # only under a top-level `if '--self-test' in sys.argv:` counted as read (the round-7
+            # review).
+            if isinstance(node, ast.If):
+                half = suite_half(node)
+                if half:
+                    walk(node.test)
+                    for part in (node.orelse if half == "body" else node.body):
+                        walk(part)
+                    return
             if isinstance(node, ast.Call):
                 called_name = ast.unparse(node.func).split(".")[-1]
                 held.add(constructors.get(called_name, called_name))
             for child in ast.iter_child_nodes(node):
-                if isinstance(child, ast.If):
-                    half = suite_half(child)
-                    if half:
-                        walk(child.test)
-                        for part in (child.orelse if half == "body" else child.body):
-                            walk(part)
-                        continue
                 walk(child)
 
         for node in nodes:
