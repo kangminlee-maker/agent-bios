@@ -132,7 +132,12 @@ def decisions_of(run_dir):
     if not root.is_dir():
         return found
     for path in sorted(root.glob("*.jsonl")):
-        for line in path.read_text(encoding="utf-8").splitlines():
+        # The repository's one JSONL splitter, as every other reader here uses. `splitlines()` also
+        # splits U+2028 and U+2029, which `records` writes through unescaped (`ensure_ascii=False`),
+        # so a decision whose text carried one would have its record split in half: the ordinal
+        # scale this mapping exists to establish would shift, and the record itself would be
+        # discarded as unparsable (the WP-11b review, the same defect as the journal's).
+        for line in records.jsonl_read(path, errors="replace"):
             if not line.strip():
                 continue
             try:
@@ -1621,6 +1626,15 @@ def _self_test_body(failures, ran):
         if want not in got:
             failures.append(f"{label}: expected {want!r} in {got!r}")
 
+    def equals(label, got, want):
+        """A control whose expectation is the WHOLE answer, not a fragment of it.
+
+        `control` asks `want in got`, which is right for a refusal's name inside a longer message
+        and wrong for a value: a longer wrong answer contains the shorter right one."""
+        ran.append(label)
+        if str(got) != str(want):
+            failures.append(f"{label}: expected exactly {want!r}, got {str(got)[:400]!r}")
+
     def clean(label, got):
         """An absence asserted as an absence: `want=""` cannot fail, since every string holds it."""
         ran.append(label)
@@ -2836,6 +2850,28 @@ def _self_test_body(failures, ran):
         control("the splitter is the repository's one, reached rather than re-implemented",
                 next((line.strip() for line in inspect.getsource(reads_of).splitlines()
                       if "lines = " in line), "<no such line>"),
+                "records.jsonl_read(path")
+
+        # The event records S3 wrote go through the same splitter, and for the same reason: this
+        # mapping's whole job is to establish the ordinal SCALE a read's `at` is compared on, so a
+        # record split in half moves every ordinal after it. `records` writes these files with
+        # `ensure_ascii=False`, so a separator inside a decision's text reaches the file as itself.
+        sep_run = fixture / "sep-run"
+        (sep_run / EVENTS_DIR).mkdir(parents=True, exist_ok=True)
+        (sep_run / EVENTS_DIR / "t-sep.jsonl").write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in [
+                {"event_id": "e-sep", "at_record": "76837/message/content",
+                 "text": "a decision whose text carries \u2028 inside it"},
+                {"event_id": "e-after", "at_record": "76900/message/content"},
+            ]), encoding="utf-8")
+        held_decisions = decisions_of(sep_run)
+        equals("an event record carrying a Unicode line separator inside a JSON string is ONE "
+               "record, so the ordinal scale this mapping establishes does not shift",
+               json.dumps(held_decisions, sort_keys=True),
+               json.dumps({"e-sep": ["t-sep", 76837], "e-after": ["t-sep", 76900]}, sort_keys=True))
+        control("and the splitter is the repository's one, reached rather than re-implemented",
+                next((line.strip() for line in inspect.getsource(decisions_of).splitlines()
+                      if "for line in " in line), "<no such line>"),
                 "records.jsonl_read(path")
 
         # The manifest is what says which copy belongs to which session.
