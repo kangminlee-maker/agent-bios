@@ -151,7 +151,7 @@ set +e
 # `session-distill/runlib/gitread.py` relative to its own repository root.
 gate_out=$(GIT_DIR="$WORK/repo/.git" GIT_WORK_TREE="$WORK/repo" \
   perl -e 'alarm shift; exec @ARGV or exit 127' "$LIMIT" \
-  python3 -I "$REPO/gates/check-global-file.py" 2>&1)
+  python3 -I -B "$REPO/gates/check-global-file.py" 2>&1)
 gate_code=$?
 set -e
 
@@ -170,7 +170,7 @@ fi
 # S11's half, through the real function over the same operation.
 set +e
 refusal=$(perl -e 'alarm shift; exec @ARGV or exit 127' "$LIMIT" \
-  python3 -I -c "
+  python3 -I -B -c "
 import sys, json
 sys.path.insert(0, '$REPO/session-distill')
 from runlib import drift
@@ -187,7 +187,7 @@ if [ "$refusal_code" -ne 0 ]; then
   failures+=("S11's refusal could not be read (exit $refusal_code): $refusal")
 elif ! printf '%s' "$refusal" | grep -q "GLOBAL_OP_UNJUDGED i-o10"; then
   failures+=("S11 did not refuse the operation the gate passed: $refusal")
-elif ! printf '%s' "$refusal" | python3 -I -c "
+elif ! printf '%s' "$refusal" | python3 -I -B -c "
 import json, sys
 held = json.loads(sys.stdin.read())
 sys.exit(0 if held['judged'] == [] else 1)

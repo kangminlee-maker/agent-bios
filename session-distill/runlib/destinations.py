@@ -1094,6 +1094,7 @@ def resolved_rows(declaration, environ, root=None):
             rows.append({"class": row.get("writes_without_override")
                          or (row.get("destinations") or [{}])[0].get("class"),
                          "writer": row["writer"], "path": None, "root": None, "inside": None,
+                         "certification": "not_installed",
                          "not_installed": "author-side writer, not present in this install"})
             continue
         # What this writer is GIVEN, and what it reads that is not in it. The environment is the
@@ -1120,7 +1121,7 @@ def resolved_rows(declaration, environ, root=None):
             if not value:
                 rows.append({"class": cls, "writer": f"{row['writer']} [{override}]", "path": None,
                              "root": held_root, "inside": False, "unset": [override],
-                             "certification": None})
+                             "certification": "unset"})
                 continue
             if claimed is not None and claimed != value:
                 rows.append({"class": cls, "writer": f"{row['writer']} [{override}]",
@@ -1595,6 +1596,18 @@ def _self_test_body(failures, ran):
         if want not in str(got):
             failures.append((name, f"expected {want!r} in {str(got)[:400]!r}"))
 
+    def equals(name, got, want):
+        """A control whose expectation is the WHOLE answer, not a fragment of it.
+
+        `control` asks `want in str(got)`, which is right for a refusal's name inside a longer
+        message and wrong for a value: `'true'` is inside `'["false", "true"]'` and `'4=1+3'` is
+        inside `'14=1+3'` (the round-3 review found that class). Every json-dumped answer below is
+        asked for equality.
+        """
+        ran.append(name)
+        if str(got) != str(want):
+            failures.append((name, f"expected exactly {want!r}, got {str(got)[:400]!r}"))
+
     def clean(name, held):
         ran.append(name)
         if held:
@@ -1652,6 +1665,27 @@ def _self_test_body(failures, ran):
         held["HOME"] = declared_home(FIXTURE)
         held.update(over)
         return held
+
+    def with_source(writer, text, call):
+        """Run `call` with one writer's source replaced in a throwaway copy of the tree."""
+        held_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-channel-", dir="/tmp"))
+        try:
+            for row in writers():
+                source = REPO / row["writer"]
+                if not source.is_file():
+                    continue
+                target = held_root / row["writer"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(text if row["writer"] == writer
+                                  else source.read_text(encoding="utf-8", errors="replace"),
+                                  encoding="utf-8")
+            (held_root / "gates").mkdir(exist_ok=True)
+            # `author_rows_absent` reads `files[]` from the tree it is given, so a tree that is to
+            # answer for a real installation carries that file too.
+            (held_root / "package.json").write_bytes((REPO / "package.json").read_bytes())
+            return call(str(held_root))
+        finally:
+            shutil.rmtree(held_root, ignore_errors=True)
 
     # ---- the table itself ------------------------------------------------------------------------
     clean("the writer inventory is well formed and every class it names is a declared one",
@@ -1836,13 +1870,13 @@ def _self_test_body(failures, ran):
     # The lexical rule the FIXED roots are judged by, asked of `inside` directly — the question is
     # the rule's, and the rows that used to carry it could only reach it through a value the run no
     # longer takes from the caller.
-    control("a path that IS the root is inside it, not an escape",
+    equals("a path that IS the root is inside it, not an escape",
             json.dumps(inside(nudge_root, nudge_root)), "true")
-    control("a sibling whose name merely starts with the root's is an escape, not a child",
+    equals("a sibling whose name merely starts with the root's is an escape, not a child",
             json.dumps(inside(f"{nudge_root}-other/s.json", nudge_root)), "false")
-    control("a traversal that climbs out of the root is an escape even though its text begins "
+    equals("a traversal that climbs out of the root is an escape even though its text begins "
             "inside", json.dumps(inside(f"{nudge_root}/../../out.json", nudge_root)), "false")
-    control("and one that climbs and comes back is inside, because the question is what the writer "
+    equals("and one that climbs and comes back is inside, because the question is what the writer "
             "opens", json.dumps(inside(f"{nudge_root}/d/../s.json", nudge_root)), "true")
     control("a run that declares no root for a class is refused rather than defaulting to one",
             "; ".join(resolution_problems(resolved_rows(
@@ -1932,13 +1966,13 @@ def _self_test_body(failures, ran):
     # so what is asserted is the mapping, not a process.
     held_install = next(r for r in writers() if r["writer"] == "install.sh")
     given_install = environment_for(held_install, fx_declaration())
-    control("a writer is handed exactly the names its own row declares, and HOME",
+    equals("a writer is handed exactly the names its own row declares, and HOME",
             json.dumps(sorted(given_install)),
             json.dumps(sorted({e["override"] for e in held_install["destinations"]} | {"HOME"})))
-    control("and each value is the declared root of that name's class, not a value invented here",
+    equals("and each value is the declared root of that name's class, not a value invented here",
             json.dumps(given_install["CLAUDE_CONFIG_DIR"]),
             json.dumps(fx_declaration()["destinations"]["install_roots"]))
-    control("HOME is what the run declares it hands, which is what every fixed root is computed "
+    equals("HOME is what the run declares it hands, which is what every fixed root is computed "
             "from", json.dumps(given_install["HOME"]),
             json.dumps(declared_home(fx_declaration())))
     clean("a variable this writer reads and its row does not declare is ABSENT from what it is "
@@ -1946,7 +1980,7 @@ def _self_test_body(failures, ran):
           [name for name in ("AGENT_BIOS_UNINSTALL_ARCHIVE", "XDG_CACHE_HOME", "GIT_DIR",
                              "AGENT_LAUNCH_CONFIG", "AGENT_BIOS_INSTRUCTIONS_DIR")
            if name in given_install])
-    control("and the environment is the same answer for every writer: the names its row declares, "
+    equals("and the environment is the same answer for every writer: the names its row declares, "
             "with no extras anywhere",
             json.dumps(sorted({name for row in writers()
                                for name in environment_for(row, fx_declaration())
@@ -1975,11 +2009,11 @@ def _self_test_body(failures, ran):
           "reasons",
           [f"{row['writer']}: {row['reads_not_given']}" for row in
            resolved_rows(fx_declaration(), fx_env()) if row.get("reads_not_given")])
-    control("and an excused pair is SHOWN with its reason rather than hidden, since the run does "
+    equals("and an excused pair is SHOWN with its reason rather than hidden, since the run does "
             "not hand it and something has to say why that is safe",
             json.dumps(sorted(excused_overrides("install.sh"))),
             '["AGENT_BIOS_UNINSTALL_ARCHIVE"]')
-    control("the disclosure is derived from the writer's own closure, so a name it stops reading "
+    equals("the disclosure is derived from the writer's own closure, so a name it stops reading "
             "stops being disclosed",
             json.dumps(reads_not_given("install.sh", {}, None)),
             json.dumps(sorted({e["override"] for e in closure(None)
@@ -1991,7 +2025,7 @@ def _self_test_body(failures, ran):
 
     # ---- the fixed roots, computed from the given HOME ----------------------------------------
     fixed_rows = [r for r in resolved_rows(fx_declaration(), fx_env()) if "[fixed:" in r["writer"]]
-    control("every fixed-root row carries a path computed from the declared home, not the class "
+    equals("every fixed-root row carries a path computed from the declared home, not the class "
             "root restated",
             json.dumps(sorted({r["certification"] for r in fixed_rows})), '["computed"]')
     control("and the home-rooted statement whose suffix cannot be read is BOUNDED by the home "
@@ -2009,22 +2043,44 @@ def _self_test_body(failures, ran):
             "; ".join(resolution_problems(resolved_rows(
                 fx_declaration(install_roots="/srv/elsewhere"), fx_env()))),
             "DESTINATION_OUTSIDE_ROOT install.sh [fixed:")
-    # A statement whose suffix is unreadable, planted on install.sh's own row: where the class
-    # root CONTAINS the home, the bound is a certification; where it is narrower, the unread suffix
-    # is exactly what would decide, so certification is withheld rather than guessed either way.
-    # Asked of the two functions directly: every statement in this tree has a readable suffix, so
-    # the bounded case has no live subject, and a control that waits for one tests nothing.
-    control("a fixed root whose suffix cannot be read is bounded by the home, and that bound is a "
-            "certification only where the class root contains the home",
-            json.dumps([fixed_destination({}, "/h", source_text="root = Path(pick(home, x()))")[0],
-                        _inside("/h", "/h/.local"), _inside("/h", "/h")]),
-            '["/h", false, true]')
+    # The bounded BRANCH of `resolved_rows`, exercised through `resolved_rows` itself. It used to be
+    # asked of `fixed_destination` and `_inside` separately, so the branch that decides between
+    # "bounded is a certification" and "withheld" never ran at all (the round-3 review). Every
+    # statement in this tree has a readable suffix, so the subject is PLANTED: install.sh's own
+    # source, replaced in a throwaway tree, with a HOME-derived statement whose suffix is an
+    # expression at exactly the line its row declares.
+    held_line = next(entry["derived_at_line"] for row in writers()
+                     if row["writer"] == "install.sh" for entry in row["fixed_roots"])
+    unreadable_source = ("#\n" * (held_line - 1)) + "STATE_DIR=$(pick \"$HOME\" \"$(other)\")\n"
+
+    def bounded_rows(declaration):
+        return with_source("install.sh", unreadable_source,
+                           lambda held_root: [r for r in resolved_rows(declaration, fx_env(),
+                                                                       held_root)
+                                              if r["writer"].startswith("install.sh [fixed")])
+
+    held_home = declared_home(fx_declaration())
+    equals("a fixed root whose suffix cannot be read is BOUNDED by the home, and the bound is a "
+           "certification where the class root contains the home",
+           json.dumps([(r["certification"], r["path"]) for r in
+                       bounded_rows(fx_declaration(install_roots=held_home))]),
+           json.dumps([["bounded", held_home]]))
+    equals("and where the class root is narrower than the home, certification is WITHHELD, because "
+           "the unread suffix is exactly what would decide",
+           json.dumps([r["certification"] for r in bounded_rows(
+               fx_declaration(install_roots=f"{held_home}/.local/share/agent-bios"))]),
+           '["withheld"]')
+    control("and the withheld row says so in those words, so a reader knows which half of the "
+            "question is open",
+            "; ".join(resolution_problems(bounded_rows(
+                fx_declaration(install_roots=f"{held_home}/.local/share/agent-bios")))),
+            "narrower than the home")
     control("and a row that claims a fixed root while the run declares no home is uncertified, "
             "never certified at the root",
             "; ".join(p for p in resolution_problems(resolved_rows(
                 {**fx_declaration(), "environment": {}}, fx_env())) if "UNCERTIFIED" in p),
             "the run declares no home")
-    control("a writer the run PASSES its root is certified by that, which is the preferred channel "
+    equals("a writer the run PASSES its root is certified by that, which is the preferred channel "
             "because an argument cannot be inherited",
             json.dumps(sorted({r["certification"] for r in resolved_rows(fx_declaration(), fx_env())
                                if r["writer"] in ("git", "session-distill/runlib/journal.py")})),
@@ -2072,24 +2128,6 @@ def _self_test_body(failures, ran):
                                                                    dir="/tmp"))))) else "silent",
             "named")
 
-    def with_source(writer, text, call):
-        """Run `call` with one writer's source replaced in a throwaway copy of the tree."""
-        held_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-channel-", dir="/tmp"))
-        try:
-            for row in writers():
-                source = REPO / row["writer"]
-                if not source.is_file():
-                    continue
-                target = held_root / row["writer"]
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(text if row["writer"] == writer
-                                  else source.read_text(encoding="utf-8", errors="replace"),
-                                  encoding="utf-8")
-            (held_root / "gates").mkdir(exist_ok=True)
-            return call(str(held_root))
-        finally:
-            shutil.rmtree(held_root, ignore_errors=True)
-
     # The password database: the channel that put a run in the owner's real home during a commit
     # hook. Proved BY SOURCE in both directions — the defect and its licence — because the only
     # other way to prove it is to run a writer against a real home and look at what appeared.
@@ -2099,7 +2137,7 @@ def _self_test_body(failures, ran):
                                   "import pwd, os\nroot = pwd.getpwuid(os.getuid()).pw_dir\n",
                                   channel_problems)),
             "CHANNEL_PASSWORD_DATABASE compose/prune-backups.py:2")
-    control("and the licence for one is held against the source: the read must sit behind the "
+    equals("and the licence for one is held against the source: the read must sit behind the "
             "absence of a name the run always gives",
             json.dumps([guarded_by("home = env.get('HOME')\nif home is None:\n    import pwd\n"
                                    "    home = pwd.getpwuid(os.getuid()).pw_dir\n", 4, "HOME"),
@@ -2170,7 +2208,7 @@ def _self_test_body(failures, ran):
             "; ".join(with_source("compose/instructions_setup.py",
                                   "parser.add_argument('--state-dir')\n", channel_problems)),
             "CHANNEL_UNSTATED compose/instructions_setup.py path_arguments: --state-dir")
-    control("and every option in this tree is recorded with the reason it is preferred",
+    equals("and every option in this tree is recorded with the reason it is preferred",
             json.dumps(sorted(
                 (table()["writers"][i]["channels"]["path_arguments"]["tokens"]
                  for i in range(len(table()["writers"]))
@@ -2185,7 +2223,7 @@ def _self_test_body(failures, ran):
     # else entirely and `include.path` pulls in a file that can set it. A scrubbed environment does
     # not close any of them, so the run names them explicitly and judges the repository's config
     # before the first git call.
-    control("the sweep the run hands git is declared, not assembled at the call site",
+    equals("the sweep the run hands git is declared, not assembled at the call site",
             json.dumps(GIT_ENVIRONMENT),
             '{"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}')
     git_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-git-", dir="/tmp"))
@@ -2284,6 +2322,23 @@ def _self_test_body(failures, ran):
                 f"LAYOUT_AMBIGUOUS {both}")
         clean("while the real checkout and the package fixture each declare exactly one",
               layout_problems(REPO) + layout_problems(pack))
+        # Every row carries exactly one certification state, including the two that only a
+        # refused resolution has: `not_installed` for a writer this install does not have, and
+        # `unset` for an override the declaration names no root for. The document is produced only
+        # when nothing refuses, so these are asked of `resolved_rows` where they exist.
+        equals("a writer this install does not have carries `not_installed` rather than an absent "
+               "field",
+               json.dumps(sorted({str(r.get("certification"))
+                                  for r in resolved_rows(fx_declaration(), fx_env(), str(pack))
+                                  if r.get("not_installed")})),
+               '["not_installed"]')
+        equals("and an override the declaration names no root for carries `unset`",
+               json.dumps(sorted({str(r.get("certification")) for r in resolved_rows(
+                   {**fx_declaration(), "destinations": {k: v for k, v
+                                                         in fx_declaration()["destinations"].items()
+                                                         if k != "nudge"}}, fx_env(), str(pack))
+                                  if r.get("unset")})),
+               '["unset"]')
         control("the author-scope writer is named as not installed there",
                 ", ".join(author_rows_absent(pack)), author_writer or "none")
         clean("and its absence is not a fidelity failure in that layout",
@@ -2383,14 +2438,17 @@ def _self_test_body(failures, ran):
     # read as escapes; `False` is an escape and is what this asks about.
     clean("every row in the written manifest carries a named certification, so a later stage reads "
           "a state rather than inferring one from a missing field",
-          [r["writer"] for r in doc["resolved"]
-           if not (r.get("certification") or r.get("not_installed") or r.get("unset"))])
-    control("and the states are the declared ones, with no row certified by silence",
+          [r["writer"] for r in doc["resolved"] if not r.get("certification")])
+    equals("and the states are exactly the declared vocabulary, with none invented and none left "
+           "to be inferred from an absent field",
+           json.dumps(sorted({str(r.get("certification")) for r in doc["resolved"]})),
+           '["argument", "computed", "forward", "given"]')
+    equals("and the states are the declared ones, with no row certified by silence",
             json.dumps(sorted({str(r.get("certification")) for r in doc["resolved"]})),
             '["argument", "computed", "forward", "given"]')
     clean("with every row that HAS a path inside its root",
           [r["writer"] for r in doc["resolved"] if r["inside"] is False])
-    control("and the rows with nothing to confine say which they are, by a named state, rather "
+    equals("and the rows with nothing to confine say which they are, by a named state, rather "
             "than reading as escapes or as certified",
             json.dumps(sorted({str(r.get("certification") or r.get("not_installed"))
                                for r in doc["resolved"] if r["inside"] is None})),
@@ -2516,12 +2574,12 @@ def _self_test_body(failures, ran):
           effects_in("import os\nclass Writer:\n    def go(self):\n"
                      "        os.symlink('a', 'b')\n"
                      "def main():\n    return 1\n"))
-    control("and the method is in the scanned scope rather than merely reachable, which is the half "
+    equals("and the method is in the scanned scope rather than merely reachable, which is the half "
             "that mattered: the effect sits in the body",
             json.dumps(effect_scope("import os\nclass Writer:\n    def go(self):\n"
                                     "        os.symlink('a', 'b')\n"
                                     "def main():\n    return Writer().go()\n")),
-            '"Writer.go"')
+            '["<module>", "Writer.go", "main"]')
     control("an effect behind `if \'--self-test\' NOT in argv` is reported: that branch is the "
             "runtime half, and the skip followed the wrong one",
             "; ".join(effects_in("import os, sys\ndef run():\n"
@@ -2536,11 +2594,13 @@ def _self_test_body(failures, ran):
                                  "    if '--self-test' in sys.argv:\n        pass\n"
                                  "    else:\n        os.symlink('a', 'b')\n")),
             "os.symlink (in run)")
-    control("the audit scanned this module's own entry point",
-            json.dumps(effect_scope(own_source)), '"main"')
-    control("and its top level", json.dumps(effect_scope(own_source)), '"<module>"')
-    control("and the resolution path a destination row is judged by",
-            json.dumps(effect_scope(own_source)), '"resolved_rows"')
+    # Membership, asserted as a membership rather than as a substring of a dumped list.
+    equals("the audit scanned this module's own entry point",
+            json.dumps("main" in effect_scope(own_source)), "true")
+    equals("and its top level",
+            json.dumps("<module>" in effect_scope(own_source)), "true")
+    equals("and the resolution path a destination row is judged by",
+            json.dumps("resolved_rows" in effect_scope(own_source)), "true")
     clean("this module runs nothing and spawns nothing: the code that confines writes cannot itself "
           "be a writer", spawners)
     # The dying-control wrapper, and the audit rule it needed. A suite split across two functions
@@ -2548,11 +2608,11 @@ def _self_test_body(failures, ran):
     # reachability and its fixture building is not a module effect.
     control("the suite's own body is out of the audit's scope, because the suite alone calls it",
             "out" if "_self_test_body" not in effect_scope(own_source) else "in", "out")
-    control("and the rule is reachability, not the name: a body a RUNTIME function calls is in",
+    equals("and the rule is reachability, not the name: a body a RUNTIME function calls is in",
             json.dumps(effect_scope("def self_test():\n    pass\n"
                                     "def _self_test_body(f, r):\n    pass\n"
                                     "def run():\n    return _self_test_body([], [])\n")),
-            '"_self_test_body"')
+            '["<module>", "_self_test_body", "run"]')
     control("the wrapper prints the control that was in flight, so a suite that dies is not read "
             "as a rule nobody enforces",
             next((line.strip() for line in own_source.splitlines()
