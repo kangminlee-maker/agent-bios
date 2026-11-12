@@ -262,6 +262,57 @@ def contract_bars():
     return tuple(bars)
 
 
+# A bar whose text names a COUNT of conditions must enumerate that many. `The enforcement bar`
+# says only "All four of its conditions hold", and neither the placement table nor either rendered
+# packet supplies those four: an enforcement proposal was reviewed against a bar nobody can read,
+# and the contract check passed because it only asked whether the heading was present (the WP-12
+# review). What the four conditions ARE is a decision, not a derivation — it is not written in the
+# design either — so this reports the gap by name rather than inventing them.
+_COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def bar_condition_problems(text=None):
+    """Each bar that names a count of conditions without enumerating them, by name.
+
+    An enumeration is a numbered or bulleted list, or sentences separated by semicolons, inside the
+    bar's own paragraph — anything a reader can count. The check is deliberately generous about the
+    shape and strict about the count.
+    """
+    problems, section, held, heading = [], None, [], None
+
+    def close():
+        if heading is None:
+            return
+        text = " ".join(held)
+        for word, wanted in _COUNT_WORDS.items():
+            if f"{word} of its conditions" not in text and f"{word} conditions" not in text:
+                continue
+            counted = max(text.count(";") + 1 if ";" in text else 0,
+                          sum(1 for piece in held if piece.strip().startswith(("-", "*"))),
+                          sum(1 for n in range(1, wanted + 1) if f"{n}." in text or f"({n})" in text))
+            if counted < wanted:
+                problems.append(f"BAR_CONDITIONS_UNSTATED {heading}: the text says {word} "
+                                f"condition(s) and enumerates {counted}, so a proposal is reviewed "
+                                f"against a bar nobody can read")
+
+    for line in (contract_text() if text is None else text).splitlines():
+        if line.startswith("## "):
+            close()
+            heading, held = None, []
+            section = line[3:].strip()
+            continue
+        if not (section and section.startswith(("The bars", "Type G"))):
+            continue
+        if line.startswith("**"):
+            close()
+            heading = line[2:].split("**", 1)[0].strip().rstrip(".")
+            held = [line]
+        elif heading is not None:
+            held.append(line)
+    close()
+    return problems
+
+
 def _layer(proposal):
     return (proposal.get("destination") or {}).get("layer")
 
@@ -427,6 +478,105 @@ def destination_problems(destination, where="destination", item=""):
     return problems
 
 
+def fx_proposal(kind, diagnosis, disposition, promotion_eligible=True, legacy=False):
+    """A minimally complete proposal of one (kind, diagnosis, disposition), for the enumeration.
+
+    Built here rather than in the suite because `combination_problems` is the library's own answer to
+    "can this candidate be answered at all", and a caller asking that question must not have to
+    reconstruct a valid proposal to ask it.
+    """
+    ledger = disposition in LEDGER_ONLY + ("none",)
+    return {"item_id": "enum", "candidate_id": "enum", "kind": kind, "diagnosis": diagnosis,
+            "disposition": disposition, "consequence": "cost", "consumer": "worker", "typology": "D",
+            "admitted": True, "promotion_eligible": promotion_eligible, "legacy_incubating": legacy,
+            "names_situation_of_guide": False, "situation_covered_by_guide": False,
+            "situation_promoted_items": 0, "blocking": False, "owner_only": False,
+            "requires_test": not ledger, "artifact_set": ["x"], "artifact_form": "guide",
+            "behavior_contract": "c", "criterion": "c", "keep_records_named": [], "reason": "이유",
+            "operations": [] if ledger else [{"type": "create", "target": "claude/guides/g.md"}],
+            "destination": ({"layer": "incubator", "carrier": None} if ledger
+                            else {"layer": "guides", "carrier": "claude/guides/g.md"}),
+            "expected_observation": ({"occasion": "o", "exposure_rule": "e",
+                                      "expected_behavior": "b", "retrieval_terms": ["t"],
+                                      "expiry": "2026-12-01"} if disposition == "incubate" else None)}
+
+
+def acceptable_dispositions(kind, diagnosis, promotion_eligible=True, legacy=False):
+    """Every disposition the WHOLE contract accepts for this combination, not just §7.2's table.
+
+    §7.2 says which dispositions the pair allows; §7.3's structural rules and §6.4's promotion row
+    then refuse some of those. The question a candidate's existence poses is the intersection, and
+    only the intersection.
+    """
+    held = []
+    for disposition in table("pairs")["vocabularies"]["disposition"]:
+        if not problems(fx_proposal(kind, diagnosis, disposition, promotion_eligible, legacy)):
+            held.append(disposition)
+    return tuple(held)
+
+
+# The refusals that depend on NOTHING but (kind, diagnosis, disposition, bar): §7.2's pair table and
+# §6.4's promotion row, which share one code. A combination refused only by these cannot be answered
+# whatever the rest of the proposal says; one refused by a structural rule might be answerable with
+# other field values, and reporting that as a contract defect would be a false alarm off a fixture.
+FIELD_INDEPENDENT = ("PAIR_DISALLOWED",)
+
+
+def _refusal_codes(kind, diagnosis, promotion_eligible, legacy):
+    """The refusal codes of the dispositions §7.2 ALLOWS for this pair.
+
+    Only those are candidates for an answer, so only their refusals decide whether the emptiness is
+    the contract's. Collecting across every disposition instead swept in a `place` attempt's
+    GUIDE_PREMATURE and made every emptiness look field-dependent — a check that cannot fire.
+    """
+    codes = set()
+    for disposition in sorted(allowed_for(kind, diagnosis, legacy)):
+        for problem in problems(fx_proposal(kind, diagnosis, disposition, promotion_eligible, legacy)):
+            codes.add(problem.split()[0])
+    return codes
+
+
+def combination_problems():
+    """Every (kind, diagnosis, bar) S6 can produce that the contract cannot answer at all, by name.
+
+    A candidate with no acceptable disposition is a contract defect whatever else is true: the stage
+    has to answer for it and every answer is refused. The combinations known open are declared in
+    `tables/allowed_pairs.json` `pending_empty` with their reason; this reports an UNDECLARED empty
+    one, and also a declared one that is no longer empty — a declaration that has stopped being true
+    is a stale declaration, the bar this repository applies to every other allowlist.
+    """
+    pairs = table("pairs")
+    declared = {(row["kind"], row["diagnosis"], row["promotion_eligible"])
+                for row in (pairs.get("pending_empty") or {}).get("combinations") or ()}
+    problems, found = [], set()
+    for kind in pairs["vocabularies"]["kind"]:
+        for diagnosis in pairs["vocabularies"]["diagnosis"]:
+            if not allowed_for(kind, diagnosis, False):
+                continue                      # §7.2 allows nothing: not a combination S6 produces
+            for bar in (True, False):
+                if acceptable_dispositions(kind, diagnosis, bar):
+                    continue
+                codes = _refusal_codes(kind, diagnosis, bar, False)
+                if not codes <= set(FIELD_INDEPENDENT):
+                    # Refused by a rule that reads other fields: this enumeration's proposal fixes
+                    # them, so the emptiness may be the fixture's and not the contract's. Disclosed
+                    # in the document rather than failed here.
+                    continue
+                found.add((kind, diagnosis, bar))
+                if (kind, diagnosis, bar) not in declared:
+                    problems.append(f"COMBINATION_UNANSWERABLE {kind}/{diagnosis}/"
+                                    f"{'above' if bar else 'below'} bar: §7.2 allows "
+                                    f"{', '.join(sorted(allowed_for(kind, diagnosis, False)))} and "
+                                    f"every one of those is refused by {', '.join(sorted(codes))} "
+                                    f"alone, which reads no other field, so this candidate has no "
+                                    f"answer whatever else it carries")
+    for row in sorted(declared - found):
+        problems.append(f"PENDING_EMPTY_STALE {row[0]}/{row[1]}/{'above' if row[2] else 'below'} "
+                        f"bar: declared as having no acceptable disposition and it now has one, so "
+                        f"the declaration is stale")
+    return problems
+
+
 def problems(proposal, active_keep=None):
     """Every problem of one proposal: §7.2's, §7.3's and §7.4's decidable rules, in the tables' order.
 
@@ -571,8 +721,30 @@ def fidelity_problems():
 # ---- self-test -----------------------------------------------------------------------------------
 
 def self_test():
-    """Positive control first, then one planted violation per rule, each refused BY NAME."""
+    """Positive control first, then one planted violation per rule, each refused BY NAME.
+
+    The body is wrapped so a control that DIES still speaks. A planted mutation of the pair rule
+    (`if disposition not in allowed` -> `if False`) made `allowed[disposition]` raise
+    KeyError('correct') and the suite ended on a traceback with no [FAIL] line at all — and a
+    revert trial that accepts any output counted the KeyError as the control firing (the WP-12
+    review). A traceback is not a control firing: the wrapper prints a [FAIL] line naming the
+    control that was in flight, so the evidence says which rule stopped being enforced.
+    """
     failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"placement --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"placement --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"placement --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} "
+              f"failed before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
     reporting = []
 
     def control(name, got, want):
@@ -817,6 +989,44 @@ def self_test():
     control("the canonical text states the bars S7b judges", "; ".join(contract_bars()),
             "Leftward reformulation")
     control("and the retirement bar among them", "; ".join(contract_bars()), "Retirement")
+
+    # ---- a bar that names a count of conditions must enumerate them ------------------------------
+    #
+    # `The enforcement bar` says only "All four of its conditions hold", and neither the placement
+    # table nor either rendered packet supplies those four: an enforcement proposal is reviewed
+    # against a bar nobody can read, and the contract check passed because it only asked whether the
+    # heading was there (the WP-12 review). What those four conditions ARE is a decision — the
+    # design says "the enforcement bar (all four conditions)" and never lists them either — so this
+    # reports the gap by name instead of inventing them, and the refusal is NOT wired into
+    # `problems()` until the owner states them.
+    control("the live contract's enforcement bar is reported as unstated, by name",
+            "; ".join(bar_condition_problems()),
+            "BAR_CONDITIONS_UNSTATED The enforcement bar")
+    clean("and it is the ONLY bar in that state, so the report names a gap rather than a style",
+          [problem for problem in bar_condition_problems()
+           if "The enforcement bar" not in problem])
+    enumerated = ("## The bars\n\n"
+                  "**The enforcement bar.** All four of its conditions hold, or the learning does "
+                  "not go to enforcement: the violation is deterministically detectable; the check "
+                  "has a natural run point; a false positive is cheaper than the violation; and the "
+                  "rule is stated once.\n")
+    clean("a bar that enumerates its four conditions passes, so the check can be satisfied rather "
+          "than merely fired",
+          bar_condition_problems(enumerated))
+    control("a bar naming two conditions and giving one is caught too, which is what makes this a "
+            "rule about counts and not about the word four",
+            "; ".join(bar_condition_problems(
+                "## The bars\n\n**The gate bar.** Both two conditions hold: it is "
+                "deterministic.\n")),
+            "BAR_CONDITIONS_UNSTATED The gate bar")
+    clean("and a bar that names no count is not asked for an enumeration",
+          bar_condition_problems("## The bars\n\n**The hook charter.** A hook injects text.\n"))
+    control("the check reads the bar's own paragraph, so a later bar's conditions cannot satisfy an "
+            "earlier bar's count",
+            "; ".join(bar_condition_problems(
+                "## The bars\n\n**The enforcement bar.** All four of its conditions hold.\n\n"
+                "**The gate bar.** one; two; three; four\n")),
+            "BAR_CONDITIONS_UNSTATED The enforcement bar")
     clean("the digest is the text's own, so a packet can bind the bars it was judged by",
           [] if contract_digest() == hashlib.sha256(contract_text().encode("utf-8")).hexdigest()
           else ["the digest is not of this text"])
@@ -882,6 +1092,84 @@ def self_test():
     finally:
         _TABLES["pairs"], _TABLES["rules"] = held_pairs, held_rules
     clean("and the tables are back as they are on disk", fidelity_problems())
+
+    def with_table(which, mutate, call):
+        """Run `call` with one table mutated, restoring it however the call ends."""
+        held = json.loads(json.dumps(table(which)))
+        try:
+            mutate(_TABLES[which])
+            return call()
+        finally:
+            _TABLES[which] = held
+
+    # Every (kind, diagnosis, bar) S6 can produce must have at least ONE acceptable disposition. A
+    # candidate the stage must answer for and whose every answer is refused is a contract defect
+    # whatever else is true, which is why this is enumerated rather than reasoned about.
+    clean("every combination S6 can produce has an acceptable disposition, or is declared open with "
+          "its reason", combination_problems())
+    control("the enumeration really judges the whole vocabulary, not a sample",
+            f'{len(table("pairs")["vocabularies"]["kind"])}x'
+            f'{len(table("pairs")["vocabularies"]["diagnosis"])}',
+            "7x6")
+    clean("and it finds at least one answer for a combination that has one",
+          [] if acceptable_dispositions("misfire", "wrong or insufficient", True)
+          else ["misfire/wrong or insufficient above the bar has no answer"])
+    # The ten combinations this enumeration found open on 2026-11-12 are CLOSED: lane E's
+    # `BELOW_BAR` is the §6.4 table's own below-bar row and now admits `none`, which is the one
+    # disposition §7.2 allowed for both kinds. The declaration that named them went stale the moment
+    # that landed and said so by failing, which is what it was for. Nothing declares an open
+    # combination now, so these controls build their own rows: a control that indexes a live list
+    # stops testing when the list empties, silently.
+    control("no combination is declared open any more, so the clean row above is a real answer and "
+            "not a declaration standing in for one",
+            str("pending_empty" in table("pairs")), "False")
+    held_plant = with_table(
+        # The row's own shape, read from the table rather than guessed: `allowed` is a list of
+        # `{disposition, requires?}`. Restricted to `correct` alone, the combination has nothing
+        # left BELOW the bar — the §6.4 below-bar row does not admit `correct`, and that refusal is
+        # PAIR_DISALLOWED, which reads no field but the bar. `place` would not do: it is refused
+        # below the bar by a rule that also reads the destination, and this enumeration skips such
+        # a combination on purpose, because then the emptiness could be the fixture's.
+        "pairs", lambda t: [row.__setitem__("allowed", [{"disposition": "correct"}])
+                            for row in t["rows"]
+                            if row.get("kind") == "misfire"
+                            and row.get("diagnosis") == "wrong or insufficient"],
+        combination_problems)
+    control("a combination with no acceptable disposition is reported by name, with the code that "
+            "refuses every one §7.2 allows",
+            "; ".join(held_plant),
+            "COMBINATION_UNANSWERABLE misfire/wrong or insufficient/below bar")
+    control("and the report says the refusal reads no other field, so the emptiness is the "
+            "contract's and not this enumeration's fixture",
+            "; ".join(held_plant), "which reads no other field")
+    clean("while the same combination ABOVE the bar still has its answer, so the plant is the bar's "
+          "own rule and not a broken table",
+          [p for p in held_plant if "misfire/wrong or insufficient/above bar" in p])
+    control("a declaration that has stopped being true is reported as stale, like every other "
+            "allowlist here",
+            "; ".join(with_table("pairs", lambda t: t.__setitem__("pending_empty", {
+                "decided": None,
+                "combinations": [{"kind": "misfire", "diagnosis": "redundant",
+                                  "promotion_eligible": True}]}), combination_problems)),
+            "PENDING_EMPTY_STALE misfire/redundant/above bar")
+    clean("an emptiness a structural rule causes is NOT reported as a contract defect: this "
+          "enumeration fixes the other fields, so that one may be the fixture's",
+          [p for p in combination_problems() if "gap/gap" in p])
+
+    # An adjudicated admission is an admission for §7.2 (§10.2: "a candidate that becomes admitted
+    # goes through S7, S7b"), which `stage_propose` now reads; the legacy row's `place` condition is
+    # where it mattered, so the pair is exercised from here as well.
+    held_place = {**fx_proposal("unclassified", "unknown", "place", True, True),
+                  # Into the incubator, not a guide: §7.4's guide bar is a separate question and
+                  # would answer this control instead of the pair and the admission doing it.
+                  "destination": {"layer": "incubator", "carrier": "design/session-distill/ledger.json"},
+                  "names_situation_of_guide": False}
+    control("the legacy row's place condition accepts an item admitted by adjudication, since the "
+            "owner resolved the dispute",
+            "; ".join(problems(held_place) or ["ACCEPTED"]), "ACCEPTED")
+    control("while the same item NOT admitted is refused, so the condition is really being read",
+            "; ".join(problems({**held_place, "admitted": False}) or ["ACCEPTED"]),
+            "PAIR_DISALLOWED")
 
     # A destination is model output that reaches the owner's review page. The layer vocabulary and
     # the carrier rules were unchecked here until now: §7.4's rules read the layer, but no rule asked
@@ -954,6 +1242,24 @@ def self_test():
     control("the layers come from the table, so this module holds no second list",
             dest_src_line('held = table("placement")["destinations"]'),
             'table("placement")["destinations"]')
+
+    # The wrapper that makes a dying control speak. Asserted from the source, because a suite that
+    # ends in a traceback prints no control name at all and a revert trial then reads the traceback
+    # as the control firing (the WP-12 review).
+    # The WRAPPER's own source, not the file's. A scan of the whole file is satisfied by this
+    # control's own text — the phrase it looks for appears in the line that looks for it — which is
+    # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
+    # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
+    import inspect
+    wrapper_text = inspect.getsource(self_test)
+    control("a control that dies names itself, since a traceback is not a control firing",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "died after" in line and "print(" in line), "<no such line>"),
+            "self-test [FAIL] the suite died after")
+    control("and the wrapper is what the entry point runs, so the body cannot be called around it",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "_self_test_body(" in line), "<no such line>"),
+            "return _self_test_body(failures, ran)")
 
     reporting.append(True)
     if failures:
