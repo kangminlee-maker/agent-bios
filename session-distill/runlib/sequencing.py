@@ -81,6 +81,23 @@ def set_hash(items):
     return hashlib.sha256(json.dumps(rows, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
+def _path(value):
+    """One file's identity, or the value itself where it has none to give.
+
+    Every path an operation carries is asked the same question of the same owner: a merge's units
+    and a route's destination are files exactly as a target is, and keying them by the string as
+    written made `guides/é.md` composed and decomposed two files — a merge removed one while the
+    route to the other stood, and the order was certified over a tree that does not exist (the
+    round-5 review)."""
+    return targets.identity(value) or value
+
+
+def canonical_tree(tree):
+    """`tree` with every file keyed by its identity; a route entry keeps its own key."""
+    return {(key if str(key).startswith("route:") else _path(key)): value
+            for key, value in (tree or {}).items()}
+
+
 def apply_to(tree, item):
     """The tree after one item's operations. `tree` is {path: "present"} and is not mutated.
 
@@ -103,10 +120,10 @@ def apply_to(tree, item):
             held.pop(target, None)
         elif kind == "merge":
             for unit in op.get("units") or []:
-                held.pop(unit, None)
+                held.pop(_path(unit), None)
             held[target] = "present"
         elif kind == "route":
-            held[f"route:{target}->{op.get('names')}"] = "present"
+            held[f"route:{target}->{_path(op.get('names'))}"] = "present"
         else:
             raise Refused(f"OPERATION_UNKNOWN {kind!r} in {item.get('item_id')}: §7.3's types are "
                           f"create, edit, delete, merge, route")
@@ -155,7 +172,7 @@ def sequence(items, gate=route_integrity, base=None, limit=SET_LIMIT):
         raise Refused(f"SEQUENCE_ITEM_REPEATED {sorted({i for i in ids if ids.count(i) > 1})}: an item "
                       f"appears twice in one set")
     by_id = {item["item_id"]: item for item in rows}
-    start = dict(base or {})
+    start = canonical_tree(base)
     dead = set()
     trail = []
 
@@ -212,7 +229,7 @@ def validate_order(items, order, gate=route_integrity, base=None):
         raise Refused(f"SEQUENCE_ORDER_NOT_A_PERMUTATION {', '.join(asked)}: the order names "
                       f"{len(asked)} item(s) and the set holds {len(by_id)} "
                       f"({', '.join(sorted(by_id))})")
-    tree = dict(base or {})
+    tree = canonical_tree(base)
     trail = []
     for item_id in asked:
         tree = apply_to(tree, by_id[item_id])
@@ -571,6 +588,22 @@ def _self_test_body(failures, ran):
     clean("the two hashes differ, so a reader cannot mistake one answer for the other",
           [] if set_hash([route]) != set_hash(full) else ["the subset hashes as the full set"])
 
+    # Canonically equal spellings are one file in every position an operation names one. The
+    # expected verdicts are written out here, not computed: composed and decomposed `é`.
+    nfc, nfd = "guides/\u00e9.md", "guides/e\u0301.md"
+    route_to = lambda names: {"item_id": "r", "operations": [  # noqa: E731
+        {"type": "route", "target": "router.md", "names": names}]}
+    merge_of = lambda unit: {"item_id": "m", "operations": [  # noqa: E731
+        {"type": "merge", "target": "guides/kept.md", "units": [unit]}]}
+    control("a merge that removes a routed file under its OTHER spelling still breaks the route",
+            json.dumps(order_answer([route_to(nfc), merge_of(nfd)], ["r", "m"],
+                                    base={nfc: "present"}).get("sequenced")), "false")
+    control("a route spelled the other way reaches the carrier the base holds",
+            json.dumps(subset_answer([route_to(nfd)], base={nfc: "present"}).get("sequenced")),
+            "true")
+    control("and a base spelled the other way is the same tree",
+            json.dumps(subset_answer([route_to(nfc)], base={nfd: "present"}).get("sequenced")),
+            "true")
     # A base tree the carrier is already in: the route alone then sequences, which is the case where
     # the subset is approved AFTER its carrier has landed in an earlier run.
     clean("a route alone sequences where the tree already holds its carrier",

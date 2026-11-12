@@ -182,6 +182,17 @@ def filesystem_problems(target, checkout):
                                     f"({exc.strerror}), so containment cannot be established")
                 break
             open_fds.append(held_fd)
+            if last:
+                # A second NAME for the leaf's bytes is a second path to them, and no walk over this
+                # name can see where the other one lies: a file outside the checkout hard-linked to
+                # an approved name inside it is written and truncated through that name (the round-5
+                # review). The descriptor is asked, not the path, so the answer is about the file
+                # the walk reached.
+                held_stat = os.fstat(held_fd)
+                if stat.S_ISREG(held_stat.st_mode) and held_stat.st_nlink != 1:
+                    problems.append(f"TARGET_HARD_LINKED {target!r}: the file has "
+                                    f"{held_stat.st_nlink} names, so writing it through this one "
+                                    f"changes a file this walk cannot place inside the checkout")
             # EVERY component that exists, each through its own parent descriptor. Comparing only
             # the last one let `CLAUDE/CLAUDE.md` pass on a case-folding filesystem: the directory
             # opened happily under a spelling nobody approved, and the leaf matched (the round-3
@@ -687,6 +698,18 @@ def _self_test_body(failures, ran):
         held_set = set_problems(["claude/guides/g.md", "claude/guides/to-root/CLAUDE.md",
                                  "claude/guides/g.md"], root)
         control("a set is judged target by target", "; ".join(held_set), "TARGET_SYMLINK")
+        # A hard link: no symlink anywhere, the walk succeeds, and the bytes are a file outside.
+        outside_file = pathlib.Path(tempfile.mkdtemp(dir=root.parent)) / "outside.md"
+        outside_file.write_text("outside\n", encoding="utf-8")
+        os.link(outside_file, root / "claude" / "guides" / "twin.md")
+        held_twin = filesystem_problems("claude/guides/twin.md", root)
+        control("a leaf with a second name is refused by name: the other name may lie outside the "
+                "checkout, and writing through this one writes that file",
+                [p.split()[0] for p in held_twin], "['TARGET_HARD_LINKED']")
+        single = root / "claude" / "guides" / "single.md"
+        single.write_text("one name\n", encoding="utf-8")
+        clean("and a file with one name passes the same walk",
+              filesystem_problems("claude/guides/single.md", root))
         clean("and a target it names twice is not reported as a collision",
               [p for p in held_set if "TARGET_REPEATED" in p])
         clean("with no checkout the answer is the spelling alone, and a real path passes it",

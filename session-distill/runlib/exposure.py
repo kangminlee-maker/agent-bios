@@ -170,6 +170,11 @@ def rule_for(occasion):
     return best[1]
 
 
+def _is_position(value):
+    """A record ordinal: an integer, and not a boolean wearing one's type."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def ordering_problems(occasion, required=()):
     """Facts offered as exposure that were observed at or after the decision, by name.
 
@@ -181,8 +186,26 @@ def ordering_problems(occasion, required=()):
     if at is None:
         return [f"OCCASION_UNPOSITIONED {occasion.get('locator')}: the occasion records no position, "
                 f"so 'before the decision' has nothing to be before"]
+    if not _is_position(at):
+        return [f"OCCASION_POSITION_INVALID {occasion.get('locator')}: its position {at!r} is not a "
+                f"record ordinal (an integer), so nothing can be shown to precede it"]
     problems = []
     for name, held in sorted((occasion.get("facts") or {}).items()):
+        if isinstance(held, dict) and "at_record" in held:
+            # A positioned fact is an envelope `{value, at_record}`, and both halves are the claim.
+            # One with no `value` was read as its own dictionary — two envelopes holding nothing
+            # compared equal and certified `eligible` — and a position that is text orders by
+            # spelling, so '11' preceded '2' (the round-5 review). Either is a fact nobody can read.
+            if "value" not in held:
+                problems.append(f"FACT_VALUE_ABSENT {occasion.get('locator')} {name}: the fact "
+                                f"records a position and no value, so there is nothing the "
+                                f"predicate could compare")
+                continue
+            if not _is_position(held["at_record"]):
+                problems.append(f"FACT_POSITION_INVALID {occasion.get('locator')} {name}: its "
+                                f"position {held['at_record']!r} is not a record ordinal (an "
+                                f"integer), so whether it precedes the decision cannot be shown")
+                continue
         if not isinstance(held, dict) or "at_record" not in held:
             # A fact the ANSWER rests on must say where it was observed. An unpositioned one used to
             # be skipped, so an occasion could be certified eligible with no evidence at all that
@@ -929,6 +952,41 @@ def _self_test_body(failures, ran):
     control("the same occasion with both facts positioned before the decision is eligible, so the "
             "refusal is the missing position and not the fact",
             said(occasion(locator="p-2")), ELIGIBLE)
+    # Round 5: an envelope is `{value, at_record}` and a position is an integer. Each malformed
+    # shape is planted on an occasion that is otherwise ELIGIBLE, so the verdict moving is the fix.
+    well = {"locator": "e-1", "operation": "edit", "role": None, "at_record": 10,
+            "facts": {"delivered_version": {"value": "v1", "at_record": 5},
+                      "applied_version": {"value": "v1", "at_record": 5}}}
+    control("the well-formed occasion the next three are planted on is eligible", said(well), ELIGIBLE)
+    hollow = {**well, "locator": "e-2", "facts": {"delivered_version": {"at_record": 5},
+                                                  "applied_version": {"at_record": 5}}}
+    control("two envelopes with a position and NO value are not two equal versions",
+            (said(hollow), said(hollow, "why").split()[0]), f"('{UNKNOWN}', 'FACT_VALUE_ABSENT')")
+    texted = {**well, "locator": "e-3", "at_record": "2",
+              "facts": {**well["facts"], "applied_version": {"value": "v1", "at_record": "11"}}}
+    control("positions written as text are refused rather than ordered by spelling",
+            (said(texted), said(texted, "why").split()[0]),
+            f"('{UNKNOWN}', 'OCCASION_POSITION_INVALID')")
+    nulled = {**well, "locator": "e-4",
+              "facts": {**well["facts"], "applied_version": {"value": "v1", "at_record": None}}}
+    control("a fact whose position is null is unknown by name, not a TypeError",
+            (said(nulled), said(nulled, "why").split()[0]),
+            f"('{UNKNOWN}', 'FACT_POSITION_INVALID')")
+    # And the reference identity: each row that compares against the applied artifact, with that
+    # identity left out of an occasion that carries every observation.
+    for rule_id, lacking in (
+            ("executable_invoked", {"locator": "a-1", "operation": "edit", "role": "hook", "at_record": 10,
+                                    "facts": {"invocation_path": {"value": "h", "at_record": 5},
+                                              "invocation_sha256": {"value": "s", "at_record": 5}}}),
+            ("executable_compiler", {"locator": "a-2", "operation": "edit", "role": "catalog_compiler",
+                                     "at_record": 10,
+                                     "facts": {"compiler_digest": {"value": "s", "at_record": 5}}}),
+            ("personal", {"locator": "a-3", "operation": "personal", "role": None, "at_record": 10,
+                          "facts": {"layer_sha256": {"value": "s", "at_record": 5},
+                                    "loading_record": {"value": True, "at_record": 5}}})):
+        control(f"{rule_id}: an observation with no applied identity to compare it with is unknown",
+                (said(lacking, "rule"), said(lacking), said(lacking, "why").split()[0]),
+                f"('{rule_id}', '{UNKNOWN}', 'EXPOSURE_FACT_ABSENT')")
     # Round 4: optionality is about EXISTENCE, not timing. An optional fact the predicate READS
     # decides the answer when it is supplied — giving `required_replacement` with no position turned
     # exposure_unknown into eligible, so leaving it out of the position rule was a way past it.

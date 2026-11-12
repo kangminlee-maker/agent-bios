@@ -314,6 +314,20 @@ class Storage:
         """
         return os.write(handle, data)
 
+    def _single_name(self, handle, pieces):
+        """Refuse a journal whose bytes have a second name.
+
+        `O_NOFOLLOW` refuses a symlink and says nothing of a hard link: the open succeeds and the
+        bytes it reaches may be a file outside the declared root, under its other name. Appending or
+        truncating through this name then changes that file (the round-5 review). The descriptor is
+        asked, after the open and before any byte moves.
+        """
+        held = os.fstat(handle)
+        if not stat.S_ISREG(held.st_mode) or held.st_nlink != 1:
+            raise Refused(f"JOURNAL_HARD_LINKED {'/'.join(pieces)}: the journal is not a regular "
+                          f"file with exactly one name (links: {held.st_nlink}), so writing it "
+                          f"here would change bytes this root does not confine")
+
     def append(self, confined, pieces, data):
         """Append `data` to the journal named by `pieces`, under the confined root."""
         fds, leaf, _created = confined.walk(pieces, create=True)
@@ -335,6 +349,7 @@ class Storage:
                                   f"the declared root that a lexical check just approved") from exc
                 raise
             try:
+                self._single_name(handle, pieces)
                 # A SHORT write is not a complete record. `os.write` may write fewer bytes than it
                 # was given, and returning then would acknowledge a durable complete record for a
                 # line the reader will see as torn. Loop until every byte is written, and fail by
@@ -400,6 +415,7 @@ class Storage:
         try:
             handle = os.open(leaf, os.O_RDWR | _NOFOLLOW, dir_fd=fds[-1])
             try:
+                self._single_name(handle, pieces)
                 os.ftruncate(handle, cut)
                 self._durable_file(handle, labels[-1] + "/" + leaf, created=False)
             finally:
@@ -1157,6 +1173,23 @@ def self_test():
         clean("and the file it pointed at was never created",
               [] if not (held_tree / "other" / "escaped.jsonl").exists()
               else ["the append followed the symlink"])
+        # A HARD link under the declared root: no symlink, the open succeeds, the bytes are outside.
+        twin_source = held_tree / "other-twin" / "outside.jsonl"
+        twin_source.parent.mkdir(parents=True, exist_ok=True)
+        twin_source.write_bytes(b"")
+        twin = root / "twin.jsonl"
+        os.link(twin_source, twin)
+        control("a journal with a second name is refused before a byte is appended",
+                refusal(lambda: append(twin, fx_plan(), root=str(root))), "JOURNAL_HARD_LINKED")
+        clean("and the file under its other name is unchanged",
+              [] if twin_source.read_bytes() == b"" else ["the append wrote through the hard link"])
+        twin_source.write_bytes(b"a tail with no newline")
+        control("and reconciling its torn tail is refused the same way: a truncation through this "
+                "name would cut the outside file",
+                refusal(lambda: reconcile_tail(twin, root=str(root))), "JOURNAL_HARD_LINKED")
+        clean("and the outside file kept its bytes",
+              [] if twin_source.read_bytes() == b"a tail with no newline"
+              else ["the truncation cut the hard-linked file"])
         control("the writer opens with O_NOFOLLOW rather than trusting the check",
                 next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
                      if "flags = os.O_WRONLY" in line),

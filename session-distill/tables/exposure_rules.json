@@ -83,16 +83,15 @@
       },
       "requires": [
         "invocation_path",
-        "invocation_sha256"
+        "invocation_sha256",
+        "applied_path",
+        "applied_sha256"
       ],
       "shown_when": "invocation_path == applied_path and invocation_sha256 == applied_sha256",
       "design": "executable, by its role — invoked directly (a hook, script, tool, or wrapper): the invocation at that occasion names the applied artifact's path and hash",
       "$comment": "Path AND hash: a path that still resolves to the old bytes is the case §6.3's levels exist to catch.",
-      "optional_facts": [
-        "applied_path",
-        "applied_sha256"
-      ],
-      "$comment_reads": "the applied artifact's own identity is the other side of the comparison; it comes from the applied item, not from the occasion."
+      "$comment_reads": "the applied artifact's own identity is the other side of the comparison; it comes from the applied item, not from the occasion.",
+      "$comment_requires": "The applied identity is the REFERENCE the comparison is made against, so it is required: with it absent the predicate compared an observation with None and answered not_exposed about an item nobody identified (the round-5 review). Absent, the answer is exposure_unknown."
     },
     {
       "id": "executable_compiler",
@@ -102,15 +101,14 @@
         ]
       },
       "requires": [
-        "compiler_digest"
+        "compiler_digest",
+        "applied_sha256"
       ],
       "shown_when": "compiler_digest == applied_sha256",
       "design": "producing an artifact others consume (the catalog compiler): the session consumed an artifact produced by the applied version, shown by the version digest the artifact records (the snapshot's `inputs.compiler_digest`)",
       "$comment": "O9's fixture: a compiler change with the OLD compiler digest on the snapshot is shown not exposed, not unknown - the snapshot answered the question.",
-      "optional_facts": [
-        "applied_sha256"
-      ],
-      "$comment_reads": "as above: the applied digest is the item's, not the occasion's."
+      "$comment_reads": "as above: the applied digest is the item's, not the occasion's.",
+      "$comment_requires": "The applied identity is the REFERENCE the comparison is made against, so it is required: with it absent the predicate compared an observation with None and answered not_exposed about an item nobody identified (the round-5 review). Absent, the answer is exposure_unknown."
     },
     {
       "id": "executable_installer",
@@ -175,16 +173,15 @@
       },
       "requires": [
         "layer_sha256",
-        "loading_record"
+        "loading_record",
+        "applied_sha256"
       ],
       "shown_when": "layer_sha256 == applied_sha256 and loading_record is True",
       "unknown_when": "loading_record is None",
       "design": "personal — the layer's identity matches the applied hash and the host's loading record shows it loaded",
       "$comment": "O9's fixture: a personal change with no loading record is exposure_unknown, because the host never said whether it loaded the layer.",
-      "optional_facts": [
-        "applied_sha256"
-      ],
-      "$comment_reads": "the applied digest is the item's."
+      "$comment_reads": "the applied digest is the item's.",
+      "$comment_requires": "The applied identity is the REFERENCE the comparison is made against, so it is required: with it absent the predicate compared an observation with None and answered not_exposed about an item nobody identified (the round-5 review). Absent, the answer is exposure_unknown."
     }
   ],
   "precedence": [

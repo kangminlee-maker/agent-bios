@@ -465,6 +465,56 @@ JPLANT5C
 "either, which one hop of exclusion could not see" \
           "never calls it outside its own suite"
 
+  # Two shapes the fixpoint could not see (the round-5 review): a suite-only helper that calls
+  # ITSELF has a caller outside the suite — its own name — and a METHOD was not in the graph.
+  fresh
+  python3 - "$W" <<'JPLANT5D'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+mark = "def _self_test_body(failures, ran):\n"
+if mark not in held:
+    sys.exit("self-test mutation is stale: destinations.py has no _self_test_body to call from")
+held = held.replace(mark,
+                    "def fixture_reader(depth=1):\n    if depth:\n        return fixture_reader(depth - 1)\n"
+                    "    return author_rows_absent(None)\n\n\n" + mark + "    fixture_reader()\n", 1)
+if "return fixture_reader(depth - 1)" not in held or "    fixture_reader()\n" not in held:
+    sys.exit("self-test mutation is stale: the planted recursive helper did not survive")
+p.write_text(held, encoding="utf-8")
+JPLANT5D
+  case_is "a suite-only helper that calls ITSELF is still the suite: its own name is not a "\
+"production caller" \
+          "never calls it outside its own suite"
+
+  fresh
+  python3 - "$W" <<'JPLANT5E'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+mark = "def _self_test_body(failures, ran):\n"
+if mark not in held:
+    sys.exit("self-test mutation is stale: destinations.py has no _self_test_body to call from")
+held = held.replace(mark,
+                    "class PlantedFixture:\n    def planted_run(self):\n"
+                    "        return author_rows_absent(None)\n\n\n" + mark
+                    + "    PlantedFixture().planted_run()\n", 1)
+if "def planted_run(self):" not in held or "PlantedFixture().planted_run()" not in held:
+    sys.exit("self-test mutation is stale: the planted method or its call did not survive")
+p.write_text(held, encoding="utf-8")
+JPLANT5E
+  case_is "a rule reached only through a METHOD the suite alone calls is not a runtime reader" \
+          "never calls it outside its own suite"
+
   # The exemption is keyed to the ROW. The same path written in a second row is a reference nothing
   # has excused, and keyed by (file, path) alone it was excused anyway.
   fresh
@@ -1253,39 +1303,55 @@ def rule_reader(rel, name):
     # function whose name begins `self_test` or `_self_test` is the suite, and so is a function the
     # suite alone calls — but one hop is what this gate needs, because the rule it asks about is
     # invoked from the manifest's own entry point or from nowhere.
-    functions = {node.name: node for node in tree.body
-                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-    suite = {name for name in functions
-             if name == "self_test" or name.startswith("_self_test")
-             or name.startswith("self_test")}
-    # To a FIXPOINT, not one hop: a helper whose only caller is the suite is the suite, and the
-    # gate counted `author_rows_absent` as read because a fixture helper called it — a helper the
-    # suite alone called (the round-4 review). The closure is computed the way the effect audit
-    # computes its own test-only set, and a function with no caller at all is not suite: an entry
-    # point reached from outside this file would otherwise disappear.
-    callers = {name: set() for name in functions}
-    for held_name, held_node in functions.items():
-        for node in ast.walk(held_node):
-            if isinstance(node, ast.Call):
-                held_called = ast.unparse(node.func).split(".")[-1]
-                if held_called in callers:
-                    callers[held_called].add(held_name)
-    moved = True
-    while moved:
-        moved = False
-        for held_name in functions:
-            if held_name in suite or not callers[held_name]:
-                continue
-            if callers[held_name] <= suite:
-                suite.add(held_name)
-                moved = True
-    runtime = ast.Module(body=[node for node in tree.body
-                               if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                       and node.name in suite)],
-                         type_ignores=[])
-    called = any(isinstance(node, ast.Call)
-                 and ast.unparse(node.func).split(".")[-1] == name
-                 for node in ast.walk(runtime))
+    # By REACHABILITY from production code, over functions AND methods. The closure this replaced
+    # grew a suite set until nothing moved, which a helper that calls ITSELF defeats — it always has
+    # a caller outside the suite, its own name — and methods were not in its graph at all, so a
+    # `Fixture.run` the suite alone called counted as a runtime reader (the round-5 review).
+    #
+    # Units are top-level functions, methods (keyed by bare name, since `x.run()` names no class:
+    # the over-approximation only ever makes a method MORE reachable), and the module's own top
+    # level with every class body. The suite is entered by name and never walked into from
+    # production: `main` calling `self_test()` under the flag does not make the suite's calls
+    # runtime calls. A production root is the top level, or a unit nothing but itself calls.
+    units, top = {}, []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            units.setdefault(node.name, []).append(node)
+        elif isinstance(node, ast.ClassDef):
+            for held in node.body:
+                if isinstance(held, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    units.setdefault(held.name, []).append(held)
+                else:
+                    top.append(held)
+        else:
+            top.append(node)
+
+    def is_suite(unit):
+        return unit == "self_test" or unit.startswith("_self_test") or unit.startswith("self_test")
+
+    def calls_of(nodes):
+        return {ast.unparse(node.func).split(".")[-1] for held in nodes for node in ast.walk(held)
+                if isinstance(node, ast.Call)}
+
+    calls = {unit: calls_of(nodes) for unit, nodes in units.items()}
+    callers = {unit: set() for unit in units}
+    for unit, held_calls in calls.items():
+        for reached in held_calls & set(units):
+            if reached != unit:
+                callers[reached].add(unit)
+    top_calls = calls_of(top)
+    for reached in top_calls & set(units):
+        callers[reached].add("<module>")
+    frontier = {unit for unit in units if not is_suite(unit)
+                and (not callers[unit] or "<module>" in callers[unit])}
+    production = set()
+    while frontier:
+        unit = frontier.pop()
+        if unit in production or is_suite(unit):
+            continue
+        production.add(unit)
+        frontier |= calls[unit] & set(units)
+    called = name in top_calls or any(name in calls[unit] for unit in production)
     return defined, called
 
 

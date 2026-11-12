@@ -192,6 +192,18 @@ def drift_problems(live, declaration, interventions=None, targeted=()):
     return problems
 
 
+def effect_paths(operation):
+    """Every file one operation changes: its target, and for a merge the units it removes.
+
+    A merge is executed as deletes plus one edit, so the files it removes are effects exactly as its
+    target is. Asking only the target let a merge into a compared layer remove a file in a layer
+    nobody compared (the round-5 review)."""
+    held = [operation.get("target")]
+    if operation.get("type") == "merge":
+        held += list(operation.get("units") or ())
+    return held
+
+
 def operation_problems(f, declaration):
     """Every approved operation whose target no comparison covers, by name. Before any effect.
 
@@ -203,13 +215,13 @@ def operation_problems(f, declaration):
     # The declared checkout root, which is what the identity contract is bound to. Absent, the
     # spelling is still judged and the walk is not claimed — `targets.problems` says which.
     checkout = ((declaration or {}).get("destinations") or {}).get("checkout")
-    held_targets = [operation.get("target") for item in f or ()
-                    for operation in item.get("operations") or ()]
+    held_targets = [path for item in f or () for operation in item.get("operations") or ()
+                    for path in effect_paths(operation)]
     problems += targets.set_problems(held_targets, checkout if checkout
                                      and pathlib.Path(checkout).is_dir() else None)
     for item in f or ():
-        for operation in item.get("operations") or ():
-            target = operation.get("target")
+        for target in (path for operation in item.get("operations") or ()
+                       for path in effect_paths(operation)):
             layer = layer_of(target)
             if layer is None:
                 problems.append(f"OPERATION_LAYER_UNKNOWN {item.get('item_id')} {target!r}: no "
@@ -228,9 +240,10 @@ def targeted_layers(f):
     held = []
     for item in f or ():
         for operation in item.get("operations") or ():
-            layer = layer_of(operation.get("target"))
-            if layer and layer not in held:
-                held.append(layer)
+            for path in effect_paths(operation):
+                layer = layer_of(path)
+                if layer and layer not in held:
+                    held.append(layer)
     return tuple(held)
 
 
@@ -759,6 +772,20 @@ def self_test():
             refusal(lambda: document({"global": A, "guides": B}, fx_declaration(),
                                      [fx_item(target=".githooks/pre-commit")])),
             "OPERATION_LAYER_UNCHECKED")
+    merge_out = {"item_id": "i-merge", "operations": [
+        {"type": "merge", "target": "claude/guides/g.md", "units": [".githooks/pre-commit"],
+         "before_state_sha256": A}]}
+    control("a merge that REMOVES a file in a layer nobody compared is refused by that file's "
+            "name: its target lying in a compared layer says nothing of what it deletes",
+            [held.split(":")[0] for held in operation_problems([merge_out], fx_declaration())
+             if held.startswith("OPERATION_LAYER")],
+            "[\"OPERATION_LAYER_UNCHECKED i-merge '.githooks/pre-commit'\"]")
+    merge_in = {"item_id": "i-merge", "operations": [
+        {"type": "merge", "target": "claude/guides/g.md", "units": ["claude/guides/h.md"],
+         "before_state_sha256": A}]}
+    clean("and one whose units lie in compared layers raises no layer problem",
+          [held for held in operation_problems([merge_in], fx_declaration())
+           if held.startswith("OPERATION_LAYER")])
     control("and so is one over drift",
             refusal(lambda: document({"global": C, "guides": B}, fx_declaration(), [fx_item()])),
             "DRIFT_UNTARGETED")

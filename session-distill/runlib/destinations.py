@@ -1460,7 +1460,11 @@ def _self_test_branch(node):
     # Anything else mentioning the flag is unsupported, and an unsupported guard means both halves
     # are scanned rather than one being trusted: a wrong skip hides an effect, a wrong scan only
     # reports one.
-    if isinstance(node.test, ast.Compare) and len(node.test.ops) == 1:
+    # And the LEFT side must be the flag itself, exactly. `'--self-test-other' in argv` mentions
+    # the flag as a substring and guards nothing this audit knows about; its body was skipped (the
+    # round-5 review).
+    if isinstance(node.test, ast.Compare) and len(node.test.ops) == 1 \
+            and isinstance(node.test.left, ast.Constant) and node.test.left.value == "--self-test":
         # The right side must be the ARGUMENT VECTOR, not any container that happens to hold the
         # flag: `'--self-test' in held.flags()` is a call this audit cannot evaluate, and reading it
         # as dispatch skipped a half on the strength of a method name.
@@ -1602,6 +1606,34 @@ def effect_audit(source):
     scope += [(held.name, node) for held in tree.body if isinstance(held, ast.ClassDef)
               for node in held.body
               if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+    # Everything ELSE that runs when a definition is executed, whoever calls the thing defined: a
+    # class's bases and keywords, any decorator, a function's default arguments, and the whole of a
+    # class nested in a class — body, methods' definitions and all. A default argument that calls
+    # `open` runs at import, in a method nobody ever calls (the round-5 review). A nested class's
+    # method BODIES are scanned too: reachability is computed over top-level names, so the safe
+    # direction for a name it cannot see is to scan it.
+    def definition_time(node, where, nested=False):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for held in [*node.decorator_list, *node.args.defaults,
+                         *[d for d in node.args.kw_defaults if d is not None]]:
+                yield f"{where} definition", held
+            if nested:
+                for held in node.body:
+                    yield where, held
+        elif isinstance(node, ast.ClassDef):
+            for held in [*node.decorator_list, *node.bases, *[k.value for k in node.keywords]]:
+                yield f"{where} definition", held
+            for held in node.body:
+                if isinstance(held, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    yield from definition_time(held, f"{where}.{held.name}", nested)
+                elif isinstance(held, ast.ClassDef):
+                    yield from definition_time(held, f"{where}.{held.name}", True)
+                elif nested:
+                    yield where, held
+
+    for held in tree.body:
+        if isinstance(held, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            scope += list(definition_time(held, held.name))
     scope += [(f"{held.name}.{node.name}", node) for held in tree.body
               if isinstance(held, ast.ClassDef) for node in held.body
               if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -2404,7 +2436,8 @@ def _self_test_body(failures, ran):
                         and r["certification"] == READ_NOT_WRITTEN]),
             json.dumps([[READ_NOT_WRITTEN, None]]))
     control("and the row says so in its own words rather than leaving the reader to the table",
-            next(r["why"] for r in release_rows if r["certification"] == READ_NOT_WRITTEN),
+            next((r["why"] for r in release_rows if r["certification"] == READ_NOT_WRITTEN),
+                 "<no read_not_written row in the release's scope>"),
             "nothing of this writer's is written under it")
     # The claim check survived the narrowing because it is asked of the produced MAPPING: with no
     # override-rooted row left in the release, a check keyed on such a row would have gone silent.
@@ -2713,10 +2746,15 @@ def _self_test_body(failures, ran):
         "resolved": [], "overrides_required": [], "refused": doc_or_refusal}
     control("the document is produced at all, rather than refusing over its own inventory",
             "dict" if isinstance(doc_or_refusal, dict) else str(doc_or_refusal)[:200], "dict")
-    control("the document carries one resolved row per answered writer, at the RELEASE's scope — "
-            "the rows above are the wider scope, and the document is what S11 reads",
-            str(len(doc["resolved"])),
-            str(len(resolved_rows(fx_declaration(), fx_env()))))
+    # Equality, and of the rows' own keys rather than of a count: `'32' in '132'` passed the
+    # substring helper (the round-5 review). The claim is that the document drops and adds no row of
+    # the resolution it was built from, so the keys are what is compared.
+    equals("the document carries exactly the resolved rows of the RELEASE's scope — the rows above "
+           "are the wider scope, and the document is what S11 reads",
+           json.dumps(sorted((r["writer"], r["class"]) for r in doc["resolved"])),
+           json.dumps(sorted((r["writer"], r["class"])
+                             for r in resolved_rows(fx_declaration(), fx_env()))))
+    equals("and that set is not empty", json.dumps(bool(doc["resolved"])), "true")
     equals("and it carries the release's scope with the decision that set it, so a reader of the "
             "manifest alone can say which writers this release may not invoke",
             json.dumps([doc["release_scope"]["scope"], doc["release_scope"]["decision"],
@@ -2924,6 +2962,25 @@ def _self_test_body(failures, ran):
                                  "    if '--self-test' in sys.argv:\n        pass\n"
                                  "    else:\n        os.symlink('a', 'b')\n")),
             "os.symlink (in run)")
+    # Round 5: the flag must be the flag, and a definition executes more than its body.
+    equals("a guard on a flag that merely CONTAINS `--self-test` guards nothing this audit knows",
+           json.dumps(effects_in("def main(argv):\n    if '--self-test-other' in argv:\n"
+                                 "        open('/outside', 'w')\n")),
+           json.dumps(["open(mode='w') (in main)"]))
+    equals("a class nested in a class runs its body at definition time",
+           json.dumps(effects_in("class Outer:\n    class Inner:\n"
+                                 "        open('/outside', 'w')\n")),
+           json.dumps(["open(mode='w') (in Outer.Inner)"]))
+    equals("a default argument runs when the method is DEFINED, called or not",
+           json.dumps(effects_in("class Held:\n    def never_called(self, x=open('/outside', 'w')):\n"
+                                 "        return x\n")),
+           json.dumps(["open(mode='w') (in Held.never_called definition)"]))
+    equals("so does a decorator on a top-level function nobody calls from the suite alone",
+           json.dumps(effects_in("import os\n@os.system('x')\ndef self_test():\n    pass\n")),
+           json.dumps(["os.system (in self_test definition)"]))
+    equals("and a class's bases",
+           json.dumps(effects_in("import os\nclass Held(os.system('x')):\n    pass\n")),
+           json.dumps(["os.system (in Held definition)"]))
     # Membership, asserted as a membership rather than as a substring of a dumped list.
     equals("the audit scanned this module's own entry point",
             json.dumps("main" in effect_scope(own_source)), "true")
