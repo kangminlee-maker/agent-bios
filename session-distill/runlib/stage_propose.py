@@ -942,7 +942,7 @@ def with_before_states(answer, checkout):
     return {**answer, "operations": operations}, problems
 
 
-def unit_rows(check_row, current_units, checkout):
+def unit_rows(check_row, current_units, checkout=None):
     """The units S5 retrieved for one candidate, as S7 is shown them: where each lives and what it
     says, in S5's order. The label is the packet's own; a store id is not shown."""
     import hashlib

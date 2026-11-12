@@ -605,16 +605,30 @@ def cmd_propose(args):
 
 
 def cmd_review_proposals(args):
-    """S7b (runlib/stage_review_proposals.py): golden over reviews the caller supplies; see cmd_propose."""
+    """S7b (runlib/stage_review_proposals.py): dry, up to the calls; golden over reviews the caller
+    supplies; otherwise the supervised calls. See cmd_propose."""
     run_dir = run_dir_of(args)
-    if not args.reviews:
-        say("CALL_NOT_WIRED review-proposals: the supervised call has not landed; give --reviews PATH "
-            "to run the stage over reviews already in hand", sys.stderr)
-        return 2
-    reviews = records.read_json(pathlib.Path(args.reviews))
-    stage, doc = stage_review_proposals.run(run_dir, reviews)
-    say(f"S7b: {doc['counts']['reviewed']} reviewed, {doc['counts']['disagreements']} disagreements, "
-        f"{doc['counts']['returned']} returned, {doc['counts']['unreviewed']} unreviewed")
+    if args.reviews:
+        if args.dry or args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID review-proposals --reviews: reviews in hand make no call, so they take no "
+                          "--dry, --cells or --golden-plan")
+        reviews = records.read_json(pathlib.Path(args.reviews))
+        stage, doc = stage_review_proposals.run(run_dir, reviews)
+        say(f"S7b: {doc['counts']['reviewed']} reviewed, {doc['counts']['disagreements']} disagreements, "
+            f"{doc['counts']['returned']} returned, {doc['counts']['unreviewed']} unreviewed")
+        return 0
+    if args.dry:
+        if args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID review-proposals --dry: a dry run makes no call, so it takes no --cells or "
+                          "--golden-plan")
+        summary, _doc = stage_review_proposals.live(run_dir, dry=True)
+    else:
+        if not args.cells:
+            raise Refused("INPUT_INVALID review-proposals --cells: the review calls run in cells under a cell root; "
+                          "give --cells DIR, --dry to stop before the calls, or --reviews PATH for reviews in hand")
+        summary, _doc = stage_review_proposals.live(
+            run_dir, stage_review_proposals.supervisor(run_dir, args.cells, args.golden_plan))
+    say("\n".join(stage_review_proposals.live_report_lines(summary)))
     return 0
 
 
@@ -733,7 +747,10 @@ def build_parser():
                                                        "destination; without it the stage is refused LEDGER_UNNAMED "
                                                        "rather than reading a guess")
         if name == "review-proposals":
+            sub.add_argument("--dry", action="store_true", help="stop before any call: who is asked and each packet's measure")
             sub.add_argument("--reviews", help="a JSON object of reviews by item id, for a golden run")
+            sub.add_argument("--cells", help="the cell root the review calls run under (made mode 700)")
+            sub.add_argument("--golden-plan", help="a golden host's plan: the calls are answered from it and start no model")
         if name == "adjudicate":
             sub.add_argument("--version", type=int, help="the parsed version whose adjudications to recompute "
                                                          "(default: the latest parse holding any)")
@@ -1037,8 +1054,9 @@ def self_test():
         control("propose (S7) with neither --cells, --dry nor --answers is refused by name, and records no "
                 "stage", code == 1 and "INPUT_INVALID propose --cells" in err and no_stage_record(), f"{code} {err}")
         code, err = cli("review-proposals", "--run-id", "r1")
-        control("review-proposals (S7b) without --reviews says the same, by its own name",
-                code == 2 and "CALL_NOT_WIRED review-proposals" in err and no_stage_record(),
+        control("review-proposals (S7b) with neither --cells, --dry nor --reviews is refused the same way, by its "
+                "own name",
+                code == 1 and "INPUT_INVALID review-proposals --cells" in err and no_stage_record(),
                 f"{code} {err}")
         code, err = cli("propose", "--run-id", "r1", "--dry")
         control("propose --dry over a run S6 has not written is refused by name, and still records no "

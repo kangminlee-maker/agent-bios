@@ -41,7 +41,13 @@ def schema_bytes():
 
 def packet_for(candidate, proposal_row, units=(), call_id="c1", seat="review"):
     """The S7b packet for one proposal, with the contract text and digest the proposal was judged by."""
-    payload = packet.render(TEMPLATE, {
+    payload = payload_for(candidate, proposal_row, units)
+    return packet.build(call_id, STAGE, seat, payload, schema=schema_bytes(), repo=HERE.parent)
+
+
+def payload_for(candidate, proposal_row, units=()):
+    """The packet's payload alone: what a supervised call is handed (`packet_for` builds around it)."""
+    return packet.render(TEMPLATE, {
         "candidate": json.dumps(candidate, ensure_ascii=False, indent=1),
         "judgments": json.dumps((proposal_row.get("judgments") or {}), ensure_ascii=False, indent=1),
         "proposal": json.dumps({k: v for k, v in proposal_row.items() if k != "judgments"},
@@ -50,7 +56,6 @@ def packet_for(candidate, proposal_row, units=(), call_id="c1", seat="review"):
         "placement_contract": f"sha256:{placement.contract_digest()}\n\n{placement.contract_text()}",
         "returns": "Return one JSON object in the schema of this call.",
     }, template_dir=HERE / "packets")
-    return packet.build(call_id, STAGE, seat, payload, schema=schema_bytes(), repo=HERE.parent)
 
 
 def merge_targets(proposal):
@@ -214,7 +219,7 @@ def row_of(review, proposal_row):
             "owner_resolves": review["verdict"] == "disagree"}
 
 
-def document(proposals, reviews, candidates=None, only=None):
+def document(proposals, reviews, candidates=None, only=None, unasked=None):
     """`review-s7b.json`: one row per proposal, with every unreviewed and returned case named.
 
     A proposal with no review is NOT carried as agreed. Silence is not a second reader, and a stage
@@ -247,7 +252,10 @@ def document(proposals, reviews, candidates=None, only=None):
     for cid in sorted(by_id):
         review = (reviews or {}).get(cid)
         if review is None:
-            unreviewed.append({"item_id": cid, "why": "S7b returned no review for this proposal"})
+            # `unasked` is the live stage's: a proposal no review was asked for is unreviewed for
+            # that reason, which is not the same sentence as a call that returned nothing.
+            unreviewed.append({"item_id": cid, "why": (unasked or {}).get(
+                cid, "S7b returned no review for this proposal")})
             continue
         problems = review_problems(review, by_id[cid])
         if problems:
@@ -290,6 +298,187 @@ def run(run_dir, reviews, only=None):
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return stage, doc
+
+
+# ---- the supervised call (release 1) --------------------------------------------------------------
+# One call per proposal a MODEL wrote. A legacy entry the owner's default answered in code
+# (D-20261111-e53a01) is not a proposal anybody argued for, so there is nothing for a second reader
+# to disagree with: it is named unreviewed with that reason, which S9 accounts for, and no call is
+# spent on it. Everything else is the dispatcher's, as in S7.
+SEAT_KEY = "S7b"
+CASE = "review"
+OUTPUT_CAP = 20_000
+LIVE_INPUTS = INPUTS + ({"artifact": "checks.json", "producer_stage": "S5"},
+                        {"artifact": "inventory/current.json", "producer_stage": "S2"})
+CALLS = "review-proposals/calls.json"
+DRY_RECORD = "review-proposals/dry.json"
+UNASKED_DEFAULT = "the owner's legacy default answered it in code, so there is no proposal of a model's to review"
+
+
+def item_of(candidate_id):
+    """A proposal's item name in its call: opaque, since a call directory's name must not be the id."""
+    import hashlib
+    return "b" + hashlib.sha256(candidate_id.encode("utf-8")).hexdigest()[:12]
+
+
+def asked_of(proposals):
+    """`(asked ids, {unasked id: why})` over S7's proposals: a model's proposal is reviewed, a
+    defaulted one is not."""
+    asked, unasked = [], {}
+    for row in (proposals or {}).get("proposals") or []:
+        if row.get("answered_by") == "default":
+            unasked[row["candidate_id"]] = UNASKED_DEFAULT
+        else:
+            asked.append(row["candidate_id"])
+    return sorted(asked), unasked
+
+
+def live_check(proposal_row, capacity):
+    """The stage's check of a review call's attempts (`Supervisor.item(stage_check=)`): the review
+    contract's own refusals, so the one retry is told what `document` would return the row for."""
+    from runlib import stage_read
+
+    def judged(call_dir):
+        held = ((records.read_json(pathlib.Path(call_dir) / "call.json").get("bound")) or {}).get("context_capacity")
+        if held != capacity:
+            raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record "
+                          f"carries the capacity {held!r}, and S7b was admitted against {capacity!r}")
+        return review_problems(stage_read.answer_of(call_dir), proposal_row)
+    return judged
+
+
+def supervisor(run_dir, cells, plan=None, seats_path=None):
+    """The supervisor S7b's calls go through, their cells under `cells` (made mode 700). Live, the
+    pinned runner of the seat run.json names. With `plan`, a golden host's plan (`[{match, answer}]`,
+    dispatch.FAKE_HOST's): the host answers from the plan and starts no model."""
+    from runlib import dispatch
+    cells = pathlib.Path(cells)
+    cells.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if plan is None:
+        return dispatch.Supervisor(run_dir, cell_root=cells, realization="live", seats_path=seats_path)
+    # The golden host is S6's: its seat here is a Codex one, and that host is the one that answers
+    # a Codex call from a plan (dispatch's own golden host replays a Codex stream and reads no plan).
+    from runlib import stage_judge
+    return stage_judge.supervisor(run_dir, cells, plan, seats_path)
+
+
+def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibration"):
+    """S7b with its supervised calls: `review-s7b.json` over the reviews the calls returned.
+
+    Dry, it writes `review-proposals/dry.json` (who would be asked, each packet's measure) and
+    leaves the record `partial`. Otherwise each asked proposal is one item through `supervisor`; an
+    accepted review enters `document`, a call that ends other than accepted leaves its proposal
+    unreviewed by name and the record `partial`, and a re-run reuses every accepted attempt.
+    `review-proposals/calls.json` says what each call did: counts and codes, never a review's text."""
+    from runlib import bound, dispatch, gate, stage_judge
+    if not dry and supervisor is None:
+        raise Refused("REVIEW_UNSUPERVISED S7b: a review call goes through a supervisor; without one, "
+                      "run it dry (--dry) or over reviews in hand (--reviews)")
+    run_dir = pathlib.Path(run_dir)
+    run_id = run_dir.resolve().name
+    with records.run_stage(run_dir, STAGE, LIVE_INPUTS) as stage:
+        declaration = stage.declaration
+        seat = ((declaration or {}).get("seats") or {}).get(SEAT_KEY)
+        if not seat:
+            raise Refused(f"SEAT_UNDECLARED {SEAT_KEY}: S7b's seat is named by run.json's seats")
+        interrupted = [] if dry else supervisor.interrupted(STAGE)
+        proposals = records.read_json(run_dir / stage_propose.OUTPUT)
+        population = {r["candidate_id"]: r for r in
+                      records.read_json(run_dir / "checked-candidates.json")["candidates"]}
+        checks = {r["candidate_id"]: r for r in records.read_json(run_dir / "checks.json")["candidates"]}
+        current = {u["unit_id"]: u for u in records.read_json(run_dir / "inventory" / "current.json")["units"]}
+        by_id = {p["candidate_id"]: p for p in proposals.get("proposals") or []}
+        asked, unasked = asked_of(proposals)
+        held_schema = json.loads(schema_bytes().decode("utf-8"))
+        limits = stage_judge.limits_of(seat, run_dir, declaration,
+                                       seats_path if dry else supervisor.seats_path,
+                                       case=CASE, output_cap=OUTPUT_CAP, stage=STAGE)
+        packets, measured = {}, []
+        for cid in asked:
+            text = payload_for(population.get(cid) or {"candidate_id": cid}, by_id[cid],
+                               stage_propose.unit_rows(checks.get(cid), current, None))
+            item = item_of(cid)
+            built = packet.build(f"{run_id}-{STAGE}-{item}-a1", STAGE, seat, text, schema_bytes())
+            size = bound.driver_bytes(built, schema_bytes())[0]
+            packets[cid] = (item, text)
+            measured.append({"candidate_id": cid, "item": item,
+                             "payload_bytes": len(text.encode("utf-8")),
+                             "payload_sha256": packet.sha256_bytes(text.encode("utf-8")),
+                             "driver_bytes": size,
+                             "input_at_most": stage_judge.at_most_of(size, limits),
+                             "over_capacity": bool(stage_judge.beyond_capacity(size, limits))})
+        summary = {"stage": STAGE, "declaration_seq": declaration["declaration_seq"], "dry": dry,
+                   "seat": seat, "limits": limits, "output_cap": OUTPUT_CAP,
+                   "population": {"proposals": len(by_id), "asked": len(asked), "unasked": len(unasked),
+                                  "unasked_by_reason": dict(sorted(collections.Counter(unasked.values()).items()))},
+                   "packets": measured,
+                   "budget": {"per_stage": ((declaration.get("budget") or {}).get("per_stage") or {}).get(STAGE)}}
+        if dry:
+            records.write_json(run_dir, run_dir / DRY_RECORD, summary)
+            stage.output(DRY_RECORD)
+            stage.record["status"] = "partial"
+            return summary, None
+        over = [m["candidate_id"] for m in measured if m["over_capacity"]]
+        if over:
+            raise Refused(f"REVIEW_OVER_CAPACITY S7b: {len(over)} packets exceed the seat's capacity "
+                          f"{limits['capacity']} with the output cap and a retry's correction ({over[:3]})")
+        episode = declaration["budget"]["per_episode"]
+        caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
+        reviews, calls = {}, []
+        for row in measured:
+            cid = row["candidate_id"]
+            item, text = packets[cid]
+            out = supervisor.item(
+                STAGE, item, seat, text, held_schema, case_type=CASE, caps=caps, view_window=False,
+                tranche=tranche, max_output_tokens=OUTPUT_CAP, resume=True,
+                context_capacity=limits["capacity"],
+                stage_check=live_check(by_id[cid], limits["capacity"]),
+                packet_check=lambda built: stage_judge.attempt_problems(
+                    built, limits, schema_bytes(), SEAT_KEY, code="REVIEW_OVER_CAPACITY"))
+            held = {"candidate_id": cid, "item": item, **stage_judge.call_row(out)}
+            if out["outcome"] == "accepted":
+                call_dir = pathlib.Path(out["accepted"])
+                held["call_id"] = records.read_json(call_dir / "call.json")["call_id"]
+                reviews[cid] = gate.accepted(call_dir, judged=True)
+            else:
+                unasked[cid] = (f"S7b's call ended {out['outcome']}"
+                                + (f" ({', '.join(held['codes'])})" if held["codes"] else ""))
+            calls.append(held)
+        doc = document(proposals, reviews, unasked=unasked)
+        records.write_json(run_dir, run_dir / OUTPUT, doc)
+        stage.output(OUTPUT)
+        outcomes = [c["outcome"] for c in calls]
+        summary.update(calls=calls, interrupted=interrupted, tranche=tranche,
+                       counts={**{o: outcomes.count(o) for o in sorted(set(outcomes))},
+                               "reused": sum(1 for c in calls if c.get("reused"))},
+                       document=doc["counts"], density_table=dispatch.measured_table(run_dir))
+        records.write_json(run_dir, run_dir / CALLS, summary)
+        stage.output(CALLS)
+        if any(o != "accepted" for o in outcomes):
+            stage.record["status"] = "partial"
+        return summary, doc
+
+
+def live_report_lines(summary):
+    """What the driver prints of a live or dry S7b: counts, sizes and codes, never a review's text."""
+    pop = summary["population"]
+    lines = [f"S7b review-proposals{' (dry)' if summary['dry'] else ''}: declaration_seq "
+             f"{summary['declaration_seq']}; {pop['asked']} of {pop['proposals']} proposals asked; not asked: "
+             f"{'; '.join(f'{n} ({why})' for why, n in pop['unasked_by_reason'].items()) or 'none'}",
+             f"packets: {sum(m['payload_bytes'] for m in summary['packets'])} payload bytes over "
+             f"{len(summary['packets'])} calls on {summary['seat']}; output at most "
+             f"{len(summary['packets']) * summary['output_cap']} tokens at the cap {summary['output_cap']}; "
+             f"budget per_stage S7b {summary['budget']['per_stage']}"]
+    if not summary["dry"]:
+        counts, held = summary["counts"], summary["document"]
+        lines.append("calls: " + (", ".join(f"{k} {v}" for k, v in counts.items() if k != "reused") or "none")
+                     + f"; {counts['reused']} answered by an earlier accepted attempt")
+        failed = sorted({c for row in summary["calls"] if row["outcome"] != "accepted" for c in row["codes"]})
+        if failed:
+            lines.append(f"codes of the calls not accepted: {', '.join(failed)}")
+        lines.append(f"review-s7b.json: {held['reviewed']} reviewed, {held['disagreements']} disagreements, "
+                     f"{held['returned']} returned, {held['unreviewed']} unreviewed")
+    return lines
 
 
 # ---- self-test -----------------------------------------------------------------------------------
@@ -853,6 +1042,73 @@ def _self_test_body(failures, ran):
             next((line.strip() for line in wrapper_text.splitlines()
                   if "_self_test_body(" in line), "<no such line>"),
             "return _self_test_body(failures, ran)")
+
+    # ---- the supervised call (release 1) ---------------------------------------------------------
+    held_asked, held_unasked = asked_of({"proposals": [
+        {"candidate_id": "k-model", "answered_by": "model"},
+        {"candidate_id": "legacy:defaulted", "answered_by": "default"},
+        {"candidate_id": "k-older", "disposition": "place"}]})
+    control("a review is asked for a proposal a model wrote, and for one that does not say who wrote it",
+            json.dumps(held_asked), json.dumps(["k-model", "k-older"]))
+    control("and a legacy entry the owner's default answered is not asked, by name",
+            json.dumps(held_unasked), json.dumps({"legacy:defaulted": UNASKED_DEFAULT}))
+    import shutil
+    live_root = pathlib.Path(tempfile.mkdtemp(prefix="s7b-live-", dir="/tmp"))
+    try:
+        from runlib import declare
+        live_run = None
+        try:
+            live_run = stage_propose.fx_through_s6(live_root)
+            live_cands = records.read_json(live_run / "checked-candidates.json")["candidates"]
+            stage_propose.run(live_run, {r["candidate_id"]: stage_propose._answered(
+                disposition="none", operations=[], destination={"layer": "incubator", "carrier": None})
+                for r in live_cands})
+        except Exception as exc:  # the fixture's own failure is reported, never swallowed
+            live_run = None
+            failures.append(("the golden run through S7 could not be made", repr(exc)))
+            ran.append("the golden run through S7 could not be made")
+        if live_run is not None:
+            proposed = sorted(p["candidate_id"] for p in
+                              records.read_json(live_run / stage_propose.OUTPUT)["proposals"])
+            clean("the golden run holds more than one proposal to review",
+                  [] if len(proposed) > 1 else [f"{proposed}"])
+            control("a live run with no supervisor is refused by name",
+                    refused_text(lambda: live(live_run)), "REVIEW_UNSUPERVISED S7b")
+            declare.amend(live_run, [("budget.per_stage.S7b", 5_000_000)], "S7b's golden budget")
+            dry_summary, _none = live(live_run, dry=True)
+            control("dry: every proposal is measured, no document is written, and the stage is partial",
+                    json.dumps([sorted(m["candidate_id"] for m in dry_summary["packets"]),
+                                (live_run / OUTPUT).exists(),
+                                records.read_json(records.record_path(live_run, STAGE)).get("status")]),
+                    json.dumps([proposed, False, "partial"]))
+            # One review decides, which the contract refuses; the others agree.
+            deciding = proposed[0]
+            plan_path = live_root / "plan.json"
+            plan_path.write_text(json.dumps(
+                [{"match": [json.dumps(cid)],
+                  "answer": {**review(), "decision": "approve"} if cid == deciding else review()}
+                 for cid in proposed], ensure_ascii=False), encoding="utf-8")
+            live_summary, live_doc = live(live_run, supervisor(live_run, live_root / "cells", plan_path))
+            control("each proposal is one supervised call, accepted where the review holds and failed "
+                    "where it is refused twice",
+                    json.dumps({c["candidate_id"]: c["outcome"] for c in live_summary["calls"]}, sort_keys=True),
+                    json.dumps({cid: ("failed" if cid == deciding else "accepted") for cid in proposed},
+                               sort_keys=True))
+            control("the document reviews the accepted ones and names the failed one unreviewed BY ITS CALL",
+                    json.dumps([sorted(r["item_id"] for r in live_doc["reviews"]),
+                                [(u["item_id"], u["why"].split(" (")[0]) for u in live_doc["unreviewed"]]]),
+                    json.dumps([proposed[1:], [[deciding, "S7b's call ended failed"]]]))
+            control("the stage is partial while a call is not accepted, and both files are its outputs",
+                    json.dumps([records.read_json(records.record_path(live_run, STAGE)).get("status"),
+                                (live_run / CALLS).is_file(), (live_run / OUTPUT).is_file()]),
+                    json.dumps(["partial", True, True]))
+            again_summary, _doc = live(live_run, supervisor(live_run, live_root / "cells", plan_path))
+            control("a re-run reuses every accepted attempt",
+                    json.dumps(again_summary["counts"]["reused"]), json.dumps(len(proposed) - 1))
+            clean("the report prints counts and codes and no review's text",
+                  [line for line in live_report_lines(live_summary) if "동의한다" in line])
+    finally:
+        shutil.rmtree(live_root, ignore_errors=True)
 
     reporting.append(True)
     if failures:
