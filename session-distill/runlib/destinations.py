@@ -1403,7 +1403,9 @@ def write(run_dir, declaration, environ):
     # No declared input: the run declaration is the run's own root, not a stage output, so naming it
     # as one is refused (`INPUT_INVALID S0: no record for the stage that produces run.json`). Every
     # stage that reads only the declaration opens its record the same way.
-    with records.run_stage(run_dir, "S11") as stage:
+    # S11's record has parts: this manifest is its optional one (`records.STAGE_OPTIONAL_PARTS`), beside the
+    # apply's plan and effects.
+    with records.run_stage(run_dir, "S11", part="destinations") as stage:
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return stage, doc
@@ -2842,7 +2844,8 @@ def _self_test_body(failures, ran):
         # name the refusal.
         record = guarded(lambda: records.read_json(records.record_path(run_dir, "S11")))
         control("registered with the stage, so a later stage can read its staleness",
-                json.dumps([o.get("artifact") for o in record.get("outputs") or []])
+                json.dumps([o.get("artifact") for o in
+                            ((record.get("parts") or {}).get("destinations") or {}).get("outputs") or []])
                 if isinstance(record, dict) else str(record)[:200], OUTPUT)
         # Nothing is written when anything refuses: the escape case must leave no manifest at all.
         other = held_root / "r2"

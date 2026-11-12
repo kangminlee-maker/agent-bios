@@ -67,12 +67,16 @@ has.
   - `create`: `content` is the whole new file.
   - `edit`: `content` is the text to write. With `anchor` - an exact passage copied from the unit's text, occurring
     once in the section or file - `content` replaces that passage. With a heading and no anchor, `content` replaces
-    the whole section, so begin it with the heading line. With neither, `content` is the whole file. Do not write a
+    the whole section, so begin it with the heading line and end it with a newline (nothing is added to your text,
+    and a section that runs into the next heading is refused). With neither, `content` is the whole file. Do not write a
     `diff`: an edit without `content` is refused.
   - `delete`: the `anchor` passage, or the section the heading names, or - with neither - the file.
   - `merge`: `units` are the `path` or `path#heading` of each unit merged; `content` is the merged text, written to
     the target as an edit writes it. Every unit other than the target is removed.
   - `route`: `entry` is one line, appended to the section or file `target` names; `names` is the path it points at.
+  Your operations are applied in memory to the files as they are now before your answer is accepted: an anchor
+  that is absent or occurs twice (overlapping occurrences count), a heading the file does not hold, or a create
+  over an existing file comes back to you as `OPERATION_WOULD_NOT_APPLY` with the reason.
   For `before_state_sha256` write `absent`: you cannot hash a file, so code replaces the field on every operation
   with the state of its target as it reads it, and a value of yours is never used.
 - **Artifact set**, complete: the English canonical text, the Korean translation under `ko/claude/` when the item is

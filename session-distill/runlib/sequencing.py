@@ -89,7 +89,7 @@ def _path(value):
     written made `guides/é.md` composed and decomposed two files — a merge removed one while the
     route to the other stood, and the order was certified over a tree that does not exist (the
     round-5 review)."""
-    return targets.identity(value) or value
+    return targets.identity(targets.file_of(value)) or value
 
 
 def _route_key(key):
@@ -123,11 +123,17 @@ def apply_to(tree, item):
         # this module computed was an order over a tree that does not exist (the round-3 review).
         # `targets.identity` is the one owner of that question; an unspellable target keeps its own
         # string so the order is still computed and the spelling contract reports it by name.
-        target = targets.identity(op.get("target")) or op.get("target")
+        # The FILE, not the string: `g.md#One` names a section of `g.md` (`runlib/operations.py`), so
+        # it shares that file's identity, and a delete that names a section or an anchor removes
+        # text and leaves the file. Modelled as the file's removal, a valid set - an anchored
+        # deletion beside a route to the same file - came back with no order (the S11 review).
+        target = _path(op.get("target"))
+        in_file = bool(op.get("anchor")) or "#" in str(op.get("target") or "")
         if kind in ("create", "edit"):
             held[target] = "present"
         elif kind == "delete":
-            held.pop(target, None)
+            if not in_file:
+                held.pop(target, None)
         elif kind == "merge":
             for unit in op.get("units") or []:
                 held.pop(_path(unit), None)
@@ -503,6 +509,16 @@ def _self_test_body(failures, ran):
                                                           "names": "gone"}]}]
     control("a set brute force rejects is refused by the search too",
             str(subset_answer(unorderable).get("refusal")), "SEQUENCE_NONE")
+    # A delete that names an anchor or a section removes TEXT and leaves the file, so a route to that
+    # file still points at something; and `g.md#One` is a section of `g.md`, not a second file.
+    partial = [{"item_id": "a-trim", "operations": [{"type": "delete", "target": "g.md", "anchor": "old line"}]},
+               {"item_id": "b-route", "operations": [{"type": "route", "target": "r", "names": "g.md"}]},
+               {"item_id": "c-section", "operations": [{"type": "delete", "target": "g.md#One"}]}]
+    control("an anchored or section deletion leaves its file, so a route to it has an order",
+            json.dumps(subset_answer(partial, base={"g.md": "present", "r": "present"}).get("sequenced")), "true")
+    whole = [partial[1], {"item_id": "d-gone", "operations": [{"type": "delete", "target": "g.md"}]}]
+    control("and a delete that names neither still removes the file",
+            str(subset_answer(whole, base={"g.md": "present", "r": "present"}).get("refusal")), "SEQUENCE_NONE")
     clean("and brute force agrees there is none", exhaustive(unorderable))
 
     # ---- the tree is keyed by IDENTITY, not by the string an operation carries --------------------

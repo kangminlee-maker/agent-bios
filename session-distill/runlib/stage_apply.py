@@ -7,44 +7,46 @@ installer, no hook — and writes no personal layer and no state root. Its other
 run directory: the plan, the write-ahead journal and its own record. It ends by naming the two
 commands the owner runs, the commit and the install, and runs neither.
 
-What an operation DOES is defined here, because nothing else defined it (the packet names the five
-types and their fields; §7.3 gives their shape). The definitions are deterministic and take no
-patch: a model writes text, and code places it.
+What an operation does to a file's text is `runlib/operations.py`'s contract; this module decides
+when it is allowed to happen and makes it happen on disk. The stage has two parts, each its own
+admission (`records.run_stage`), so the plan the effects are taken from is a RECORDED output and not
+a file the effects part trusts because it is there:
 
-    target      `path` or `path#heading`. The path is a file of the checkout; the heading is one
-                ATX heading of that file (its title, with or without its `#`s), which must occur
-                exactly once outside fenced code. A heading's SECTION runs from its line to the next
-                heading of the same or a higher level.
-    create      the file is absent; it becomes `content`.
-    edit        the file is present. With `anchor`: that exact text occurs once in the section (or
-                the file) and is replaced by `content`. With a heading and no anchor: the section is
-                replaced by `content`. With neither: the file becomes `content`. A `diff` is not
-                applied: an edit that carries no `content` is refused by name.
-    delete      with `anchor`: that text is removed. With a heading: the section is removed. With
-                neither: the file is removed.
-    merge       each unit is removed (its section, or its file when it names none), except the unit
-                that IS the target; then the target takes `content` as an edit does, or is created.
-    route       `entry` is appended to the section (or the file) as one line; an entry already there
-                is refused rather than written twice.
+**plan** — refusing before anything is written:
+1. the confirmation binds: the manifest S10b recorded is on disk unchanged and the final set built
+   again from the run's records is that manifest (`stage_confirm.binding_problems`);
+2. every path any operation touches passes the target contract (`targets.set_problems`), no two
+   paths spell one directory or file differently, and an operation that ADDS to the always-loaded
+   file has S7b's faithful-merge judgment (`drift.global_op_problems`);
+3. every operation is applied in the confirmed order to the files as they are NOW, in memory
+   (`operations.plan_of`). Each operation's `before_state_sha256` — the state S7 read when the
+   proposal was written — must be the file's state now, so a file that moved since is refused, not
+   patched. `apply/plan.json` is written once, as this part's output.
 
-Order of the stage, each step refusing before the next and before any effect:
+**effects** — `apply/plan.json` is an input the shared record check holds to the plan part's
+recorded hash, so an edited plan is refused before it is read. Then, before any write: the binding
+again; every effect of the plan held to the confirmed set (its item, its approval, its operation,
+a path that operation names, its operation id recomputed, its bytes at their own hash, and each
+file's effects chained); the journal read whole and refused if it does not parse or holds a record
+the plan does not. Then one file at a time through `journal.journalled`, the journal's lock held
+from the plan record to the done record:
 
-1. the confirmation binds: the manifest S10b recorded is on disk unchanged, and the final set built
-   again from the run's records is that manifest (`stage_confirm.binding_problems`). The declaration
-   is the one `records.run_stage` admits, so a stale declaration or a moved input stops here;
-2. every path any operation touches passes the target contract (`targets.set_problems`), and an
-   operation that ADDS to the always-loaded file has S7b's faithful-merge judgment
-   (`drift.global_op_problems`);
-3. the plan: every operation applied in the confirmed order to the files as they are NOW, in memory.
-   Each operation's `before_state_sha256` — the state S7 read when the proposal was written — must be
-   the file's state now, so a file that moved since is refused, not patched. The plan is written to
-   the run directory once and a re-run reads it back rather than planning again;
-4. the effects, one file at a time through `journal.journalled` holding the journal's lock from the
-   plan record to the done record. Every file is reached by a confined walk from the checkout's own
-   descriptor (`journal.Confined`): no symlink in the chain, a regular file with one name, its
-   state checked through the descriptor immediately before the write and the written state read back
-   before the done record. A write is a temp file made beside the target, synced, renamed over it,
-   and the directory synced.
+- before each effect the declaration is read again and must be the one this part was admitted
+  under (an amendment that landed since stops the stage);
+- the file is reached by a confined walk from the checkout's own descriptor (`journal.Confined`):
+  no symlink in the chain, every component spelled as the directory holds it, the leaf a regular
+  file with one name, opened without blocking;
+- the new bytes are written to a temporary beside the target and synced FIRST; only then is the
+  target's state read through its descriptor and held to the plan's before-state, the temporary's
+  name held to the file that was written, and the rename made; then the name is checked to hold
+  that same file, the directories are synced, and the after-state is read back before the done
+  record.
+
+One interval cannot be closed: between that last check and the rename there is no compare-and-
+rename on POSIX. A writer that changes the target inside it is overwritten, and one that swaps the
+temporary's name inside it is installed; the second is detected after the fact and reported
+(`APPLY_AFTER_MISMATCH`), never hidden, and the first is why nothing else should be writing the
+checkout while S11 runs.
 
 A re-run skips what the journal says is done. An operation the journal holds as planned with no
 done record is not run again: the stage says whether the file is at its before-state, its
@@ -59,268 +61,48 @@ import hashlib
 import json
 import os
 import pathlib
-import re
 import stat
 import sys
+import unicodedata
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
-from runlib import (drift, journal, records, stage_approvals, stage_confirm,  # noqa: E402
-                    stage_review_proposals, targets)
+from runlib import (drift, journal, operations, records, stage_approvals, stage_confirm,  # noqa: E402
+                    targets)
+from runlib.operations import ABSENT, sha_of, split_target  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 STAGE = "S11"
+PLAN_PART, EFFECTS_PART = "plan", "effects"
 OUTPUT = "apply.json"
 PLAN = "apply/plan.json"
 JOURNAL = "apply/journal.jsonl"
-ABSENT = "absent"
-TYPES = ("create", "edit", "delete", "merge", "route")
 _NOFOLLOW = journal._NOFOLLOW   # one answer for the walk and the leaf: the journal's own
-HEADING = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$")
-FENCE = re.compile(r"^[ \t]{0,3}(```|~~~)")
-
-
-def sha_of(data):
-    return ABSENT if data is None else hashlib.sha256(data).hexdigest()
-
-
-# ---- what an operation does to a text ---------------------------------------------------------------
-
-def split_target(target):
-    """`(path identity, heading | None)` of a target or a unit: `path` or `path#heading`."""
-    path, _, heading = str(target or "").partition("#")
-    return targets.identity(path), (heading.strip() or None)
-
-
-def headings(text):
-    """`[(line index, level, title)]` of the ATX headings of `text` outside fenced code."""
-    out, fence = [], None
-    for index, line in enumerate(text.split("\n")):
-        opened = FENCE.match(line)
-        if opened:
-            fence = None if fence == opened.group(1) else (fence or opened.group(1))
-            continue
-        if fence:
-            continue
-        held = HEADING.match(line)
-        if held:
-            out.append((index, len(held.group(1)), held.group(2)))
-    return out
-
-
-def section_span(text, heading, who):
-    """`(start, end)` character offsets of the one section `heading` names, or Refused by name."""
-    marks = re.match(r"^(#{1,6})[ \t]+", heading)
-    title = heading[marks.end():].strip() if marks else heading.strip()
-    held = headings(text)
-    found = [(i, level) for i, level, name in held
-             if name == title and (not marks or level == len(marks.group(1)))]
-    if not found:
-        raise Refused(f"HEADING_ABSENT {who}: the file holds no heading {heading!r} outside fenced code")
-    if len(found) > 1:
-        raise Refused(f"HEADING_AMBIGUOUS {who}: the file holds {len(found)} headings {heading!r}, and a "
-                      f"section is named by one")
-    index, level = found[0]
-    after = next((i for i, lvl, _name in held if i > index and lvl <= level), None)
-    lines = text.split("\n")
-    start = sum(len(line) + 1 for line in lines[:index])
-    end = len(text) if after is None else sum(len(line) + 1 for line in lines[:after])
-    return start, min(end, len(text))
-
-
-def _scope(text, heading, who):
-    return section_span(text, heading, who) if heading else (0, len(text))
-
-
-def _anchor_at(text, span, anchor, who):
-    start, end = span
-    count = text.count(anchor, start, end) if anchor else 0
-    if count == 0:
-        raise Refused(f"ANCHOR_ABSENT {who}: the anchor does not occur in "
-                      f"{'the section' if (start, end) != (0, len(text)) else 'the file'}")
-    if count > 1:
-        raise Refused(f"ANCHOR_AMBIGUOUS {who}: the anchor occurs {count} times, and a place is named by one")
-    return text.index(anchor, start, end)
-
-
-def _block(content, text, end):
-    """`content` as a block that ends its line when more of the file follows it."""
-    return content if end >= len(text) or content.endswith("\n") or not content else content + "\n"
-
-
-def _content(operation, who):
-    held = operation.get("content")
-    if not isinstance(held, str):
-        if operation.get("diff") is not None:
-            raise Refused(f"OPERATION_NOT_APPLICABLE {who}: it carries a diff and no content, and release 1 "
-                          f"places text and applies no patch")
-        raise Refused(f"CONTENT_ABSENT {who}: a {operation.get('type')} names the text it writes in `content`")
-    return held
-
-
-def placed(text, heading, anchor, content, who):
-    """`text` with `content` placed: over the anchor, over the section, or as the whole."""
-    if anchor:
-        at = _anchor_at(text, _scope(text, heading, who), anchor, who)
-        return text[:at] + content + text[at + len(anchor):]
-    if heading:
-        start, end = section_span(text, heading, who)
-        return text[:start] + _block(content, text, end) + text[end:]
-    return content
-
-
-def removed(text, heading, anchor, who):
-    """`text` without the anchor or the section; None when neither is named (the file goes)."""
-    if anchor:
-        at = _anchor_at(text, _scope(text, heading, who), anchor, who)
-        return text[:at] + text[at + len(anchor):]
-    if heading:
-        start, end = section_span(text, heading, who)
-        return text[:start] + text[end:]
-    return None
-
-
-def routed(text, heading, entry, who):
-    """`text` with `entry` appended as one line to the section or the file."""
-    if not isinstance(entry, str) or not entry.strip() or "\n" in entry.strip("\n"):
-        raise Refused(f"ROUTE_ENTRY_INVALID {who}: a route's `entry` is one non-empty line")
-    line = entry.strip("\n")
-    start, end = _scope(text, heading, who)
-    if line in text[start:end].split("\n"):
-        raise Refused(f"ROUTE_ENTRY_PRESENT {who}: that entry is already there")
-    body = text[start:end]
-    joint = "" if not body or body.endswith("\n") else "\n"
-    return text[:end] + joint + line + "\n" + text[end:]
-
-
-class Tree:
-    """The checkout's files as the plan sees them: read once from `read(path)` (bytes, or None when
-    absent), then changed in memory only."""
-
-    def __init__(self, read):
-        self.read, self.first, self.now = read, {}, {}
-
-    def initial(self, path):
-        if path not in self.first:
-            self.first[path] = self.read(path)
-            self.now[path] = self.first[path]
-        return self.first[path]
-
-    def get(self, path):
-        self.initial(path)
-        return self.now[path]
-
-    def text(self, path, who):
-        held = self.get(path)
-        if held is None:
-            return None
-        try:
-            return held.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise Refused(f"APPLY_NOT_TEXT {who}: {path} is not UTF-8 text, and an operation places text") from exc
-
-    def put(self, path, text):
-        self.initial(path)
-        self.now[path] = None if text is None else text.encode("utf-8")
-
-
-def operation_effects(operation, tree, who):
-    """`[(path, bytes | None)]`: the files one operation leaves changed, in the order it changes
-    them, each with its new state. Refused by name where the operation does not apply."""
-    kind = operation.get("type")
-    if kind not in TYPES:
-        raise Refused(f"OPERATION_UNKNOWN {who}: {kind!r} is not one of {', '.join(TYPES)}")
-    path, heading = split_target(operation.get("target"))
-    if not path:
-        raise Refused(f"TARGET_ABSENT {who}: the operation names no file")
-    carried = operation.get("before_state_sha256")
-    if sha_of(tree.initial(path)) != carried:
-        raise Refused(f"APPLY_BEFORE_MISMATCH {who}: {path} is {sha_of(tree.initial(path))[:12]} now, and the "
-                      f"proposal was written against {str(carried)[:12]}")
-    text = tree.text(path, who)
-    anchor = operation.get("anchor") or None
-    touched = []
-
-    def put(where, new):
-        tree.put(where, new)
-        touched.append((where, tree.get(where)))
-
-    if kind == "create":
-        if text is not None:
-            raise Refused(f"CREATE_TARGET_PRESENT {who}: {path} is there, and a create makes a file")
-        if heading or anchor:
-            raise Refused(f"CREATE_WITH_PLACE {who}: a create writes a whole file and names no heading or anchor")
-        put(path, _content(operation, who))
-    elif kind == "edit":
-        if text is None:
-            raise Refused(f"EDIT_TARGET_ABSENT {who}: {path} is not there")
-        put(path, placed(text, heading, anchor, _content(operation, who), who))
-    elif kind == "delete":
-        if text is None:
-            raise Refused(f"DELETE_TARGET_ABSENT {who}: {path} is not there")
-        put(path, removed(text, heading, anchor, who))
-    elif kind == "route":
-        if text is None:
-            raise Refused(f"ROUTE_TARGET_ABSENT {who}: {path} is not there")
-        put(path, routed(text, heading, operation.get("entry"), who))
-    else:   # merge: the units first, the target after (`sequencing.apply_to`'s order)
-        content = _content(operation, who)
-        states = {row.get("unit"): row.get("state") for row in operation.get("unit_states") or ()
-                  if isinstance(row, dict)}
-        for unit in operation.get("units") or ():
-            unit_path, unit_heading = split_target(unit)
-            if (unit_path, unit_heading) == (path, heading):
-                continue                      # the unit that IS the target is replaced, not removed
-            if unit_path != path:
-                if unit not in states:
-                    raise Refused(f"MERGE_UNIT_STATE_ABSENT {who}: {unit} is in another file than the target, "
-                                  f"and the operation carries no state for it")
-                if sha_of(tree.initial(unit_path)) != states[unit]:
-                    raise Refused(f"APPLY_BEFORE_MISMATCH {who}: {unit_path} is "
-                                  f"{sha_of(tree.initial(unit_path))[:12]} now, and the proposal was written "
-                                  f"against {str(states[unit])[:12]}")
-            held = tree.text(unit_path, who)
-            if held is None:
-                raise Refused(f"MERGE_UNIT_ABSENT {who}: {unit_path} is not there")
-            put(unit_path, removed(held, unit_heading, None, who))
-        text = tree.text(path, who)
-        put(path, content if text is None or not heading else placed(text, heading, None, content, who))
-    return touched
-
-
-def plan_of(items, read):
-    """`(effects, problems)` for the confirmed items in their order: every operation applied in
-    memory to the files `read` gives. An effect is one file's change by one operation — `item_id`,
-    `approval_id`, `operation` (its index), `type`, `path`, `before`, `after` and the bytes it
-    leaves (`data`, None for a removal). Any problem and nothing is to be written."""
-    tree, effects, problems = Tree(read), [], []
-    for item in items:
-        for index, operation in enumerate(item.get("operations") or []):
-            who = f"{item['item_id']} operations[{index}]"
-            before = {}
-            try:
-                # the state before, of every file the operation may touch, taken before it runs
-                paths = [split_target(operation.get("target"))[0]]
-                paths += [split_target(u)[0] for u in operation.get("units") or ()]
-                for path in paths:
-                    if path:
-                        before.setdefault(path, sha_of(tree.get(path)))
-                touched = operation_effects(operation, tree, who)
-            except Refused as exc:
-                problems.append(str(exc))
-                continue
-            for path, data in touched:
-                effects.append({"item_id": item["item_id"], "approval_id": item["approval_id"],
-                                "operation": index, "type": operation.get("type"), "path": path,
-                                "before": before[path], "after": sha_of(data), "data": data})
-                before[path] = sha_of(data)
-    return [e for e in effects if e["before"] != e["after"]], problems
+plan_of = operations.plan_of
 
 
 def operation_id(confirmation_id, effect, ordinal):
     held = json.dumps([confirmation_id, effect["item_id"], effect["operation"], effect["path"], ordinal,
                        effect["before"], effect["after"]])
     return "A-" + hashlib.sha256(held.encode("utf-8")).hexdigest()[:24]
+
+
+def spelling_problems(paths):
+    """Two planned paths that spell one directory or file differently, by name. Each path alone can
+    pass the target contract while its directory does not exist yet; written one after the other on
+    a filesystem that folds case, the second lands in the first's directory under a name the plan
+    never held."""
+    seen, problems = {}, []
+    for path in paths:
+        pieces = [p for p in str(path).split("/") if p]
+        for depth in range(1, len(pieces) + 1):
+            spelled = "/".join(pieces[:depth])
+            key = unicodedata.normalize("NFC", spelled).casefold()
+            other = seen.setdefault(key, spelled)
+            if other != spelled and f"{other}|{spelled}" not in problems:
+                problems.append(f"{other}|{spelled}")
+    return [f"APPLY_SPELLING_CONFLICT {pair.split('|')[0]} and {pair.split('|')[1]}: two planned paths spell one "
+            f"name differently, and a filesystem that folds case would write both under one" for pair in problems]
 
 
 # ---- the files of the checkout -----------------------------------------------------------------------
@@ -354,13 +136,14 @@ class Checkout:
                 pass
 
     @staticmethod
-    def _state(parent, leaf, path):
-        """`(sha | "absent", mode | None)` of the leaf, read through its own descriptor."""
+    def _open(parent, leaf, path):
+        """The leaf's descriptor, or None when it is absent: never through a link, never blocking, and
+        only a regular file with one name."""
         try:
-            handle = os.open(leaf, os.O_RDONLY | _NOFOLLOW, dir_fd=parent)
+            handle = os.open(leaf, os.O_RDONLY | _NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
         except OSError as exc:
             if exc.errno == errno.ENOENT:
-                return ABSENT, None
+                return None
             raise Refused(f"APPLY_TARGET_UNOPENABLE {path}: {exc.strerror} - a target is a regular file "
                           f"and never a link") from exc
         try:
@@ -370,37 +153,59 @@ class Checkout:
             if held.st_nlink != 1:
                 raise Refused(f"APPLY_TARGET_HARD_LINKED {path}: it has {held.st_nlink} names, and a write "
                               f"through one would change a file the checkout does not name")
-            digest = hashlib.sha256()
-            while True:
-                chunk = os.read(handle, 1 << 20)
-                if not chunk:
-                    break
-                digest.update(chunk)
-            return digest.hexdigest(), stat.S_IMODE(held.st_mode)
+        except BaseException:
+            os.close(handle)
+            raise
+        return handle
+
+    @staticmethod
+    def _bytes(handle):
+        out = b""
+        while True:
+            chunk = os.read(handle, 1 << 20)
+            if not chunk:
+                return out
+            out += chunk
+
+    def _state(self, parent, leaf, path):
+        """`(sha | "absent", mode | None, (device, inode) | None)` of the leaf, through its descriptor."""
+        handle = self._open(parent, leaf, path)
+        if handle is None:
+            return ABSENT, None, None
+        try:
+            held = os.fstat(handle)
+            return hashlib.sha256(self._bytes(handle)).hexdigest(), stat.S_IMODE(held.st_mode), (held.st_dev,
+                                                                                               held.st_ino)
         finally:
             os.close(handle)
 
+    @staticmethod
+    def _spelled(fds, pieces, path):
+        """Every component the walk reached is spelled as its directory holds it. `open` on a filesystem
+        that folds case answers for `upper/` with `Upper/`, and the file then lands under a name the
+        plan never held."""
+        for parent, piece in zip(fds, pieces):
+            try:
+                os.lstat(piece, dir_fd=parent)
+            except FileNotFoundError:
+                continue
+            if piece not in os.listdir(parent):
+                raise Refused(f"APPLY_SPELLING_ON_DISK {path}: the checkout holds {piece!r} under another "
+                              f"spelling, and a write would land under that one")
+
     def read(self, path):
         """The file's bytes, or None when it is absent (the plan's reader)."""
-        fds, leaf, _made = self.confined.walk(self._pieces(path), missing_ok=True)
+        pieces = self._pieces(path)
+        fds, leaf, _made = self.confined.walk(pieces, missing_ok=True)
         if fds is None:
             return None
         try:
+            self._spelled(fds, pieces, path)
+            handle = self._open(fds[-1], leaf, path)
+            if handle is None:
+                return None
             try:
-                handle = os.open(leaf, os.O_RDONLY | _NOFOLLOW, dir_fd=fds[-1])
-            except OSError as exc:
-                if exc.errno == errno.ENOENT:
-                    return None
-                raise Refused(f"APPLY_TARGET_UNOPENABLE {path}: {exc.strerror}") from exc
-            try:
-                if not stat.S_ISREG(os.fstat(handle).st_mode):
-                    raise Refused(f"APPLY_TARGET_NOT_FILE {path}: a target is a regular file")
-                out = b""
-                while True:
-                    chunk = os.read(handle, 1 << 20)
-                    if not chunk:
-                        return out
-                    out += chunk
+                return self._bytes(handle)
             finally:
                 os.close(handle)
         finally:
@@ -415,22 +220,40 @@ class Checkout:
         finally:
             self._close(fds)
 
+    @staticmethod
+    def _named(parent, name):
+        """`(device, inode)` of what `name` is in `parent` now, a regular file with one name, or None."""
+        try:
+            held = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        except FileNotFoundError:
+            return None
+        return (held.st_dev, held.st_ino) if stat.S_ISREG(held.st_mode) and held.st_nlink == 1 else None
+
     def take(self, effect):
-        """One effect on disk: the before-state checked through the descriptor, the change made
-        durably, the after-state read back. Raises Refused and leaves the done record unwritten on
-        any difference."""
+        """One effect on disk. The new bytes are staged and synced first; the target is then held to
+        the plan's before-state and the staged name to the staged file, the rename is made, and what
+        the name holds is read back. Raises Refused, with the done record unwritten, on any
+        difference."""
         path, data = effect["path"], effect["data"]
-        fds, leaf, _made = self.confined.walk(self._pieces(path), create=data is not None)
+        pieces = self._pieces(path)
+        fds, leaf, _made = self.confined.walk(pieces, create=data is not None)
         try:
             parent = fds[-1]
-            now, mode = self._state(parent, leaf, path)
-            if now != effect["before"]:
-                raise Refused(f"APPLY_BEFORE_MISMATCH {path}: it is {now[:12]} at the write, and the plan "
-                              f"holds {effect['before'][:12]}")
+            self._spelled(fds, pieces, path)
+
+            def held_to_before():
+                now, mode, _where = self._state(parent, leaf, path)
+                if now != effect["before"]:
+                    raise Refused(f"APPLY_BEFORE_MISMATCH {path}: it is {now[:12]} at the write, and the plan "
+                                  f"holds {effect['before'][:12]}")
+                return mode
+
             if data is None:
+                held_to_before()
                 os.unlink(leaf, dir_fd=parent)
             else:
-                temp = f".{leaf}.s11-{os.getpid()}.tmp"
+                mode = held_to_before()             # an early answer; the binding one follows the staging
+                temp = f".{leaf}.s11-{os.urandom(8).hex()}.tmp"
                 handle = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW,
                                  0o644 if mode is None else mode, dir_fd=parent)
                 try:
@@ -439,8 +262,14 @@ class Checkout:
                         while view:
                             view = view[os.write(handle, view):]
                         os.fsync(handle)
+                        staged = os.fstat(handle)
+                        staged = (staged.st_dev, staged.st_ino)
                     finally:
                         os.close(handle)
+                    held_to_before()                # the target, immediately before the rename
+                    if self._named(parent, temp) != staged:
+                        raise Refused(f"APPLY_STAGING_MOVED {path}: the temporary's name no longer holds the "
+                                      f"file that was written, so nothing is installed")
                     os.replace(temp, leaf, src_dir_fd=parent, dst_dir_fd=parent)
                 except BaseException:
                     try:
@@ -448,6 +277,9 @@ class Checkout:
                     except OSError:
                         pass
                     raise
+                if self._named(parent, leaf) != staged:
+                    raise Refused(f"APPLY_AFTER_MISMATCH {path}: the name does not hold the file that was "
+                                  f"staged for it")
             for held in reversed(fds):          # the entry, and any directory this walk made
                 os.fsync(held)
             after = self._state(parent, leaf, path)[0]
@@ -519,14 +351,118 @@ def _plan_doc(confirmation_id, effects):
     return {"stage": STAGE, "confirmation_id": confirmation_id, "effects": rows}
 
 
+def plan_problems(plan, confirmation_id, items):
+    """Why a plan read back is not the confirmed set's, by name. The shared record check already holds
+    the file to the hash the plan part recorded; this holds what it SAYS to what was confirmed, so
+    the effects part acts on nothing the confirmation does not bind."""
+    if plan.get("confirmation_id") != confirmation_id:
+        return [f"PLAN_UNBOUND {PLAN}: it was planned for another confirmation"]
+    by_item, problems, last = {i["item_id"]: i for i in items}, [], {}
+    for ordinal, row in enumerate(plan.get("effects") or []):
+        who = f"{PLAN} effects[{ordinal}]"
+        item = by_item.get(row.get("item_id"))
+        if item is None or row.get("approval_id") != item["approval_id"]:
+            problems.append(f"PLAN_EFFECT_UNCONFIRMED {who}: {row.get('item_id')} under approval "
+                            f"{row.get('approval_id')} is not an item of the confirmed set")
+            continue
+        index = row.get("operation")
+        if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(item["operations"]):
+            problems.append(f"PLAN_EFFECT_UNCONFIRMED {who}: {row.get('item_id')} has no operation {index!r}")
+            continue
+        operation = item["operations"][index]
+        named = {split_target(held)[0] for held in [operation.get("target")] + list(operation.get("units") or ())}
+        if row.get("path") not in named or row.get("type") != operation.get("type"):
+            problems.append(f"PLAN_EFFECT_UNCONFIRMED {who}: {row.get('type')} {row.get('path')} is not what "
+                            f"operation {index} of {row.get('item_id')} names")
+            continue
+        try:
+            data = None if row.get("data_b64") is None else base64.b64decode(row["data_b64"], validate=True)
+        except (ValueError, TypeError):
+            problems.append(f"PLAN_CHANGED {who}: its bytes do not decode")
+            continue
+        if sha_of(data) != row.get("after"):
+            problems.append(f"PLAN_CHANGED {who}: the bytes it holds for {row.get('path')} are not the ones it "
+                            f"planned")
+        if row.get("operation_id") != operation_id(confirmation_id, row, ordinal):
+            problems.append(f"PLAN_CHANGED {who}: its operation id is not the one its fields derive")
+        if row["path"] in last and last[row["path"]] != row.get("before"):
+            problems.append(f"PLAN_CHANGED {who}: {row['path']} is planned from {str(row.get('before'))[:12]}, and "
+                            f"the effect before it leaves {str(last[row['path']])[:12]}")
+        last[row["path"]] = row.get("after")
+    return problems
+
+
 def _effects_in(doc):
-    out = []
-    for row in doc["effects"]:
-        data = None if row["data_b64"] is None else base64.b64decode(row["data_b64"])
-        if sha_of(data) != row["after"]:
-            raise Refused(f"PLAN_CHANGED {PLAN}: the bytes it holds for {row['path']} are not the ones it planned")
-        out.append({**{k: v for k, v in row.items() if k != "data_b64"}, "data": data})
-    return out
+    return [{**{k: v for k, v in row.items() if k != "data_b64"},
+             "data": None if row["data_b64"] is None else base64.b64decode(row["data_b64"])}
+            for row in doc["effects"]]
+
+
+def journal_problems(held, effects):
+    """Why the journal on disk is not this plan's, by name: it does not parse, or it holds a record
+    the plan does not."""
+    problems = [f"APPLY_JOURNAL_CORRUPT {JOURNAL}: {p}" for p in held.get("problems") or []]
+    if held.get("torn") or held.get("unterminated"):
+        problems.append(f"APPLY_JOURNAL_CORRUPT {JOURNAL}: its last record is torn or unterminated")
+    planned = {e["operation_id"]: e for e in effects}
+    for row in held.get("records") or []:
+        effect = planned.get(row.get("operation_id"))
+        if effect is None or (row.get("target"), row.get("before_sha256"), row.get("after_sha256"),
+                              row.get("item_id"), row.get("approval_id")) != (
+                effect["path"], effect["before"], effect["after"], effect["item_id"], effect["approval_id"]):
+            problems.append(f"APPLY_JOURNAL_FOREIGN {JOURNAL}: it holds a {row.get('kind')} record for "
+                            f"{row.get('target')} that the plan does not")
+    return problems
+
+
+def _bound(run_dir, declaration, confirmation, version):
+    """`(stored manifest, gathered, checkout)` once the confirmation binds, or Refused."""
+    checkout = ((declaration or {}).get("destinations") or {}).get("checkout")
+    if not checkout or not pathlib.Path(checkout).is_dir():
+        raise Refused("CHECKOUT_UNDECLARED S11: the files are written in run.json's destinations.checkout, "
+                      "which must be a directory")
+    manifest_path = run_dir / stage_confirm.manifest_rel(version)
+    stored = records.read_json(manifest_path)
+    gathered = stage_confirm.gathered(run_dir)
+    again, found = stage_confirm.final_set(declaration, *gathered)
+    found = list(found) + stage_confirm.binding_problems(stored, again, records.sha256_file(manifest_path),
+                                                          confirmation["manifest_sha"])
+    if sorted(confirmation["approval_ids"]) != sorted(stored["approval_ids"]):
+        found.append("CONFIRMATION_UNBOUND approval_ids: the confirmation does not bind the manifest's approvals")
+    if found:
+        raise Refused("\n".join(found))
+    return stored, gathered, checkout
+
+
+def plan(run_dir):
+    """S11's plan part: `apply/plan.json`, or Refused with nothing written."""
+    run_dir = pathlib.Path(run_dir)
+    confirmation = records.read_json(run_dir / stage_confirm.CONFIRMATION)
+    version = confirmation["confirm_version"]
+    if (run_dir / JOURNAL).exists():
+        raise Refused(f"PLAN_AFTER_EFFECTS {JOURNAL}: effects were taken from a plan that is not there to read; "
+                      f"nothing is planned over them")
+    with records.run_stage(run_dir, STAGE, inputs_of(run_dir, version), part=PLAN_PART) as stage:
+        stored, gathered, checkout = _bound(run_dir, stage.declaration, confirmation, version)
+        current, approvals, s7b = gathered[0], gathered[1], gathered[2]
+        items = items_of(stored, current, approvals)
+        paths = paths_of(items)
+        judgments = {r.get("item_id"): r.get("faithful_merge") for r in (s7b or {}).get("reviews") or []}
+        problems = (list(targets.set_problems(paths, checkout)) + spelling_problems(paths)
+                    + list(drift.global_op_problems(items, judgments)))
+        if problems:
+            raise Refused("\n".join(problems))
+        with Checkout(checkout) as tree:
+            planned, problems = operations.plan_of(items, tree.read)
+        if problems:
+            raise Refused("\n".join(problems))
+        records.write_json(run_dir, run_dir / PLAN, _plan_doc(confirmation["confirmation_id"], planned))
+        stage.output(PLAN)
+        return {"effects": len(planned)}
+
+
+def _part(run_dir, name):
+    return (((records.stage_records(run_dir).get(STAGE) or {}).get("parts") or {}).get(name)) or {}
 
 
 def run(run_dir):
@@ -537,46 +473,26 @@ def run(run_dir):
         raise Refused("CONFIRMATION_ABSENT S11: the final set is not confirmed; S10b's confirm comes first")
     confirmation = records.read_json(run_dir / stage_confirm.CONFIRMATION)
     version = confirmation["confirm_version"]
-    with records.run_stage(run_dir, STAGE, inputs_of(run_dir, version)) as stage:
+    if _part(run_dir, PLAN_PART).get("status") != "complete" or not (run_dir / PLAN).is_file():
+        plan(run_dir)
+    specs = inputs_of(run_dir, version) + [{"artifact": PLAN, "producer_stage": STAGE}]
+    with records.run_stage(run_dir, STAGE, specs, part=EFFECTS_PART) as stage:
         declaration = stage.declaration
-        checkout = ((declaration or {}).get("destinations") or {}).get("checkout")
-        if not checkout or not pathlib.Path(checkout).is_dir():
-            raise Refused("CHECKOUT_UNDECLARED S11: the files are written in run.json's destinations.checkout, "
-                          "which must be a directory")
-        manifest_path = run_dir / stage_confirm.manifest_rel(version)
-        stored = records.read_json(manifest_path)
-        gathered = stage_confirm.gathered(run_dir)
-        again, found = stage_confirm.final_set(declaration, *gathered)
-        found = list(found) + stage_confirm.binding_problems(stored, again, records.sha256_file(manifest_path),
-                                                              confirmation["manifest_sha"])
-        if sorted(confirmation["approval_ids"]) != sorted(stored["approval_ids"]):
-            found.append("CONFIRMATION_UNBOUND approval_ids: the confirmation does not bind the manifest's approvals")
-        if found:
-            raise Refused("\n".join(found))
-        current, approvals, s7b = gathered[0], gathered[1], gathered[2]
-        items = items_of(stored, current, approvals)
-        paths = paths_of(items)
-        judgments = {r.get("item_id"): r.get("faithful_merge") for r in (s7b or {}).get("reviews") or []}
-        problems = list(targets.set_problems(paths, checkout)) + list(drift.global_op_problems(items, judgments))
+        stored, gathered, checkout = _bound(run_dir, declaration, confirmation, version)
+        items = items_of(stored, gathered[0], gathered[1])
+        held_plan = records.read_json(run_dir / PLAN)
+        problems = plan_problems(held_plan, confirmation["confirmation_id"], items)
         if problems:
             raise Refused("\n".join(problems))
+        effects = _effects_in(held_plan)
+        held = journal.read(run_dir / JOURNAL)
+        problems = journal_problems(held, effects)
+        if problems:
+            raise Refused("\n".join(problems))
+        done = {r["operation_id"] for r in held["records"] if r.get("kind") == "done"}
+        pending = {r["operation_id"] for r in held["records"] if r.get("kind") == "planned"} - done
+        admitted = (declaration["declaration_seq"], stage.record["run_json_sha256"])
         with Checkout(checkout) as tree:
-            if (run_dir / PLAN).is_file():
-                plan = records.read_json(run_dir / PLAN)
-                if plan.get("confirmation_id") != confirmation["confirmation_id"]:
-                    raise Refused(f"PLAN_UNBOUND {PLAN}: it was planned for another confirmation")
-                effects = _effects_in(plan)
-            else:
-                planned, problems = plan_of(items, tree.read)
-                if problems:
-                    raise Refused("\n".join(problems))
-                plan = _plan_doc(confirmation["confirmation_id"], planned)
-                records.write_json(run_dir, run_dir / PLAN, plan)
-                effects = _effects_in(plan)
-            stage.output(PLAN)
-            held = journal.read(run_dir / JOURNAL) if (run_dir / JOURNAL).is_file() else {"records": []}
-            done = {r["operation_id"] for r in held["records"] if r.get("kind") == "done"}
-            pending = {r["operation_id"] for r in held["records"] if r.get("kind") == "planned"} - done
             for effect in effects:
                 if effect["operation_id"] in pending:
                     now = tree.state(effect["path"])
@@ -592,6 +508,13 @@ def run(run_dir):
                 if effect["operation_id"] in done:
                     rows.append({**row, "state": "done_before"})
                     continue
+                # the declaration this part was admitted under, read again before every write: admission
+                # releases the declaration's lock, so an amendment can land while the effects run
+                now_run, now_digest, _amendments = records.declaration_state(run_dir, who=STAGE)
+                if (now_run["declaration_seq"], now_digest) != admitted:
+                    raise Refused(f"DECLARATION_MOVED S11: the declaration is at sequence "
+                                  f"{now_run['declaration_seq']} and this apply was admitted at {admitted[0]}; "
+                                  f"no further file is written")
                 record = journal.planned(effect["operation_id"], effect["path"], effect["before"], effect["after"],
                                          effect["item_id"], effect["approval_id"])
                 journal.journalled(run_dir / JOURNAL, record, str(run_dir),
@@ -648,9 +571,10 @@ def self_test():
             print(f"stage_apply --self-test [FAIL] {name}: {detail}", file=sys.stderr)
         print(f"stage_apply --self-test: FAILED ({len(failures)} of {len(ran)} controls)", file=sys.stderr)
         return 1
-    print(f"stage_apply --self-test: OK ({len(ran)} controls: each operation type placed and refused by name, the "
-          f"plan held to the files' states, the effects through the journal with the before- and after-state "
-          f"checked, links and outside paths refused, a re-run and an unreconciled write)")
+    print(f"stage_apply --self-test: OK ({len(ran)} controls: the write itself - staged before the last check, links, "
+          f"FIFOs, second names, spellings and outside paths refused - and the stage in its two parts: the plan "
+          f"recorded and held to the confirmed set, the effects through the journal, an edited plan, a corrupt "
+          f"journal, an amendment mid-run, a re-run and an unreconciled write)")
     return 0
 
 
@@ -675,106 +599,13 @@ def _self_test_body(failures, ran, reporting):
         return ""
 
     doc = "# Guide\n\nintro\n\n## One\n\nfirst body\n\n### Deep\n\ndeep body\n\n## Two\n\nsecond body\n"
-
-    # ---- the text rules --------------------------------------------------------------------------
-    control("a section runs from its heading to the next heading of the same or a higher level",
-            doc[slice(*section_span(doc, "One", "t"))], "## One\n\nfirst body\n\n### Deep\n\ndeep body\n\n")
-    control("the last section runs to the end of the file", doc[slice(*section_span(doc, "## Two", "t"))],
-            "## Two\n\nsecond body\n")
-    control("a heading is named with its marks or without, and the marks are held to its level",
-            [said(lambda: section_span(doc, "### One", "t")), said(lambda: section_span(doc, "Three", "t"))],
-            ["HEADING_ABSENT", "HEADING_ABSENT"])
-    control("two headings of one title are ambiguous, by name",
-            said(lambda: section_span(doc + "\n## One\n\nagain\n", "One", "t")), "HEADING_AMBIGUOUS")
-    control("a heading inside fenced code is not a heading",
-            [h[2] for h in headings("# A\n\n```\n# not\n```\n\n~~~\n## nor\n~~~\n## B\n")], ["A", "B"])
-    control("an edit with a heading replaces the section and keeps what follows on its own line",
-            placed(doc, "Two", None, "## Two\n\nnew", "t"), doc.replace("## Two\n\nsecond body\n", "## Two\n\nnew"))
-    control("a section in the middle replaced by text without a final newline still ends its line",
-            placed(doc, "### Deep", None, "### Deep\n\nX", "t"),
-            doc.replace("### Deep\n\ndeep body\n\n", "### Deep\n\nX\n"))
-    control("an edit with an anchor replaces that text once, inside the section it names",
-            placed(doc, "One", "first body", "FIRST", "t"), doc.replace("first body", "FIRST"))
-    control("an anchor outside the named section is absent, and one occurring twice is ambiguous",
-            [said(lambda: placed(doc, "One", "second body", "x", "t")),
-             said(lambda: placed(doc, None, "body", "x", "t"))], ["ANCHOR_ABSENT", "ANCHOR_AMBIGUOUS"])
-    control("an edit with neither is the whole file", placed(doc, None, None, "whole\n", "t"), "whole\n")
-    control("a delete removes the anchor, the section, or - with neither - the file",
-            [removed(doc, None, "intro\n\n", "t"), removed(doc, "Two", None, "t"), removed(doc, None, None, "t")],
-            [doc.replace("intro\n\n", ""), doc.replace("## Two\n\nsecond body\n", ""), None])
-    control("a route appends one line to the section, and to the file when no heading is named",
-            [routed(doc, "One", "- [x](x.md)", "t"), routed("a\nb", None, "c", "t")],
-            [doc.replace("deep body\n\n", "deep body\n\n- [x](x.md)\n"), "a\nb\nc\n"])
-    control("a route already there, an empty one and a two-line one are refused by name",
-            [said(lambda: routed("a\nb\n", None, "b", "t")), said(lambda: routed(doc, None, " ", "t")),
-             said(lambda: routed(doc, None, "a\nb", "t"))],
-            ["ROUTE_ENTRY_PRESENT", "ROUTE_ENTRY_INVALID", "ROUTE_ENTRY_INVALID"])
-
-    # ---- the plan --------------------------------------------------------------------------------
     files = {"g/a.md": doc.encode(), "g/b.md": b"# B\n\nbody of b\n", "g/r.md": b"# Routes\n"}
     A, B_, R = (hashlib.sha256(files[k]).hexdigest() for k in ("g/a.md", "g/b.md", "g/r.md"))
-
-    def item(*operations, item_id="i1", approval="P-1"):
-        return {"item_id": item_id, "approval_id": approval, "operations": list(operations)}
-
-    def planned(*items, held=None):
-        return plan_of(list(items), (held or files).get)
-
-    def codes(problems):
-        return [p.split()[0] for p in problems]
-
-    effects, problems = planned(item({"type": "create", "target": "g/new.md", "before_state_sha256": ABSENT,
-                                      "content": "# New\n"},
-                                     {"type": "route", "target": "g/r.md", "before_state_sha256": R,
-                                      "entry": "- g/new.md"}))
-    control("a create and a route are two effects, each with the state before and the state after",
-            [problems, [(e["path"], e["before"], e["after"], e["data"]) for e in effects]],
-            [[], [("g/new.md", ABSENT, hashlib.sha256(b"# New\n").hexdigest(), b"# New\n"),
-                  ("g/r.md", R, hashlib.sha256(b"# Routes\n- g/new.md\n").hexdigest(), b"# Routes\n- g/new.md\n")]])
-    effects, problems = planned(item({"type": "edit", "target": "g/a.md#One", "before_state_sha256": A,
-                                      "anchor": "first body", "content": "1"},
-                                     {"type": "edit", "target": "g/a.md#Two", "before_state_sha256": A,
-                                      "anchor": "second body", "content": "2"}))
-    control("two operations on one file chain: each is held to the state the proposal read, and the second "
-            "starts where the first ended",
-            [problems, len(effects), effects[0]["after"] == effects[1]["before"],
-             effects[1]["data"] == doc.replace("first body", "1").replace("second body", "2").encode()],
-            [[], 2, True, True])
-    control("a file that moved since the proposal was written is refused, not patched",
-            codes(planned(item({"type": "edit", "target": "g/a.md", "before_state_sha256": B_, "content": "x"}))[1]),
-            ["APPLY_BEFORE_MISMATCH"])
-    control("each type's own refusal, by name",
-            [codes(planned(item(op))[1]) for op in (
-                {"type": "create", "target": "g/a.md", "before_state_sha256": A, "content": "x"},
-                {"type": "create", "target": "g/n.md#H", "before_state_sha256": ABSENT, "content": "x"},
-                {"type": "edit", "target": "g/n.md", "before_state_sha256": ABSENT, "content": "x"},
-                {"type": "edit", "target": "g/a.md", "before_state_sha256": A, "diff": "@@"},
-                {"type": "edit", "target": "g/a.md", "before_state_sha256": A},
-                {"type": "delete", "target": "g/n.md", "before_state_sha256": ABSENT},
-                {"type": "route", "target": "g/n.md", "before_state_sha256": ABSENT, "entry": "x"},
-                {"type": "patch", "target": "g/a.md", "before_state_sha256": A},
-                {"type": "edit", "target": "", "before_state_sha256": A, "content": "x"})],
-            [["CREATE_TARGET_PRESENT"], ["CREATE_WITH_PLACE"], ["EDIT_TARGET_ABSENT"], ["OPERATION_NOT_APPLICABLE"],
-             ["CONTENT_ABSENT"], ["DELETE_TARGET_ABSENT"], ["ROUTE_TARGET_ABSENT"], ["OPERATION_UNKNOWN"],
-             ["TARGET_ABSENT"]])
-    merge = {"type": "merge", "target": "g/a.md#One", "before_state_sha256": A, "content": "## One\n\nmerged\n\n",
-             "units": ["g/a.md#One", "g/a.md#Two", "g/b.md"], "unit_states": [{"unit": "g/b.md", "state": B_}]}
-    effects, problems = planned(item(merge))
-    control("a merge removes its units - a section, a whole file - and leaves the target with the text; the unit "
-            "that is the target is replaced, not removed",
-            [problems, [(e["path"], e["data"]) for e in effects][-1:],
-             [(e["path"], e["after"]) for e in effects if e["path"] == "g/b.md"]],
-            [[], [("g/a.md", b"# Guide\n\nintro\n\n## One\n\nmerged\n\n")], [("g/b.md", ABSENT)]])
-    control("a merge unit in another file needs its own state, and that state is held to the file",
-            [codes(planned(item({**merge, "unit_states": []}))[1]),
-             codes(planned(item({**merge, "unit_states": [{"unit": "g/b.md", "state": A}]}))[1])],
-            [["MERGE_UNIT_STATE_ABSENT"], ["APPLY_BEFORE_MISMATCH"]])
-    control("a file that is not text is refused by name",
-            codes(planned(item({"type": "edit", "target": "g/x.bin", "anchor": "a", "content": "b",
-                                "before_state_sha256": hashlib.sha256(b"\xff\xfe").hexdigest()}),
-                          held={**files, "g/x.bin": b"\xff\xfe"})[1]), ["APPLY_NOT_TEXT"])
-    control("an operation that changes nothing is no effect",
-            planned(item({"type": "edit", "target": "g/a.md", "before_state_sha256": A, "content": doc}))[0], [])
+    control("the text rules are `operations.py`'s, and this stage plans with that module's plan",
+            [plan_of is operations.plan_of, split_target("g/a.md#One")], [True, ("g/a.md", "One")])
+    control("two planned paths that spell one directory differently are refused before anything is written",
+            [[p.split()[0] for p in spelling_problems(["Upper/a.md", "upper/b.md"])],
+             spelling_problems(["Upper/a.md", "Upper/b.md", "lower/c.md"])], [["APPLY_SPELLING_CONFLICT"], []])
 
     # ---- the files -------------------------------------------------------------------------------
     root = pathlib.Path(tempfile.mkdtemp(prefix="s11-"))
@@ -923,13 +754,21 @@ def _self_test_body(failures, ran, reporting):
                     [True, f"bash '{checkout}'/install.sh install --non-interactive",
                      ["git", "install", "personal layers", "state roots"]])
             rec = records.stage_records(run_dir).get(STAGE) or {}
-            control("the stage's record holds the plan, the journal and apply.json",
-                    [rec.get("status"), sorted(o["artifact"] for o in rec.get("outputs") or [])],
-                    ["complete", sorted([PLAN, JOURNAL, OUTPUT])])
+            control("the stage's record has two parts: the plan is the plan part's output, and the journal and "
+                    "apply.json the effects part's, which took the plan as a recorded input",
+                    [rec.get("status"),
+                     {name: sorted(o["artifact"] for o in part.get("outputs") or [])
+                      for name, part in (rec.get("parts") or {}).items()},
+                     PLAN in [i["artifact"] for i in ((rec.get("parts") or {}).get(EFFECTS_PART) or {}).get("inputs") or []]],
+                    ["complete", {PLAN_PART: [PLAN], EFFECTS_PART: sorted([JOURNAL, OUTPUT])}, True])
             again = refusal(lambda: kept.append(run(run_dir)))
             control("a second apply writes nothing: every write is the journal's already",
                     [again, (kept[-1]["counts"] if kept else None), tree_of(checkout)],
                     ["", {"items": 2, "effects": 2, "applied": 0, "done_before": 2, "files": 2}, ["claude/guides/g.md"]])
+            with open(run_dir / JOURNAL, "ab") as handle:
+                handle.write(b"not a journal line\n")
+            control("a journal that does not parse is refused on a re-run, even when every write is already done",
+                    code(lambda: run(run_dir)), "APPLY_JOURNAL_CORRUPT")
         section('the apply of a confirmed set (section)', scenario_1)
 
         def scenario_2():
@@ -985,6 +824,182 @@ def _self_test_body(failures, ran, reporting):
                     [first, second.split(":")[0], "its before-state" in second, (checkout / "claude/guides/k.md").exists()],
                     ["FIXTURE_CUT", "APPLY_UNRECONCILED claude/guides/k.md", True, True])
         section('a write that did not end (section)', scenario_6)
+
+        def scenario_7():
+            base, run_dir, checkout = confirmed("planted")
+            plan(run_dir)
+            held = records.read_json(run_dir / PLAN)
+            foreign = {"item_id": "k-place", "approval_id": held["effects"][0]["approval_id"], "operation": 0,
+                       "type": "create", "path": "unapproved.md", "before": ABSENT, "after": sha_of(b"FOREIGN"),
+                       "data_b64": base64.b64encode(b"FOREIGN").decode("ascii")}
+            foreign["operation_id"] = operation_id(held["confirmation_id"], foreign, 0)
+            original = (run_dir / PLAN).read_bytes()
+            answers = []
+            for effects in ([foreign], []):
+                (run_dir / PLAN).write_text(json.dumps({**held, "effects": effects}), encoding="utf-8")
+                answers.append(code(lambda: run(run_dir)))
+            control("a plan changed after it was recorded - an unapproved file put in, the approved effects taken "
+                    "out - is refused before any write: the effects part reads the plan the plan part recorded",
+                    [answers, tree_of(checkout), (run_dir / JOURNAL).exists()],
+                    [["INPUT_INVALID", "INPUT_INVALID"], ["claude/guides/k.md"], False])
+            # ... and when the record is made to agree with the planted plan, what the plan SAYS is still held
+            # to the confirmed set
+            (run_dir / PLAN).write_text(json.dumps({**held, "effects": [foreign]}), encoding="utf-8")
+            record_file = records.record_path(run_dir, STAGE)
+            record_held = record_file.read_bytes()
+            doc = json.loads(record_held)
+            for output in doc["parts"][PLAN_PART]["outputs"]:
+                output["sha256"] = records.sha256_file(run_dir / PLAN)
+            record_file.write_text(json.dumps(doc), encoding="utf-8")
+            control("a planted plan whose record was made to agree is refused by what it says: its effect is not "
+                    "the confirmed set's",
+                    [code(lambda: run(run_dir)), tree_of(checkout), (run_dir / JOURNAL).exists()],
+                    ["PLAN_EFFECT_UNCONFIRMED", ["claude/guides/k.md"], False])
+            record_file.write_bytes(record_held)
+            (run_dir / PLAN).write_bytes(original)
+            control("and the recorded plan, put back, applies", [refusal(lambda: run(run_dir)), tree_of(checkout)],
+                    ["", ["claude/guides/g.md"]])
+        section('a plan changed after it was recorded (section)', scenario_7)
+
+        def scenario_7b():
+            base, run_dir, checkout = confirmed("spelled", place="Claude/guides/g.md")
+            said_all = refusal(lambda: run(run_dir))
+            control("a confirmed set whose paths spell one directory two ways is refused before any write",
+                    ["APPLY_SPELLING_CONFLICT claude and Claude" in said_all
+                     or "APPLY_SPELLING_CONFLICT Claude and claude" in said_all, tree_of(checkout)],
+                    [True, ["claude/guides/k.md"]])
+        section('two spellings of one directory in a confirmed set (section)', scenario_7b)
+
+        def scenario_8():
+            items = [{"item_id": "i1", "approval_id": "P-1", "operations": [
+                {"type": "create", "target": "a.md", "before_state_sha256": ABSENT, "content": "one\n"},
+                {"type": "edit", "target": "a.md", "before_state_sha256": ABSENT, "content": "two\n"}]}]
+            # the second operation is held to the state the proposal read, so plan each alone and join them
+            effects = [{"item_id": "i1", "approval_id": "P-1", "operation": 0, "type": "create", "path": "a.md",
+                        "before": ABSENT, "after": sha_of(b"one\n"), "data": b"one\n"},
+                       {"item_id": "i1", "approval_id": "P-1", "operation": 1, "type": "edit", "path": "a.md",
+                        "before": sha_of(b"one\n"), "after": sha_of(b"two\n"), "data": b"two\n"}]
+            good = _plan_doc("C-1", effects)
+
+            def changed(index, **over):
+                rows = [dict(r) for r in good["effects"]]
+                rows[index].update(over)
+                return [p.split()[0] for p in plan_problems({**good, "effects": rows}, "C-1", items)]
+            control("a plan read back is held to the confirmed set: the item and its approval, the operation, a path "
+                    "that operation names, the bytes, the operation id, and each file's chain",
+                    [plan_problems(good, "C-1", items),
+                     [p.split()[0] for p in plan_problems(good, "C-2", items)],
+                     changed(0, item_id="other"), changed(0, approval_id="P-9"), changed(0, operation=7),
+                     changed(0, path="b.md"), changed(0, type="delete"),
+                     changed(0, data_b64=base64.b64encode(b"FOREIGN").decode("ascii")),
+                     changed(1, before=ABSENT), changed(0, data_b64="!")],
+                    [[], ["PLAN_UNBOUND"], ["PLAN_EFFECT_UNCONFIRMED"], ["PLAN_EFFECT_UNCONFIRMED"],
+                     ["PLAN_EFFECT_UNCONFIRMED"], ["PLAN_EFFECT_UNCONFIRMED"], ["PLAN_EFFECT_UNCONFIRMED"],
+                     ["PLAN_CHANGED"], ["PLAN_CHANGED", "PLAN_CHANGED"], ["PLAN_CHANGED"]])
+            planned_rows = _effects_in(good)
+            row = journal.planned(planned_rows[0]["operation_id"], "a.md", ABSENT, sha_of(b"one\n"), "i1", "P-1")
+            control("a journal is this plan's only when every record it holds is one of the plan's effects",
+                    [journal_problems({"records": [row]}, planned_rows),
+                     [p.split()[0] for p in journal_problems({"records": [{**row, "target": "b.md"}]}, planned_rows)],
+                     [p.split()[0] for p in journal_problems({"records": [{**row, "operation_id": "A-x"}]}, planned_rows)],
+                     [p.split()[0] for p in journal_problems({"records": [], "torn": [1]}, planned_rows)],
+                     [p.split()[0] for p in journal_problems({"records": [], "problems": ["line 3"]}, planned_rows)]],
+                    [[], ["APPLY_JOURNAL_FOREIGN"], ["APPLY_JOURNAL_FOREIGN"], ["APPLY_JOURNAL_CORRUPT"],
+                     ["APPLY_JOURNAL_CORRUPT"]])
+        section('a plan and a journal held to the confirmed set (section)', scenario_8)
+
+        def scenario_9():
+            base, run_dir, checkout = confirmed("amended")
+            real_take, calls = Checkout.take, []
+
+            def amend_after_first(self, effect):
+                calls.append(effect["path"])
+                done = real_take(self, effect)
+                if len(calls) == 1:
+                    declare.amend(run_dir, [("budget.per_stage.S8", 10_000)], "an amendment while S11 writes",
+                                  scope=["S8"])
+                return done
+            Checkout.take = amend_after_first
+            try:
+                answer = code(lambda: run(run_dir))
+            finally:
+                Checkout.take = real_take
+            control("an amendment that lands while the effects run stops them: the next file is not written",
+                    [answer, len(calls), (run_dir / OUTPUT).exists()], ["DECLARATION_MOVED", 1, False])
+        section('an amendment while the effects run (section)', scenario_9)
+
+        def scenario_10():
+            base = pathlib.Path(tempfile.mkdtemp(prefix="s11-staging-"))
+            made.append(base)
+            checkout = base / "checkout"
+            checkout.mkdir()
+            (checkout / "a.md").write_bytes(b"planned from\n")
+            effect = {"path": "a.md", "data": b"planned\n", "before": sha_of(b"planned from\n"),
+                      "after": sha_of(b"planned\n")}
+            real_state, real_named, seen = Checkout._state, Checkout._named, []
+
+            def owner_writes_during_staging(self, parent, leaf, path):
+                seen.append(leaf)
+                if len(seen) == 2:                      # the check that follows the staging
+                    (checkout / "a.md").write_bytes(b"OWNER CHANGED\n")
+                return real_state(self, parent, leaf, path)
+            Checkout._state = owner_writes_during_staging
+            try:
+                with Checkout(checkout) as tree:
+                    first = code(lambda: tree.take(effect))
+            finally:
+                Checkout._state = real_state
+            control("a target changed while the new bytes were being staged is not overwritten, and no temporary is "
+                    "left beside it",
+                    [first, (checkout / "a.md").read_bytes(), sorted(p.name for p in checkout.iterdir())],
+                    ["APPLY_BEFORE_MISMATCH", b"OWNER CHANGED\n", ["a.md"]])
+            (checkout / "a.md").write_bytes(b"planned from\n")
+
+            def swapped(parent, name):
+                if name.endswith(".tmp"):
+                    os.unlink(name, dir_fd=parent)
+                    handle = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=parent)
+                    os.write(handle, b"NOT PLANNED\n")
+                    os.close(handle)
+                return real_named(parent, name)
+            Checkout._named = staticmethod(swapped)
+            try:
+                with Checkout(checkout) as tree:
+                    second = code(lambda: tree.take(effect))
+            finally:
+                Checkout._named = staticmethod(real_named)
+            control("a temporary whose name was given to another file is not installed",
+                    [second, (checkout / "a.md").read_bytes(), sorted(p.name for p in checkout.iterdir())],
+                    ["APPLY_STAGING_MOVED", b"planned from\n", ["a.md"]])
+            # a FIFO where the file is named: asked on another thread and held to a deadline, so a blocking
+            # open fails this control by name instead of hanging the suite
+            import threading
+            os.mkfifo(checkout / "pipe.md")
+            answered = []
+
+            def ask():
+                with Checkout(checkout) as tree:
+                    answered.append(code(lambda: tree.read("pipe.md")))
+            asking = threading.Thread(target=ask, daemon=True)
+            asking.start()
+            asking.join(10)
+            waited = asking.is_alive()      # an answer that came only after the release is not "at once"
+            if waited:
+                released = os.open(checkout / "pipe.md", os.O_WRONLY | os.O_NONBLOCK)
+                asking.join(10)
+                os.close(released)
+            control("a FIFO named as a target is refused at once: its open does not wait for a writer",
+                    [waited, answered[:1]], [False, ["APPLY_TARGET_NOT_FILE"]])
+            (checkout / "Upper").mkdir()
+            folds = (checkout / "UPPER").exists()
+            with Checkout(checkout) as tree:
+                alias = code(lambda: tree.take({"path": "upper/b.md", "data": b"b\n", "before": ABSENT,
+                                                "after": sha_of(b"b\n")}))
+            control("where the filesystem folds case, a write through another spelling of a directory is refused "
+                    "(where it does not, the directory is simply another one)",
+                    [alias, (checkout / "Upper" / "b.md").exists()],
+                    ["APPLY_SPELLING_ON_DISK" if folds else "", False])
+        section('the write itself: staging, a FIFO, a spelling (section)', scenario_10)
 
     finally:
         for base in made:

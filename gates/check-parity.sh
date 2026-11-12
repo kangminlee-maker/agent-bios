@@ -562,6 +562,11 @@ if [ -f session-distill/runlib/stage_confirm.py ]; then
   leg -q "FAIL: session-distill S10b confirm self-test (session-distill/runlib/stage_confirm.py)" \
     python3 session-distill/runlib/stage_confirm.py --self-test
 fi
+# what an operation does to a file's text: the one contract S7's check and S11's plan both read
+if [ -f session-distill/runlib/operations.py ]; then
+  leg -q "FAIL: session-distill operation contract self-test (session-distill/runlib/operations.py)" \
+    python3 session-distill/runlib/operations.py --self-test
+fi
 # S11 apply, release 1: the confirmed final set written into files of the declared checkout, and nothing else
 # (D-20261113-f22b7d). The suite writes under its own temp trees only.
 if [ -f session-distill/runlib/stage_apply.py ]; then

@@ -47,6 +47,17 @@ if __package__ in (None, ""):  # run as a script: put session-distill/ on the im
 _FOLDS_CASE = {}
 
 
+def file_of(target):
+    """The file a target names, as written: `path` of `path` or `path#heading`.
+
+    A target may name one section of a file (`runlib/operations.py`'s contract), and the SECTION is
+    not part of the file's identity. Readers that took the whole string as the path made
+    `claude/CLAUDE.md#A` a file of no layer - so an addition to the always-loaded file passed the
+    global rule by naming a heading - and made a section's deletion the file's (the S11 review,
+    2026-11-13). Every reader that needs the file asks here first."""
+    return str(target).partition("#")[0] if isinstance(target, str) else target
+
+
 def identity(target):
     """The identity of the file this target names, or None when the target is not a path.
 
@@ -167,7 +178,9 @@ def filesystem_problems(target, checkout):
     try:
         for index, part in enumerate(parts):
             last = index == len(parts) - 1
-            flags = os.O_RDONLY | os.O_NOFOLLOW | (0 if last else os.O_DIRECTORY)
+            # the leaf NONBLOCKING: a FIFO with no writer blocks in `open` itself, before any check of
+            # what it is could run, and `O_NOFOLLOW` does nothing about that (the S11 review)
+            flags = os.O_RDONLY | os.O_NOFOLLOW | (os.O_NONBLOCK if last else os.O_DIRECTORY)
             try:
                 held_fd = os.open(part, flags, dir_fd=open_fds[-1])
             except OSError as exc:
@@ -206,6 +219,10 @@ def filesystem_problems(target, checkout):
                 # review). The descriptor is asked, not the path, so the answer is about the file
                 # the walk reached.
                 held_stat = os.fstat(held_fd)
+                if not (stat.S_ISREG(held_stat.st_mode) or stat.S_ISDIR(held_stat.st_mode)):
+                    problems.append(f"TARGET_NOT_FILE {target!r}: it is neither a regular file nor a "
+                                    f"directory (a FIFO, a socket or a device), and an operation "
+                                    f"reads and writes a file")
                 if stat.S_ISREG(held_stat.st_mode) and held_stat.st_nlink != 1:
                     problems.append(f"TARGET_HARD_LINKED {target!r}: the file has "
                                     f"{held_stat.st_nlink} names, so writing it through this one "
@@ -733,6 +750,26 @@ def _self_test_body(failures, ran):
         control("a leaf with a second name is refused by name: the other name may lie outside the "
                 "checkout, and writing through this one writes that file",
                 [p.split()[0] for p in held_twin], "['TARGET_HARD_LINKED']")
+        # A FIFO where a file is named: with no writer, a blocking open never returns, so the judgment
+        # is asked on another thread and held to a deadline. If it is still asking then, the open is
+        # released by giving the FIFO a writer, and the control fails by name instead of hanging.
+        import threading
+        pipe = root / "claude" / "guides" / "pipe.md"
+        os.mkfifo(pipe)
+        answered = []
+        asking = threading.Thread(target=lambda: answered.append(filesystem_problems("claude/guides/pipe.md", root)),
+                                  daemon=True)
+        asking.start()
+        asking.join(10)
+        waited = asking.is_alive()          # an answer that came only after the release is not "at once"
+        if waited:
+            released = os.open(pipe, os.O_WRONLY | os.O_NONBLOCK)
+            asking.join(10)
+            os.close(released)
+        control("a FIFO named as a target is refused by name, at once: its open does not wait for a writer",
+                [waited, [[p.split()[0] for p in held] for held in answered[:1]]],
+                "[False, [['TARGET_NOT_FILE']]]")
+        pipe.unlink()
         single = root / "claude" / "guides" / "single.md"
         single.write_text("one name\n", encoding="utf-8")
         clean("and a file with one name passes the same walk",

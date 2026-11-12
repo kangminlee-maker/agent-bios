@@ -73,7 +73,16 @@ STAGES = ("S1", "S2", "S3", "S4", "S5", "S5b", "S6", "S7", "S7b", "S8", "S9", "S
 # them (design §10.1, §10.2; plan WP-20): two producers whose outputs neither may replace. S10b builds the final set
 # the owner confirms and reads the owner's confirmation of it (design §10.3; plan WP-20 K6): the confirmation reads
 # the build's manifest as its input, so the two are parts of one record rather than one producer replacing itself.
-STAGE_PARTS = {"S2": ("views", "inventory"), "S10": ("parse", "adjudicate"), "S10b": ("build", "confirm")}
+STAGE_PARTS = {"S2": ("views", "inventory"), "S10": ("parse", "adjudicate"), "S10b": ("build", "confirm"),
+               "S11": ("plan", "effects")}
+# A part a stage MAY have. It is written and read like any other part, and counts toward the stage's status only
+# when it is there: S11's destination manifest (`destinations.write`) is not made by release 1's apply, which
+# writes the declared checkout alone, so its absence must not leave a finished apply `partial`.
+STAGE_OPTIONAL_PARTS = {"S11": ("destinations",)}
+
+
+def parts_of(stage):
+    return tuple(STAGE_PARTS.get(stage, ())) + tuple(STAGE_OPTIONAL_PARTS.get(stage, ()))
 STATUSES = ("running", "complete", "partial", "failed")
 OUTCOMES = ("retained", "merged", "rejected", "quarantined")  # design §3.2 item 5
 
@@ -113,16 +122,21 @@ def bound_digest(obj):
 def write_text(run_dir, path, text):
     """Whole-file replace through a temporary in the same directory: a reader sees the old
     file or the complete new one. `path` is confined beneath `run_dir` first."""
-    path = stagelock.confine(run_dir, path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        os.replace(tmp, path)
-    except BaseException:
-        pathlib.Path(tmp).unlink(missing_ok=True)
-        raise
+    # Reached from the run directory's own descriptor (`stagelock.beneath`): confining the path and then opening
+    # it by name let a directory swapped for a link in between take the temporary and the rename outside the run.
+    with stagelock.beneath(run_dir, path) as (parent, name):
+        temporary = f".{name}.{os.urandom(8).hex()}"
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            os.replace(temporary, name, src_dir_fd=parent, dst_dir_fd=parent)
+        except BaseException:
+            try:
+                os.unlink(temporary, dir_fd=parent)
+            except OSError:
+                pass
+            raise
 
 
 def write_json(run_dir, path, obj):
@@ -476,7 +490,7 @@ def _legacy_part(stage, record):
     was written by the views part and by nothing else. A record whose outputs match no part's
     artifacts keeps no part name, and the caller decides what to do with it."""
     produced = {row.get("artifact") for row in record.get("outputs") or []}
-    for label in STAGE_PARTS.get(stage, ()):
+    for label in parts_of(stage):
         if any(str(artifact).startswith(label) or str(artifact).startswith(f"{label}.")
                or str(artifact).startswith(f"{label}/") for artifact in produced):
             return label
@@ -504,7 +518,8 @@ def derived_status(record):
     parts = record.get("parts")
     if not isinstance(parts, dict):
         return record.get("status")
-    declared = STAGE_PARTS.get(record.get("stage"), ())
+    declared = tuple(STAGE_PARTS.get(record.get("stage"), ())) + tuple(
+        label for label in STAGE_OPTIONAL_PARTS.get(record.get("stage"), ()) if label in parts)
     states = [parts.get(label, {}).get("status") for label in declared]
     if "failed" in states:
         return "failed"
@@ -577,9 +592,9 @@ def run_stage(run_dir, stage, inputs=(), part=None):
     than written, so no producer can declare a stage complete on another's behalf."""
     if stage not in STAGES:
         raise Refused(f"STAGE_UNKNOWN {stage}: not one of {', '.join(STAGES)}")
-    if part is not None and part not in STAGE_PARTS.get(stage, ()):
+    if part is not None and part not in parts_of(stage):
         raise Refused(f"STAGE_PART_UNKNOWN {stage}.{part}: the parts of {stage} are "
-                      f"{list(STAGE_PARTS.get(stage, ())) or 'none'}")
+                      f"{list(parts_of(stage)) or 'none'}")
     if part is None and stage in STAGE_PARTS:
         # A part-less write to a stage that HAS parts replaces the whole record, whatever is there.
         # Refusing only when another part's entry already exists made the rule depend on the order
@@ -738,6 +753,9 @@ DECLARATION_READERS = {
     ("runlib/stage_adjudicate.py", "self_test"): "the S10 suite reads the seats its golden run declares, to amend "
                                                  "them with the second pass's two seats (a dotted key is assigned as "
                                                  "a whole map)",
+    ("runlib/stage_apply.py", "run"): "S11's effects part reads the declaration again before every write and holds "
+                                      "it to the one it was admitted under: admission releases the declaration's "
+                                      "lock, so an amendment can land while files are being written",
     ("runlib/stage_close.py", "_self_test_body"): "the S12 suite reads the declaration of the run S3's own fixture made, "
                                                   "to fold its results as the stage does under its admission",
     ("runlib/stage_read.py", "fx_reader"): "the S3 fixture reads the seat its golden run declared, to seed the supervisor "
@@ -1367,9 +1385,9 @@ def self_test():
         # a log that is not a numbered sequence, or not readable, is named
         good_log = amendments_path(run_dir).read_text(encoding="utf-8")
         amendments_path(run_dir).write_text(good_log.splitlines()[0] + "\n" + json.dumps(amend(2)) + "\n", encoding="utf-8")
-        expect("declaration log skips a number", start("S11"), "DECLARATION_DRIFT S11", "not numbered 0..1")
+        expect("declaration log skips a number", start("S12"), "DECLARATION_DRIFT S12", "not numbered 0..1")
         amendments_path(run_dir).write_text("", encoding="utf-8")
-        expect("declaration log without a seq-0 entry", start("S11"), "DECLARATION_DRIFT S11", "no declaration is bound")
+        expect("declaration log without a seq-0 entry", start("S12"), "DECLARATION_DRIFT S12", "no declaration is bound")
         amendments_path(run_dir).write_text("{not json\n", encoding="utf-8")
         try:
             read_amendments(run_dir)
@@ -1379,16 +1397,16 @@ def self_test():
         expect("no declaration at all", start_in(pathlib.Path(td) / "r2"), "RUN_UNDECLARED")
         amendments_path(run_dir).write_text(good_log, encoding="utf-8")
         # a held stage lock refuses a second runner by name
-        with stagelock.hold(run_dir, "stage-S11"):
+        with stagelock.hold(run_dir, "stage-S12"):
             try:
-                start("S11")
+                start("S12")
                 failures.append("a stage started while its lock was held")
             except stagelock.Locked as exc:
-                expect("held stage lock", [str(exc)], "STAGE_LOCKED stage-S11")
+                expect("held stage lock", [str(exc)], "STAGE_LOCKED stage-S12")
         # a declaration being written holds a stage back: it neither reads nor pins half an amendment
         with stagelock.hold(run_dir, "declaration"):
             try:
-                start("S11")
+                start("S12")
                 failures.append("a stage started while the declaration lock was held")
             except stagelock.Locked as exc:
                 expect("held declaration lock", [str(exc)], "STAGE_LOCKED declaration")
@@ -1549,6 +1567,21 @@ def self_test():
         if (target / "log.jsonl").read_text(encoding="utf-8") != external_log or [p.name for p in target.iterdir()] != ["log.jsonl"]:
             failures.append("an external file behind amendments.jsonl was changed")
 
+        # The swap AFTER confinement: `confine` is made to answer as it would have before a directory on the
+        # way became a link, and the write must still not leave the run (`stagelock.beneath`).
+        swapped, target = link_run("r12b")
+        (swapped / "apply").symlink_to(target)
+        real_confine = stagelock.confine
+        stagelock.confine = lambda run, destination: pathlib.Path(run).resolve() / pathlib.Path(
+            destination).relative_to(run)
+        try:
+            expect("a directory swapped for a link after the path was confined",
+                   escape(write_text, swapped, swapped / "apply" / "plan.json", "x"), "RUN_PATH_ESCAPE")
+        finally:
+            stagelock.confine = real_confine
+        if list(target.iterdir()):
+            failures.append(f"a record was written through a directory swapped for a link: {list(target.iterdir())}")
+
         locks, target = link_run("r12")
         (locks / "locks").symlink_to(target)
         expect("a symlinked locks directory", escape(under_run, locks, "S1"), "RUN_PATH_ESCAPE")
@@ -1649,6 +1682,15 @@ def self_test():
             failures.append("the refused part-less write replaced the parts the record held")
         if "S3" in STAGE_PARTS:
             failures.append("S3 has declared parts, so this control is the table's refusal again")
+        # An optional part counts toward the stage's status only when it is there.
+        done = {"status": "complete"}
+        got = [derived_status({"stage": "S11", "parts": {"plan": done, "effects": done}}),
+               derived_status({"stage": "S11", "parts": {"plan": done}}),
+               derived_status({"stage": "S11", "parts": {"plan": done, "effects": done,
+                                                         "destinations": {"status": "failed"}}}),
+               "destinations" in parts_of("S11"), "destinations" in STAGE_PARTS["S11"]]
+        if got != ["complete", "partial", "failed", True, False]:
+            failures.append(f"an optional part: absent it must not hold the stage partial, present it counts: {got}")
         # a legacy record whose outputs identify no part: refused, not silently replaced
         ambiguous_dir = pathlib.Path(td) / "ambiguous-legacy"
         declare_fixture(ambiguous_dir, base)

@@ -97,7 +97,7 @@ def target_identity(target):
     OWNER for it: `runlib/targets.py`. This was a copy of those rules, and the journal carried a
     third, which is how `./claude/CLAUDE.md` came to be refused here and accepted there.
     """
-    return targets.identity(target)
+    return targets.identity(targets.file_of(target))
 
 
 def target_problems(target, checkout=None):
@@ -108,7 +108,7 @@ def target_problems(target, checkout=None):
     while being classified as a guide, and the global-file judgment, the merge requirement and the
     ceiling all belong to the layer the path was classified as.
     """
-    return targets.problems(target, checkout)
+    return targets.problems(targets.file_of(target), checkout)
 
 
 def layer_of(target):
@@ -863,6 +863,13 @@ def self_test():
             "GLOBAL_OP_UNJUDGED i-r")
     control("a deletion paired with an edit into the global file is refused without a merge "
             "judgment", "; ".join(global_op_problems([fx_global()])), "GLOBAL_OP_UNJUDGED i-g")
+    control("naming a SECTION of the global file does not take the operation out of the global layer",
+            "; ".join(global_op_problems([fx_global(item_id="i-h", types=("edit",),
+                                                    target="claude/CLAUDE.md#A")])),
+            "GLOBAL_OP_UNJUDGED i-h")
+    control("and a section-qualified target has its file's identity",
+            f'{target_identity("claude/CLAUDE.md#A")}|{layer_of("claude/CLAUDE.md#A") == layer_of("claude/CLAUDE.md")}',
+            "claude/CLAUDE.md|True")
     control("and the refusal says why the gate does not catch it",
             "; ".join(global_op_problems([fx_global()])),
             "the ceiling gate passes any edit under 20 KiB")

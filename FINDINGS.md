@@ -159,3 +159,24 @@ Alternatives:
    could state less, so the host refuses less and the stage's one corrective retry carries the message. Risk: the
    dispatcher's retry is a new call with the whole packet, dearer than the host's in-call retry.
 3. **Accept the rate and keep budgeting it.** Risk: the retry stays about one call in seven and each costs a packet.
+
+## F-34 — the proposal schema cannot be sent to a strict-schema provider
+
+Found by the S11 review of 2026-11-13 (round 1, question on the proposal's wire form). `packet.schema_bytes`
+accepts `session-distill/schemas/propose.schema.json`, but `provider_schema(host_schema(schema), 'codex')` returns
+four `STRICT_OPTIONAL_PROPERTY` errors and `provider_schema_bytes` raises `SCHEMA_UNPROJECTABLE` before dispatch.
+The schema has optional properties on the operation (`anchor`, `content`, `entry`, `units`, `unit_states` among
+them), which a strict provider does not admit. It predates `unit_states`: removing that property leaves the same
+four locations.
+
+Reach: S7's seat. A run whose `seats.S7` is a Claude seat is not affected, and that is the only configuration
+release 1 has run. A run that declares a strict-schema provider for S7 is refused before its first call, by name,
+with nothing spent.
+
+Alternatives:
+
+1. **A provider wire schema beside the validation schema.** Every operation field required and nullable on the
+   wire; the code-enriched proposal still validated by the present schema. `unit_states` leaves the wire, since
+   code owns it. Needs an offline control over the real `provider_schema_bytes` path.
+2. **Refuse the seat at declaration.** State in the seat table that S7 takes no strict-schema provider, so the
+   refusal comes at S0 and names the reason. Cheaper, and closes a seat choice.

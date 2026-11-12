@@ -988,6 +988,27 @@ def unit_rows(check_row, current_units, checkout=None):
     return rows
 
 
+def applicability_problems(answer, checkout):
+    """What S11 would refuse of an answer's operations against the declared checkout as it is now.
+
+    The operation contract (`runlib/operations.py`) is asked while the model can still answer again: an
+    anchor that occurs twice, a heading the file does not hold, a section's replacement that does not
+    end its last line. Found only at S11, each of these is a refusal AFTER the owner approved. The
+    files are read the way S11 reads them (`stage_apply.Checkout`), and nothing is written."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("operations"), list) or not answer["operations"]:
+        return []
+    from runlib import operations, stage_apply
+    held = [o for o in answer["operations"] if isinstance(o, dict)]
+    try:
+        with stage_apply.Checkout(checkout) as tree:
+            found = operations.applicability_problems(held, tree.read, who="the proposal")
+    except records.RunStopped:
+        raise
+    except Refused as exc:
+        found = [str(exc)]
+    return [f"OPERATION_WOULD_NOT_APPLY {problem}" for problem in found]
+
+
 def live_check(candidate, derivations, verdict, legacy_incubating, checkout, capacity):
     """The stage's check of a proposal call's attempts, as `Supervisor.item(stage_check=)` asks it:
     the contract's own refusals over the answer with its before-states set, so the one retry is
@@ -1000,7 +1021,9 @@ def live_check(candidate, derivations, verdict, legacy_incubating, checkout, cap
             raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record "
                           f"carries the capacity {held!r}, and S7 was admitted against {capacity!r}")
         answer, problems = with_before_states(stage_read.answer_of(call_dir), checkout)
-        return problems + answer_problems(answer, candidate, derivations, verdict, None, legacy_incubating)
+        problems = problems + answer_problems(answer, candidate, derivations, verdict, None, legacy_incubating)
+        # asked only of an answer the contract otherwise accepts: a refused target has no state to apply to
+        return problems or applicability_problems(answer, checkout)
     return judged
 
 
@@ -2414,6 +2437,46 @@ def _self_test_body(failures, ran):
                 json.dumps(["OPERATION_TARGET_REFUSED operations[0]"]))
         control("and its hash is left as the answer wrote it rather than invented",
                 escaped["operations"][0]["before_state_sha256"], wrong)
+        # What S11 would refuse is asked while the model can still answer again.
+        K_STATE = hashlib.sha256(b"# K\n\n## One\n\n## Two\n").hexdigest()
+
+        def would(operation):
+            return json.dumps([" ".join(p.split()[:2]) for p in applicability_problems(
+                {"operations": [{"target": "claude/guides/kept.md", "before_state_sha256": K_STATE, **operation}]},
+                str(state_root))])
+        control("an operation S11 would refuse comes back with S11's own reason: a section's replacement that does "
+                "not end its last line, a heading the file lacks, an anchor that is not there",
+                json.dumps([would({"type": "edit", "target": "claude/guides/kept.md#One", "content": "## One\n\nnew"}),
+                            would({"type": "edit", "target": "claude/guides/kept.md#Nine", "content": "x\n"}),
+                            would({"type": "edit", "anchor": "not there", "content": "x"})]),
+                json.dumps([json.dumps(["OPERATION_WOULD_NOT_APPLY SECTION_CONTENT_UNTERMINATED"]),
+                            json.dumps(["OPERATION_WOULD_NOT_APPLY HEADING_ABSENT"]),
+                            json.dumps(["OPERATION_WOULD_NOT_APPLY ANCHOR_ABSENT"])]))
+        control("and one that applies, or an answer with no operations, raises nothing",
+                json.dumps([would({"type": "edit", "target": "claude/guides/kept.md#One", "content": "## One\n\nnew\n"}),
+                            applicability_problems({"operations": []}, str(state_root))]),
+                json.dumps(["[]", []]))
+        # ... and by the stage's own check of a call: the contract's refusals first, then S11's
+        from runlib import stage_read
+        call_dir = state_root / "call"
+        call_dir.mkdir()
+        (call_dir / "call.json").write_text(json.dumps({"bound": {"context_capacity": 7}}), encoding="utf-8")
+        unterminated = {"operations": [{"type": "edit", "target": "claude/guides/kept.md#One",
+                                        "before_state_sha256": "absent", "content": "## One\n\nnew"}]}
+        real_answer, real_contract = stage_read.answer_of, answer_problems
+        try:
+            stage_read.answer_of = lambda _dir: json.loads(json.dumps(unterminated))
+            globals()["answer_problems"] = lambda *a, **k: []
+            asked = live_check({}, {}, None, False, str(state_root), 7)(call_dir)
+            globals()["answer_problems"] = lambda *a, **k: ["CONTRACT_REFUSAL x"]
+            refused_first = live_check({}, {}, None, False, str(state_root), 7)(call_dir)
+        finally:
+            stage_read.answer_of = real_answer
+            globals()["answer_problems"] = real_contract
+        control("the stage's check of a call tells the retry what S11 would refuse, and only once the contract "
+                "itself accepts the answer",
+                json.dumps([[" ".join(p.split()[:2]) for p in asked], refused_first]),
+                json.dumps([["OPERATION_WOULD_NOT_APPLY SECTION_CONTENT_UNTERMINATED"], ["CONTRACT_REFUSAL x"]]))
     finally:
         shutil.rmtree(state_root, ignore_errors=True)
     live_root = pathlib.Path(tempfile.mkdtemp(prefix="s7-live-", dir="/tmp"))

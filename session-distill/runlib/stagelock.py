@@ -59,6 +59,49 @@ def confine(run_dir, destination):
     return resolved
 
 
+def _directory(piece, parent, destination):
+    """One directory of the run, opened beneath `parent` without following a link, made when absent."""
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    try:
+        try:
+            return os.open(piece, flags, dir_fd=parent)
+        except FileNotFoundError:
+            try:
+                os.mkdir(piece, dir_fd=parent)
+            except FileExistsError:
+                pass
+            return os.open(piece, flags, dir_fd=parent)
+    except OSError as exc:
+        raise Escaped(f"RUN_PATH_ESCAPE {destination}: {piece!r} is not a directory of the run to open "
+                      f"({exc.strerror}); a link put there after the path was confined is not followed") from exc
+
+
+@contextlib.contextmanager
+def beneath(run_dir, destination):
+    """`(parent descriptor, leaf name)` of `destination`, reached from the run directory's own descriptor.
+
+    `confine` answers where a path resolves NOW; a write that then opened that path by name would follow whatever a
+    directory on the way had been swapped for in between, and create or replace a file outside the run (the S11
+    review, 2026-11-13). So the directories between the run directory and the leaf are opened one component at a time,
+    each beneath the last and none through a link, and the caller creates, renames and unlinks the leaf relative to
+    the descriptor this yields. Missing directories are made."""
+    target = confine(run_dir, destination)
+    root = pathlib.Path(run_dir).resolve()
+    pieces = target.relative_to(root).parts
+    root.mkdir(parents=True, exist_ok=True)     # the run directory itself is the anchor, made as it always was
+    fds = [os.open(root, os.O_RDONLY | os.O_DIRECTORY)]
+    try:
+        for piece in pieces[:-1]:
+            fds.append(_directory(piece, fds[-1], destination))
+        yield fds[-1], pieces[-1]
+    finally:
+        for held in fds:
+            try:
+                os.close(held)
+            except OSError:
+                pass
+
+
 # Set to a callable by a test only, and called with the lock's name the first time an acquisition finds
 # that lock held - the real contention, inside the real attempt. A control that needs to act at that
 # instant (dispatch's stop against an amendment holding the declaration) has no other way to know the
@@ -72,8 +115,12 @@ def hold(run_dir, name, wait_s=0):
     """Hold the lock `name`; a held lock is refused at once, or after `wait_s` seconds of
     retrying (the dispatch supervisor's reservations and breaker wait their turn)."""
     path = confine(run_dir, pathlib.Path(run_dir) / "locks" / f"{name}.lock")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    with beneath(run_dir, path) as (parent, leaf):
+        try:
+            fd = os.open(leaf, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600, dir_fd=parent)
+        except OSError as exc:
+            raise Escaped(f"RUN_PATH_ESCAPE {path}: the lock file could not be opened beneath the run "
+                          f"({exc.strerror})") from exc
     contended = False
     try:
         for _attempt in range(int(wait_s / RETRY_S) + 1):
@@ -122,6 +169,33 @@ def self_test():
                     failures.append(f"the contention hook fired for a free lock: {seen}")
         finally:
             globals()["CONTENDED"] = None
+        # the walk beneath the run's own descriptor: `confine` is made to answer as it would have BEFORE a directory
+        # on the way was swapped for a link, and the write must still not leave the run
+        import shutil
+        outside = pathlib.Path(tempfile.mkdtemp())
+        try:
+            run = pathlib.Path(td) / "swap"
+            run.mkdir()
+            os.symlink(outside, run / "locks")
+            real = confine
+
+            def before_the_swap(run_dir, destination):
+                root, held = pathlib.Path(run_dir).resolve(), pathlib.Path(destination)
+                return root / (held.relative_to(root) if root in held.parents else held.relative_to(run_dir))
+            globals()["confine"] = before_the_swap
+            try:
+                try:
+                    with hold(run, "swapped"):
+                        failures.append("a lock was taken through a directory swapped for a link")
+                except Escaped as exc:
+                    if "RUN_PATH_ESCAPE" not in str(exc):
+                        failures.append(f"the swapped directory was refused under another name: {exc}")
+            finally:
+                globals()["confine"] = real
+            if list(outside.iterdir()):
+                failures.append(f"a lock file was made outside the run: {sorted(p.name for p in outside.iterdir())}")
+        finally:
+            shutil.rmtree(outside, ignore_errors=True)
         if CONTENDED is not None:
             failures.append("the contention hook is left set, so production would call it")
 

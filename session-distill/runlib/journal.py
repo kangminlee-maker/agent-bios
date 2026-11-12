@@ -1488,8 +1488,10 @@ def self_test():
         control("and the done record follows it", json.dumps(held_order["done"]["kind"]), '"done"')
         control("with the effect's own result carried into it",
                 json.dumps(held_order["done"]["commit"]), '"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"')
-        control("so the journal reads plan then done, in that order",
-                ",".join(row["kind"] for row in read(order_path)["records"]), "planned,done")
+        # the whole list as JSON, brackets and all: joined with commas, `planned,done` was found inside
+        # `planned,done,planned,done`, so an extra pair passed (the S11 review)
+        control("so the journal reads plan then done, in that order, and nothing else",
+                json.dumps([row["kind"] for row in read(order_path)["records"]]), '["planned", "done"]')
         control("and the target was changed exactly once", target_file.read_text(encoding="utf-8"),
                 "after")
 
