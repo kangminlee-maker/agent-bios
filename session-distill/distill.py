@@ -164,7 +164,11 @@ def default_out(environ=None, home=None):
     * the XDG STATE directory, not the data directory: a run is regenerable output, while the data
       directory holds what is the owner's.
 
-    A checkout passes `--out session-distill/out/<...>` explicitly; the runbook does.
+    A run root inside the checkout is REFUSED: `inventory.protected_roots` protects the checkout
+    unconditionally, so `--out session-distill/out/<...>` exits `PROTECTED_OVERLAP` before any
+    write. The runbook said to pass exactly that, and the stage it documents could not run (the
+    WP-22a review). Leave `--out` unset and take the resolved XDG state directory, or name a
+    directory outside every protected root.
 
     Both inputs are taken only when they are ABSOLUTE. A relative `XDG_STATE_HOME` — `.` is the
     one a shell hands over by accident — resolved against the working directory, which during

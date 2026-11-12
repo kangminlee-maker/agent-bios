@@ -34,6 +34,7 @@ import contextlib
 import copy
 import datetime
 import importlib.util
+import inspect
 import io
 import json
 import pathlib
@@ -865,12 +866,136 @@ def self_test():
         if "FIELD_UNMAPPED" not in str(exc) or "reason" not in str(exc):
             failures.append(f"a rationale with nowhere to go was refused without naming the field: {exc}")
 
+    # ---- the removed-value destination, and one validation routine for both commands -----------
+    #
+    # `--apply` writes the removed values and THEN the ledger, so a `--removed` aliasing either the
+    # ledger or the `.migrating` scratch destroyed one of them and reported success. And `--apply`
+    # judged with the repository's named rows only for the repository's ledger while never checking
+    # reader discovery, where `--check` always demanded those rows and always checked discovery —
+    # so each command could accept what the other refuses (the WP-22a review).
+    with tempfile.TemporaryDirectory(prefix="ml-dest-") as held_tmp:
+        held_root = pathlib.Path(held_tmp)
+        held_ledger = held_root / "ledger.json"
+        held_ledger.write_text(json.dumps({"schema": 1, "entries": []}), encoding="utf-8")
+        held_link = held_root / "link.json"
+        held_link.symlink_to(held_ledger)
+        for label, destination, want in (
+                ("the ledger itself", held_ledger, "the ledger itself"),
+                ("the migration scratch", pathlib.Path(str(held_ledger) + ".migrating"),
+                 "the migration's scratch file"),
+                ("a SYMLINK to the ledger, which no string test catches", held_link,
+                 "the ledger itself"),
+                ("a `..` spelling of the ledger",
+                 held_root / "sub" / ".." / "ledger.json", "the ledger itself")):
+            said = "; ".join(removed_destination_problems(destination, held_ledger))
+            if "REMOVED_DESTINATION_ALIASES" not in said or want not in said:
+                failures.append(f"--removed pointed at {label} was not refused by name: {said!r}")
+        if removed_destination_problems(held_root / "removed.json", held_ledger):
+            failures.append("an ordinary --removed destination was refused, so the guard refuses "
+                            "everything rather than the aliases")
+        # And through the COMMAND, with nothing written: a guard whose only caller is a control
+        # changes nothing a user sees.
+        before = held_ledger.read_bytes()
+        code = apply_migration(held_ledger, held_ledger)
+        if code != 2 or held_ledger.read_bytes() != before:
+            failures.append(f"--apply with --removed aliasing the ledger returned {code} and the "
+                            f"ledger {'changed' if held_ledger.read_bytes() != before else 'held'}")
+        if (held_root / "ledger.json.migrating").exists():
+            failures.append("the refusal left the migration scratch behind")
+        # The shared routine: a fixture ledger is NOT asked for the repository's named rows, and
+        # the repository's ledger IS.
+        fixture_only = ledger_problems({"schema": 2, "entries": [], "windows": []}, held_ledger)
+        if any("EXPECTED_ROW" in problem or "named row" in problem for problem in fixture_only):
+            failures.append(f"a fixture ledger was asked for the repository's named rows: "
+                            f"{fixture_only}")
+        own = json.loads(LEDGER.read_text(encoding="utf-8"))
+        if ledger_problems(own, LEDGER) != []:
+            failures.append(f"the repository's own ledger does not pass the shared routine: "
+                            f"{ledger_problems(own, LEDGER)}")
+        # And the path-dependence is DEMANDED, not merely allowed: a routine that dropped the named
+        # rows for every path would make the control above pass more easily, which is no control.
+        # The rows are consulted on a SCHEMA 1 input — `check_ledger` short-circuits a schema 2
+        # ledger to idempotence and validation, so the repository's own migrated ledger does not
+        # reach them any more. A schema 1 fixture judged at the repository's path is asked for them;
+        # the same fixture judged at another path is not.
+        legacy_fixture = tiny()
+        at_repo = ledger_problems(legacy_fixture, LEDGER, with_readers=False)
+        elsewhere = ledger_problems(legacy_fixture, held_ledger, with_readers=False)
+        if not any("ROW" in problem or "row" in problem for problem in at_repo):
+            failures.append(f"a schema 1 ledger judged at the repository's path was not asked for "
+                            f"the curated rows: {at_repo}")
+        if len(elsewhere) >= len(at_repo):
+            failures.append(f"the same fixture judged at another path was asked for as much: "
+                            f"{len(elsewhere)} vs {len(at_repo)} — a row of our ledger is not a "
+                            f"rule about someone else's")
+        if "ledger_problems(" not in inspect.getsource(main):
+            failures.append("--check does not reach the shared routine, so the two commands can "
+                            "still judge differently")
+        if "ledger_problems(" not in inspect.getsource(apply_migration):
+            failures.append("--apply does not reach the shared routine")
+
     for failure in failures:
         print(f"migrate-ledger --self-test [FAIL] {failure}")
     if failures:
         return 1
     print(f"migrate-ledger --self-test: OK (fixtures for every mapping rule and refusal, {note}, the reader inventory against a text, AST and argument discovery, the one-time --apply over a file)")
     return 0
+
+
+def ledger_problems(legacy, path, with_readers=True):
+    """Every problem of ONE ledger, judged the same way whichever command asked.
+
+    `--apply` judged with `EXPECTED_ROWS` only for the repository's own ledger and never ran the
+    reader-discovery check; the public `--check` always demanded the repository's eight named rows
+    and always ran that check. So `--apply` could write a file `--check` then rejected, and
+    `--check` on an independent fixture failed for want of rows a fixture has no reason to carry
+    (the WP-22a review). One routine, path-aware in one place: the named rows are the repository
+    ledger's, and the reader inventory is a property of the CHECKOUT rather than of any ledger, so
+    it is judged only where a checkout is what is being judged.
+    """
+    expected = EXPECTED_ROWS if pathlib.Path(path).resolve() == LEDGER.resolve() else {}
+    problems = check_ledger(legacy, expected)
+    if not (with_readers and pathlib.Path(path).resolve() == LEDGER.resolve()):
+        return problems
+    inventory = json.loads(READERS.read_text(encoding="utf-8"))
+    try:
+        sources = tracked_sources()
+        problems += reader_problems(discover_readers(sources, inventory["argument_patterns"]),
+                                    inventory, sources)
+    except MigrationError as exc:
+        problems.append(str(exc))
+    return problems
+
+
+def removed_destination_problems(removed_path, path):
+    """Why `--removed` may not be written where it is pointed, or an empty list.
+
+    `--apply` writes the removed values and then the migrated ledger, so a `--removed` that ALIASES
+    either the ledger or the `.migrating` scratch destroyed one of them and reported success: with
+    `--removed` equal to the ledger path the replacement overwrote the removed-value JSON, and with
+    the scratch path the scratch write overwrote it before being renamed over the ledger (the
+    WP-22a review). The comparison resolves both sides, so a symlink or a `..` spelling of the same
+    file is caught as well — a string test would not catch either.
+    """
+    removed_path, path = pathlib.Path(removed_path), pathlib.Path(path)
+    scratch = path.with_suffix(path.suffix + ".migrating")
+    held = []
+
+    def same(a, b):
+        try:
+            if a.exists() and b.exists():
+                return a.resolve() == b.resolve() or a.samefile(b)
+        except OSError:
+            pass
+        # Neither needs to exist yet: the scratch does not, and the removed file usually does not.
+        return a.resolve(strict=False) == b.resolve(strict=False)
+
+    for other, what in ((path, "the ledger itself"), (scratch, "the migration's scratch file")):
+        if same(removed_path, other):
+            held.append(f"REMOVED_DESTINATION_ALIASES {removed_path}: it resolves to {what} "
+                        f"({other}), and --apply writes both — one would overwrite the other and "
+                        f"the values this module is the only source of would exist nowhere")
+    return held
 
 
 def apply_migration(path, removed_path):
@@ -881,9 +1006,8 @@ def apply_migration(path, removed_path):
     `runlib/ledger.py`'s own renderer, and a schema 2 file is left exactly as it is, so a second
     run is a no-op rather than a second migration."""
     legacy = json.loads(path.read_text(encoding="utf-8"))
-    expected = EXPECTED_ROWS if path.resolve() == LEDGER.resolve() else {}
     if legacy.get("schema") == 2:
-        problems = check_ledger(legacy, expected)
+        problems = ledger_problems(legacy, path)
         if problems:
             print("\n".join(problems), file=sys.stderr)
             return 1
@@ -894,7 +1018,13 @@ def apply_migration(path, removed_path):
               "drops values (verdict, strength, criteria, the window chain) this module is the only "
               "source of; they belong in the dated migration record", file=sys.stderr)
         return 2
-    problems = check_ledger(legacy, expected)
+    # The destination for the removed values, BEFORE anything is written: see
+    # `removed_destination_problems`.
+    problems = removed_destination_problems(removed_path, path)
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
+    problems = ledger_problems(legacy, path)
     if problems:
         print("\n".join(problems), file=sys.stderr)
         return 1
@@ -935,13 +1065,9 @@ def main(argv=None):
         parser.print_usage()
         return 2
     legacy = json.loads(pathlib.Path(args.ledger).read_text(encoding="utf-8"))
-    problems = check_ledger(legacy)
+    # The same routine `--apply` judges with, so neither command can accept what the other refuses.
+    problems = ledger_problems(legacy, pathlib.Path(args.ledger))
     inventory = json.loads(READERS.read_text(encoding="utf-8"))
-    try:
-        sources = tracked_sources()
-        problems += reader_problems(discover_readers(sources, inventory["argument_patterns"]), inventory, sources)
-    except MigrationError as exc:
-        problems.append(str(exc))
     if problems:
         print("\n".join(problems), file=sys.stderr)
         return 1

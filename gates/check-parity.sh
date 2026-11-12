@@ -451,8 +451,11 @@ if [ -f session-distill/runlib/stagelock.py ]; then
 fi
 # The census (S1): readers of the transcripts and the host indexes, lineage and the counting rule, the
 # coverage state of design §5.2, and the census itself over a synthetic corpus (one fixture per O1 plant).
-# The legacy session-distill/census.py is untouched until the cutover; the census self-test also runs the
-# documented census -> digest handoff on a fixture home.
+# The legacy session-distill/census.py remains ONLY as an author-side window tool (the v1 window
+# census the workflow guide still names); the cutover deleted the v1 pipeline around it. The census
+# self-test's legacy census -> digest handoff leg was withdrawn with that pipeline and this comment
+# claimed it still ran (the WP-22a review); the S1 controls are the readers, the lineage and
+# counting rule, §5.2's coverage state, and the census over a synthetic corpus.
 if [ -f session-distill/runlib/sources.py ]; then
   leg -q "FAIL: session-distill source readers self-test (session-distill/runlib/sources.py)" \
     python3 session-distill/runlib/sources.py --self-test
@@ -509,6 +512,11 @@ if [ -f gates/check-ledger.py ]; then
     python3 gates/check-ledger.py --self-test
   leg -q "FAIL: the ledger lost an id, allocated a wrong one, or changed a row with no decision (gates/check-ledger.py --check)" \
     python3 gates/check-ledger.py --check
+fi
+# The v1 window merge refuses a ledger that is not schema 1, by name and before it reads or writes (WP-22a).
+if [ -f session-distill/merge-ledger.py ]; then
+  leg -q "FAIL: session-distill window merge self-test (session-distill/merge-ledger.py)" \
+    python3 session-distill/merge-ledger.py --self-test
 fi
 if [ -f session-distill/migrate-ledger.py ]; then
   leg -q "FAIL: session-distill ledger migration self-test (session-distill/migrate-ledger.py)" \

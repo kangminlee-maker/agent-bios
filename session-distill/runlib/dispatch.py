@@ -5253,12 +5253,23 @@ def self_test(scratch=None):
             any(row.startswith("PARSE_CACHE_DIVERGES closure") and "planted-stale-parse" in row for row in stale),
             f"{stale}")
     tree = scratch / "tree"
+    # `session-distill/census.py` is copied EXPLICITLY. The list is otherwise derived from the live
+    # declarations, and census.py left them when its SCRIPT_RUNS row went — so the control below,
+    # which plants a row naming it, produced two violations at once: the intended "the site runs no
+    # such script" AND an unintended "no such file", and the control passed on the wrong one (the
+    # WP-22a review). A planted row's target must exist for the plant to test what it names.
+    planted_targets = ["session-distill/census.py"]
     for rel in ["session-distill/distill.py", "session-distill/seats.json", "launch/agent-launch.py"] \
+            + planted_targets \
             + [str(p.relative_to(REPO)) for p in (REPO / "session-distill" / "runlib").glob("*.py")] \
             + [str(p.relative_to(REPO)) for p in (REPO / "benchmarks").rglob("*.py")] \
             + sorted({e[k] for e in DYNAMIC_LOADS + SCRIPT_RUNS for k in ("site", "path")}):
         (tree / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO / rel, tree / rel)
+    for rel in planted_targets:
+        control(f"planted-target-present-{pathlib.Path(rel).name}", (tree / rel).is_file(),
+                f"{rel} is not in the copied tree, so a plant naming it would report a missing "
+                f"file instead of the violation it is for")
 
     def plant(rel, code, **kwargs):
         """The closure check's violations over the copied tree with `code` appended to `rel`,
@@ -5706,9 +5717,17 @@ def self_test(scratch=None):
             "def _planted_scratch_run():\n    HERE = pathlib.Path('/tmp/review-scratch/session-distill')\n"
             "    subprocess.run([sys.executable, '-I', str(HERE / 'distill.py'), 'form'])",
             "DISPATCH_UNRESOLVED {at}: python runs", 2)
+    unused_site = SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py",
+                                  "path": "session-distill/census.py", "reason": "x"},)
     planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
-            scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
+            scripts=unused_site)
+    # And ONLY that violation: the plant used to report a missing file as well, so the control
+    # could have been reading the wrong one.
+    held_unused = plant("session-distill/runlib/claims.py", "", scripts=unused_site)[0]
+    control("the-unused-site-plant-reports-no-missing-file",
+            not any("no such file" in row for row in held_unused),
+            f"the plant reported a missing file beside the violation it is for: {held_unused}")
     planted("script-entry-naming-no-file", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/gone.py: no such file",
             scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/gone.py", "reason": "x"},))

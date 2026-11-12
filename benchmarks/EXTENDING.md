@@ -94,11 +94,13 @@ Expand into these as models change:
 Once a gap is confirmed (class-level, N ≥ 2):
 
 - **Model-agnostic behavioral gap** → a guide trigger, a skill, a hook, or
-  session-level injection. **Not a new rule on the canonical always surface**: that
-  surface is frozen to reductions (`AGENTS.md` §8 — deletions, merges and moves out
-  are open, additions are not), so "extend or add a global rule" is no longer a route
-  a finding may take, and a finding that seems to need one is the case to bring rather
-  than a bullet to write. Enumerate the category so the model does not have to infer
+  session-level injection. **A new rule on the canonical always surface is the last
+  route, not the first.** `AGENTS.md` §8 owns what that surface admits and on what
+  bar, and `SURFACES.md` owns each surface's own admission bar; read the rule there
+  rather than a copy of it here. This file carried such a copy and it was wrong —
+  it said §8 forbade additions outright, which it does not (the WP-22a review). A
+  restatement of a rule living one file away earns nothing and goes stale by itself,
+  so the pointer replaces it. Enumerate the category so the model does not have to infer
   that the situation applies, and place it where it fires before recognition: a
   recognition trigger belongs on the selected always surface, the procedure behind a
   guide pointer (`SURFACES.md` owns the admission bar of each surface). Verify against

@@ -104,8 +104,13 @@ One run, one run directory, one subcommand per stage. The v1 pipeline that used 
 stand here — the per-session digests, the batches, the two provider screeners, the
 union, the consolidation and the bundles — was deleted at the WP-22 cutover; the
 driver replaces it. Every stage writes into `<run root>/<run-id>/`, the run root
-being `--out` or, unset, the XDG state directory the driver resolves. A checkout
-passes `--out session-distill/out/<run-id-root>` explicitly.
+being `--out` or, unset, the XDG state directory the driver resolves. **A run root
+inside this checkout is refused** — `inventory` protects the checkout
+unconditionally and exits `PROTECTED_OVERLAP` before writing anything, which is
+the protection working: a run writes a copy of the owner's session records, and
+the repository is not a place for them. So leave `--out` unset and let the driver
+resolve the XDG state directory, or name a directory outside every protected root
+(the checkout, the owner's state root, `~/.claude`, `~/.codex`).
 
 **Not every stage runs yet, and the ones that do not refuse by name rather than
 doing something approximate.** `STAGE_NOT_IMPLEMENTED <command> (<stage>)` on
@@ -118,12 +123,12 @@ stderr, exit 2. The table is what this checkout does today, not the design:
 | S2 | `distill.py views --run-id ID` | runs: the immutable copies, the redaction projection, the windows, the search index, the evidence store |
 | S2 | `distill.py inventory --run-id ID --ledger design/session-distill/ledger.json` | runs: the units per reference point. The ledger path is the caller's to name |
 | S3 | `distill.py read --run-id ID` | **refuses.** The stage's module (`runlib/stage_read.py`) has landed and runs under its own `--fixture-driver`; the subcommand is not wired to it |
-| S4 | `distill.py form --run-id ID --dry [--checkout-ledger design/session-distill/ledger.json]` | runs: the barrier, the lifecycle intake and the packet held to its bound, record partial |
-| S4 | `distill.py form --run-id ID --cells DIR [--golden-plan PLAN.json]` | runs: the one formation call, live (token only as `CLAUDE_RUN_TOKEN_FILE`) or golden with a plan |
+| S4 | `distill.py form --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | runs: the barrier, the lifecycle intake and the packet held to its bound, record partial |
+| S4 | `distill.py form --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--golden-plan PLAN.json]` | runs: the one formation call, live (token only as `CLAUDE_RUN_TOKEN_FILE`) or golden with a plan |
 | S5 | `distill.py retrieve` | refuses; WP-10 brings it |
 | S6 | `distill.py judge` | refuses; WP-11 brings it |
 | S7, S7b | `distill.py propose`, `review-proposals` | refuses; WP-12 brings both |
-| S8 | `distill.py test` | refuses, and **stays refused in release 1: S8 is deferred to release 2 by name (D-20261111-818391).** No run tests whether an applied change helped. Every row that would carry a test result carries the named state `untested: s8_deferred` instead, never a blank |
+| S8 | `distill.py test` | refuses, and **stays refused in release 1: S8 is deferred to release 2 by name (D-20261111-818391).** No run tests whether an applied change helped. The REQUIREMENT on the packages that carry a test result is that each such row carry the named state `untested: s8_deferred` rather than a blank; no driver writer or schema implements it in this checkout yet, and this table says what runs today |
 | S9, S9b, S10, S10b | `distill.py render`, `review-korean`, `parse-decisions`, `adjudicate`, `confirm` | refuses; WP-20 brings them. Without S8 the §7.5 order falls back to the judges and S7b, and the header names the fallback |
 | S11, S12 | `distill.py apply`, `close` | refuses; WP-21 brings them, and delivery verification reads the installation receipt |
 
@@ -133,10 +138,17 @@ real files), and the module suites `python3 session-distill/runlib/<name>.py
 --self-test`, which are the checkout's tooling rather than a packaged user's.
 
 Author-side window tools that are not stages of the driver and still run:
-`census.py` (the v1 window census), `plain-asks.py`, `merge-ledger.py --window-end
-<date>` (dry-run; `--apply` writes) and `update-state.py --window-end <date>` (the
-launcher's nudge baseline). `migrate-ledger.py` is the ledger's schema 1 → 2
-migration, performed once and idempotent after.
+`census.py` (the v1 window census), `plain-asks.py` and `update-state.py
+--window-end <date>` (the launcher's nudge baseline). `migrate-ledger.py` is the
+ledger's schema 1 → 2 migration, performed once and idempotent after.
+
+`merge-ledger.py` belongs to the v1 window flow and **is not part of this
+workflow any more.** It writes schema 1 fields — a top-level `window` and
+per-entry `strength` and `supporting_sessions` — which schema 2 does not have, so
+against the migrated ledger it would leave a document the schema no longer
+describes. It now refuses a ledger that is not schema 1 by name
+(`LEDGER_SCHEMA_UNSUPPORTED`) before reading or writing anything. After the
+migration a window is folded in by the lifecycle intake.
 
 ## Stage 2 — Review with the user
 
