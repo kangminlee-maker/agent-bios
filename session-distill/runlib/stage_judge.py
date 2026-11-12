@@ -1346,9 +1346,28 @@ def returned_of(record):
 def returned_labels(labels, unit_ids):
     """The judgment packet's labels for a reconsideration: the same candidate, claims and quotes, the returned units in
     place of the retrieved ones, and no ledger entry, since the candidate's first judgment related every one S5
-    retrieved."""
-    return JudgeLabels(labels.candidate, {"retrieved_units": [{"unit_id": u} for u in unit_ids], "ledger_entries": []},
+    retrieved. A unit or ledger entry the candidate's own fields name (a lifecycle candidate's entries and targets, a
+    type G tension's cluster) that this packet does not show is labelled o1, ...: a reference, never judged here, and
+    never shown by its stored id (Codex WP-11 r1 #5: dropping the entries and the retrieved units left those ids raw)."""
+    held = JudgeLabels(labels.candidate, {"retrieved_units": [{"unit_id": u} for u in unit_ids], "ledger_entries": []},
                        labels.unit_store, labels.entry_store, labels.subject_of, labels.evidence_store)
+    named = []
+
+    def walk(value):
+        if isinstance(value, dict):
+            for v in value.values():
+                walk(v)
+        elif isinstance(value, list):
+            for v in value:
+                walk(v)
+        elif isinstance(value, str):
+            target = value[len(CLUSTER_PREFIX):] if value.startswith(CLUSTER_PREFIX) else value
+            if (target in held.unit_store or target in held.entry_store) and target not in held.label_of:
+                named.append(target)
+    walk({key: v for key, v in held.candidate.items() if key not in ("candidate_id", "label", "event_ids", "sessions")})
+    held.references = {f"o{n}": stored for n, stored in enumerate(dict.fromkeys(named), 1)}
+    held.label_of.update({stored: label for label, stored in held.references.items()})
+    return held
 
 
 def reconsideration_problems(cid, returned, held):
@@ -3313,6 +3332,30 @@ def self_test():
                         and c_ex not in [r["candidate_id"] for r in derived_ex.get("not_derived", [])],
                         f"{crossed_ex.get('exhausted')} {crossed_ex.get('not_reviewed')} {len(sup_ex.items)} "
                         f"{again_ex.get('reconsidered')} {current_ex} {derived_ex.get('not_derived')}")
+                # Codex WP-11 r1 #5: a units-only reconsideration packet shows no stored unit or ledger entry id - the
+                # candidate's own references to ones it does not show carry labels of their own. Read value by value
+                # from the packet's candidate object, so an id inside other text (a decision id) is not counted.
+                def stored_values(value, labels):
+                    if isinstance(value, dict):
+                        return [x for v in value.values() for x in stored_values(v, labels)]
+                    if isinstance(value, list):
+                        return [x for v in value for x in stored_values(v, labels)]
+                    if isinstance(value, str):
+                        target = value[len(CLUSTER_PREFIX):] if value.startswith(CLUSTER_PREFIX) else value
+                        return [value] if target in labels.unit_store or target in labels.entry_store else []
+                    return []
+                referring = [(c, labels) for c, (labels, _t) in sorted(whole_packets.items()) if labels.units
+                             and stored_values({k: v for k, v in labels.candidate.items()
+                                                if k not in ("candidate_id", "label", "event_ids", "sessions")}, labels)]
+                leaked = {}
+                for c, labels in referring:
+                    shown = guarded(lambda labels=labels: json.loads(reconsider_payload(returned_labels(
+                        labels, [labels.units["n1"]])).split("<candidate>\n", 1)[1].split("\n</candidate>", 1)[0]), "RAISED")
+                    leaked[c] = ["RAISED"] if shown == "RAISED" else stored_values(shown, labels)
+                control("Codex WP-11 r1 #5: a reconsideration packet's candidate holds no stored unit or ledger entry id; "
+                        "the fixture holds candidates whose fields reference them",
+                        referring and not any(leaked.values()),
+                        f"{len(referring)} {[(c[:20], v[:3]) for c, v in leaked.items() if v][:3]}")
                 sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
                                 lambda e: {"problem": repr(e)})
                 sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
