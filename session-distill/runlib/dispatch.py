@@ -235,7 +235,9 @@ DYNAMIC_LOADS = (
                "never copied; it imports re and sys only and runs nothing"},
 )
 # Python scripts a closure site runs, each with its reason; a declared script joins the closure,
-# so its own sites are judged like any module's.
+# so its own sites are judged like any module's. A row admits a run only when the script argument is
+# proven to be the repository's own file at `path` (`_proven_path`: constants joined onto the site's own
+# `pathlib.Path(__file__).resolve()` directory); a value that merely ends with `path` is another program.
 SCRIPT_RUNS = (
     {"site": "session-distill/runlib/stage_read.py", "path": "session-distill/runlib/stage_read.py",
      "reason": "S3's self-test runs its own `--fixture-driver` as a child it kills while the golden host holds a window, "
@@ -2478,6 +2480,76 @@ def _names(path, text):
     return tail.startswith("/") and bool(tail.strip("/")) and path.endswith(tail)
 
 
+def _file_root(mod, node):
+    """The repository-relative directory `node` is proven to name, or None: `pathlib.Path(__file__).resolve()`
+    followed by `.parent`s, or by one `.parents[n]`, of THIS module's file - the only expression whose value the trace
+    can know without reading anything but the module's own place in the checkout."""
+    ups = 0
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Attribute) and node.value.attr == "parents" \
+            and isinstance(node.slice, ast.Constant) and type(node.slice.value) is int and node.slice.value >= 0:
+        ups, node = node.slice.value + 1, node.value.value
+    else:
+        while isinstance(node, ast.Attribute) and node.attr == "parent":
+            ups, node = ups + 1, node.value
+    if not (isinstance(node, ast.Call) and not node.args and not node.keywords
+            and isinstance(node.func, ast.Attribute) and node.func.attr == "resolve"):
+        return None
+    made = node.func.value
+    if not (isinstance(made, ast.Call) and mod.dotted(made.func) == "pathlib.Path" and len(made.args) == 1
+            and not made.keywords and isinstance(made.args[0], ast.Name) and made.args[0].id == "__file__"):
+        return None
+    parts = pathlib.PurePosixPath(str(mod.rel)).parts
+    if not 1 <= ups <= len(parts):
+        return None
+    return "/".join(parts[:len(parts) - ups])
+
+
+def _bound_once(mod, name):
+    """The value `name` is bound to when this module binds it exactly once, at module level, as the sole target of a
+    plain assignment, and nowhere else - no other store, argument, import, `global` or definition of that name."""
+    sites = []
+    for node in ast.walk(mod.tree):
+        if isinstance(node, ast.Name) and node.id == name and not isinstance(node.ctx, ast.Load):
+            sites.append(node)
+        elif isinstance(node, ast.arg) and node.arg == name:
+            sites.append(node)
+        elif isinstance(node, ast.Global) and name in node.names:
+            sites.append(node)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)) and any((a.asname or a.name.split(".")[0]) == name
+                                                                    for a in node.names):
+            sites.append(node)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+            sites.append(node)
+    held = [n for n in mod.tree.body if isinstance(n, ast.Assign) and len(n.targets) == 1
+            and isinstance(n.targets[0], ast.Name) and n.targets[0].id == name]
+    if len(sites) != 1 or len(held) != 1 or sites[0] is not held[0].targets[0]:
+        return None
+    return held[0].value
+
+
+def _proven_path(mod, node, depth=0):
+    """The repository-relative path a script argument is proven to name, or None (Codex WP-10 X r1 #6: a value that
+    merely ENDED with the declared path was admitted, so `/tmp/scratch/session-distill/distill.py`, or a head the trace
+    could not read followed by the declared tail, passed for the repository's driver). Proven means: `str(...)` or
+    `os.fspath(...)` of string constants joined by `/` onto a name this module binds once to its own file's directory
+    (`_file_root`), or onto that expression itself."""
+    if depth > 8:
+        return None
+    if isinstance(node, ast.Call) and mod.dotted(node.func) in ("str", "os.fspath") and len(node.args) == 1 \
+            and not node.keywords:
+        return _proven_path(mod, node.args[0], depth + 1)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div) and isinstance(node.right, ast.Constant) \
+            and isinstance(node.right.value, str):
+        head, tail = _proven_path(mod, node.left, depth + 1), node.right.value
+        if head is None or not tail or tail.startswith("/") or any(p in ("", ".", "..") for p in tail.split("/")):
+            return None
+        return f"{head}/{tail}" if head else tail
+    if isinstance(node, ast.Name):
+        bound = _bound_once(mod, node.id)
+        return None if bound is None else _proven_path(mod, bound, depth + 1)
+    return _file_root(mod, node)
+
+
 def _spelling(mod, spellings=None):
     """The one spelling of the admitted forms this file declares, or None when it declares none.
 
@@ -2642,7 +2714,9 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
         flag = words[0] if words else [UNKNOWN]
         flag_node = nodes[0] if nodes else None
         nxt = words[1] if len(words) > 1 else [UNKNOWN]
-        declared = [[e for e in runs if e["site"] == str(mod.rel) and _names(e["path"], s)] for s in flag]
+        proven = _proven_path(mod, flag_node) if flag_node is not None else None
+        declared = [[e for e in runs if e["site"] == str(mod.rel) and _names(e["path"], s) and proven == e["path"]]
+                    for s in flag]
         if flag == ["-c"]:
             # The program is admitted as DATA, by declaration, and its insides are not read. The
             # recursion that used to read them judged shapes, and a shape rule over a program that
@@ -5522,6 +5596,23 @@ def self_test(scratch=None):
             "import subprocess\nsubprocess.run([sys.executable, '-c', "
             "'import runpy, sys\\nscript = sys.argv[1]\\nrunpy.run_path(script)', OTHER])",
             UNDECLARED_INLINE, 1)
+    # Codex WP-10 X r1 #6: a declared script run is the repository's own file only when the path is proven from this
+    # module's own place (`_proven_path`); the whole declared suffix behind any other head is another program
+    planted("a-scratch-driver-with-the-whole-declared-suffix", "session-distill/runlib/stage_form.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-I', '/tmp/review-scratch/session-distill/distill.py', 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 1)
+    planted("an-unread-head-before-the-declared-tail", "session-distill/runlib/stage_form.py",
+            "import os, pathlib, subprocess\n"
+            "subprocess.run([sys.executable, '-I', str(pathlib.Path(os.environ['SCRATCH']) / 'distill.py'), 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 1)
+    planted("a-resolved-root-that-is-not-this-file", "session-distill/runlib/stage_form.py",
+            "import os, pathlib, subprocess\nELSEWHERE = pathlib.Path(os.environ['SCRATCH']).resolve().parents[1]\n"
+            "subprocess.run([sys.executable, '-I', str(ELSEWHERE / 'distill.py'), 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 2)
+    planted("a-local-rebinding-of-the-proven-root", "session-distill/runlib/stage_form.py",
+            "def _planted_scratch_run():\n    HERE = pathlib.Path('/tmp/review-scratch/session-distill')\n"
+            "    subprocess.run([sys.executable, '-I', str(HERE / 'distill.py'), 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 2)
     planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
             scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
