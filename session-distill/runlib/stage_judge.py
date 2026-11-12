@@ -1068,6 +1068,27 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
     over_capacity(run_dir.resolve().name, [(f"sweep-{group}-{shard}-{side}", side, seat, text)
                                            for group, shard, _labels, text in built for side, seat in seats.items()],
                   limits, schema_bytes, "SWEEP_OVER_CAPACITY", "the run declares a smaller sweeps.shard_units")
+    # All or none (C3, lead's option (가)): the plan's claims, each call's input at most and its output cap, against
+    # what S6 has left after the judgments. A sweep set that stops part-way leaves its claims waiting on sweeps that
+    # never land; none sent leaves them unknown, by this name.
+    need, unmeasured = 0, []
+    for group, shard, _labels, text in built:
+        for side, seat in seats.items():
+            made = packet.build(f"{run_dir.resolve().name}-{STAGE}-sweep-{group}-{shard}-{side}-a1", STAGE, seat, text,
+                                schema_bytes)
+            at_most = at_most_of(bound.driver_bytes(made, schema_bytes)[0], limits[side])
+            if at_most is None:
+                unmeasured.append(side)
+                continue
+            need += at_most + sizes["output_cap"]
+    left = supervisor.remaining(STAGE)
+    if not unmeasured and need > left:
+        # the claims stay listed, so the derivation names them by this reason and does not read an unswept gap
+        section.update(absent=absent, not_judged_by_both=not_both, layers=layers, inventory_sha256=inventory,
+                       run=False, plan={"calls": len(built) * len(seats), "claims_at_most": need, "left": left},
+                       why=f"SWEEPS_NOT_RUN budget: the plan's {len(built) * len(seats)} calls claim {need} at most and "
+                           f"S6 has {left} left, so no sweep is sent and every absence claim stays unknown")
+        return section, []
     for group, shard, labels, text in built:
         payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
         row = {"group": group, "shard": shard, "seats": {}}
@@ -1713,8 +1734,8 @@ def derive_stage(run_dir, summary, judgments, swept, again, reconsidered=None):
             not_derived.append({"candidate_id": cid, "why": "a judge's call did not finish"})
             continue
         if cid in (swept.get("absent") or []) and cid not in finished:
-            not_derived.append({"candidate_id": cid, "why": "its absence claim's sweeps, cross-review and "
-                                                           "reconsiderations did not all finish"})
+            not_derived.append({"candidate_id": cid, "why": swept["why"] if swept.get("run") is False else
+                                "its absence claim's sweeps, cross-review and reconsiderations did not all finish"})
             continue
         given = derivation_given(population[cid], sources[cid], rows[cid], first, point, (reconsidered or {}).get(cid, {}))
         outcome = derive.unit_outcome(given, {}, TEST_STATE)
@@ -2255,7 +2276,7 @@ def report_lines(summary):
                      + "; current point " + ("complete" if (cl.get("reference") or {}).get("complete") else "incomplete")
                      + f" under the {(cl.get('reference') or {}).get('policy')} policy, layers "
                      + ", ".join(f"{k}={v}" for k, v in ((cl.get("reference") or {}).get("layers") or {}).items()))
-        if not sw["complete"]:
+        if not sw["complete"] or sw.get("run") is False:  # an incomplete point, or a plan S6 has no room for
             lines.append(f"sweeps: none - {sw['why']}")
         else:
             c = sw["counts"]
@@ -3578,6 +3599,9 @@ def self_test():
                         self.items.append((item, seat, kw))
                         return {"item": item, "outcome": "failed", "codes": ["NOT_SENT"], "attempts": []}
 
+                    def remaining(self, stage_):
+                        return 10 ** 12
+
                 def asked(kind, seats_file):
                     sup = Asked(seats_file)
                     said = ""
@@ -3624,6 +3648,47 @@ def self_test():
                         and all(kw.get("context_capacity") == 150_000
                                 and any(x.startswith("CROSS_OVER_CAPACITY B") for x in kw.get("packet_check", lambda m: [])(huge))
                                 for _i, _s, kw in asked_c), f"{said_c[:200]} {len(asked_c)}")
+                # C3 (lead's (가)): before the first sweep, the whole plan's claims are held against what S6 has left, all
+                # or none; driven over the same copy with both sweep seats measured, so each call's claim is computable
+                summary_pre = guarded(lambda: records.read_json(capped / SUMMARY), {})
+
+                def preflight(left):
+                    sup = Asked(fx_seats(root, name=f"sweep-preflight-{left}.json",
+                                         capacities={"codex:gpt-6-luna/medium": 272_000}, codex_allowance=19_167))
+                    sup.remaining = lambda stage_: left
+                    with records.run_stage(capped, STAGE, INPUTS) as stg:
+                        try:
+                            section, _receipts = sweep_stage(capped, stg, sup, stg.declaration, judged_w, judgments_w,
+                                                             sources_w, {}, "calibration")
+                        except Exception as exc:  # noqa: BLE001 - read by the controls below, never the suite's end
+                            section = {"raised": repr(exc)}
+                        stg.record["status"] = "partial"
+                    return section, sup.items
+                low, low_asked = preflight(1)
+                low_plan = low.get("plan") or {}
+                control("C3 (가): with too little of S6 left for the whole sweep plan no sweep is sent, and SWEEPS_NOT_RUN "
+                        "names the plan's calls, the total they claim at most and what S6 has left",
+                        low.get("run") is False and low_asked == [] and bool(low.get("absent"))
+                        and low_plan.get("calls", 0) > 0 and low_plan.get("claims_at_most", 0) > 1 and low_plan.get("left") == 1
+                        and str(low.get("why", "")).startswith(
+                            f"SWEEPS_NOT_RUN budget: the plan's {low_plan.get('calls')} calls claim "
+                            f"{low_plan.get('claims_at_most')} at most and S6 has 1 left"),
+                        f"{ {key: low.get(key) for key in ('run', 'plan', 'why', 'absent', 'raised')} } asked={len(low_asked)}")
+                said_low = guarded(lambda: report_lines({**summary_pre, "dry": False, "sweeps": low}), [])
+                control("C3 (가): the report says no sweep was sent and why",
+                        f"sweeps: none - {low.get('why')}" in said_low, f"{[l for l in said_low if l.startswith('sweeps')]}")
+                derived_low = guarded(lambda: derive_stage(capped, summary_pre, judgments_w, low, {}), {})
+                withheld_low = {row["candidate_id"]: row["why"] for row in derived_low.get("not_derived") or []}
+                control("C3 (가): and every absence claim stays listed and is left underived for that reason, never derived "
+                        "as a gap nobody swept",
+                        bool(low.get("absent")) and all(withheld_low.get(cid) == low.get("why") for cid in low["absent"])
+                        and not set(low["absent"]) & set(derived_low.get("verdicts") or {}),
+                        f"{withheld_low} verdicts={sorted(derived_low.get('verdicts') or {})}")
+                high, high_asked = preflight(10 ** 12)
+                control("C3 (가): with room for the whole plan the sweeps are sent as before, each planned call asked once",
+                        high.get("run") is not False and "plan" not in high and low_plan.get("calls", 0) > 0
+                        and len(high_asked) == low_plan.get("calls"),
+                        f"run={high.get('run')} asked={len(high_asked)} planned={low_plan.get('calls')} {high.get('raised')}")
                 # Codex WP-11 r1 #4: a claim S5 retrieved every remaining unit for has nothing to sweep (shard_plan gives it
                 # no shard); it completes with no cross-review or reconsideration call and is derived from the judges'
                 # own judgments, as a gap
