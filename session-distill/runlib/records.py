@@ -753,9 +753,10 @@ DECLARATION_READERS = {
     ("runlib/stage_adjudicate.py", "self_test"): "the S10 suite reads the seats its golden run declares, to amend "
                                                  "them with the second pass's two seats (a dotted key is assigned as "
                                                  "a whole map)",
-    ("runlib/stage_apply.py", "run"): "S11's effects part reads the declaration again before every write and holds "
-                                      "it to the one it was admitted under: admission releases the declaration's "
-                                      "lock, so an amendment can land while files are being written",
+    ("runlib/stage_apply.py", "_held_declaration"): "S11's effects part takes the declaration's lock around every "
+                                                    "write and reads the declaration again under it, held to the one "
+                                                    "it was admitted under: admission releases that lock, so an "
+                                                    "amendment could otherwise land while files are being written",
     ("runlib/stage_close.py", "_self_test_body"): "the S12 suite reads the declaration of the run S3's own fixture made, "
                                                   "to fold its results as the stage does under its admission",
     ("runlib/stage_read.py", "fx_reader"): "the S3 fixture reads the seat its golden run declared, to seed the supervisor "

@@ -60,8 +60,19 @@ def split_target(target):
     return targets.identity(targets.file_of(target or "")), (heading.strip() or None)
 
 
-def _line(raw):
-    return raw[:-1] if raw.endswith("\r") else raw
+LINE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n|\Z)")
+
+
+def lines_of(text):
+    """`[(offset, line)]`: each line of `text` without its ending, at its own character offset. A line ends at
+    `\n`, `\r\n` or a lone `\r`, as CommonMark ends it: split on `\n` alone, a heading after a lone `\r` was part
+    of the line before it, and the section above ran through it (the S11 review, round 2)."""
+    out, at = [], 0
+    while at < len(text):
+        held = LINE.match(text, at)
+        out.append((at, held.group(0).rstrip("\r\n")))
+        at = held.end()
+    return out
 
 
 def _title(text):
@@ -72,8 +83,7 @@ def _title(text):
 def headings(text):
     """`[(line index, level, title)]` of the ATX headings of `text` outside fenced code."""
     out, fence = [], None
-    for index, raw in enumerate(text.split("\n")):
-        line = _line(raw)
+    for index, (_at, line) in enumerate(lines_of(text)):
         if fence:
             closing = re.match(r"^ {0,3}(" + re.escape(fence[0]) + "{" + str(len(fence)) + r",})[ \t]*$", line)
             if closing:
@@ -107,10 +117,8 @@ def section_span(text, heading, who):
                       f"section is named by one")
     index, lvl = found[0]
     after = next((i for i, other, _name in held if i > index and other <= lvl), None)
-    lines = text.split("\n")
-    start = sum(len(line) + 1 for line in lines[:index])
-    end = len(text) if after is None else sum(len(line) + 1 for line in lines[:after])
-    return start, min(end, len(text))
+    offsets = [at for at, _line in lines_of(text)]
+    return offsets[index], (len(text) if after is None else offsets[after])
 
 
 def _scope(text, heading, who):
@@ -147,7 +155,7 @@ def placed(text, heading, anchor, content, who):
         return text[:at] + content + text[at + len(anchor):]
     if heading:
         start, end = section_span(text, heading, who)
-        if content and end < len(text) and not content.endswith("\n"):
+        if content and end < len(text) and not content.endswith(("\n", "\r")):
             raise Refused(f"SECTION_CONTENT_UNTERMINATED {who}: more of the file follows the section, and the "
                           f"content replacing it does not end its last line; end it with a newline")
         return text[:start] + content + text[end:]
@@ -171,11 +179,11 @@ def routed(text, heading, entry, who):
         raise Refused(f"ROUTE_ENTRY_INVALID {who}: a route's `entry` is one non-empty line")
     line = entry.strip("\r\n")
     start, end = _scope(text, heading, who)
-    if line in [_line(held) for held in text[start:end].split("\n")]:
+    if line in [held for _at, held in lines_of(text[start:end])]:
         raise Refused(f"ROUTE_ENTRY_PRESENT {who}: that entry is already there")
     ending = "\r\n" if "\r\n" in text else "\n"
     body = text[start:end]
-    joint = "" if not body or body.endswith("\n") else ending
+    joint = "" if not body or body.endswith(("\n", "\r")) else ending
     return text[:end] + joint + line + ending + text[end:]
 
 
@@ -372,6 +380,11 @@ def self_test():
     control("a CRLF file's headings are headings, and its section offsets are the file's own",
             [headings("# A\r\nx\r\n# B\r\n"), "# A\r\nx\r\n# B\r\n"[slice(*section_span("# A\r\nx\r\n# B\r\n", "A", "t"))]],
             [[(0, 1, "A"), (2, 1, "B")], "# A\r\nx\r\n"])
+    control("a lone CR ends a line, so a heading after one is a heading and the section above stops at it; mixed "
+            "endings keep each line's own offset",
+            [headings("# A\nx\r# B\ny\n"), removed("# A\nx\r# B\ny\n", "A", None, "t"),
+             lines_of("a\r\nb\rc\nd"), headings("```\r# code\r```\r# real\r")],
+            [[(0, 1, "A"), (2, 1, "B")], "# B\ny\n", [(0, "a"), (3, "b"), (5, "c"), (7, "d")], [(3, 1, "real")]])
     control("closing marks belong to the heading only after a space: `# C#` is titled C#, `# C #` is titled C",
             [headings("# C#\n")[0][2], headings("# C #\n")[0][2], headings("# C ##  \n")[0][2], headings("#\n")[0][2]],
             ["C#", "C", "C", ""])

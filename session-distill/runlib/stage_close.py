@@ -7,7 +7,9 @@ rule: it writes two tracked files of the declared checkout — the ledger and, f
 the coverage state — and its own records in the run directory. Where those two files are inside the
 checkout is the CALLER's to name (`ledger_ref`, `coverage_ref`; the driver's `--checkout-ledger` and
 `--checkout-coverage`), because the layout of a checkout is not a shipped module's to assume; with
-no reference the stage is refused by name. It starts no process.
+no reference the stage is refused by name. Both are written the way S11 writes a file (`stage_apply.Checkout`): reached from the
+checkout's own descriptor, staged first, held to the state the run pinned, read back; nothing else
+is left in the checkout, not a lock and not a temporary. It starts no process.
 It ends by naming the commands the owner runs: the commit over everything S11 and this stage
 changed, the install, and the launcher's state update. The version registry maps a window to the
 commit that carries it, and no commit exists until the owner makes one, so the registry is the
@@ -180,7 +182,18 @@ def keep_of(item):
     return {"units": units, "reason": reason_of(item)} if units else None
 
 
-def updates_of(item, closed_on):
+def retires(row, element):
+    """Whether design §12.3's cell for this row and this decision leaves the entry RETIRED. A drop or a reduce
+    retires an incubating entry; on a placed one a drop drops the proposed intervention and the unit stays placed,
+    so retirement fields written there said a placed unit had been retired (the S12 review). A pair the table
+    does not allow answers False here and is refused, by name, where the decision is applied."""
+    try:
+        return ledger.transition(row, ledger.disposition_key(element))["status"] == "retired"
+    except ledger.LedgerError:
+        return False
+
+
+def updates_of(item, closed_on, element=None, status=None):
     """The entry fields an applied decision on an EXISTING entry changes (what `ledger.py` licenses
     for its disposition; a field it does not license is its refusal, not this function's guess)."""
     disposition = item["disposition"]
@@ -190,12 +203,12 @@ def updates_of(item, closed_on):
     if disposition == "keep":
         held = keep_of(item)
         return {"keep": held} if held else {}
-    if disposition == "drop" or (disposition == "reduce" and not any(o["type"] == "merge" for o in item["operations"])):
+    if element is not None and status is not None and retires(ledger.row_of(status), element):
         return {"retired": closed_on, "retire_reason": reason_of(item) or "retired by this run's decision"}
     return {}
 
 
-def new_entry(entry_id, item, candidate, window_label, closed_on):
+def new_entry(entry_id, item, candidate, window_label, closed_on, element=None):
     """The entry a candidate with none becomes (design §12.1's fields; `create_entry` sets its status
     and first decision). The claim is the candidate; its evidence is the events it was formed from."""
     row, proposal = item["row"], item["proposal"] or {}
@@ -206,16 +219,18 @@ def new_entry(entry_id, item, candidate, window_label, closed_on):
     entry = {"id": entry_id, "lesson": lesson, "status": "incubating", "classification": None,
              "window": window_label, "kind": row.get("kind") or "unclassified",
              "diagnosis": row.get("diagnosis") or "unknown", "disposition": "none",
-             "destination": None if item["disposition"] == "drop" else destination_of(item),
+             "destination": destination_of(item),
              "evidence": [{"claim_id": item["item_id"], "evidence_id": event}
                           for event in (candidate or {}).get("event_ids") or []],
              "independent_lineages": row.get("lineages") if isinstance(row.get("lineages"), int) else "unavailable",
              "consequence": {"kinds": [consequence] if consequence and consequence != "none" else []},
              "coverage": {"basis": "view"}, "keep": keep_of(item) if item["disposition"] == "keep" else None,
              "relations": {}, "decisions": []}
-    if item["disposition"] == "drop" or (item["disposition"] == "reduce"
-                                         and not any(o["type"] == "merge" for o in item["operations"])):
-        entry.update(retired=closed_on, retire_reason=reason_of(item) or "retired by this run's decision")
+    # Retirement is the TRANSITION's to say, not the disposition's: a drop on a new learning retires it (never
+    # placed), and a drop on an existing unit leaves a placed entry whose proposed intervention was dropped.
+    if element is not None and retires(ledger.entry_row(entry), element):
+        entry.update(destination=None, retired=closed_on,
+                     retire_reason=reason_of(item) or "retired by this run's decision")
     return entry
 
 
@@ -252,7 +267,9 @@ def closed_ledger(base, items, candidates, declaration, run_id, confirmation_id,
             if kind == "entry":
                 if entry_id not in {e["id"] for e in held["entries"]}:
                     raise ledger.LedgerError(f"ENTRY_UNKNOWN {entry_id}")
-                updates = updates_of(item, closed_on) if element["applied"] is not None else None
+                was = next(e for e in held["entries"] if e["id"] == entry_id)
+                updates = (updates_of(item, closed_on, element, was["status"])
+                           if element["applied"] is not None else None)
                 held = ledger.apply_decision(held, entry_id, element, updates or None)
                 rows.append({"item_id": item["item_id"], "entry": entry_id, "disposition": item["disposition"],
                              "recorded": "decision"})
@@ -262,7 +279,7 @@ def closed_ledger(base, items, candidates, declaration, run_id, confirmation_id,
             else:
                 entry_id = next(fresh)
                 held = ledger.create_entry(held, new_entry(entry_id, item, candidates.get(item["item_id"]), label,
-                                                           closed_on), element)
+                                                           closed_on, element), element)
                 rows.append({"item_id": item["item_id"], "entry": entry_id, "disposition": item["disposition"],
                              "recorded": "new entry"})
         except (ledger.LedgerError, Refused) as exc:
@@ -270,6 +287,49 @@ def closed_ledger(base, items, candidates, declaration, run_id, confirmation_id,
     held["windows"] = list(held.get("windows") or []) + [window_row(declaration, run_id)]
     made = [r["entry"] for r in rows if r["recorded"] == "new entry"]
     return held, rows, made, problems
+
+
+# ---- the two tracked files, written the way S11 writes a file ------------------------------------------
+# Both go through `stage_apply.Checkout`: reached from the checkout's own descriptor with no link followed, the new
+# bytes staged and synced first, the file then held to the state this run pinned, and the after-state read back.
+# `ledger.write_atomic` and `coverage.write_atomic` resolve a path and then open it by name, hold their check
+# before they stage, and the second keeps its lock in a directory beside the file - inside the checkout (the S12
+# review). Their validation is kept; their writing is not used here.
+
+def write_ledger(tree, ledger_rel, base, closed, allocated, base_sha):
+    """The closed ledger over the base this run pinned, or Refused with the file as it was."""
+    problems = ledger.validate_ledger(closed)
+    if problems:
+        raise Refused(f"LEDGER_WRITE_REFUSED {ledger_rel}: LEDGER_INVALID, nothing written: " + "; ".join(problems))
+    problems = ledger.validate_ledger(base) + ledger.check_pair(base, closed, allocated)
+    if problems:
+        raise Refused(f"LEDGER_WRITE_REFUSED {ledger_rel}: TRANSACTION_INVALID, nothing written: "
+                      + "; ".join(problems))
+    data = ledger.render(closed).encode("utf-8")
+    try:
+        tree.take({"path": ledger_rel, "data": data, "before": base_sha, "after": stage_apply.sha_of(data)})
+    except Refused as exc:
+        raise Refused(f"LEDGER_WRITE_REFUSED {ledger_rel}: {exc}") from exc
+
+
+def promote_coverage(tree, coverage_rel, state, pinned_sha):
+    """The coverage state this run leaves, written over the one it pinned. True when this call or an earlier
+    close of this run wrote it; Refused, with the file as it was, when another run advanced it."""
+    errors = coverage.check_state(state)
+    if errors:
+        raise Refused("\n".join(errors))
+    data = records.json_text(state).encode("utf-8")
+    after, now = stage_apply.sha_of(data), tree.state(coverage_rel)
+    if now == after:
+        return True
+    # S0 pins an absent coverage file as the empty state's hash (`coverage.load`); on disk that is `absent`
+    empty = records.sha256_bytes(records.json_text(coverage.new_state()).encode("utf-8"))
+    before = stage_apply.ABSENT if now == stage_apply.ABSENT and pinned_sha == empty else pinned_sha
+    try:
+        tree.take({"path": coverage_rel, "data": data, "before": before, "after": after})
+    except Refused as exc:
+        raise Refused(f"COVERAGE_BASE_STALE {coverage_rel}: {exc}") from exc
+    return True
 
 
 # ---- the stage ---------------------------------------------------------------------------------------
@@ -359,19 +419,24 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
             if row.get("candidate_id") and row.get("adjudication_id"):
                 adjudications[row["candidate_id"]] = row["adjudication_id"]
         items = decided_items(stored, current, approvals, apply_doc)
-        ledger_path = checkout / ledger_rel
         pinned = declaration["starting_hashes"]
-        base_bytes = ledger.read_current(ledger_path)
-        on_disk = ledger.sha256_bytes(base_bytes)
-        base = json.loads(base_bytes.decode("utf-8")) if base_bytes else None
-        if base is None:
+        with stage_apply.Checkout(checkout) as tree:
+            base_bytes = tree.read(ledger_rel)
+        if not base_bytes:
             raise Refused(f"LEDGER_ABSENT {ledger_rel}: the declared checkout holds no ledger to close on")
+        on_disk = stage_apply.sha_of(base_bytes)
+        try:
+            base = json.loads(base_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise Refused(f"LEDGER_UNREADABLE {ledger_rel}: the file the close would replace is not a ledger "
+                          f"({type(exc).__name__})") from exc
         ledger_done = any(w.get("run_id") == run_id for w in base.get("windows") or [])
         rows, made = [], []
         if ledger_done:
             # an earlier close of this run wrote the ledger and stopped before it ended: nothing is
             # computed or written again, and the allocation it froze says which entries it made
-            made = records.read_json(run_dir / ALLOCATION)["ids"] if (run_dir / ALLOCATION).is_file() else []
+            frozen_doc = records.read_json(run_dir / ALLOCATION) if (run_dir / ALLOCATION).is_file() else {}
+            made, rows = frozen_doc.get("ids") or [], frozen_doc.get("items") or []
         else:
             if on_disk != pinned["ledger"]:
                 raise Refused(f"LEDGER_BASE_STALE {ledger_rel}: it hashes {on_disk[:12]}, and the run pinned "
@@ -382,33 +447,25 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
                                                          confirmation["confirmation_id"], adjudications, frozen)
             if problems:
                 raise Refused("\n".join(problems))
-            if frozen is None:
-                records.write_json(run_dir, run_dir / ALLOCATION, {"stage": STAGE, "ids": made})
+            # frozen WITH what each item became: a re-run after the ledger is written computes nothing again,
+            # and without the rows its close.json said four items and listed none (the S12 review)
+            records.write_json(run_dir, run_dir / ALLOCATION, {"stage": STAGE, "ids": made, "items": rows})
         stage.output(ALLOCATION)
         state, why_not = coverage_after(run_dir, declaration)
         if state is not None and not coverage_rel:
             raise Refused("COVERAGE_UNNAMED S12: a periodic run promotes its coverage, and no reference was named for "
                           "the coverage state inside the declaration's checkout (--checkout-coverage)")
-        if not ledger_done:
-            try:
-                ledger.write_atomic(ledger_path, closed, on_disk, lock_root=run_dir / "close" / "ledger-lock",
-                                    allocated=made)
-            except ledger.LedgerError as exc:
-                raise Refused(f"LEDGER_WRITE_REFUSED {ledger_rel}: {exc}") from exc
         coverage_written = False
-        if state is not None:
-            target = checkout / coverage_rel
-            now = coverage.load(target)[1] if target.is_file() else None
-            after = records.sha256_bytes(records.json_text(state).encode("utf-8"))
-            if now == after:
-                coverage_written = True          # an earlier close of this run promoted it
-            else:
-                coverage.write_atomic((checkout / coverage_rel).parent, state, pinned["coverage"])
-                coverage_written = True
+        with stage_apply.Checkout(checkout) as tree:
+            if not ledger_done:
+                write_ledger(tree, ledger_rel, base, closed, made, on_disk)
+            if state is not None:
+                coverage_written = promote_coverage(tree, coverage_rel, state, pinned["coverage"])
+            ledger_sha = tree.state(ledger_rel)
         paths = list(apply_doc.get("paths") or []) + [ledger_rel] + ([coverage_rel] if coverage_written else [])
         doc = {"stage": STAGE, "run_id": run_id, "confirmation_id": confirmation["confirmation_id"],
                "checkout": str(checkout),
-               "ledger": {"path": ledger_rel, "sha256": _file_sha(ledger_path), "allocated": made,
+               "ledger": {"path": ledger_rel, "sha256": ledger_sha, "allocated": made,
                           "window": window_row(declaration, run_id), "written_by_this_call": not ledger_done},
                "coverage": ({"path": coverage_rel, "promoted": True} if coverage_written
                             else {"path": coverage_rel, "promoted": False, "why": why_not}),
@@ -459,6 +516,7 @@ def self_test():
 
 
 def _self_test_body(failures, ran, reporting):
+    import os
     import shutil
     import tempfile
     from grammar import owner_lines
@@ -546,6 +604,27 @@ def _self_test_body(failures, ran, reporting):
             [problems, entry(out, "S4-02")["status"], entry(out, "S4-02")["decisions"][-1]["applied"]["operations"],
              entry(out, "S4-02")["decisions"][-1]["applied"]["delivery"], entry(out, "S4-02").get("retire_reason")],
             [[], "retired", [], "not_applicable", "이유"])
+    # Retirement is the transition's to say (§12.3), not the disposition's.
+    placed_candidates = {**candidates, "legacy:G-1": {"candidate_id": "legacy:G-1", "source": "legacy",
+                                                      "lifecycle": {"target_entry": "G-1"}}}
+    out, rows, made, problems = closed_ledger(base, [item("legacy:G-1", "drop", proposal={"destination": None})],
+                                              placed_candidates, declaration, "run-1", "C-1", {}, None)
+    control("a drop on a PLACED entry drops the proposed intervention: the unit stays placed and gets no retirement",
+            [problems, entry(out, "G-1")["status"], "retired" in entry(out, "G-1"),
+             "retire_reason" in entry(out, "G-1"), entry(out, "G-1")["decisions"][-1]["disposition"],
+             ledger.check_pair(base, out, made)],
+            [[], "placed", False, False, "drop", []])
+    out, rows, made, problems = closed(item("k-new", "drop", row={"kind": "misfire", "diagnosis": "covered"}))
+    existing = entry(out, "S5-01") or {}
+    control("a drop on a candidate about an EXISTING unit makes a placed entry with its destination kept and no "
+            "retirement",
+            [problems, existing.get("status"), "retired" in existing, existing.get("destination")],
+            [[], "placed", False, {"implementation": "claude/guides/g.md", "anchor": None, "package_id": None}])
+    out, rows, made, problems = closed(item("k-new", "drop"))
+    learned = entry(out, "S5-01") or {}
+    control("a drop on a NEW learning retires it, never placed: retired with the reason and no destination",
+            [problems, learned.get("status"), learned.get("retired"), learned.get("retire_reason"),
+             learned.get("destination")], [[], "retired", "2026-11-08", "이유", None])
     due = item("due_decision:S4-01@run-0", "place", [("create", "claude/guides/g.md")])
     out, rows, made, problems = closed(due)
     control("a due decision is decided on its entry and names the incubate it resolves",
@@ -670,7 +749,8 @@ def _self_test_body(failures, ran, reporting):
             control("a targeted run's coverage is not promoted, and the close says why and what it did not do",
                     [doc["coverage"]["promoted"], "targeted" in doc["coverage"]["why"], sorted(doc["not_done"]),
                      (checkout / COVERAGE_AT).exists()],
-                    [False, True, sorted(NOT_DONE), False])
+                    [False, True, ["dated_run_record", "delivery_verification", "launcher_state",
+                                   "observation_resolutions", "occasion_index", "version_registry"], False])
             control("the commit command names every file S11 and the close changed, the ledger among them",
                     [sorted(doc["paths"]), all(f"'{p}'" in doc["owner_commands"]["commit"] for p in doc["paths"])],
                     [sorted(["claude/guides/g.md", "claude/guides/k.md", LEDGER_AT]), True])
@@ -683,6 +763,14 @@ def _self_test_body(failures, ran, reporting):
             control("a second close writes the ledger no second time", [again, _file_sha(checkout / LEDGER_AT) == sha,
                                                                        before != (checkout / LEDGER_AT).read_bytes()],
                     ["", True, True])
+            second = records.read_json(run_dir / OUTPUT)
+            control("and its close.json still says what each item became, and that this call wrote no ledger",
+                    [second["items"] == doc["items"], len(second["items"]), second["ledger"]["written_by_this_call"],
+                     second["ledger"]["sha256"] == sha], [True, 4, False, True])
+            control("the close leaves nothing in the checkout but what S11 wrote and the ledger: no lock, no "
+                    "temporary",
+                    sorted(str(p.relative_to(checkout)) for p in checkout.rglob("*") if p.is_file()),
+                    sorted(["claude/guides/g.md", LEDGER_AT]))
         section('the close of an applied run (section)', scenario_1)
 
         def scenario_2():
@@ -730,14 +818,69 @@ def _self_test_body(failures, ran, reporting):
             control("and a targeted run promotes nothing, with the reason",
                     [coverage_after(s3_run, {**s3_declaration, "kind": "targeted"})[0],
                      "targeted" in coverage_after(s3_run, {**s3_declaration, "kind": "targeted"})[1]], [None, True])
-            dest = s3_root / "checkout" / "session-distill"
+            dest = s3_root / "checkout"
             dest.mkdir(parents=True)
-            written = coverage.write_atomic(dest, state, coverage.load(dest / "coverage.json")[1])
-            control("the promoted file hashes to what the close compares it with on a re-run",
-                    [written == coverage.load(dest / "coverage.json")[1],
-                     written == records.sha256_bytes(records.json_text(state).encode("utf-8"))], [True, True])
-            control("a coverage state another run advanced since S0 is refused",
-                    code(lambda: coverage.write_atomic(dest, state, "0" * 64)), "COVERAGE_BASE_STALE")
+            pinned_absent = coverage.load(dest / COVERAGE_AT)[1]       # what S0 pins when the file is not there
+            with stage_apply.Checkout(dest) as tree:
+                first = promote_coverage(tree, COVERAGE_AT, state, pinned_absent)
+                again = promote_coverage(tree, COVERAGE_AT, state, pinned_absent)
+                stale = code(lambda: promote_coverage(tree, COVERAGE_AT, coverage.new_state(), "0" * 64))
+            control("the coverage is promoted over the state the run pinned - an absent file is the empty state - "
+                    "and a second close finds it there",
+                    [first, again, coverage.load(dest / COVERAGE_AT)[1]
+                     == records.sha256_bytes(records.json_text(state).encode("utf-8"))], [True, True, True])
+            control("the promotion leaves ONE file in the checkout: no lock directory beside it, no temporary",
+                    sorted(str(p.relative_to(dest)) for p in dest.rglob("*")), ["state", COVERAGE_AT])
+            control("a coverage state another run advanced since S0 is refused and left as it is",
+                    [stale, coverage.load(dest / COVERAGE_AT)[1]
+                     == records.sha256_bytes(records.json_text(state).encode("utf-8"))],
+                    ["COVERAGE_BASE_STALE", True])
+            # the ledger's writer, on its own: a rival's change between the base check and the rename
+            ledger_root = s3_root / "ledger-checkout"
+            (ledger_root / "book").mkdir(parents=True)
+            start = ledger.sample_ledger(ledger.sample_entry("L-1", "incubating"))
+            (ledger_root / LEDGER_AT).write_text(ledger.render(start), encoding="utf-8")
+            start_sha = _file_sha(ledger_root / LEDGER_AT)
+            head = closed_ledger(start, [], {}, {"window": {"start": "2026-11-01", "end": "2026-11-08"},
+                                                 "kind": "targeted"}, "run-w", "C-w", {}, None)[0]
+            rival = ledger.render(ledger.sample_ledger(ledger.sample_entry("L-1", "incubating"),
+                                                       ledger.sample_entry("L-2", "incubating")))
+            real_state, calls = stage_apply.Checkout._state, []
+
+            def rival_writes_during_staging(self, parent, leaf, path):
+                calls.append(leaf)
+                if len(calls) == 2:
+                    (ledger_root / LEDGER_AT).write_text(rival, encoding="utf-8")
+                return real_state(self, parent, leaf, path)
+            stage_apply.Checkout._state = rival_writes_during_staging
+            try:
+                with stage_apply.Checkout(ledger_root) as tree:
+                    lost = code(lambda: write_ledger(tree, LEDGER_AT, start, head, [], start_sha))
+            finally:
+                stage_apply.Checkout._state = real_state
+            control("a ledger a rival changed while this close staged its own is not overwritten: the rival's entry "
+                    "is still there",
+                    [lost, (ledger_root / LEDGER_AT).read_text(encoding="utf-8") == rival,
+                     sorted(p.name for p in (ledger_root / "book").iterdir())],
+                    ["LEDGER_WRITE_REFUSED", True, ["ledger.json"]])
+            (ledger_root / LEDGER_AT).write_text(ledger.render(start), encoding="utf-8")
+            erased = {**head, "entries": []}
+            with stage_apply.Checkout(ledger_root) as tree:
+                said = refusal(lambda: write_ledger(tree, LEDGER_AT, start, erased, [], start_sha))
+            control("a closed ledger that erases an entry of its base is not a transaction over it, and is not written",
+                    [said.split(":")[0], "TRANSACTION_INVALID" in said,
+                     (ledger_root / LEDGER_AT).read_text(encoding="utf-8") == ledger.render(start)],
+                    [f"LEDGER_WRITE_REFUSED {LEDGER_AT}", True, True])
+            outside = s3_root / "outside"
+            outside.mkdir()
+            shutil.rmtree(ledger_root / "book")
+            os.symlink(outside, ledger_root / "book")
+            (outside / "ledger.json").write_text(ledger.render(start), encoding="utf-8")
+            with stage_apply.Checkout(ledger_root) as tree:
+                escaped = code(lambda: write_ledger(tree, LEDGER_AT, start, head, [], start_sha))
+            control("a ledger whose directory became a link out of the checkout is not written through it",
+                    [bool(escaped), (outside / "ledger.json").read_text(encoding="utf-8") == ledger.render(start)],
+                    [True, True])
         section('the coverage a periodic run leaves (section)', scenario_5)
 
     finally:

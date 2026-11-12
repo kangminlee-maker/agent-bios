@@ -89,7 +89,13 @@ def beneath(run_dir, destination):
     root = pathlib.Path(run_dir).resolve()
     pieces = target.relative_to(root).parts
     root.mkdir(parents=True, exist_ok=True)     # the run directory itself is the anchor, made as it always was
-    fds = [os.open(root, os.O_RDONLY | os.O_DIRECTORY)]
+    # ... and opened WITHOUT following a link: `root` is resolved, so a link there now was put there since, and
+    # following it would anchor every write below in whatever it names (the S11 review, round 2).
+    try:
+        fds = [os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)]
+    except OSError as exc:
+        raise Escaped(f"RUN_PATH_ESCAPE {destination}: the run directory {root} is not a directory to open "
+                      f"({exc.strerror}); a link put there after it was resolved is not followed") from exc
     try:
         for piece in pieces[:-1]:
             fds.append(_directory(piece, fds[-1], destination))
@@ -194,6 +200,20 @@ def self_test():
                 globals()["confine"] = real
             if list(outside.iterdir()):
                 failures.append(f"a lock file was made outside the run: {sorted(p.name for p in outside.iterdir())}")
+            # the run directory ITSELF swapped for a link after it was resolved
+            anchor = pathlib.Path(td).resolve() / "anchor"
+            os.symlink(outside, anchor)
+            real_resolve = pathlib.Path.resolve
+            pathlib.Path.resolve = lambda self, *a, **k: self      # as it resolved before the swap
+            try:
+                try:
+                    with beneath(anchor, anchor / "x.json") as (_parent, _leaf):
+                        failures.append("a run directory swapped for a link was opened")
+                except Escaped as exc:
+                    if "RUN_PATH_ESCAPE" not in str(exc):
+                        failures.append(f"the swapped run directory was refused under another name: {exc}")
+            finally:
+                pathlib.Path.resolve = real_resolve
         finally:
             shutil.rmtree(outside, ignore_errors=True)
         if CONTENDED is not None:

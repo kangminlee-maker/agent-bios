@@ -180,3 +180,24 @@ Alternatives:
    code owns it. Needs an offline control over the real `provider_schema_bytes` path.
 2. **Refuse the seat at declaration.** State in the seat table that S7 takes no strict-schema provider, so the
    refusal comes at S0 and names the reason. Cheaper, and closes a seat choice.
+
+## F-35 — two branches that close a run over one base ledger allocate the same entry id
+
+Found by the S12 review of 2026-11-13 (round 2). `stage_close.next_ids` numbers new entries in the series after the
+highest `S<n>` the base ledger holds. Two runs closed on two branches from one base both allocate `S<n+1>-01`, for
+different lessons, and each result passes `ledger.check_pair` against that base. Freezing the allocation inside a
+run (`close/allocation.json`) makes one run repeatable; it says nothing across branches.
+
+Reach: two checkouts or branches each closing a run before either is merged. The merge then meets two appended
+entries of one id in one JSON array - a textual conflict where git sees one, and a duplicate id `validate_ledger`
+refuses where it does not. It is not silent, and it is not prevented.
+
+Alternatives:
+
+1. **A run-specific id.** Derive the series from the run (its id or the confirmation's digest) instead of a
+   counter, as `decisions/record-decision.py` moved from positional to content ids for the same reason. Changes
+   the id form §12 and every reader of `S<n>-<m>` hold.
+2. **Renumber at merge.** A merge-time tool that reallocates the later branch's ids and rewrites its `resolves`
+   references. Keeps the id form; adds a step someone must run.
+3. **Accept it.** One owner, one checkout, one close at a time is release 1's actual use; the collision is caught
+   by the ledger's own validation at merge.

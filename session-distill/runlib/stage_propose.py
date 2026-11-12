@@ -988,6 +988,10 @@ def unit_rows(check_row, current_units, checkout=None):
     return rows
 
 
+SET_DEPENDENT = frozenset(("EDIT_TARGET_ABSENT", "DELETE_TARGET_ABSENT", "ROUTE_TARGET_ABSENT", "MERGE_UNIT_ABSENT",
+                           "CREATE_TARGET_PRESENT"))
+
+
 def applicability_problems(answer, checkout):
     """What S11 would refuse of an answer's operations against the declared checkout as it is now.
 
@@ -1006,7 +1010,11 @@ def applicability_problems(answer, checkout):
         raise
     except Refused as exc:
         found = [str(exc)]
-    return [f"OPERATION_WOULD_NOT_APPLY {problem}" for problem in found]
+    # Asked of ONE proposal against the files as they are, so only what no other proposal can change is reported.
+    # Whether a file is there is the ordered set's to say - another item may create or remove it before this one -
+    # and S11 plans the whole confirmed set in order; refusing here would refuse an answer S11 applies.
+    return [f"OPERATION_WOULD_NOT_APPLY {problem}" for problem in found
+            if (problem.split() or [""])[0] not in SET_DEPENDENT]
 
 
 def live_check(candidate, derivations, verdict, legacy_incubating, checkout, capacity):
@@ -2452,6 +2460,14 @@ def _self_test_body(failures, ran):
                 json.dumps([json.dumps(["OPERATION_WOULD_NOT_APPLY SECTION_CONTENT_UNTERMINATED"]),
                             json.dumps(["OPERATION_WOULD_NOT_APPLY HEADING_ABSENT"]),
                             json.dumps(["OPERATION_WOULD_NOT_APPLY ANCHOR_ABSENT"])]))
+        control("whether a file is THERE is the ordered set's to say, not one proposal's: an edit of a file another "
+                "item may create, and a create over one another item may remove, are left to S11's plan",
+                json.dumps([applicability_problems({"operations": [
+                    {"type": "edit", "target": "claude/guides/not-yet.md", "before_state_sha256": "absent",
+                     "content": "x\n"}]}, str(state_root)),
+                    applicability_problems({"operations": [
+                        {"type": "create", "target": "claude/guides/kept.md", "before_state_sha256": K_STATE,
+                         "content": "x\n"}]}, str(state_root))]), json.dumps([[], []]))
         control("and one that applies, or an answer with no operations, raises nothing",
                 json.dumps([would({"type": "edit", "target": "claude/guides/kept.md#One", "content": "## One\n\nnew\n"}),
                             applicability_problems({"operations": []}, str(state_root))]),
