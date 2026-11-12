@@ -223,6 +223,12 @@ READER_EXCEPTIONS = {
                                           "census itself through load and rows",
     ("runlib/stage_retrieve.py", "<module>"): "INPUTS declares census.json as S5's S1 input artifact; the recurrence reads "
                                               "the census itself through load and rows",
+    ("runlib/stage_judge.py", "<module>"): "INPUTS declares census.json as S6's S1 input artifact, so a census taken again "
+                                           "makes S6 stale; S6 reads no census row",
+    ("runlib/stage_render.py", "<module>"): "INPUTS declares census.json as S9's S1 input artifact, so a census taken again "
+                                            "makes the review stale",
+    ("runlib/stage_render.py", "load"): "reads the admitted census once for the review header's per-source state, "
+                                        "discovered count and totals (`sources`); S9 reads no census row",
 }
 LOADERS = frozenset(("load", "load_document", "build", "reconcile", "run"))
 TEST_CODE = ("self_test", "fx_", "golden")
@@ -2243,26 +2249,6 @@ def controls(checks):
             mutated = copy.deepcopy(schema)
             mutate(mutated["$defs"]["transcript"]["properties"]["status"]["enum"])
             expect(f"a schema {how} status is named", [e.split(":")[0] for e in contract_mismatch(mutated, STATUSES_5_1)], ["CONTRACT_MISMATCH census (design §5.1)"])
-
-        # the legacy census-to-digest handoff of the runbook still runs on a fixture home (the cutover is WP-22)
-        legacy = Home(root / "legacy")
-        sid = "c0000050-0000-4000-8000-000000000000"
-        stamp = datetime.datetime(2026, 10, 5, 12).timestamp()
-        legacy.put(legacy.projects / "-fx" / f"{sid}.jsonl", [
-            {"type": "user", "entrypoint": "cli", "message": {"role": "user", "content": "make the weekly summary shorter"}},
-            {"type": "assistant", "message": {"role": "assistant", "content": "ok"}}])
-        legacy.history_path.write_text(json.dumps({"sessionId": sid, "timestamp": int(stamp * 1000), "display": "make the weekly summary shorter"}) + "\n")
-        (legacy.root / ".codex" / "history.jsonl").write_text("")
-        scratch = root / "legacy-out"
-        scratch.mkdir()
-        env = {"HOME": str(legacy.root), "PATH": os.environ.get("PATH", "")}
-        step1 = subprocess.run([sys.executable, "-I", str(HERE / "census.py"), "--end", "2026-10-08", "--window-days", "7", "--out", str(scratch)],
-                               capture_output=True, text=True, env=env)
-        step2 = subprocess.run([sys.executable, "-I", str(HERE / "digest.py"), "--census", str(scratch / "census.json"), "--out", str(scratch)],
-                               capture_output=True, text=True, env=env)
-        digests = json.loads((scratch / "digests.json").read_text()) if (scratch / "digests.json").exists() else []
-        expect("census.py --end then digest.py: the documented handoff still runs on the fixture",
-               (step1.returncode, step2.returncode, [(d["session_id"], d["goals"]) for d in digests]), (0, 0, [(sid, ["make the weekly summary shorter"])]))
 
         # D-20261106-208882: a row the census leaves unread lies against the window by the best evidence its files give -
         # the file-time bound first, its record timestamps where the bound cannot rule it out, undetermined otherwise

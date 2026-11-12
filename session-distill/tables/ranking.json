@@ -1,0 +1,194 @@
+{
+  "$comment": "The §7.5 total order over review rows, as DATA. The module computes a key from these rows and judges nothing they do not say. Each ordered list is copied from the design sentence quoted in `design`, and `runlib/stage_propose.py` holds the same sentence as DESIGN_7_5 and compares the two, so a one-sided edit fails rather than drifts.",
+  "design": "A total order over all review rows, computed by code and printed per row: status group (§9), consequence class (irreversible, security, verification-corrupting, cost, quality, none), affirmed independent lineages (descending), kind (misfire, gap, not delivered, obsolete, confirmed, already resolved, unclassified), diagnosis (trigger problem, wrong or insufficient, gap, redundant, covered, unknown), change before no-change, candidate id.",
+  "keys": [
+    {
+      "id": "status_group",
+      "direction": "ascending",
+      "source": "groups",
+      "$comment": "§9's grouping, which is the first key because the report is grouped by it."
+    },
+    {
+      "id": "consequence",
+      "direction": "ascending",
+      "source": "consequence_classes"
+    },
+    {
+      "id": "lineages",
+      "direction": "descending",
+      "source": "affirmed independent lineages",
+      "$comment": "The one numeric key, and the only descending one: more affirmed lineages first."
+    },
+    {
+      "id": "owner_resolves",
+      "direction": "ascending",
+      "source": "the S7b review's own owner_resolves",
+      "values": {
+        "true": 0,
+        "absent": 1,
+        "false": 1
+      },
+      "design": "plan amendment 2026-11-11T0040 (release 1 ships distill without S8), the WP-20 row: \"the §7.5 order falls back to the judges and S7b, and the header names the fallback\".",
+      "$comment": "This key rests on the AMENDMENT, not on §7.5. §7.5's own seven keys carry no S7b part: with S8 deferred no row can be tested, so the ordering signal S8 would have supplied is replaced by the two that remain - the judges' (already here as `lineages`, the affirmed independent lineages S6's judges agree on) and S7b's, which is this key. It sits after `lineages` and before `kind` so the two fallback signals are adjacent and both ahead of the structural keys. A row whose S7b review disagrees and leaves the question to the owner (`owner_resolves` true) sorts FIRST, because the owner reading the report is the person who resolves it. A row that carries no S7b record at all is NEUTRAL, not last: it ranks exactly where S7's own keys put it, so adding the key cannot reorder a run that has no reviews. The direction of the first group is a lead decision, since the amendment's sentence says the order falls back to S7b without saying which way; revisit the key when S8 lands and §7.5's test signal returns."
+    },
+    {
+      "id": "kind",
+      "direction": "ascending",
+      "source": "kind_order"
+    },
+    {
+      "id": "diagnosis",
+      "direction": "ascending",
+      "source": "diagnosis_order"
+    },
+    {
+      "id": "change",
+      "direction": "ascending",
+      "source": "change_order",
+      "$comment": "\"change before no-change\": whether the disposition changes the library."
+    },
+    {
+      "id": "candidate_id",
+      "direction": "ascending",
+      "source": "the candidate's own id",
+      "$comment": "The last key, and the only one that cannot tie, which is what makes the order total."
+    }
+  ],
+  "consequence_classes": [
+    "irreversible",
+    "security",
+    "verification-corrupting",
+    "cost",
+    "quality",
+    "none"
+  ],
+  "kind_order": [
+    "misfire",
+    "gap",
+    "not delivered",
+    "obsolete",
+    "confirmed",
+    "already resolved",
+    "unclassified"
+  ],
+  "diagnosis_order": [
+    "trigger problem",
+    "wrong or insufficient",
+    "gap",
+    "redundant",
+    "covered",
+    "unknown"
+  ],
+  "change_order": [
+    "change",
+    "no-change"
+  ],
+  "groups": [
+    {
+      "id": "proposed_and_tested",
+      "members": [
+        {
+          "field": "status",
+          "value": "proposed"
+        },
+        {
+          "field": "status",
+          "value": "tested"
+        },
+        {
+          "field": "status",
+          "value": "untested"
+        }
+      ],
+      "$comment": "§9 names this group \"proposed and tested\". `untested` is in it for release 1 and for release 1's reason: S8 is deferred (D-818391), so no row can be `tested` and an untested row is a proposed row whose test stage does not run - not a row offered for testing and skipped. The report prints it as `proposed (untested: s8_deferred)` through `test_state_label`. §9's sentence does not name `untested` itself, so this placement rests on the deferral rather than on that sentence, and it is the entry to revisit when S8 lands: with S8 running, an untested row means something §9 has not placed."
+    },
+    {
+      "id": "disputed",
+      "members": [
+        {
+          "field": "status",
+          "value": "disputed"
+        }
+      ],
+      "$comment": "§9 writes it \"disputed (adjudicate)\": the parenthesis names what the owner does with the group, not a second status."
+    },
+    {
+      "id": "confirmed_and_keep",
+      "members": [
+        {
+          "field": "status",
+          "value": "confirmed"
+        },
+        {
+          "field": "kind",
+          "value": "confirmed"
+        },
+        {
+          "field": "disposition",
+          "value": "keep"
+        }
+      ]
+    },
+    {
+      "id": "already_resolved_and_unclassified",
+      "members": [
+        {
+          "field": "kind",
+          "value": "already resolved"
+        },
+        {
+          "field": "kind",
+          "value": "unclassified"
+        }
+      ]
+    },
+    {
+      "id": "rejected",
+      "members": [
+        {
+          "field": "status",
+          "value": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "quarantined_or_failed",
+      "members": [
+        {
+          "field": "status",
+          "value": "quarantined"
+        },
+        {
+          "field": "status",
+          "value": "delivery_failed"
+        },
+        {
+          "field": "status",
+          "value": "failed"
+        },
+        {
+          "field": "status",
+          "value": "returned"
+        }
+      ],
+      "$comment": "§9's population sentence names \"every quarantined or failed item\", so `failed` is a status this group holds by §9's own words: WP-20 uses it for an item that failed upstream - an S5 check that did not pass, an S6 candidate in `not_derived`, an S7 answer returned. `returned` is here by the same sentence read one step further: §10.4 says an ineligible item is RETURNED with the failing condition named, which is a failure of eligibility and nothing else in §9's population. Before both were members, a returned proposal fell into the resolved/unclassified group by its KIND, and a returned row whose kind is gap was refused outright - which is how lane E found this."
+    }
+  ],
+  "groups_design": "Rows appear in the single total order of §7.5, grouped by status: proposed and tested; disputed (adjudicate); confirmed and keep; already resolved and unclassified; rejected; quarantined or failed.",
+  "groups_note": "§9 calls this grouping \"by status\", and four of the six groups are indeed named by statuses of §7.2. Two are not: \"confirmed and keep\" names a status, a KIND (confirmed) and a DISPOSITION (keep), and \"already resolved and unclassified\" names two kinds only. So each member carries the field it belongs to, and the module places a row in two passes: a status a group names decides first, since §9 says the rows are grouped by status; a row whose status no group holds is then placed by its kind or its disposition. Without the second pass those two groups would be unreachable for the rows they exist for, because an approved keep carries a status §9 never mentions. A row no pass places is a named problem (ROW_GROUP_UNDECLARED), never a silent last bucket. This reading is recorded as an interpretation with the sentence it rests on.",
+  "unplaced_statuses": [
+    "admitted",
+    "approved",
+    "applied",
+    "delivery_verified"
+  ],
+  "unplaced_note": "The statuses of §7.2 that no group sentence holds. A row carrying one is placed by its kind or disposition in the second pass, and refused by name only when neither places it either - so the gap is visible and countable rather than discovered by a row falling through. When §9 is extended, a status moves into a group and leaves this list in the same change. `returned` and `untested` left this list on 2026-11-12: the first by §9's population sentence, the second by release 1's deferral of S8, each with its reason in its group's comment.",
+  "test_state_label": {
+    "applies_to_status": [
+      "proposed",
+      "untested"
+    ],
+    "format": "{status} ({test_state})",
+    "$comment": "Release 1 defers S8 (D-818391), so no row is `tested` and every row of the first group carries a test state instead. The report prints `<status> (<test state>)` for the statuses listed here; the label never decides a group, which is the status's job."
+  }
+}

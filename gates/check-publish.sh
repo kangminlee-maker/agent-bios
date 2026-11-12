@@ -120,7 +120,8 @@ PLIST
   local missing_p
   missing_p="$(AGENT_BIOS_PACKLIST="$plist" python3 - <<'PYEOF'
 import json, os, subprocess, sys
-files = json.load(open("package.json")).get("files", [])
+files = [e for e in json.load(open("package.json")).get("files", [])
+         if not (isinstance(e, str) and e.startswith("!"))]   # npm exclusions, not paths
 expected = set()
 for e in files:
     e = e.strip("/")

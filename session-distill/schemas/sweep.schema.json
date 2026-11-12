@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §6.2 (S6's absence sweeps); plan WP-11 done-when 6; lead decisions E2 and E3 (2026-11-11): a shard of a reference point's remaining units judged for the candidates its packet lists, each candidate against only the units its packet names for it. Candidates and units are named by the packet's own labels (k, n); code turns them back into stored ids and checks that every listed pair is judged exactly once and no other (stage_judge.sweep_problems). This schema holds the shape.",
+  "title": "S6 absence sweep",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pairs"],
+  "properties": {
+    "pairs": {"type": "array", "items": {"$ref": "#/$defs/pair"}}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "match": {"type": "string", "enum": ["yes", "no"]},
+    "pair": {
+      "type": "object", "additionalProperties": false, "required": ["candidate", "unit", "situation", "action", "reason"],
+      "properties": {
+        "candidate": {"type": "string", "pattern": "^k[1-9][0-9]*(?![\\s\\S])"},
+        "unit": {"type": "string", "pattern": "^n[1-9][0-9]*(?![\\s\\S])"},
+        "situation": {"$ref": "#/$defs/match"},
+        "action": {"$ref": "#/$defs/match"},
+        "reason": {"$ref": "#/$defs/text"}
+      }
+    }
+  }
+}

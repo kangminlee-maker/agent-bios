@@ -31,8 +31,13 @@ DECISION_FIELDS = ("decision", "decision1", "decision2", "decision3")
 EVENT_FIELDS = ("review_note", "classified", "selected", "placement_proposed")  # see the module docstring
 REMOVED_FIELDS = ("verdict", "strength", "criteria")
 # Every legacy field, and where it goes. A field in none of these is `FIELD_UNMAPPED`.
+# `keep` passes through: schema 2 requires the field on every entry (`keep_record`, nullable), and
+# a schema 1 keep record already has that exact shape, so the standing records the keep layer
+# delivers survive the migration unchanged. It was named by no row until the WP-22 cutover, which
+# stopped the migration of any entry carrying one — invisible because the ledger has none today.
 KEPT_FIELDS = ("id", "lesson", "principle", "rationale", "status", "surfaced", "domain", "source", "note",
-               "learning_id", "baseline_ref", "window", "classification", "recurrence", "absorbed_by", "retired", "retire_reason")
+               "learning_id", "baseline_ref", "window", "classification", "recurrence", "absorbed_by", "retired", "retire_reason",
+               "keep")
 MOVED_FIELDS = ("supporting_sessions", "placed", "placed_anchor", "placed_package_id", "implementation")
 LEGACY_ONLY = (*REMOVED_FIELDS, *MOVED_FIELDS, *DECISION_FIELDS, *EVENT_FIELDS)
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -64,11 +69,29 @@ def element(run, field, disposition, approval, at, text, **extra):
             "applied": None, "tests": None, "expected_observation": None, "at": at, "field": field, "legacy_text": text, **extra}
 
 
+def migrated_keep(entry):
+    """The schema 2 keep record of one schema 1 entry: its units, and the rationale the entry
+    carried beside them (F-34). `None` when the entry keeps nothing, which is what schema 2's
+    required-but-nullable `keep` holds for every entry of this ledger today."""
+    keep = entry.get("keep")
+    if not isinstance(keep, dict):
+        return None
+    record = copy.deepcopy(keep)
+    if entry.get("reason") is not None:
+        record["reason"] = entry["reason"]
+    return record
+
+
 def migrate_entry(entry, migrated_at):
     """(the schema 2 entry, the values the schema removes) for one schema 1 entry; `migrated_at` is the
     date its `legacy_migration` element carries."""
     eid = entry["id"]
-    unknown = sorted(set(entry) - set(KEPT_FIELDS) - set(LEGACY_ONLY))
+    # `reason` is a schema 1 keep row's rationale and its home in schema 2 is the KEEP RECORD
+    # (F-34): an entry forbids additional properties, so it travels into `keep.reason` below. An
+    # entry carrying the rationale and no keep record has nothing to carry it, and is refused by
+    # name rather than having the sentence dropped on the floor.
+    holds_keep = isinstance(entry.get("keep"), dict)
+    unknown = sorted(set(entry) - set(KEPT_FIELDS) - set(LEGACY_ONLY) - ({"reason"} if holds_keep else set()))
     if unknown:
         raise MigrationError(f"FIELD_UNMAPPED {eid}: {unknown} are named by no row of design §12.2")
     run = f"legacy-{entry.get('window') or 'unknown'}"
@@ -125,7 +148,8 @@ def migrate_entry(entry, migrated_at):
     new.update(kind="unclassified", diagnosis="unknown", disposition="none",
                evidence=[{"locator": "unavailable", "session": s} for s in entry.get("supporting_sessions", [])],
                independent_lineages="unavailable", consequence={"kinds": list(entry.get("criteria") or [])},
-               coverage={"basis": "unavailable"}, keep=None, relations=relations, decisions=elements)
+               coverage={"basis": "unavailable"}, keep=migrated_keep(entry),
+               relations=relations, decisions=elements)
     return new, {k: entry[k] for k in REMOVED_FIELDS if k in entry}
 
 

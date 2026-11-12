@@ -280,9 +280,9 @@ claude_permission_mode = "standard"
 [presets.session-distill]
 # Author-only: the workflow edits the agent-bios instructions and needs a checkout, so
 # its mission names repo paths a packaged user does not have. Declaring it lets
-# gates/check-package.sh judge the mission text. NOTE: this declaration is read by
-# the gate, not yet by the launcher — the preset is still offered on a packaged
-# install. Closing that route belongs with the package-based distill work.
+# gates/check-package.sh judge the mission text, and the launcher reads it too: a tree
+# with no `gates/` directory is not a checkout, and the menu, the mode branch and
+# `build_plan` each refuse the preset by name there (`preset_withheld`, WP-22a).
 audience = "author"
 label = "Session distill"
 description = "Dedicated session-distill run: mine recent sessions, verify, place, and apply per the session-distill workflow. Requires an agent-bios checkout."

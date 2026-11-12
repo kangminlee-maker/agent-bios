@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "One row of approvals.jsonl: design §10.1's fields, plus the plan's decision_input_sha (WP-20, settled S-11: the owner edits a copy of the render, and the copy's bytes are bound beside the render's). Release 1 runs no S8 (D-20261111-818391), so manifest_sha and results_sha carry the named state 'untested: s8_deferred', never null (lead decision E2). `alternative` is the S7b alternative a 수정 adopts (§10.1); `member_of` names the group row whose one decision line the row came from (the owner's legacy rule, relayed 2026-11-11).",
+  "title": "S10 approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["approval_id", "item_id", "item_sha", "review_version_sha", "configuration_sha", "manifest_sha",
+               "results_sha", "decision", "superseded_keeps", "note", "at", "decision_input_sha"],
+  "properties": {
+    "approval_id": {"type": "string", "pattern": "^A-[0-9a-f]{16}(?![\\s\\S])"},
+    "item_id": {"$ref": "#/$defs/text"},
+    "item_sha": {"$ref": "#/$defs/sha256"},
+    "review_version_sha": {"$ref": "#/$defs/sha256"},
+    "configuration_sha": {"$ref": "#/$defs/sha256"},
+    "manifest_sha": {"$ref": "#/$defs/s8_hash"},
+    "results_sha": {"$ref": "#/$defs/s8_hash"},
+    "decision": {"type": "string", "enum": ["approve", "revise", "defer", "reject", "adjudicate"]},
+    "superseded_keeps": {"type": "array", "items": {"$ref": "#/$defs/keep_release"}},
+    "note": {"type": "string"},
+    "at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})(?![\\s\\S])"},
+    "decision_input_sha": {"$ref": "#/$defs/sha256"},
+    "alternative": {"$ref": "#/$defs/text"},
+    "member_of": {"$ref": "#/$defs/text"}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])"},
+    "s8_hash": {"type": "string", "pattern": "^([0-9a-f]{64}|untested: s8_deferred)(?![\\s\\S])",
+      "$comment": "S8's manifest or results hash; in release 1 the named state, since no S8 ran."},
+    "keep_release": {
+      "type": "object", "additionalProperties": false, "required": ["record_id", "grounds"],
+      "properties": {"record_id": {"$ref": "#/$defs/text"}, "grounds": {"$ref": "#/$defs/text"}}
+    }
+  }
+}

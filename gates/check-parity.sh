@@ -166,6 +166,16 @@ if [ -f gates/check-mcp-inventory.py ]; then
     python3 gates/check-mcp-inventory.py
 fi
 
+# The shipped driver's own dependencies against the inventory: an import or a command literal the
+# driver reaches for and DEPENDENCIES.md does not name is a traceback on the first user who lacks
+# it, with nothing in the inventory to have warned them. Derived from the code, both halves.
+if [ -f gates/check-driver-dependencies.py ]; then
+  leg -q "FAIL: driver-dependency gate self-test missed a negative control" \
+    python3 gates/check-driver-dependencies.py --self-test
+  leg -q "FAIL: the shipped driver reaches for a dependency DEPENDENCIES.md does not declare" \
+    python3 gates/check-driver-dependencies.py
+fi
+
 # The always-loaded global file stays under its byte ceiling (AGENTS.md section 8). The gate
 # reads the INDEX — under the pre-commit hook the exported GIT_INDEX_FILE is the hook's
 # snapshot — so what it judges is what the commit carries. A staged file above the ceiling is
@@ -491,17 +501,105 @@ fi
 # expected records and holds the reader inventory against a text, AST and argument discovery. The nudge writer's
 # self-test runs the launcher's reader against the state it writes. The committed ledger is data and
 # moves only at the cutover; these legs read it and never change it.
-if [ -f session-distill/runlib/ledger.py ]; then
-  leg -q "FAIL: session-distill ledger self-test (session-distill/runlib/ledger.py)" \
-    python3 session-distill/runlib/ledger.py --self-test
-  leg -q "FAIL: the ledger lost an id, allocated a wrong one, or changed a row with no decision (session-distill/runlib/ledger.py --check)" \
-    python3 session-distill/runlib/ledger.py --check
+# Through `gates/check-ledger.py`, which supplies the two things only a checkout has: the committed
+# ledger's path and the author-side migrator. The shipped module no longer names either (WP-24), and
+# run bare it reports those legs as skipped by name.
+if [ -f gates/check-ledger.py ]; then
+  leg -q "FAIL: session-distill ledger self-test (gates/check-ledger.py --self-test)" \
+    python3 gates/check-ledger.py --self-test
+  leg -q "FAIL: the ledger lost an id, allocated a wrong one, or changed a row with no decision (gates/check-ledger.py --check)" \
+    python3 gates/check-ledger.py --check
 fi
 if [ -f session-distill/migrate-ledger.py ]; then
   leg -q "FAIL: session-distill ledger migration self-test (session-distill/migrate-ledger.py)" \
     python3 session-distill/migrate-ledger.py --self-test
   leg -q "FAIL: the ledger does not migrate to design 12.2's expected records, or the reader inventory is stale (session-distill/migrate-ledger.py --check)" \
     python3 session-distill/migrate-ledger.py --check
+fi
+# The proposal contract's tables as code (WP-12): §7.2's pairs and §7.3's structural rules, each held
+# against the design's own rows by the module's own suite.
+if [ -f session-distill/runlib/placement.py ]; then
+  leg -q "FAIL: session-distill proposal contract self-test (session-distill/runlib/placement.py)" \
+    python3 session-distill/runlib/placement.py --self-test
+fi
+# S7 propose: the packet, the answer's shape and the O5 fixtures.
+if [ -f session-distill/runlib/stage_propose.py ]; then
+  leg -q "FAIL: session-distill S7 propose self-test (session-distill/runlib/stage_propose.py)" \
+    python3 session-distill/runlib/stage_propose.py --self-test
+fi
+# S7b review of proposals: the merge question, the bars and the alternative.
+if [ -f session-distill/runlib/stage_review_proposals.py ]; then
+  leg -q "FAIL: session-distill S7b review self-test (session-distill/runlib/stage_review_proposals.py)" \
+    python3 session-distill/runlib/stage_review_proposals.py --self-test
+fi
+# The §7.5 total order over review rows.
+if [ -f session-distill/runlib/ranking.py ]; then
+  leg -q "FAIL: session-distill ranking self-test (session-distill/runlib/ranking.py)" \
+    python3 session-distill/runlib/ranking.py --self-test
+fi
+# The grammar of the lines the owner writes into a review's decision copy and a confirmation file (WP-20 K1).
+if [ -f session-distill/grammar/owner_lines.py ]; then
+  leg -q "FAIL: session-distill owner-line grammar self-test (session-distill/grammar/owner_lines.py)" \
+    python3 session-distill/grammar/owner_lines.py --self-test
+fi
+# S9 render: the review of S4's population, its owner copy, its frozen proposals and its rows (WP-20 K2).
+if [ -f session-distill/runlib/stage_render.py ]; then
+  leg -q "FAIL: session-distill S9 render self-test (session-distill/runlib/stage_render.py)" \
+    python3 session-distill/runlib/stage_render.py --self-test
+fi
+# S9b: a review version's Korean against its English payload, one regeneration, the mark (WP-20 K4).
+if [ -f session-distill/runlib/stage_review_korean.py ]; then
+  leg -q "FAIL: session-distill S9b review-korean self-test (session-distill/runlib/stage_review_korean.py)" \
+    python3 session-distill/runlib/stage_review_korean.py --self-test
+fi
+# S10 adjudicate: the owner's adjudications recomputed, the newly admitted through S7 and S7b again (WP-20 K5).
+if [ -f session-distill/runlib/stage_adjudicate.py ]; then
+  leg -q "FAIL: session-distill S10 adjudicate self-test (session-distill/runlib/stage_adjudicate.py)" \
+    python3 session-distill/runlib/stage_adjudicate.py --self-test
+fi
+# S10b confirm: the final set S10's approvals leave, and the owner's confirmation bound to it (WP-20 K6).
+if [ -f session-distill/runlib/stage_confirm.py ]; then
+  leg -q "FAIL: session-distill S10b confirm self-test (session-distill/runlib/stage_confirm.py)" \
+    python3 session-distill/runlib/stage_confirm.py --self-test
+fi
+# S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
+if [ -f session-distill/runlib/stage_approvals.py ]; then
+  leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \
+    python3 session-distill/runlib/stage_approvals.py --self-test
+fi
+# The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
+# belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
+# by the pre-commit hook and a leg that ran the hook would recurse.
+# WP-21's drift and order: the comparison, the layers nobody compared, and the global-file refusal.
+# The O10 case against the REAL global-file gate is `gates/global-op-unjudged-check.sh`, an
+# author-side script and not a leg: it drives git over a scratch repository, and a shipped suite
+# naming `gates/` would fail check-package.sh's third direction.
+if [ -f session-distill/runlib/drift.py ]; then
+  leg -q "FAIL: session-distill drift and order self-test (session-distill/runlib/drift.py)" \
+    python3 session-distill/runlib/drift.py --self-test
+fi
+
+# WP-21's write-ahead journal: §10.5's record, its framing, and the order no effect may precede.
+if [ -f session-distill/runlib/journal.py ]; then
+  leg -q "FAIL: session-distill side-effect journal self-test (session-distill/runlib/journal.py)" \
+    python3 session-distill/runlib/journal.py --self-test
+fi
+
+# WP-21's destination manifest: where S11 and S12 may write, held against the writers' own sources.
+if [ -f session-distill/runlib/destinations.py ]; then
+  leg -q "FAIL: session-distill destination manifest self-test (session-distill/runlib/destinations.py)" \
+    python3 session-distill/runlib/destinations.py --self-test
+fi
+
+if [ -f session-distill/runlib/sequencing.py ]; then
+  leg -q "FAIL: session-distill commit sequencing self-test (session-distill/runlib/sequencing.py)" \
+    python3 session-distill/runlib/sequencing.py --self-test
+fi
+# The schema-2 ledger library itself. Its `--self-test` came from the ship-driver history and the gate
+# that notices an unlegged self-test from the other, so the pair first meets here.
+if [ -f session-distill/runlib/ledger.py ]; then
+  leg -q "FAIL: session-distill ledger library self-test (session-distill/runlib/ledger.py)" \
+    python3 session-distill/runlib/ledger.py --self-test
 fi
 if [ -f session-distill/runlib/ledger_compat.py ]; then
   leg -q "FAIL: session-distill ledger projection self-test (session-distill/runlib/ledger_compat.py)" \
@@ -573,7 +671,8 @@ fi
 # index, redundancy hints over the current library, and G clusters; no model is called.
 if [ -f session-distill/runlib/lifecycle_intake.py ]; then
   leg -q "FAIL: session-distill S4 lifecycle intake self-test (session-distill/runlib/lifecycle_intake.py)" \
-    python3 session-distill/runlib/lifecycle_intake.py --self-test
+    python3 session-distill/runlib/lifecycle_intake.py --self-test \
+      --checkout-ledger design/session-distill/ledger.json
 fi
 # Follow-up resolutions (plan WP-08 done-when 5, design §11): the O9 fixtures through the derivation, each flipped.
 if [ -f session-distill/runlib/measures.py ]; then
@@ -611,6 +710,12 @@ if [ -f session-distill/runlib/controls.py ]; then
   leg -q "FAIL: session-distill planted controls self-test (session-distill/runlib/controls.py)" \
     python3 session-distill/runlib/controls.py --self-test
 fi
+# S6 judge (plan WP-11): the judgment schema and the reuse key against design §6.2 (done-when 8), one payload and one
+# receipt per call (done-when 1's PACKET_DIVERGENCE and RECEIPT_STALE), an answer checked against its packet; no model is called.
+if [ -f session-distill/runlib/stage_judge.py ]; then
+  leg -q "FAIL: session-distill S6 judge self-test (session-distill/runlib/stage_judge.py)" \
+    python3 session-distill/runlib/stage_judge.py --self-test
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
@@ -623,7 +728,7 @@ if [ -f compose/instructions-state.py ]; then
 fi
 
 # Secret-redaction floor (learn/redact.py) — single-sourced by the heavy
-# (digest.py) and light (collect-learning.py) flows; --self-test proves each
+# (runlib/projection.py) and light (collect-learning.py) flows; --self-test proves each
 # pattern fires and that lessons ABOUT secrets are not over-redacted.
 if [ -f learn/redact.py ]; then
   leg -q "FAIL: secret-redaction floor self-test (learn/redact.py)" \

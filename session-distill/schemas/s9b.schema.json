@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "S9b's answer for one review row (design §9; plan WP-20 done-when 2): each of the row's six Korean reason fields (stage_propose.REASON_FIELDS, the Korean the owner reads; the flat proposal's singular `reason` is a copy of `reasons.reason`) judged against the row's English payload for faithfulness and plain wording. Code holds the field set to the six, each once, and the verdict to the fields: `pass` exactly when every field is both faithful and plain.",
+  "title": "S9b review of a row's Korean",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "fields", "notes"],
+  "properties": {
+    "verdict": {"type": "string", "enum": ["pass", "fail"],
+      "$comment": "Two values: a row either reads as its payload says, plainly, or it is regenerated once."},
+    "fields": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/field"}},
+    "notes": {"$ref": "#/$defs/text"}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "field": {
+      "type": "object", "additionalProperties": false, "required": ["field", "faithful", "plain", "finding"],
+      "properties": {
+        "field": {"type": "string", "enum": ["what_happened", "proposal", "reason", "cost", "serves", "falsifier"]},
+        "faithful": {"type": "boolean",
+          "$comment": "No fact of the payload dropped, none added, no condition or exception lost, no claim made stronger or weaker."},
+        "plain": {"type": "boolean",
+          "$comment": "A person new to the work can follow it: plain words, a technical term explained where it first appears."},
+        "finding": {"$ref": "#/$defs/text"}
+      }
+    }
+  }
+}

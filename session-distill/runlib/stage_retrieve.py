@@ -27,7 +27,12 @@ Code only: no model is called. For every candidate of S4's population - formed a
   (derive.absence) the current point S2 recorded decides, and when it is not complete every candidate is withheld from
   an absence sweep, with the count and the reason travelling by name to the summary and the report (D-20261111-eaa2a8).
 
-The output holds names, ids, hashes, scores and counts; no unit text, lesson or quote.
+Three outputs, each with its own boundary. `checks.json` and `controls.json` hold names, ids, hashes, scores and
+counts: no unit text, lesson or quote. `checked-candidates.json` (POPULATION_FILE) is the population S6 builds its
+packets from, and it is evidence-bearing by design: every candidate whole (S4's formed ones with their lessons, the
+lifecycle intake's, the planted controls) and the evidence records S6 shows beside them - the origin quotes S4
+verified and kept, and a planted quote - redacted text included. It is private to the run and goes to a model only through S6's packets (Codex WP-10 X r1 #9:
+a counts-only sentence covered all three).
   stage_retrieve.py --self-test
 """
 import collections
@@ -149,9 +154,17 @@ def score(value):
     return None if value is None else round(value, SCORE_DIGITS)
 
 
-def retrieve_units(keys, names_u, index):
-    """`(rows, named ids the library does not hold)`: the top PER_LAYER units of each layer by score (ties by unit id),
-    each with its rank, then every named unit outside them, unranked."""
+def retrieval_of(declaration):
+    """The counts S5 keeps (plan WP-11, lead decision on J0's numbers): run.json's `retrieval.per_layer` and
+    `retrieval.top_entries` when the run declares them, else PER_LAYER and TOP_ENTRIES, each with where it came from."""
+    held = (declaration or {}).get("retrieval") or {}
+    return {"per_layer": held.get("per_layer", PER_LAYER), "top_entries": held.get("top_entries", TOP_ENTRIES),
+            "basis": {key: "declared" if key in held else "default" for key in ("per_layer", "top_entries")}}
+
+
+def retrieve_units(keys, names_u, index, per_layer=PER_LAYER):
+    """`(rows, named ids the library does not hold)`: the top `per_layer` units of each layer by score (ties by unit
+    id), each with its rank, then every named unit outside them, unranked."""
     scores = index.library.scores(keys) if keys else {}
     by_layer = collections.defaultdict(list)
     for rep, value in scores.items():
@@ -160,7 +173,7 @@ def retrieve_units(keys, names_u, index):
     wanted = set(names_u)
     rows = []
     for layer in sorted(by_layer):
-        ranked = sorted(by_layer[layer], key=lambda pair: (-pair[1], pair[0]))[:PER_LAYER]
+        ranked = sorted(by_layer[layer], key=lambda pair: (-pair[1], pair[0]))[:per_layer]
         rows += [{"unit_id": rep, "layer": layer, "rank": rank, "score": score(value), "named": rep in wanted,
                   "copies": index.copies[rep]} for rank, (rep, value) in enumerate(ranked, 1)]
     have = {r["unit_id"] for r in rows}
@@ -179,11 +192,11 @@ def retrieve_units(keys, names_u, index):
     return rows, absent
 
 
-def retrieve_entries(keys, names_e, index):
-    """`(rows, named ids the ledger does not hold)`: the top TOP_ENTRIES entries by score (ties by id), then every named
-    entry outside them, unranked."""
+def retrieve_entries(keys, names_e, index, top_entries=TOP_ENTRIES):
+    """`(rows, named ids the ledger does not hold)`: the top `top_entries` entries by score (ties by id), then every
+    named entry outside them, unranked."""
     scores = index.library.scores(keys) if keys else {}
-    ranked = sorted(((i, v) for i, v in scores.items() if v > 0), key=lambda pair: (-pair[1], pair[0]))[:TOP_ENTRIES]
+    ranked = sorted(((i, v) for i, v in scores.items() if v > 0), key=lambda pair: (-pair[1], pair[0]))[:top_entries]
     wanted = set(names_e)
     rows = [{"entry_id": i, "status": index.entries[i].get("status"), "rank": rank, "score": score(v), "named": i in wanted}
             for rank, (i, v) in enumerate(ranked, 1)]
@@ -245,21 +258,26 @@ def stored_evidence(run_dir, names):
 
 
 def cited(candidate, subject_of):
-    """`(evidence ids a candidate cites, problems)`: its admission's quotes and the quotes of its events' claims."""
+    """`(evidence ids a candidate cites, problems)`: its admission's quotes, and the quotes of every claim it cites - by
+    its admission's `claim_ids`, its tension's `instance_claim_ids` and its events' claims - each claim once. Codex WP-10
+    r1 #1: the claims cited directly were skipped, so a quote reached only through one was never verified again."""
     events = {r["id"]: r for r in subject_of["events"]}
-    ids, problems = set(), []
+    ids, problems, claim_ids = set(), [], []
     for requirement in (candidate.get("admission") or {}).values():
         ids.update(requirement.get("evidence_ids") or [])
+        claim_ids += list(requirement.get("claim_ids") or [])
+    claim_ids += list((candidate.get("tension") or {}).get("instance_claim_ids") or [])
     for event_id in candidate.get("event_ids") or []:
         row = events.get(event_id)
         if row is None:
             continue
-        for claim_id in row["claim_ids"] + row["outcome_claim_ids"]:
-            claim = subject_of["claims"].get(claim_id)
-            if claim is None:
-                problems.append(f"CLAIM_UNKNOWN {claim_id}")
-                continue
-            ids.update(q["evidence_id"] for q in claim["quotes"])
+        claim_ids += row["claim_ids"] + row["outcome_claim_ids"]
+    for claim_id in dict.fromkeys(claim_ids):
+        claim = subject_of["claims"].get(claim_id)
+        if claim is None:
+            problems.append(f"CLAIM_UNKNOWN {claim_id}")
+            continue
+        ids.update(q["evidence_id"] for q in claim["quotes"])
     return sorted(ids), problems
 
 
@@ -340,11 +358,12 @@ def build(run_dir, declaration, nonce=None):
     everyone = sorted(cands["candidates"] + planted, key=lambda k: k["candidate_id"])
     clusters = {c["candidate_id"]: c for c in everyone if c["source"] == "g_cluster"}
     absence, withheld_reason = absence_of(current)
+    limits = retrieval_of(declaration)
     out = []
     for k in everyone:
         keys, names_u, names_e = query_keys(k, unit_index, entry_index, clusters)
-        units, absent_u = retrieve_units(keys, names_u, unit_index)
-        entries, absent_e = retrieve_entries(keys, names_e, entry_index)
+        units, absent_u = retrieve_units(keys, names_u, unit_index, limits["per_layer"])
+        entries, absent_e = retrieve_entries(keys, names_e, entry_index, limits["top_entries"])
         ids, claim_problems = cited(k, subject_of)
         quotes = claim_problems + quote_problems(run_dir, ids, stored, extra)
         out.append({"candidate_id": k["candidate_id"], "source": k["source"], "query_keys": len(keys),
@@ -354,8 +373,8 @@ def build(run_dir, declaration, nonce=None):
                     "quote_problems": quotes, "session_problems": session_problems(k, subject_of, rows),
                     "absence_withheld": withheld_reason is not None})
     planted_ids = {k["candidate_id"] for k in planted}
-    doc = {"constants": {"per_layer": PER_LAYER, "top_entries": TOP_ENTRIES, "top_entries_basis": TOP_ENTRIES_BASIS,
-                         "indexed_class": INDEXED_CLASS},
+    doc = {"constants": {"per_layer": limits["per_layer"], "top_entries": limits["top_entries"],
+                         "top_entries_basis": TOP_ENTRIES_BASIS, "indexed_class": INDEXED_CLASS, "declared": limits["basis"]},
            "library": unit_index.counts, "ledger_index": {"entries": len(entry_index.entries), "read": read},
            "absence": absence, "candidates": out,
            "summary": summary_of([r for r in out if r["candidate_id"] not in planted_ids], withheld_reason)}
@@ -399,7 +418,7 @@ def run(run_dir, nonce=None):
         for name in OUTPUTS:
             stage.output(name)
         declaration_seq = stage.record["declaration_seq"]
-    return {**doc["summary"], "declaration_seq": declaration_seq, "library": doc["library"],
+    return {**doc["summary"], "declaration_seq": declaration_seq, "library": doc["library"], "constants": doc["constants"],
             "ledger_index": doc["ledger_index"], "absence": doc["absence"],
             "controls": {"planted": len(planted_doc["planted"]),
                          "s5_checked": sum(1 for e in planted_doc["planted"] if "S5" in e),
@@ -422,7 +441,9 @@ def report_lines(summary):
              f"copies folded, not indexed {lib['not_indexed']}; ledger: {summary['ledger_index']['entries']} entries "
              f"({summary['ledger_index']['read']})",
              f"retrieval: {summary['retrieved_units']} unit rows ({summary['named_units']} named), "
-             f"{summary['ledger_entries']} ledger entry rows; at most {PER_LAYER} per layer and {TOP_ENTRIES} entries",
+             f"{summary['ledger_entries']} ledger entry rows; at most {summary['constants']['per_layer']} per layer "
+             f"({summary['constants']['declared']['per_layer']}) and {summary['constants']['top_entries']} entries "
+             f"({summary['constants']['declared']['top_entries']})",
              f"quotes: {summary['quotes_checked']} verified again, {summary['quote_failed']} candidates failed; "
              f"sessions: {summary['session_failed']} candidates with a session problem",
              f"recurrence: {rec['lineages']} counted lineages over {rec['sessions']} sessions; excluded "
@@ -649,6 +670,29 @@ def self_test():
                     "QUOTE_MISMATCH, the fabricated session SESSION_UNKNOWN - and the run goes on",
                     [e.get("S5", {}).get("ok") for e in planted_doc["planted"] if "S5" in e["checked_at"]] == [True] * 4
                     and made.get("controls", {}).get("s5_held") == 4, f"{planted_doc['planted']}")
+            gold_ranks = [u["rank"] for r in doc["candidates"] for u in r["retrieved_units"] if u["rank"] is not None]
+            control("WP-11: with no retrieval declared, S5 keeps its own counts and says they are its defaults",
+                    doc.get("constants", {}).get("declared") == {"per_layer": "default", "top_entries": "default"}
+                    and doc["constants"].get("per_layer") == PER_LAYER and doc["constants"].get("top_entries") == TOP_ENTRIES
+                    and f"at most {PER_LAYER} per layer (default)" in "\n".join(guarded(lambda: report_lines(made), [])),
+                    f"{doc.get('constants')}")
+            from runlib import declare
+            narrow_run = copy_of("narrow")
+            # two per layer, under a fixed draw: at one per layer a paraphrase control can lose its unit to another of its
+            # layer, and S5 then stops the run by name (CONTROL_FAILED), which is S5's verdict on too narrow a retrieval
+            narrowed = guarded(lambda: (declare.amend(narrow_run, [("retrieval", {"per_layer": 2, "top_entries": 1})],
+                                                      "narrow S5's retrieval (WP-11)", scope=["S5"]),
+                                        run(narrow_run, "aa" * 8))[1],
+                               lambda exc: {"problem": repr(exc)})
+            narrow = guarded(lambda: records.read_json(narrow_run / "checks.json"), {"problem": narrowed})
+            ranked = {u["rank"] for r in narrow.get("candidates", []) for u in r["retrieved_units"] if u["rank"] is not None}
+            entry_ranks = {e["rank"] for r in narrow.get("candidates", []) for e in r["ledger_entries"] if e["rank"] is not None}
+            control("WP-11: a declared retrieval keeps that many units of each layer and ledger entries, says the counts are "
+                    "declared, and its checks.json is schema-valid",
+                    narrow.get("constants", {}).get("declared") == {"per_layer": "declared", "top_entries": "declared"}
+                    and gold_ranks and max(gold_ranks) > 2 and ranked == {1, 2} and entry_ranks == {1}
+                    and not guarded(lambda: schema_problems(narrow), ["unreadable"]),
+                    f"{narrow.get('constants', narrow)} {sorted(ranked)} {sorted(entry_ranks)}")
             control("golden: the summary counts the natural candidates; the controls are reported apart",
                     doc.get("summary", {}).get("candidates") == len(cands) and doc["summary"].get("quote_failed") == 0
                     and doc["summary"].get("session_failed") == 0, f"{doc.get('summary')}")
@@ -707,6 +751,37 @@ def self_test():
             raw = guarded(lambda: (gold / "checks.json").read_text(encoding="utf-8"), "")
             control("checks.json holds names, ids, scores and counts: no unit text and no lesson",
                     raw and not [t for t in texts if t and t in raw], f"{[t for t in texts if t and t in raw][:2]}")
+            # Codex WP-10 X r1 #9: each output's boundary on its own, against the texts the run's stores hold - the
+            # library's units, S4's lessons, and the redacted text of every quote S4's formed candidates cite
+            cited_q = set()
+            for k in cands:
+                if k["source"] == "formed":
+                    cited_q |= set(guarded(lambda k=k: cited(k, stage_form.subject(gold))[0], []))
+            quote_texts = []
+            for path in sorted((gold / "evidence").glob("*.jsonl")):
+                for line in path.read_text(encoding="utf-8").splitlines():
+                    rec = json.loads(line) if line.strip() else {}
+                    if rec.get("evidence_id") in cited_q and len(rec.get("redacted_text") or "") > 12:
+                        quote_texts.append(rec["redacted_text"])
+
+            def holds(raw_text, text):   # as written, or as JSON escapes it
+                return any(form in raw_text for form in (text, json.dumps(text)[1:-1],
+                                                         json.dumps(text, ensure_ascii=False)[1:-1]))
+            outputs = {name: guarded(lambda name=name: (gold / name).read_text(encoding="utf-8"), "") for name in OUTPUTS}
+            lessons = [k["lesson"] for k in cands if k["source"] == "formed" and len(k.get("lesson") or "") > 12]
+            leaked = {name: [t[:30] for t in texts + quote_texts if holds(outputs[name], t)]
+                      for name in ("checks.json", controls.CONTROLS_FILE)}
+            # what the population carries beyond the candidates: the origin quotes S4 verified and kept
+            origin_texts = [r["redacted_text"] for r in (guarded(lambda: records.read_json(gold / "candidates.json"), {})
+                                                         .get("origin_evidence") or {}).values()
+                            if len(r.get("redacted_text") or "") > 12]
+            carried = [t[:30] for t in lessons + origin_texts if not holds(outputs[POPULATION_FILE], t)]
+            control("Codex WP-10 X r1 #9: checks.json and controls.json hold no unit text, lesson or quote, and "
+                    "checked-candidates.json, the evidence-bearing population, holds every formed lesson and the redacted "
+                    "text of every origin quote S4 kept", bool(lessons) and bool(quote_texts) and bool(origin_texts)
+                    and all(outputs.values()) and not any(leaked.values()) and not carried,
+                    f"{len(lessons)} lessons {len(quote_texts)} quotes {len(origin_texts)} origins leaked {leaked} "
+                    f"not carried {carried[:2]}")
 
             # quote checks: an altered quote in the store fails by code and id
             altered = copy_of("altered")
@@ -729,6 +804,26 @@ def self_test():
                     "counted in the summary", target_id and a_row.get("quote_ok") is False
                     and a_row.get("quote_problems") == [f"QUOTE_MISMATCH {target_id}"]
                     and a_doc["summary"].get("quote_failed") == 1, f"{target_id} {a_row.get('quote_problems')}")
+            # Codex WP-10 r1 #1: the same altered quote, reached only through a claim the candidate cites directly - by
+            # its admission's claim_ids, and by its tension's instance_claim_ids - is QUOTE_MISMATCH too
+            sub_a = guarded(lambda: stage_form.subject(altered), {"events": [], "claims": {}})
+            direct = next((c for c, claim in sub_a["claims"].items()
+                           if any(q["evidence_id"] == target_id for q in claim["quotes"])), None)
+            names_a = [t["name"] for t in guarded(lambda: records.read_json(altered / "views.json")["transcripts"], [])]
+            stored_a = guarded(lambda: stored_evidence(altered, names_a), {})
+            by_claims = {"candidate_id": "k-direct", "event_ids": [],
+                         "admission": {"observed_event": {"claim_ids": [direct], "evidence_ids": []}}}
+            by_tension = {"candidate_id": "k-tension", "event_ids": [], "admission": {},
+                          "tension": {"instance_claim_ids": [direct]}}
+            got_direct = [guarded(lambda k=k: quote_problems(altered, cited(k, sub_a)[0], stored_a, {}), ["RAISED"])
+                          for k in (by_claims, by_tension)]
+            control("Codex WP-10 r1 #1: an altered quote reached only through a claim cited directly - by the admission's "
+                    "claim_ids or the tension's instance_claim_ids - is QUOTE_MISMATCH by evidence id",
+                    direct and target_id and got_direct == [[f"QUOTE_MISMATCH {target_id}"]] * 2,
+                    f"{direct} {target_id} {got_direct}")
+            control("Codex WP-10 r1 #1: a claim cited directly that no store holds is CLAIM_UNKNOWN",
+                    guarded(lambda: cited({**by_claims, "admission": {"observed_event": {"claim_ids": ["c-none"]}}},
+                                          sub_a)[1], []) == ["CLAIM_UNKNOWN c-none"])
             # a tampered immutable copy, at the function: the record's own copy hashes otherwise
             tampered = copy_of("tampered")
             sub_t = guarded(lambda: stage_form.subject(tampered), None)
@@ -764,8 +859,13 @@ def self_test():
                     refusal(lambda: run(stale)))
             # the driver, as a process
             cli = copy_of("cli")
+            # The fixture's ledger reference, named for the subprocess: the in-process calls above read
+            # it from the module-level value `fx_reader` set, which a child process does not inherit.
+            from runlib import stage_read
             done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "retrieve", "--run-id", cli.name,
-                                   "--out", str(cli.parent)], capture_output=True, text=True, timeout=600)
+                                   "--out", str(cli.parent),
+                                   "--checkout-ledger", stage_read.CHECKOUT_LEDGER],
+                                  capture_output=True, text=True, timeout=600)
             said_cli = done.stdout + done.stderr
             control("the driver's `retrieve` runs S5 as a process, completes, and prints counts with the withheld line",
                     done.returncode == 0 and "S5 retrieve: declaration_seq" in said_cli

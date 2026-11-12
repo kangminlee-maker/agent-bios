@@ -79,12 +79,17 @@ Everything durable lives in the agent-bios repo.
 
 ## Read next (SSOT)
 
-1. `design/session-distill/ledger.json` — the initiative's state. Every item
-   carries its status (placed / incubating / incubating-G / absorbed /
-   adopted-no-text), strength, and provenance, so what is open, what was
-   promoted, and what is still incubating are all queries against this file.
-   Read state here and nowhere else: a count or a status written into prose is
-   correct on the day it is written and silently wrong afterwards.
+1. `design/session-distill/ledger.json` — the initiative's state, schema 2 since
+   the WP-22 cutover. An entry's `status` is one of incubating / placed /
+   adopted-no-text / absorbed / retired, its history is `decisions[]`, and its
+   type is `classification.type`; so what is open, what was promoted and what is
+   still incubating are all queries against this file. Read state here and nowhere
+   else: a count or a status written into prose is correct on the day it is written
+   and silently wrong afterwards. Schema 1's `verdict`, `strength` and `criteria`
+   are gone from the entry — `criteria` became `consequence.kinds`, and the dropped
+   values are written down in the dated migration record, not recoverable from the
+   file. The reader of the ledger is `runlib/ledger.py`; the schema is
+   `session-distill/schemas/ledger.schema.json`.
 2. `design/session-distill/versions.json` — authoring provenance mapping each
    closed mining window to its commit. Private rollback selects an installed
    `baseline_ref` through the instructions plan; this registry is not that authority.
@@ -93,38 +98,45 @@ Everything durable lives in the agent-bios repo.
    `AGENTS.md` cap on the canonical always surface and `SURFACES.md` delivery contract when
    choosing a destination; the framework does not authorize additions to the global file.
 
-## Stage 1 — Mine (pipeline in `session-distill/`)
+## Stage 1 — Run the driver (`session-distill/distill.py`)
 
-The current collectors read Claude Code and Codex session histories.
-Run in order; each stage reads the previous stage's `out/`:
+One run, one run directory, one subcommand per stage. The v1 pipeline that used to
+stand here — the per-session digests, the batches, the two provider screeners, the
+union, the consolidation and the bundles — was deleted at the WP-22 cutover; the
+driver replaces it. Every stage writes into `<run root>/<run-id>/`, the run root
+being `--out` or, unset, the XDG state directory the driver resolves. A checkout
+passes `--out session-distill/out/<run-id-root>` explicitly.
 
-1. `census.py --end YYYY-MM-DD` — enumerate from both providers'
-   history.jsonl; keep only directly-handled main-context sessions by
-   transcript-side provenance (dispatched = Codex source=exec /
-   Claude sidechain/sdk-cli/agentId).
-2. `digest.py` — one secret-redacted digest per session with deterministic
-   6-criteria signals. Screen ALL digests; triage orders, never drops.
-3. `batch.py` — the baseline blob (`claude/CLAUDE.md` + every guide, the
-   repo's canonical instructions) and per-provider batches; writes
-   `out/batch_index.json`, which the screeners take as their `args`.
-4. Provider-affine screening against that baseline: `screen-claude.js`
-   (Claude sessions; a Workflow script — pass the index as `args`, one
-   WORKHORSE screener per batch) and `screen-codex.py` (Codex sessions;
-   one hermetic read-only `codex exec` per batch, packet on stdin). Novelty
-   is judged against real baseline text, not memory. Then `collect.py`
-   unions the two outputs into `out/candidates-all.json` and fails when a
-   provider's screened set is smaller than its batch.
-5. `consolidate.js` (Workflow; `args` = baseline, candidates path, count,
-   and the ledger's `{id, lesson}` list) — dedup + independent novelty
-   verification, then a match pass naming which survivor recurs an
-   existing ledger entry. Rank by strength (recurrence × materiality),
-   never by self-reported confidence. Save its return value as
-   `out/consolidated.json`.
-6. `bundle_final.py` — tiered bundle. `merge-ledger.py --window-end <date>`
-   (dry-run; `--apply` writes) merges survivors into `ledger.json`: a
-   recurrence gains the window's sessions under `recurrence`, a new lesson
-   becomes a `candidate` entry — so recurrence accumulates across windows
-   and incubated items promote when they re-occur.
+**Not every stage runs yet, and the ones that do not refuse by name rather than
+doing something approximate.** `STAGE_NOT_IMPLEMENTED <command> (<stage>)` on
+stderr, exit 2. The table is what this checkout does today, not the design:
+
+| Stage | Command | Today |
+| --- | --- | --- |
+| S0 | `distill.py declare --run-id ID --from DECLARATION.json` | runs; `--set PATH=VALUE` edits it until a stage has read it, `--amend --reason TEXT` after |
+| S1 | `distill.py census --run-id ID` | runs; `--reconcile RESULTS.json` folds S3's results back into the statuses |
+| S2 | `distill.py views --run-id ID` | runs: the immutable copies, the redaction projection, the windows, the search index, the evidence store |
+| S2 | `distill.py inventory --run-id ID --ledger design/session-distill/ledger.json` | runs: the units per reference point. The ledger path is the caller's to name |
+| S3 | `distill.py read --run-id ID` | **refuses.** The stage's module (`runlib/stage_read.py`) has landed and runs under its own `--fixture-driver`; the subcommand is not wired to it |
+| S4 | `distill.py form --run-id ID --dry [--checkout-ledger design/session-distill/ledger.json]` | runs: the barrier, the lifecycle intake and the packet held to its bound, record partial |
+| S4 | `distill.py form --run-id ID --cells DIR [--golden-plan PLAN.json]` | runs: the one formation call, live (token only as `CLAUDE_RUN_TOKEN_FILE`) or golden with a plan |
+| S5 | `distill.py retrieve` | refuses; WP-10 brings it |
+| S6 | `distill.py judge` | refuses; WP-11 brings it |
+| S7, S7b | `distill.py propose`, `review-proposals` | refuses; WP-12 brings both |
+| S8 | `distill.py test` | refuses, and **stays refused in release 1: S8 is deferred to release 2 by name (D-20261111-818391).** No run tests whether an applied change helped. Every row that would carry a test result carries the named state `untested: s8_deferred` instead, never a blank |
+| S9, S9b, S10, S10b | `distill.py render`, `review-korean`, `parse-decisions`, `adjudicate`, `confirm` | refuses; WP-20 brings them. Without S8 the §7.5 order falls back to the judges and S7b, and the header names the fallback |
+| S11, S12 | `distill.py apply`, `close` | refuses; WP-21 brings them, and delivery verification reads the installation receipt |
+
+The evidence that the runnable stages run is the driver's own suite,
+`python3 session-distill/distill.py --self-test` (declare → stage → amend → stage on
+real files), and the module suites `python3 session-distill/runlib/<name>.py
+--self-test`, which are the checkout's tooling rather than a packaged user's.
+
+Author-side window tools that are not stages of the driver and still run:
+`census.py` (the v1 window census), `plain-asks.py`, `merge-ledger.py --window-end
+<date>` (dry-run; `--apply` writes) and `update-state.py --window-end <date>` (the
+launcher's nudge baseline). `migrate-ledger.py` is the ledger's schema 1 → 2
+migration, performed once and idempotent after.
 
 ## Stage 2 — Review with the user
 

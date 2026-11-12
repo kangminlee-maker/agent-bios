@@ -137,7 +137,7 @@ while [ "$i" -lt "${#scan[@]}" ]; do
 done
 case "$profile" in
   inherit|hermetic) ;;
-  *) echo "claude-run: --profile must be inherit|hermetic" >&2; exit 2 ;;
+  *) echo "claude-run: ADAPTER_ARGUMENT_INVALID --profile must be inherit|hermetic" >&2; exit 2 ;;
 esac
 
 model=""
@@ -176,7 +176,7 @@ while [ $# -gt 0 ]; do
     --max-output-tokens) max_output="${2:?--max-output-tokens needs a value}"; shift 2 ;;
     --use|--manifest|--declared-sha256|--server-policy)
       if [ "$profile" != hermetic ]; then
-        echo "claude-run: $1 applies only to --profile hermetic" >&2; exit 2
+        echo "claude-run: ADAPTER_ARGUMENT_INVALID $1 applies only to --profile hermetic" >&2; exit 2
       fi
       case "$1" in
         --use) use="${2:?--use needs a value}" ;;
@@ -187,7 +187,7 @@ while [ $# -gt 0 ]; do
       shift 2 ;;
     --server-policy-probe)
       if [ "$profile" != hermetic ]; then
-        echo "claude-run: $1 applies only to --profile hermetic" >&2; exit 2
+        echo "claude-run: ADAPTER_ARGUMENT_INVALID $1 applies only to --profile hermetic" >&2; exit 2
       fi
       server_policy_probe=1; shift ;;
     # claude's own flags, which the hermetic profile owns: under inherit they are forwarded
@@ -213,10 +213,10 @@ while [ $# -gt 0 ]; do
 done
 
 case "$max_output" in
-  ''|*[!0-9]*) [ -z "$max_output" ] || { echo "claude-run: --max-output-tokens must be a whole number" >&2; exit 2; } ;;
+  ''|*[!0-9]*) [ -z "$max_output" ] || { echo "claude-run: ADAPTER_ARGUMENT_INVALID --max-output-tokens must be a whole number" >&2; exit 2; } ;;
 esac
 if [ -n "$schema" ] && [ ! -f "$schema" ]; then
-  echo "claude-run: --schema: not a file: $schema" >&2
+  echo "claude-run: ADAPTER_ARGUMENT_INVALID --schema: not a file: $schema" >&2
   exit 2
 fi
 if [ "$profile" = hermetic ]; then
@@ -224,42 +224,42 @@ if [ "$profile" = hermetic ]; then
   case "$use" in
     judge|authoring)
       if [ -n "$tools" ] || [ -n "$manifest" ]; then
-        echo "claude-run: --use $use grants no tool; --tools and --manifest are the producing profile's" >&2; exit 2
+        echo "claude-run: ADAPTER_ARGUMENT_INVALID --use $use grants no tool; --tools and --manifest are the producing profile's" >&2; exit 2
       fi ;;
     producing)
       # Read is the one tool the host path-scopes; Grep, Glob and Bash it does not, so search
       # is done before dispatch and a request for any of them is refused as ungranted.
       if [ "$tools" != Read ] || [ -z "$manifest" ]; then
-        echo "claude-run: --use producing needs --tools Read and --manifest DIR" >&2; exit 2
+        echo "claude-run: ADAPTER_ARGUMENT_INVALID --use producing needs --tools Read and --manifest DIR" >&2; exit 2
       fi
       if [ ! -d "$manifest" ]; then
-        echo "claude-run: --manifest: not a directory: $manifest" >&2; exit 2
+        echo "claude-run: ADAPTER_ARGUMENT_INVALID --manifest: not a directory: $manifest" >&2; exit 2
       fi
       manifest="$(cd -P "$manifest" && pwd)" ;;
-    *) echo "claude-run: --use must be judge|producing|authoring" >&2; exit 2 ;;
+    *) echo "claude-run: ADAPTER_ARGUMENT_INVALID --use must be judge|producing|authoring" >&2; exit 2 ;;
   esac
   if [ -n "$permission_mode" ]; then
-    echo "claude-run: --permission-mode is fixed by --profile hermetic" >&2; exit 2
+    echo "claude-run: ADAPTER_ARGUMENT_INVALID --permission-mode is fixed by --profile hermetic" >&2; exit 2
   fi
   if [ "${#append_files[@]}" -ne "${#append_declared[@]}" ]; then
-    echo "claude-run: every --append-system-prompt-file needs its --declared-sha256" >&2; exit 2
+    echo "claude-run: ADAPTER_ARGUMENT_INVALID every --append-system-prompt-file needs its --declared-sha256" >&2; exit 2
   fi
   if [ "${#append_files[@]}" -gt 0 ]; then
     for f in "${append_files[@]}"; do
-      [ -f "$f" ] || { echo "claude-run: --append-system-prompt-file: not a file: $f" >&2; exit 2; }
+      [ -f "$f" ] || { echo "claude-run: ADAPTER_ARGUMENT_INVALID --append-system-prompt-file: not a file: $f" >&2; exit 2; }
     done
   fi
   case "$call_id" in
-    ''|.|..|*/*) echo "claude-run: --profile hermetic needs a --call-id (a plain name)" >&2; exit 2 ;;
+    ''|.|..|*/*) echo "claude-run: CALL_ID_MISSING --profile hermetic needs a --call-id (a plain name)" >&2; exit 2 ;;
   esac
   if [ -z "$claude_bin" ] || [ -z "$host_version" ]; then
-    echo "claude-run: --profile hermetic needs --claude-bin PATH and --host-version V (the pinned host)" >&2; exit 2
+    echo "claude-run: HOST_BINARY_UNPINNED --profile hermetic needs --claude-bin PATH and --host-version V (the pinned host)" >&2; exit 2
   fi
 fi
 if [ -n "$claude_bin" ]; then
   # The versioned file itself: a symlink is what an auto-update moves between two calls of one run.
   if [ -z "$host_version" ]; then
-    echo "claude-run: --claude-bin needs the --host-version it is pinned at" >&2; exit 2
+    echo "claude-run: HOST_VERSION_UNPINNED --claude-bin needs the --host-version it is pinned at" >&2; exit 2
   fi
   if [ -L "$claude_bin" ] || [ ! -f "$claude_bin" ] || [ ! -x "$claude_bin" ]; then
     echo "claude-run: HOST_BINARY_UNPINNED --claude-bin must be the versioned executable, not a symlink: $claude_bin" >&2
@@ -318,7 +318,7 @@ if [ -n "$schema" ]; then args+=(--json-schema "$(cat "$schema")"); fi
 # reachable anyway, but a caller reading the argv sees the reach it asked for named.
 if [ -n "$cd_dir" ]; then
   if [ ! -d "$cd_dir" ]; then
-    echo "claude-run: --cd: not a directory: $cd_dir" >&2
+    echo "claude-run: CELL_CWD_MISSING --cd: not a directory: $cd_dir" >&2
     exit 2
   fi
 fi
@@ -355,10 +355,10 @@ needs_evidence=0
 if [ "$profile" = hermetic ] || { [ -n "$cell" ] && [ -n "$capture" ]; }; then needs_evidence=1; fi
 if [ "$needs_evidence" = 1 ]; then
   if [ ! -f "$helper" ]; then
-    echo "claude-run: the evidence helper is missing beside the adapter: $helper" >&2
+    echo "claude-run: CAPTURE_HELPER_MISSING the evidence helper is missing beside the adapter: $helper" >&2
     exit 2
   fi
-  command -v python3 >/dev/null 2>&1 || { echo "claude-run: python3 is required by $helper" >&2; exit 2; }
+  command -v python3 >/dev/null 2>&1 || { echo "claude-run: CAPTURE_HELPER_MISSING python3 is required by $helper" >&2; exit 2; }
 fi
 
 # Builtins only: the token never reaches an argv (where any process listing shows it), a
@@ -387,17 +387,17 @@ if [ "$profile" = hermetic ]; then
 fi
 if [ -n "$cell" ]; then
   for part in home config cwd; do
-    [ -d "$cell/$part" ] || { echo "claude-run: DISTILL_CELL has no $part/ directory: $cell" >&2; exit 2; }
+    [ -d "$cell/$part" ] || { echo "claude-run: CELL_LAYOUT_INVALID DISTILL_CELL has no $part/ directory: $cell" >&2; exit 2; }
   done
 elif [ "$profile" = hermetic ]; then
   if [ -z "$cell_root" ]; then
-    echo "claude-run: --profile hermetic needs --cell-root DIR (or a DISTILL_CELL)" >&2
+    echo "claude-run: ADAPTER_ARGUMENT_INVALID --profile hermetic needs --cell-root DIR (or a DISTILL_CELL)" >&2
     exit 2
   fi
   [ -d "$cell_root" ] || mkdir -p -m 700 "$cell_root"
   cell="$cell_root/$call_id"
   if [ -e "$cell" ]; then
-    echo "claude-run: the cell already exists: $cell" >&2
+    echo "claude-run: CELL_EXISTS the cell already exists: $cell" >&2
     exit 2
   fi
   mkdir -m 700 "$cell"
@@ -410,12 +410,12 @@ if [ -n "$cell" ] && [ -z "$cd_dir" ]; then cd_dir="$cell/cwd"; fi
 if [ "$profile" = hermetic ]; then
   mkdir -p "$cell/tmp"
   if ! read_token; then
-    echo "claude-run: --profile hermetic needs the subscription token: CLAUDE_CODE_OAUTH_TOKEN," >&2
+    echo "claude-run: TOKEN_MISSING --profile hermetic needs the subscription token: CLAUDE_CODE_OAUTH_TOKEN," >&2
     echo "            or CLAUDE_RUN_TOKEN_FILE naming a file that holds CLAUDE_CODE_OAUTH_TOKEN=..." >&2
     exit 2
   fi
 elif [ -n "$cell" ] && [ -n "${CLAUDE_RUN_TOKEN_FILE:-}" ]; then
-  read_token || { echo "claude-run: CLAUDE_RUN_TOKEN_FILE holds no CLAUDE_CODE_OAUTH_TOKEN" >&2; exit 2; }
+  read_token || { echo "claude-run: TOKEN_MISSING CLAUDE_RUN_TOKEN_FILE holds no CLAUDE_CODE_OAUTH_TOKEN" >&2; exit 2; }
 fi
 
 # The cell used is the cell validated: it and its homes resolve beneath the checked root, and the
@@ -434,7 +434,7 @@ if [ -n "$claude_bin" ]; then
   reported="$(
     for name in $(compgen -e); do unset "$name" 2>/dev/null || true; done
     export PATH=/usr/bin:/bin:/usr/sbin:/sbin DISABLE_AUTOUPDATER=1
-    if [ -n "$cell" ]; then export HOME="$cell/home" CLAUDE_CONFIG_DIR="$cell/config"; cd "$version_dir" || exit 1; fi
+    if [ -n "$cell" ]; then export HOME="$cell/home" CLAUDE_CONFIG_DIR="$cell/config"; cd "$version_dir" || { echo "claude-run: HOST_VERSION_MISMATCH cannot enter $version_dir to ask $claude_bin its version" >&2; exit 1; }; fi
     exec "$claude_bin" --version </dev/null 2>/dev/null
   )" || true
   reported="${reported%%
@@ -541,7 +541,7 @@ dispatch_claude() {
     if [ -n "$cell" ]; then export HOME="$cell/home" CLAUDE_CONFIG_DIR="$cell/config"; fi
     if [ -n "$run_token" ]; then export CLAUDE_CODE_OAUTH_TOKEN="$run_token"; fi
     if [ -n "$max_output" ]; then export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$max_output"; fi
-    if [ -n "$cd_dir" ]; then cd "$cd_dir" || exit 1; fi
+    if [ -n "$cd_dir" ]; then cd "$cd_dir" || { echo "claude-run: CELL_CWD_MISSING cannot enter the working directory $cd_dir" >&2; exit 1; }; fi
     exec "${claude_bin:-claude}" "${args[@]}"
   )
 }

@@ -5,7 +5,7 @@ answer.
 One formation call receives the window's events - each with the claims that describe it, the claims that show its
 outcome, and their quotes - and the clusters of placed learnings that share a principle (design §7.4's upward
 distillation; built by the lifecycle intake). It answers candidates (situation / action / exception, the eight admission
-fields, type A-G, consolidate.js's one-line `lesson`), rejected findings (each naming the requirements it fails), and
+fields, type A-G, a one-line `lesson` naming the cluster, as the v1 consolidator wrote), rejected findings (each naming the requirements it fails), and
 non-findings (each with one reason from design §9's fixed list). Lifecycle candidates are formed by code and never sent
 (lead decision D7, WP-09 stage 0 M8).
 
@@ -923,7 +923,8 @@ def supervisor(run_dir, cells, plan=None):
     return sup
 
 
-def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibration", form_bound=None):
+def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibration", form_bound=None,
+        ledger_ref=None):
     """S4 over S3's results: the barrier, what it forms from (`subject`), the lifecycle intake code derives
     (lifecycle_intake.build, from the declaration S4 was admitted against), the formation packet held to its bound
     (FORM_OVER_BOUND), then the one call through `supervisor`, its answer checked by the stage (`answer_problems`) and
@@ -950,7 +951,7 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
         if problems:
             raise Refused("\n".join(problems))
         subj = subject(run_dir)
-        intake = lifecycle_intake.build(run_dir, declaration, index_rows)
+        intake = lifecycle_intake.build(run_dir, declaration, index_rows, ledger_ref=ledger_ref)
         records.write_json(run_dir, run_dir / "intake.json", intake)
         stage.output("intake.json")
         clusters = [{"id": c["candidate_id"], "members": c["members"]} for c in intake["candidates"] if c["source"] == "g_cluster"]
@@ -2537,9 +2538,14 @@ def self_test():
                 f"{quiet_made.get('problem') or quiet_made.get('call')} {quiet_formed[:1]}")
 
         # the driver's own command, as a process runs it: dry, then golden, each over a copy (WP-09 commit 5)
+        from runlib import ledger as ledger_records
+
         def driver(where, *argv):
+            # The child names the fixture checkout's ledger reference: a separate process does not
+            # inherit the one the fixture builder declared (WP-24).
             done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "form", "--run-id", where.name,
-                                   "--out", str(where.parent), *argv], capture_output=True, text=True, timeout=600)
+                                   "--out", str(where.parent), "--checkout-ledger", ledger_records.STATE_LEDGER_REL,
+                                   *argv], capture_output=True, text=True, timeout=600)
             return done.returncode, done.stdout + done.stderr
         cli_dry = copy_of("cli-dry")
         code, said = driver(cli_dry, "--dry")

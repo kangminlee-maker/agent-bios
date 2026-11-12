@@ -92,9 +92,11 @@ def contains(haystack, needle):
 
 
 def versions_of(units):
-    """`{path: {version_sha256: lines}}`: each carrier version's text as its units' lines in order."""
+    """`{path: {version_sha256: lines}}`: each carrier version's text as its units' lines in order. The order is the
+    inventory's published one, `n` (lead decision 2026-11-12): the emitted document carries no `start`, so a key on it
+    was always 0, and a unit that did carry one could reorder its carrier's lines against `n`."""
     out = {}
-    for unit in sorted(units, key=lambda u: (u["path"], u["version_sha256"], u.get("start", 0), u.get("n", 0))):
+    for unit in sorted(units, key=lambda u: (u["path"], u["version_sha256"], u.get("n", 0))):
         out.setdefault(unit["path"], {}).setdefault(unit["version_sha256"], []).extend(text_lines(unit["text"]))
     return out
 
@@ -114,8 +116,23 @@ def of_carrier(read, unit, session):
     return read["path"] == unit["path"] or read["path"].endswith("/" + delivered_suffix(unit["path"]))
 
 
+def occurrences(haystack, needle):
+    """The indices at which `needle`'s lines occur as one contiguous run of `haystack`'s."""
+    if not needle:
+        return []
+    return [i for i in range(len(haystack) - len(needle) + 1) if haystack[i:i + len(needle)] == needle]
+
+
 def requirement(req_id, units, reads, session, versions):
-    """`(status, reason)` of one requirement of a unit's operative context: `met`, `unmet` or `unknown`."""
+    """`(status, reason)` of one requirement of a unit's operative context: `met`, `unmet` or `unknown`.
+
+    Its lines are met when the reads of its carrier before the decision returned all of them between them, of the
+    requirement's own version (§6.3: covered across reads, Codex WP-10 r1 #2). A read covers the lines it returned at the
+    one place of that version they occur; a read whose lines occur at more than one place covers nothing, since which of
+    them it returned is not known, unless it returned the requirement whole. A fragment the requirement's version shares
+    with another binds by the pin or the release (`bound_versions`): `bound_by_pin_or_release` when one was needed,
+    `version_unbound` when it was and none names a version; when even binding every shared fragment leaves a line
+    uncovered it is unmet - `version_mismatch` when a read returned it of another version only, `not_returned` else."""
     if req_id.startswith("k-"):
         return "unknown", "context_unresolved"
     req = units.get(req_id)
@@ -124,30 +141,45 @@ def requirement(req_id, units, reads, session, versions):
     want = text_lines(req["text"])
     held = versions.get(req["path"], {})
     known = {line for lines in held.values() for line in lines}
-    seen = []
+    own = held.get(req["version_sha256"], [])
+    bound = (session.get("bound_versions") or {}).get(req["path"])
+    targets = [set(range(i, i + len(want))) for i in occurrences(own, want)]
+    sole, by_binding, unbound, seen = set(), set(), set(), []
     for read in reads:
         if not of_carrier(read, req, session):
             continue
         got = returned_lines(read["returned"])
-        if not contains(got, want):
-            continue
+        whole = contains(got, want)
         while got and got[0] not in known:      # what the tool added around the file's bytes is not the file
             got = got[1:]
         while got and got[-1] not in known:
             got = got[:-1]
+        if not got or not (whole or set(got) & set(want)):
+            continue
         matching = sorted(version for version, lines in held.items() if contains(lines, got))
+        if req["version_sha256"] not in matching:
+            seen.append("version_mismatch")
+            continue
+        places = occurrences(own, got)
+        span = set().union(*targets) if whole and len(places) != 1 else \
+            (set(range(places[0], places[0] + len(got))) if len(places) == 1 else set())
         if matching == [req["version_sha256"]]:
-            return "met", None
-        if req["version_sha256"] in matching:
-            bound = (session.get("bound_versions") or {}).get(req["path"])
-            if bound == req["version_sha256"]:
-                return "met", "bound_by_pin_or_release"
-            seen.append("version_unbound" if bound is None else "version_mismatch")
+            sole |= span
+        elif bound == req["version_sha256"]:
+            by_binding |= span
+        elif bound is None:
+            unbound |= span
+            seen.append("version_unbound")
         else:
             seen.append("version_mismatch")
-    if not seen:
-        return "unmet", "not_returned"
-    return ("unknown", "version_unbound") if "version_unbound" in seen else ("unmet", "version_mismatch")
+    if any(t <= sole for t in targets):
+        return "met", None
+    if any(t <= sole | by_binding for t in targets):
+        return "met", "bound_by_pin_or_release"
+    if any(t <= sole | by_binding | unbound for t in targets):
+        return "unknown", "version_unbound"
+    # not covered even with every shared fragment bound: a line of it no read returned, or one returned of another version
+    return ("unmet", "version_mismatch") if "version_mismatch" in seen else ("unmet", "not_returned")
 
 
 def unit_read(unit, units, reads, session, versions):
@@ -169,6 +201,24 @@ def surface_row(unit):
         if unit.get("layer") in row.get("layers", []) or unit.get("surface") in row["item_surfaces"]:
             return row
     return None
+
+
+def attach_surface(unit, session, catalogue_surface=None):
+    """The unit as §6.3 judges it in THIS session, by S5b's rule, held here so that the frozen fixtures and the
+    stage attach a surface the same way.
+
+    The surface is a fact about the session, not the unit: two sessions can hold one unit at different surfaces.
+    A unit the table already places (a native layer, matched by its layer) is returned as it is, since a surface
+    attached to it would move it onto an item ladder. Otherwise the surface is the one the session's snapshot
+    selected its item at, else the one its selection history names, else the item's catalogue surface S2
+    published for this unit (`unit_surfaces`, which the caller translates to this unit). With none of them the
+    unit stays unplaced, and `delivery` answers `surface_unclassified` rather than be handed a guess."""
+    if surface_row(unit) is not None:
+        return unit
+    ref = unit.get("item_ref")
+    surface = ((session.get("selected") or {}).get(ref) or (session.get("history_selected") or {}).get(ref)
+               or catalogue_surface)
+    return {**unit, "surface": surface} if surface else unit
 
 
 def _selection(unit, session):
@@ -267,9 +317,17 @@ def _unavailable(unit, session, surface):
                for r in session.get("unavailable") or [])
 
 
+def licensed(ident):
+    """One licensed level's row of the table (`licensed_levels`): its level, the state it gives and its basis."""
+    return next(r for r in table()["licensed_levels"] if r["id"] == ident)
+
+
 def _history(unit, session, row, selected):
     if selected:
-        return _result(unit, session, row, "unknown", "library_selected", ["selection_history"], "selection_history")
+        # the level, its state and its basis as the table licenses them (Codex WP-10 r1 #5: written here as literals,
+        # so the table's row decided nothing)
+        held = licensed("library_selected")
+        return _result(unit, session, row, held["state"], held["level"], ["selection_history"], held["basis"])
     return _result(unit, session, row, "unknown", None, ["not_in_selection_history"], "selection_history")
 
 
@@ -279,11 +337,15 @@ def _guide(unit, units, session, decision_at, versions, row):
     status, requirements = unit_read(unit, units, reads, session, versions)
     selection = basis if basis in ("pin", "selection_history") and selected else None
     level = None
+    unread = None
     if basis == "pin" and selected:
         level = "selected"
         if _unavailable(unit, session, surface):
             return _result(unit, session, row, "selected_unavailable", level, ["route_unavailable"], "pin", requirements)
-        if _injected(session, decision_at) and _pointer(unit, session, surface):
+        pointer = _pointer(unit, session, surface) if _injected(session, decision_at) else None
+        if isinstance(pointer, str):  # no pointer fact could be read, and the reason why
+            unread = pointer
+        elif pointer:
             level = "pointer exposed"
             if _router_read(unit, session, reads):
                 level = "router read"
@@ -292,7 +354,11 @@ def _guide(unit, units, session, decision_at, versions, row):
     if level is not None and _rank(row, level) >= _rank(row, row["delivered_at"]):
         return _result(unit, session, row, "delivered", level, [] if selection else ["selection_unknown"],
                        selection, requirements)
-    unparsed = [m for m in _before(session.get("unparsed"), decision_at) if of_carrier(m, unit, session)]
+    # a tool call whose bytes could not be read, naming the unit's carrier or the carrier of any requirement of its
+    # operative context not met, leaves the state unknown (Codex WP-10 r1 #3: only the unit's own carrier was asked)
+    pending = [units[r["unit_id"]] for r in requirements if r["status"] != "met" and r["unit_id"] in units]
+    unparsed = [m for m in _before(session.get("unparsed"), decision_at)
+                if any(of_carrier(m, carrier, session) for carrier in [unit] + pending)]
     partly = any(of_carrier(read, unit, session) for read in reads)
     exposed = row.get("exposed_at") is not None and (_rank(row, level) >= _rank(row, row["exposed_at"]) or partly)
     if exposed:
@@ -310,7 +376,8 @@ def _guide(unit, units, session, decision_at, versions, row):
     if basis == "pin" and not selected:
         return _absence(unit, session, row, "pin")
     if basis == "pin":
-        return _result(unit, session, row, "unknown", level, ["not_exposed_before_decision"], "pin", requirements)
+        return _result(unit, session, row, "unknown", level, [unread or "not_exposed_before_decision"], "pin",
+                       requirements)
     return _result(unit, session, row, "unknown", None, [session.get("pin_reason") or "unpinned"], None, requirements)
 
 
@@ -321,11 +388,19 @@ def _pointer(unit, session, surface):
     Answered from the FACT when the session carries one (`item_pointer_in_compiled_text`, published by S2 where
     the snapshot is readable), because the compiled text is the owner's and does not enter a run; the text path
     below stays for the frozen fixtures and for a caller that holds the text. A fact of None is "this surface has
-    no pointer to find", which is not the same as a pointer that is missing, so it is returned as given."""
+    no pointer to find", which is not the same as a pointer that is missing, so it is returned as given.
+
+    Where there is no fact, the answer is a REASON (a string), never False: S2's `item_pointer_unavailable` when
+    it says why it published none, else `pointer_unread` when the session holds no text either. Read off an
+    empty text, every pointer was "missing", which is a claim about a text nobody read (WP-11b X r1)."""
     stated = session.get("item_pointer_in_compiled_text") or {}
     if unit.get("item_ref") in stated:
         return stated[unit["item_ref"]]
-    text = session.get("instruction_text") or ""
+    if session.get("item_pointer_unavailable"):
+        return f"pointer_unavailable:{session['item_pointer_unavailable']}"
+    if not isinstance(session.get("instruction_text"), str):
+        return "pointer_unread"
+    text = session["instruction_text"]
     if surface == "relevant":
         return bool(session.get("router_path")) and f"Relevant procedures: {session['router_path']}" in text
     emitted = [path for path, ref in (session.get("emitted") or {}).items() if ref == unit.get("item_ref")]
@@ -345,7 +420,11 @@ def _native(unit, units, session, decision_at, versions, row):
         return _result(unit, session, row, "unknown", None, ["no_recorded_injection_before_decision"], None)
     latest = max(events, key=lambda e: e["at"])
     if unit["unit_id"] in (latest.get("unit_ids") or []):
-        return _result(unit, session, row, "delivered", "loaded", [], "native")
+        # a recorded injection evidences `loaded`; whether that is delivery is the table's `delivered_at` (Codex WP-10
+        # r1 #5: the handler said delivered whatever the row's level was)
+        if _rank(row, "loaded") >= _rank(row, row["delivered_at"]):
+            return _result(unit, session, row, "delivered", "loaded", [], "native")
+        return _result(unit, session, row, "unknown", "loaded", ["below_the_level_the_table_delivers_at"], "native")
     release = session.get("release") or {}
     complete, read = derive.absence(release)
     if not complete:
@@ -440,7 +519,7 @@ def expected_state(row, level):
 
 def _unit(uid, path, text, version="a" * 64, layer="catalog", surface="relevant", ref="claude:guides/g", context=None, n=1):
     return {"unit_id": uid, "path": path, "text": text, "version_sha256": version, "layer": layer, "surface": surface,
-            "item_ref": ref, "operative_context": context or [uid], "n": n, "start": n * 100}
+            "item_ref": ref, "operative_context": context or [uid], "n": n}
 
 
 def _builder(row, level):
@@ -476,12 +555,29 @@ def _builder(row, level):
     return unit, {unit["unit_id"]: unit}, {"session_ref": "claude:s", "basis": "pin"}, 5
 
 
+def _held(unit, session):
+    """`(unit, catalogue_surface)`: a builder's unit as S5b holds it, with no surface of its own, and the catalogue
+    surface S2 would publish for it where the session's own selection does not name its item."""
+    bare = {key: value for key, value in unit.items() if key != "surface"}
+    if surface_row(bare) is not None or attach_surface(bare, session).get("surface") == unit.get("surface"):
+        return bare, None
+    return bare, unit.get("surface")
+
+
+def _delivery_case(unit, session, at, expected):
+    bare, catalogue = _held(unit, session)
+    case = {"kind": "delivery", "unit": bare, "units": {bare["unit_id"]: bare}, "session": session,
+            "decision_at": at, "expected": expected}
+    if catalogue is not None:
+        case["catalogue_surface"] = catalogue
+    return case
+
+
 def _cases(section, row, held):
     if section == "licensed_levels":
         unit = _unit("u-h", "claude/guides/h.md", "- h", ref="claude:guides/h")
         session = {"session_ref": "claude:s", "basis": row["basis"], "history_selected": {"claude:guides/h": "relevant"}}
-        return [{"kind": "delivery", "unit": unit, "units": {unit["unit_id"]: unit}, "session": session, "decision_at": 5,
-                 "expected": {"state": row["state"], "level": row["level"]}}]
+        return [_delivery_case(unit, session, 5, {"state": row["state"], "level": row["level"]})]
     if row["id"] == "executable_consumed":
         binding = {"bound": True, "receipt_id": "r" * 64, "transaction_id": "t1", "installer_digest": "d1",
                    "release_digest": "rd", "begun_by_installer_digest": None}
@@ -494,14 +590,21 @@ def _cases(section, row, held):
                 {"kind": "installer", "binding": {"bound": False}, "receipt": None, "artifacts": artifacts,
                  "expected": {"state": "unknown", "level": None}}]
     if row["producer"] == "absent":
-        unit, units, session, at = _builder(row, row["levels"][0])
-        return [{"kind": "delivery", "unit": unit, "units": units, "session": session, "decision_at": at,
-                 "expected": {"state": "unknown", "level": None, "reason": f"producer_absent:{row['id']}"}}]
+        unit, _units, session, at = _builder(row, row["levels"][0])
+        return [_delivery_case(unit, session, at,
+                               {"state": "unknown", "level": None, "reason": f"producer_absent:{row['id']}"})]
     cases = []
     for level in row["levels"]:
-        unit, units, session, at = _builder(row, level)
-        cases.append({"kind": "delivery", "unit": unit, "units": units, "session": session, "decision_at": at,
-                      "expected": {"state": expected_state(row, level), "level": level}})
+        unit, _units, session, at = _builder(row, level)
+        cases.append(_delivery_case(unit, session, at, {"state": expected_state(row, level), "level": level}))
+    if row["id"] == "guide":
+        # the unit whose item no source names: neither the session's selection, its history nor S2's catalogue
+        # surface places it, so the stage's rule attaches nothing and §6.3 is not asked to guess a ladder
+        unit = _unit("u-q", "claude/guides/q.md", "- An item no source names.", ref="claude:guides/q")
+        session = {"session_ref": "claude:s", "basis": "pin", "selected": {"claude:guides/g": "relevant"}}
+        case = _delivery_case(unit, session, 5, {"state": "unknown", "level": None, "reason": "surface_unclassified"})
+        case.pop("catalogue_surface", None)
+        cases.append(case)
     return cases
 
 
@@ -527,7 +630,9 @@ def run_fixture(fixture):
             if case["kind"] == "installer":
                 result = installer_exposure(case["binding"], case["receipt"], case["artifacts"])
             else:
-                result = delivery(case["unit"], case["units"], case["session"], case["decision_at"])
+                # the surface attached per (session, unit) by the stage's own rule, never carried on the unit
+                unit = attach_surface(case["unit"], case["session"], case.get("catalogue_surface"))
+                result = delivery(unit, case["units"], case["session"], case["decision_at"])
             got = {"state": result["state"], "level": result["level"]}
             if "reason" in case["expected"]:
                 got["reason"] = (result["reasons"] or [None])[0]
@@ -634,6 +739,51 @@ def self_test():
                fixtures)
         refused("a second generation", lambda: generate_fixtures(target), "FIXTURES_FROZEN")
 
+    # ---- WP-11b X r1: the surface is attached per (session, unit) by the stage's rule, never carried on a unit
+    cases = [case for fixture in fixtures for case in fixture["cases"] if case["kind"] == "delivery"]
+    expect("every frozen delivery case holds its unit as S5b does, with no surface of its own",
+           (bool(cases), sorted(case["unit"]["unit_id"] for case in cases if "surface" in case["unit"])), (True, []))
+    expect("and exactly one frozen case is a unit no source places, expected `surface_unclassified`",
+           [case["unit"]["unit_id"] for case in cases if case["expected"].get("reason") == "surface_unclassified"],
+           ["u-q"])
+    bare = {"unit_id": "u-b", "layer": "catalog", "item_ref": "claude:guides/b"}
+    expect("the surface the session's selection names comes first, then its history, then S2's catalogue surface",
+           [attach_surface(bare, {"selected": {"claude:guides/b": "requested"},
+                                  "history_selected": {"claude:guides/b": "always"}}, "relevant").get("surface"),
+            attach_surface(bare, {"history_selected": {"claude:guides/b": "always"}}, "relevant").get("surface"),
+            attach_surface(bare, {}, "relevant").get("surface"),
+            "surface" in attach_surface(bare, {"selected": {"claude:other": "always"}})],
+           ["requested", "always", "relevant", False])
+    native_bare = {"unit_id": "u-nb", "layer": "native_global", "item_ref": None}
+    expect("control: a native unit is placed by its layer, and nothing the session names moves it onto an item ladder",
+           attach_surface(native_bare, {"selected": {None: "always"}}, "always"), native_bare)
+    expect("control: the frozen always-rule fixture with its session's selection emptied and no catalogue surface is unplaced",
+           [line.split(":")[0] for line in run_fixture({"id": "surfaces/always_rule", "cases": [
+               {**case, "session": {**case["session"], "selected": {}}} for case in by_id["surfaces/always_rule"]["cases"]]})],
+           ["FIXTURE_FAILED surfaces/always_rule case 0", "FIXTURE_FAILED surfaces/always_rule case 1"])
+
+    # ---- WP-11b X r1: a pointer S2 could not compute is a named unknown, never "missing" read off an empty text
+    guide_row = next(r for r in held["surfaces"] if r["id"] == "guide")
+    p_unit, p_units, p_session, p_at = _builder(guide_row, "pointer exposed")
+    p_unit = attach_surface(_held(p_unit, p_session)[0], p_session)
+
+    def pointer_answer(session):
+        result = delivery(p_unit, p_units, session, p_at)
+        return result["state"], result["level"], result["reasons"]
+    textless = {key: value for key, value in p_session.items() if key != "instruction_text"}
+    expect("a selected, injected guide whose snapshot published no pointer fact names S2's reason",
+           pointer_answer({**textless, "item_pointer_unavailable": "compiled_text_absent"}),
+           ("unknown", "selected", ["pointer_unavailable:compiled_text_absent"]))
+    expect("and with neither a fact, a reason nor a text, the pointer is unread rather than missing",
+           pointer_answer(textless), ("unknown", "selected", ["pointer_unread"]))
+    expect("control: the published fact answers where it is there, the reason beside it notwithstanding",
+           pointer_answer({**textless, "item_pointer_unavailable": "compiled_text_absent",
+                           "item_pointer_in_compiled_text": {"claude:guides/g": True}})[:2],
+           (expected_state(guide_row, "pointer exposed"), "pointer exposed"))
+    expect("control: and a fact of False is a pointer that is missing, as before",
+           pointer_answer({**textless, "item_pointer_in_compiled_text": {"claude:guides/g": False}}),
+           ("unknown", "selected", ["not_exposed_before_decision"]))
+
     # returned bytes
     expect("a reading tool's line-number prefixes are removed", returned_lines("     1\t- a\n     2→- b\n"), ["- a", "- b"])
     expect("control: a line that begins with a digit is kept when not every line has a prefix",
@@ -733,6 +883,40 @@ def self_test():
     expect("O3: ... and is unknown when nothing binds it", (twin_state({})["state"], twin_state({})["reasons"]),
            ("unknown", ["version_unbound"]))
     expect("control: bound to the other version, the requirement is unmet", twin_state({path: v2})["state"], "exposed_not_read")
+    # Codex WP-10 r1 #2: a requirement returned across reads is covered by them together, of its own version
+    head_rule = {"at": 2, "path": deployed, "returned": "     1\t## Review\n     2\t- Read the diff twice.\n"}
+    line3 = {"at": 3, "path": deployed, "returned": "     3\t### Exceptions\n"}
+    line4 = {"at": 5, "path": deployed, "returned": "     4\t- except a one-line typo fix.\n"}
+    split = {**pinned, "reads": [head_rule, line3, line4, second_read]}
+    expect("Codex WP-10 r1 #2: an enclosing exception returned across two reads, a line each, is covered: delivered",
+           (state(split)["state"], [r["status"] for r in state(split)["requirements"]]),
+           ("delivered", ["met", "met", "met", "met"]))
+    expect("control: one of its two lines never returned leaves it unmet, not_returned",
+           (state({**split, "reads": [head_rule, line3, second_read]})["state"],
+            state({**split, "reads": [head_rule, line3, second_read]})["requirements"][2]),
+           ("exposed_not_read", {"unit_id": "u-x1", "status": "unmet", "reason": "not_returned"}))
+    expect("control: the line the two versions share and the other version's own line do not combine into the "
+           "requirement's version",
+           delivery(lone, twins, {**pinned, "reads": [just_rule, line3,
+                                                      {**line4, "returned": "     4\t- except a docs-only change.\n"}],
+                                  "bound_versions": {}}, 10, twin_versions)["requirements"][-1],
+           {"unit_id": "u-x1", "status": "unmet", "reason": "not_returned"})
+    expect("control: ... and with the pin naming the requirement's version, its shared line binds and its own is still "
+           "missing", delivery(lone, twins, {**pinned, "reads": [just_rule, line3,
+                                                                 {**line4, "returned": "     4\t- except a docs-only change.\n"}],
+                                             "bound_versions": {path: v1}}, 10, twin_versions)["requirements"][-1],
+           {"unit_id": "u-x1", "status": "unmet", "reason": "not_returned"})
+    expect("control: the shared line and the requirement's own line, read apart, bind by the pin: delivered",
+           delivery(lone, twins, {**pinned, "reads": [just_rule, line3, line4], "bound_versions": {path: v1}}, 10,
+                    twin_versions)["state"], "delivered")
+    # Codex WP-10 r1 #3: an unparsed call naming the carrier of a requirement not met is a read nobody could judge
+    unparsed_second = {**pinned, "reads": pinned["reads"][:1], "unparsed": [{"at": 2, "path": deployed2}]}
+    expect("Codex WP-10 r1 #3: the unit's guide read whole and an unparsed call for the second guide its context needs "
+           "is unknown, read_unparsed, never exposed_not_read",
+           (state(unparsed_second)["state"], state(unparsed_second)["reasons"]), ("unknown", ["read_unparsed"]))
+    expect("control: an unparsed call for a guide no unmet requirement lives in leaves exposed_not_read",
+           state({**unparsed_second, "unparsed": [{"at": 2, "path": "/state/runtime/s/items/other/guides/other.md"}]})["state"],
+           "exposed_not_read")
     # the always surface
     core = _unit("u-c1", "claude/CLAUDE.md", "- Verify before you claim.", surface="always", ref="claude:core")
     core_units = {"u-c1": core}
@@ -775,6 +959,51 @@ def self_test():
            ("unknown", "library_selected"))
     expect("control: the same item under a pin and a recorded injection is delivered",
            delivery(core, core_units, always, 5)["state"], "delivered")
+    # lead decision 2026-11-12: a carrier's lines are its units' in `n` order, on units as the inventory's production
+    # path emits them (no `start`); a stray `start` on each, numbered against `n`, changes nothing
+    from runlib import inventory
+    order_ctx = {"home": "/nonexistent-fixture-home", "state_root": None, "notes": {}, "commit": None,
+                 "release_ref": None, "snapshot": {}, "events": []}
+    ordered = inventory.carrier("catalog", "claude/guides/order.md", "# Order\n\n- first rule\n- second rule\n- third rule\n")
+    try:
+        emitted = inventory.emitted_document("current", [
+            {"layer": "catalog", "producer": "this suite's fixture producer", "status": "complete", "reasons": [],
+             "carriers": [ordered]}], order_ctx)[0]["units"]
+    except Exception as exc:  # noqa: BLE001 - the control below names it
+        emitted = []
+        failures.append(f"the inventory's production path made no units: {exc!r}")
+    by_n = [line for u in sorted(emitted, key=lambda u: u["n"]) for line in text_lines(u["text"])]
+    stray = [{**u, "start": 1000 - u["n"]} for u in reversed(emitted)]
+    lines_of = {name: (versions_of(given).get("claude/guides/order.md") or {}).get(ordered["version_sha256"])
+                for name, given in (("emitted", emitted), ("reversed", list(reversed(emitted))), ("stray", stray))}
+    expect("lead decision 2026-11-12: a carrier's lines follow `n` on producer-shaped units (no `start`), listed in any "
+           "order and with a stray `start` against `n`",
+           (len(emitted) >= 3 and not any("start" in u for u in emitted) and by_n[-1] == "- third rule",
+            lines_of["emitted"] == by_n, lines_of["reversed"] == by_n, lines_of["stray"] == by_n),
+           (True, True, True, True))
+    # Codex WP-10 r1 #5: the licensed level's row and the native layer's level decide, read from a scratch table
+    held_t = table()
+    _TABLES["t"] = {**held_t, "licensed_levels": [{**r, "state": "exposed_not_read", "level": "library_listed",
+                                                   "basis": "history_basis"} if r["id"] == "library_selected" else r
+                                                  for r in held_t["licensed_levels"]]}
+    try:
+        moved = delivery(core, core_units, history, 5)
+    finally:
+        _TABLES["t"] = held_t
+    expect("Codex WP-10 r1 #5: the selection history's answer is the licensed level's row: its state, level and basis",
+           (moved["state"], moved["level"], moved["selection"]), ("exposed_not_read", "library_listed", "history_basis"))
+    native_row = next(r for r in held_t["surfaces"] if r["id"] == "native_layer")
+    native_unit, native_units, native_session, native_at = _builder(native_row, "loaded")
+    _TABLES["t"] = {**held_t, "surfaces": [{**r, "levels": r["levels"] + ["acted on"], "delivered_at": "acted on"}
+                                           if r["id"] == "native_layer" else r for r in held_t["surfaces"]]}
+    try:
+        raised = delivery(native_unit, native_units, native_session, native_at)
+    finally:
+        _TABLES["t"] = held_t
+    expect("Codex WP-10 r1 #5: a native unit in the recorded injection is delivered only when the table delivers at "
+           "`loaded`: with the row's level moved above it, the same session is unknown below the level",
+           (delivery(native_unit, native_units, native_session, native_at)["state"], raised["state"], raised["reasons"]),
+           ("delivered", "unknown", ["below_the_level_the_table_delivers_at"]))
     codex = {"session_ref": "codex:t", "host": "codex", "basis": None, "pin_reason": "pin_predates_rollout_binding"}
     expect("a Codex pin naming no rollout is unknown with the F-22 reason",
            delivery(core, core_units, codex, 5)["reasons"], ["pin_predates_rollout_binding"])

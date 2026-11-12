@@ -55,9 +55,10 @@
   "requirements": ["observed_event", "consequence", "causal_support", "recognizable_in_advance", "actionable", "bounded", "positioned", "audience"],
   "promotion": [
     {"id": "lineages", "types": "any but G", "independent_lineages_at_least": 2, "eligible": true},
-    {"id": "consequence", "types": "any but G", "both_judges_class_one_of": ["irreversible", "security-relevant", "verification-corrupting"], "eligible": true},
+    {"id": "consequence", "types": "any but G", "both_judges_class_one_of": ["irreversible", "security", "verification-corrupting"], "eligible": true},
     {"id": "type_g", "types": ["G"], "independent_lineages_at_least": 3, "or_arc_confirmed": true, "eligible": true},
-    {"id": "below_bar", "types": "any", "eligible": false, "allowed_dispositions": ["incubate", "keep", "drop"]}
+    {"id": "below_bar", "types": "any", "eligible": false, "allowed_dispositions": ["incubate", "keep", "drop", "none"],
+     "$comment": "§6.4 says incubate, keep and drop; `none` is added (D-20261112-644ff3) because §7.2 allows an unclassified candidate only `none`, so the two lists were disjoint, and `none` promotes nothing. derive.py declares the difference beside the design's sentence."}
   ],
   "absence_completeness": {
     "policy": "literal",

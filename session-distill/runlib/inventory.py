@@ -119,7 +119,10 @@ REPO = HERE.parent
 # from. Nothing executable reads it — the contract lives in `SCHEMA_REL`, which is a file the code
 # owns and does not expire (the 1548 amendment §10).
 DESIGN = "design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md"
-LEDGER_REL = "design/session-distill/ledger.json"
+# The label a ledger carrier wears, which is WHERE the ledger was read from. The default is the
+# installed location under the state root; a checkout run passes its own through `ledger_ref`, so the
+# owner's documents keep naming the file they were actually read from (WP-24).
+STATE_LEDGER_REL = "distill/ledger.json"
 REFERENCES = ("current", "release", "selection")
 # The reference points that publish units. `release.json` is the segment index (step 0 S-17), whose rows
 # point into the shared inventories and the store and copy no unit.
@@ -5059,7 +5062,7 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
 KEEP_ACTIVE = ("placed",)  # the ledger's own lifecycle states in which a keep record still stands
 
 
-def ledger_carriers(ledger, layer, notes=None):
+def ledger_carriers(ledger, layer, notes=None, ledger_ref=None):
     """The ledger layer (§6.1): the incubating principles, and the `keep` records still standing.
     Schema 1 and schema 2 both carry a status and the text; a schema this does not read is the
     layer's own `incomplete` reason, never a silent empty.
@@ -5078,7 +5081,7 @@ def ledger_carriers(ledger, layer, notes=None):
         text = entry.get("principle") or entry.get("lesson") or ""
         status = str(entry.get("status", ""))
         if layer == "ledger_incubating" and status.startswith("incubating") and text:
-            rows.append(carrier(layer, f"{LEDGER_REL}#{entry['id']}", text, entry["id"],
+            rows.append(carrier(layer, f"{ledger_ref or STATE_LEDGER_REL}#{entry['id']}", text, entry["id"],
                                 provenance={"status": status}))
         if layer == "ledger_keep" and entry.get("keep"):
             keep = entry["keep"] if isinstance(entry["keep"], dict) else {}
@@ -5093,9 +5096,13 @@ def ledger_carriers(ledger, layer, notes=None):
                 held_back.append({"id": entry.get("id"), "status": status, "reason": reason,
                                   "keep_units": keep.get("units", [])})
                 continue
-            rows.append(carrier(layer, f"{LEDGER_REL}#{entry['id']}", text, entry["id"],
+            rows.append(carrier(layer, f"{ledger_ref or STATE_LEDGER_REL}#{entry['id']}", text, entry["id"],
                                 provenance={"status": status, "keep_units": list(keep.get("units", [])),
-                                            "keep_reason": entry.get("reason")}))
+                                            # The rationale is the KEEP RECORD's, never the entry's:
+                                            # schema 2 forbids an entry-level `reason`, so reading
+                                            # it there answered null for every schema 2 ledger
+                                            # (F-34). Schema 1's entry field migrates into the keep.
+                                            "keep_reason": keep.get("reason")}))
     if notes is not None and layer == "ledger_keep":
         notes["ledger_keep_held_back"] = held_back
     return rows
@@ -5405,9 +5412,12 @@ def produce(rows):
 
 # ---------------------------------------------------------------- the reference points
 
-def context_of(repo, state_root, user_root, native_roots, pin, ledger):
+def context_of(repo, state_root, user_root, native_roots, pin, ledger, ledger_ref=None):
     return {"repo": repo, "state_root": state_root, "user_root": user_root, "native_roots": native_roots,
             "frozen_native": {}, "pin": pin, "ledger": ledger, "notes": {},
+            # Where the ledger was READ from, which is the label its carriers wear. None leaves the
+            # installed default; a checkout run passes the path it opened (WP-24).
+            "ledger_ref": ledger_ref,
             # The home every artifact is masked against, declared once rather than per call site.
             "home": str(pathlib.Path.home())}
 
@@ -5560,7 +5570,7 @@ def _ledger(layer):
     def produce_ledger(ctx):
         if ctx["ledger"] is None:
             return None  # no ledger was handed in: this layer has no record here
-        return ledger_carriers(ctx["ledger"], layer, ctx["notes"])
+        return ledger_carriers(ctx["ledger"], layer, ctx["notes"], ctx.get("ledger_ref"))
     return produce_ledger
 
 
@@ -5756,6 +5766,10 @@ def emitted_document(reference, rows, ctx):
     `unknown_entries`."""
     ctx.setdefault("carriers_named", []).extend(item for row in rows for item in row.get("carriers") or [])
     units = operative_context(produce(rows))
+    if reference == "current":
+        # the units S5 retrieves and S6 judges: every selection inventory publishes a surface for each of them
+        # that belongs to an item, the ones its session was not given included (`unit_surfaces`)
+        ctx["judged_units"] = units
     place = {"home": ctx.get("home"), "decisions": {}}
     position = {row["layer"]: n for n, row in enumerate(rows)}
     listed = sorted(units, key=lambda unit: (position.get(unit["layer"], len(position)), unit["carrier_id"],
@@ -5991,7 +6005,8 @@ def item_pointers(items, text, repo):
 
 
 def unit_surfaces(units, snapshot_items, baseline_items_held):
-    """Per unit of this selection, the CATALOGUE surface of its item, with where it was read.
+    """Per unit given (the selection's own units, and every judged unit that belongs to an item, since S5b reads a
+    surface for each unit it pairs with a session), the CATALOGUE surface of its item, with where it was read.
 
     The surface is what classifies a unit's §6.3 ladder, and it was published only for the items a
     session was given — so a unit of an item the session did NOT receive had no classified ladder
@@ -6069,9 +6084,13 @@ def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None, snaps
         # beside a selection that holds items would read as "no item has a pointer anywhere".
         if text is not None and ctx.get("repo"):
             document["item_pointer_in_compiled_text"] = item_pointers(items, text, ctx["repo"])
+        else:
+            # never both absent: a reader told nothing could not tell "not computable" from "no item"
+            document["item_pointer_unavailable"] = "compiled_text_absent" if text is None else "catalog_rule_unread"
         if text is not None:
             document["router_path"] = router_path_of(text)
-        document["unit_surfaces"] = unit_surfaces(units, items, baseline_held)
+        judged = [unit for unit in ctx.get("judged_units") or [] if unit.get("item_ref")]
+        document["unit_surfaces"] = unit_surfaces(units + judged, items, baseline_held)
         if vocabulary:
             table = table_of({**SHARED_INVENTORY_TABLE["fields"], "unavailable": list_of(table_of({
                 "ref": as_enum(vocabulary[0]), "surface": as_enum(vocabulary[1]), "reason": as_metadata()}))},
@@ -7043,18 +7062,21 @@ SHARED_INVENTORY_TABLE = table_of({
         "ref": as_metadata(), "pointer": as_scalar(nullable=True),
         "basis": as_enum(("router_line", "emitted_path", "surface_has_no_pointer", "item_names_no_member"))})),
     "router_path": as_metadata(nullable=True),
-    # the catalogue surface of every unit this selection holds, and where it was read
+    # why the pointer predicate is not published: the snapshot holds no compiled text, or this run has no catalog
+    "item_pointer_unavailable": as_enum(("compiled_text_absent", "catalog_rule_unread")),
+    # the catalogue surface of every unit this selection holds and every judged unit of an item, and where it was read
     "unit_surfaces": list_of(table_of({"unit_ref": as_opaque("unit_ref"), "surface": as_metadata(nullable=True),
                                        "source": as_enum(("snapshot", "baseline", "unpublished"))})),
     "baseline_unmapped": list_of(as_metadata()),
     "baseline_items_expected": as_scalar(nullable=True),
 }, optional=("unavailable", "items", "instruction_text_sha256", "instruction_coverage",
-             "item_pointer_in_compiled_text", "router_path", "unit_surfaces",
+             "item_pointer_in_compiled_text", "item_pointer_unavailable", "router_path", "unit_surfaces",
              "baseline_unmapped", "baseline_items_expected"), schema="shared_inventory_document")
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
-        run_dir=None, zstd=None, declared_state=None, declared_user=None, environ=None, home=None):
+        run_dir=None, zstd=None, declared_state=None, declared_user=None, environ=None, home=None,
+        ledger_ref=None):
     """Write `inventory/<reference>.json` for every reference point, and return the manifest.
 
     The owner's state is hashed before and after, and the two hashes are compared here rather than
@@ -7104,7 +7126,7 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                               "out_dir": str(out_dir), "inputs": inputs}
     try:
         with no_bytecode(), tempfile.TemporaryDirectory(prefix="distill-inventory-", dir=str(temp_root)) as frozen_dir:
-            ctx = context_of(repo, state_root, user_root, dict(native_roots or {}), pin, ledger)
+            ctx = context_of(repo, state_root, user_root, dict(native_roots or {}), pin, ledger, ledger_ref)
             ctx["commit"] = commit
             # One home, the one every artifact below is judged against by `write_document`: emitted against
             # another (the process's), a leaf under the caller's home was not spelled `<HOME>` and the write
@@ -10834,17 +10856,20 @@ def self_test():
                   f"refused={recorded_run.get('refused')} methods={[row['method'] for row in recorded_rows]} "
                   f"versions={len(recorded_versions)} raw={[name for name, text in recorded_bytes.items() if recorded_secret in text or recorded_home in text]}")
             # S-19: a Codex block's git, the commit hash kept and every userinfo removed, a credential-shaped one included.
+            # A `.test` fixture host (RFC 6761), because this file ships and the endpoint gate
+            # reads that reserved label as a fixture: the unit is the redaction of userinfo from a
+            # remote URL, which the host name does not bear on.
             github_token = "ghp_" + "A1b2" * 9
             git_run = published_run("git", [
                 ("codex", "c-g1", [{"type": "session_meta", "timestamp": "2026-10-20T09:00:00+00:00",
                                     "payload": {"id": "c-g1", "cwd": "/w/g1", "base_instructions": {"text": "# B\n\n- one\n"},
                                                 "git": {"commit_hash": "abc1234def", "branch": "feature/x",
-                                                        "repository_url": "https://user:shortpass@example.com/org/repo.git"}}}], {}),
+                                                        "repository_url": "https://user:shortpass@fixture.test/org/repo.git"}}}], {}),
                 ("codex", "c-g2", [{"type": "session_meta", "timestamp": "2026-10-20T09:00:00+00:00",
                                     "payload": {"id": "c-g2", "cwd": "/w/g2", "base_instructions": {"text": "# B\n\n- two\n"},
                                                 "git": {"commit_hash": "0123456789abcdef0123456789abcdef01234567",
                                                         "branch": "main",
-                                                        "repository_url": f"https://x-access-token:{github_token}@github.com/org/repo.git"}}}],
+                                                        "repository_url": f"https://x-access-token:{github_token}@forge.test/org/repo.git"}}}],
                  {})])
             git_units = sorted({((unit["provenance"].get("git") or {}).get("repository_url"),
                                  (unit["provenance"].get("git") or {}).get("commit_hash"),
@@ -10858,10 +10883,10 @@ def self_test():
             check("S-19: a Codex block's git is published — the commit hash kept, the branch, and the repository URL "
                   "without its userinfo, a token-shaped one included — on its units and its occurrences",
                   "refused" not in git_run and bool(git_bytes)
-                  and git_units == [("https://example.com/org/repo.git", "abc1234def", "feature/x"),
-                                    ("https://github.com/org/repo.git", "0123456789abcdef0123456789abcdef01234567", "main")]
-                  and git_rows == [("https://example.com/org/repo.git", "abc1234def"),
-                                   ("https://github.com/org/repo.git", "0123456789abcdef0123456789abcdef01234567")]
+                  and git_units == [("https://fixture.test/org/repo.git", "abc1234def", "feature/x"),
+                                    ("https://forge.test/org/repo.git", "0123456789abcdef0123456789abcdef01234567", "main")]
+                  and git_rows == [("https://fixture.test/org/repo.git", "abc1234def"),
+                                   ("https://forge.test/org/repo.git", "0123456789abcdef0123456789abcdef01234567")]
                   and not any(text in git_bytes for text in ("shortpass", github_token, "x-access-token", "user:")),
                   f"refused={git_run.get('refused')} units={len(git_units)} rows={len(git_rows)}")
             check("a scp-like repository address loses its user too, and a commit hash that is not one is null",
@@ -11651,8 +11676,8 @@ def self_test():
         with section("GA#9: a keep record stands only while the entry's lifecycle says it does"):
             # ---- GA#9: a keep record stands only while the entry's lifecycle says it does
             lifecycles = {"schema": 2, "entries": [
-                {"id": "K-placed", "status": "placed", "lesson": "- a placed keep\n", "keep": {"units": ["unit-1"]},
-                 "reason": "it is still delivered"},
+                {"id": "K-placed", "status": "placed", "lesson": "- a placed keep\n",
+                 "keep": {"units": ["unit-1"], "reason": "it is still delivered"}},
                 {"id": "K-retired", "status": "retired", "lesson": "- a retired keep\n", "keep": {"units": ["unit-2"]}},
                 {"id": "K-absorbed", "status": "placed", "lesson": "- an absorbed keep\n", "keep": {"units": ["unit-3"]},
                  "absorbed_by": "K-placed"},
@@ -11669,6 +11694,19 @@ def self_test():
             check("only the entries the ledger still places are the keep layer",
                   {row["item_ref"] for row in keeps} == {"K-placed", "K-revived"},
                   f"{sorted(row['item_ref'] for row in keeps)}")
+            # F-34: the rationale is the keep record's. It was read off the ENTRY, where schema 2
+            # forbids it, so every schema 2 ledger answered null for a field the record does hold.
+            check("and so does the keep record's own rationale",
+                  [row["provenance"].get("keep_reason") for row in keeps if row["item_ref"] == "K-placed"]
+                  == ["it is still delivered"],
+                  f"{[row['provenance'].get('keep_reason') for row in keeps]}")
+            entry_level = {"schema": 2, "entries": [
+                {"id": "K-entry-reason", "status": "placed", "lesson": "- a keep\n",
+                 "keep": {"units": ["unit-9"]}, "reason": "a rationale schema 2 does not allow here"}]}
+            check("a rationale on the entry is not read as the keep's",
+                  [row["provenance"].get("keep_reason")
+                   for row in ledger_carriers(entry_level, "ledger_keep", {})] == [None],
+                  "an entry-level reason was read as the keep record's rationale")
             check("the units a keep record protects travel with its carrier",
                   [row["provenance"].get("keep_units") for row in keeps if row["item_ref"] == "K-placed"] == [["unit-1"]],
                   "the keep's protected units were dropped")
@@ -13862,13 +13900,13 @@ def self_test():
                                         "event_id": opaque_id("e", "event", "native", "claude", "s-a", None, 7),
                                         # a Codex block's git (S-19): every leaf the schema declares is filled
                                         "git": {"commit_hash": "abc1234", "branch": "a-planted-branch",
-                                                "repository_url": "https://example.invalid/org/planted.git"}}),
+                                                "repository_url": "https://planted.test/org/planted.git"}}),
                         # The ledger's own provenance shape (`_ledger`), and the `hosts` list the
                         # deduplication appends: every leaf the schema declares under `provenance` is
                         # filled by some fixture, because the walk is judged LEAF BY LEAF and a
                         # sub-field no fixture carries would pass it unseen (r4 R4 addendum).
                         "a ledger carrier with its own provenance": carrier(
-                            "ledger_incubating", f"{LEDGER_REL}#planted-entry",
+                            "ledger_incubating", f"{STATE_LEDGER_REL}#planted-entry",
                             f"## Keys\n\n- the entry reads apiKeyHelper: {secret}\n",
                             item_ref="planted-entry",
                             provenance={"status": "incubating", "keep_units": ["u-0000000000000000"],
@@ -14857,6 +14895,26 @@ def self_test():
                               for path in sorted((planted_out / "inventory" / "shared").glob("selection-*.json"))}
             planted_ref = selection_doc["reference"].get("content_ref")
             own_inventory = planted_shared.get(f"selection-{inventory_id('selection', planted_ref)}.json") or {}
+            # WP-11b X r1 (ii), through the real producer: the selection inventory publishes a surface row for EVERY
+            # unit S5 can pair with this session (current's units of an item), not only for its own units, and a
+            # unit whose item neither the snapshot nor the baseline names reads `unpublished` with a null surface,
+            # never as a known surface
+            planted_current = written_json(planted_out / "inventory" / "current.json")
+            planted_judged = {unit["unit_ref"] for unit in planted_current.get("units") or [] if unit.get("item_ref")}
+            planted_surfaces = {row["unit_ref"]: (row["surface"], row["source"])
+                                for row in own_inventory.get("unit_surfaces") or []}
+            check("(ii) the pinned session's selection inventory carries a surface row for every judged unit of an item",
+                  bool(planted_judged) and not (planted_judged - set(planted_surfaces)),
+                  f"judged={len(planted_judged)} rows={len(planted_surfaces)} "
+                  f"missing={len(planted_judged - set(planted_surfaces))}")
+            planted_sources = collections.Counter(source for _surface, source in planted_surfaces.values())
+            check("(ii) and the pair stays apart: a unit of the snapshot's item carries its known surface, a unit "
+                  "nothing names carries `unpublished` and a null surface, and no other row mixes the two",
+                  planted_sources["snapshot"] > 0 and planted_sources["unpublished"] > 0
+                  and all((surface is None) == (source == "unpublished")
+                          for surface, source in planted_surfaces.values()),
+                  f"{dict(planted_sources)} "
+                  f"{sorted({(surface, source) for surface, source in planted_surfaces.values()}, key=str)[:6]}")
             planted_release_path = planted_out / "inventory" / "shared" / f"release-{inventory_id('release', 'ref1')}.json"
             planted_release = json.loads(planted_release_path.read_text(encoding="utf-8")) if planted_release_path.is_file() else {}
             check("done-when 1, per shared release inventory: the baseline the pinned session's snapshot names maps "
@@ -17196,21 +17254,32 @@ def self_test():
             w11b_partial_bytes, w11b_partial = w11b_published("\n".join(w11b_lines[:1]))
             w11b_whole_bytes, w11b_whole = w11b_published("\n".join(w11b_lines))
             w11b_none_bytes, w11b_none = w11b_published("- an unrelated line\n")
-            w11b_counts = {row["unit_ref"]: (row["covered"], row["total"]) for row in w11b_partial["instruction_coverage"]}
-            w11b_total = {row["unit_ref"]: row["total"] for row in w11b_whole["instruction_coverage"]}
+            def w11b_coverage(document):
+                """The document's `instruction_coverage` rows, or [] when it publishes none: a removed publication
+                fails the controls below by their names, never as a KeyError that ends the section."""
+                rows = document.get("instruction_coverage") if isinstance(document, dict) else None
+                return rows if isinstance(rows, list) else []
+            check("W11b: every selection inventory with a compiled text publishes its coverage rows",
+                  all(isinstance(document.get("instruction_coverage"), list) and document["instruction_coverage"]
+                      for document in (w11b_partial, w11b_whole, w11b_none)),
+                  f"{[type(document.get('instruction_coverage')).__name__ for document in (w11b_partial, w11b_whole, w11b_none)]}")
+            w11b_counts = {row["unit_ref"]: (row["covered"], row["total"]) for row in w11b_coverage(w11b_partial)}
+            w11b_total = {row["unit_ref"]: row["total"] for row in w11b_coverage(w11b_whole)}
             check("W11b: a snapshot covering k of a unit's n operative-context lines publishes k and n, and one "
                   "covering all of them publishes n and n",
                   # A unit whose whole context IS that one line is fully covered by the partial text,
                   # which is correct and not what this row is about: the property is that at least one
                   # unit reads strictly partial, and that no unit ever reads more than its total.
-                  bool(w11b_counts) and w11b_total
+                  bool(w11b_counts) and bool(w11b_total)
                   and any(0 < covered < total for covered, total in w11b_counts.values())
                   and all(0 <= covered <= total for covered, total in w11b_counts.values())
-                  and all(row["covered"] == row["total"] for row in w11b_whole["instruction_coverage"])
-                  and all(row["covered"] == 0 and row["total"] > 0 for row in w11b_none["instruction_coverage"]),
+                  and bool(w11b_coverage(w11b_whole))
+                  and all(row["covered"] == row["total"] for row in w11b_coverage(w11b_whole))
+                  and bool(w11b_coverage(w11b_none))
+                  and all(row["covered"] == 0 and row["total"] > 0 for row in w11b_coverage(w11b_none)),
                   f"partial={sorted(w11b_counts.items())} whole="
-                  f"{[(row['unit_ref'], row['covered'], row['total']) for row in w11b_whole['instruction_coverage']]} "
-                  f"none={[(row['unit_ref'], row['covered']) for row in w11b_none['instruction_coverage']]}")
+                  f"{[(row['unit_ref'], row['covered'], row['total']) for row in w11b_coverage(w11b_whole)]} "
+                  f"none={[(row['unit_ref'], row['covered']) for row in w11b_coverage(w11b_none)]}")
             # The run never contains the text. Judged on the BYTES of every planted snapshot, by the lines
             # themselves rather than by a field name: a field renamed or added would carry the text past a
             # key-name assertion. The digest is published, so the reader can still bind what it was told about.
@@ -17230,18 +17299,19 @@ def self_test():
                   w11b_whole["instruction_text_sha256"]
                   == hashlib.sha256("\n".join(w11b_lines).encode("utf-8")).hexdigest()
                   and w11b_published(None)[1]["instruction_text_sha256"] is None
-                  and w11b_published(None)[1]["instruction_coverage"] == [],
-                  f"{w11b_whole['instruction_text_sha256']}")
+                  and w11b_published(None)[1].get("instruction_coverage") == [],
+                  f"{w11b_whole.get('instruction_text_sha256')}")
             # The prefix-stripping rule, the one `delivery_evidence.returned_lines` applies: a text a reading
             # tool numbered covers the same lines as the file's own bytes, and a digit that BEGINS a line of the
             # text is never taken for a prefix (only a text whose every line carries one is stripped).
             w11b_numbered = "\n".join(f"{n + 1:6d}\t{line}" for n, line in enumerate(w11b_lines))
             _bytes, w11b_prefixed = w11b_published(w11b_numbered)
             check("W11b: a compiled text a reading tool numbered covers the same lines as the file's own bytes",
-                  [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_prefixed["instruction_coverage"]]
-                  == [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_whole["instruction_coverage"]],
-                  f"numbered={[(row['unit_ref'], row['covered']) for row in w11b_prefixed['instruction_coverage']]} "
-                  f"plain={[(row['unit_ref'], row['covered']) for row in w11b_whole['instruction_coverage']]}")
+                  bool(w11b_coverage(w11b_prefixed)) and
+                  [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_coverage(w11b_prefixed)]
+                  == [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_coverage(w11b_whole)],
+                  f"numbered={[(row['unit_ref'], row['covered']) for row in w11b_coverage(w11b_prefixed)]} "
+                  f"plain={[(row['unit_ref'], row['covered']) for row in w11b_coverage(w11b_whole)]}")
             # The asymmetry, in both directions. A unit's line is the file's own bytes and the compiled
             # text may have been numbered by whatever returned it, so the text is held both ways and the
             # unit's line is compared as written. The first of these rows was silent when the rule
@@ -17318,9 +17388,32 @@ def self_test():
             # Non-empty and one row per unit: a list that happens to be empty is still a list, and
             # the first form of this check passed over a reverted producer for that reason.
             w11b_doc_surfaces = w11b_facts_doc.get("unit_surfaces")
+            # WP-11b X r1: one pointer row per item the session received, each with its expected answer (the list
+            # being a list passed over a producer that published []), or a named reason where none is computable
+            w11b_pointed = w11b_published(w11b_text, items=w11b_catalog_items)[1]
+            w11b_pointer_rows = {row["ref"]: (row["pointer"], row["basis"])
+                                 for row in w11b_pointed.get("item_pointer_in_compiled_text") or []}
+            check("W11b X r1: a selection publishes one pointer row per item it received, each its own answer",
+                  w11b_pointer_rows == {"claude:guides/g": (True, "emitted_path"), "claude:rel": (True, "router_line"),
+                                        "claude:core": (None, "surface_has_no_pointer"),
+                                        "claude:gone": (None, "item_names_no_member")}
+                  and len(w11b_pointed.get("item_pointer_in_compiled_text") or []) == len(w11b_catalog_items)
+                  and "item_pointer_unavailable" not in w11b_pointed, f"{w11b_pointer_rows}")
+            w11b_textless = w11b_published(None)[1]
+            _p, w11b_repoless = shared_document("selection", "w11b-repoless", p26_rows(w11b_items),
+                                                {"home": p26_home, "commit": None},
+                                                snapshot={"items": [{"ref": "a-ref", "surface": "always"}],
+                                                          "output": {"instruction_text": w11b_text}})
+            check("W11b X r1: where the pointers cannot be computed the selection names why, and never "
+                  "publishes neither",
+                  w11b_textless.get("item_pointer_unavailable") == "compiled_text_absent"
+                  and "item_pointer_in_compiled_text" not in w11b_textless
+                  and w11b_repoless.get("item_pointer_unavailable") == "catalog_rule_unread"
+                  and "item_pointer_in_compiled_text" not in w11b_repoless,
+                  f"{w11b_textless.get('item_pointer_unavailable')} {w11b_repoless.get('item_pointer_unavailable')}")
             check("W11b: and the pointer facts and the router reach the document, with one surface row "
                   "per unit of the selection",
-                  isinstance(w11b_facts_doc.get("item_pointer_in_compiled_text"), list)
+                  bool(w11b_facts_doc.get("item_pointer_in_compiled_text"))
                   and w11b_facts_doc.get("router_path") == "/ref/router/relevant.md"
                   and isinstance(w11b_doc_surfaces, list)
                   and len(w11b_doc_surfaces) == len({row["unit_ref"] for row in w11b_facts_doc["edges"]})

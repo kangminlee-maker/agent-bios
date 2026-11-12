@@ -292,6 +292,83 @@ PY
   case_is "the exemption comes from the assembler's reader, not a second copy" \
           "session-distill-workflow.md ->"
 
+  # A files[] negation may name BYTECODE and nothing else. npm force-includes README, LICENSE,
+  # the bin and main targets whatever files[] says, so `!README.md` took README out of the content
+  # and endpoint scans while the tarball still carried it, and the packlist comparison agreed
+  # (review Y r2 #2). Planted as the reviewer planted it.
+  fresh
+  python3 - "$W" <<'NEG'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "package.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+if not any(isinstance(e, str) and e.startswith("!") for e in d["files"]):
+    sys.exit("self-test mutation is stale: files[] carries no negation to sit beside")
+d["files"].append("!README.md")
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+NEG
+  case_is "a files[] negation naming anything but bytecode" \
+          "FILES_NEGATION_UNSUPPORTED !README.md"
+
+  # Fourth direction, both halves: product code and a self_test body. The second is what
+  # proves the scan's scope — a scan that skipped self-tests would exempt a whole class of
+  # sites without naming one of them.
+  fresh; printf '\nPLANTED_AUTHOR_MODULE = "gates/check-lexicon.py"\n' >> "$W/compose/pkgid.py"
+  case_is "shipped code naming an author-side module" \
+          "names the author-side module gates/check-lexicon.py"
+
+  fresh; printf '\n\ndef self_test():\n    planted = "gates/check-lexicon.py"\n    return planted\n' \
+      >> "$W/compose/pkgid.py"
+  case_is "a self_test body is in the scan's scope, not outside it" \
+          "names the author-side module gates/check-lexicon.py"
+
+  # An exemption is only safe while it names a real site: a stale one exempts by a path
+  # nobody has, which is the shape this repo keeps finding (a declared author-side file
+  # that moved, a concept home matching nothing).
+  # Mutated through python rather than `sub`: any literal handed to `sub` also appears in
+  # the line that hands it over, and `sub` replaces the first occurrence — it would have
+  # mutated the mutation. This one is anchored to the exemption table itself.
+  fresh
+  python3 - "$W" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "gates" / "check-package.sh"
+t = p.read_text(encoding="utf-8")
+# The LAST occurrence, and it must lie inside the table: a forward search anchored on the
+# table's name finds this very line first, and the mutation rewrote itself.
+at, table = t.rfind("benchmarks" + "/absence.py"), t.rfind("AUTHOR_IMPORT" + "_EXEMPT = {")
+if at < 0 or at < table:
+    sys.exit("self-test mutation is stale: the gate.py exemption is not in the table")
+p.write_text(t[:at] + "benchmarks/NO-SUCH.py" + t[at + len("benchmarks/absence.py"):], encoding="utf-8")
+PY
+  case_is "an author-side import exemption naming a file nobody has" \
+          "exemption(s) naming a file that does not exist"
+
+  # review Y #5: existence is not use. Both files stay; the REFERENCE the exemption excuses is
+  # removed, which used to leave the entry in place, the gate green, and the next thing written in
+  # that file excused by a line nobody had read.
+  fresh; python3 - "$W" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill" / "runlib" / "dispatch.py"
+t = p.read_text(encoding="utf-8")
+needle = "session-distill" + "/migrate-ledger.py"
+if t.count(needle) < 1:
+    sys.exit("self-test mutation is stale: dispatch.py no longer names the migrator")
+p.write_text(t.replace(needle, "session-distill" + "/runlib/ledger.py"), encoding="utf-8")
+PY
+  case_is "an author-side import exemption the scan never met" \
+          "exemption(s) the scan never met"
+
+  # review Y #1: npm is the authority on what the tarball carries, and it honours a negated
+  # files[] entry and nothing else once files[] exists.
+  fresh; python3 - "$W" <<'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "package.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+d["files"] = [e for e in d["files"] if not e.startswith("!")]
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+PY
+  case_is "a payload with no rule npm honours against bytecode" \
+          "carries no negated entry"
+
   fresh; printf '\n[presets.selftest-probe]\nlabel = "probe"\nmission = "first read gates/check-lexicon.py"\n' \
       >> "$W/launch/agent-launch.toml"
   case_is "shipped config prose naming an unshipped repo path" "gates/check-lexicon.py"
@@ -338,7 +415,7 @@ PY
 fi
 
 python3 - "$@" <<'PY'
-import ast, json, pathlib, posixpath, re, subprocess, sys, tomllib
+import ast, importlib.util, json, os, pathlib, posixpath, re, shutil, subprocess, sys, tempfile, tomllib
 
 # Reject anything not implemented, loudly. A gate that accepts --self-test by
 # ignoring it and then prints OK tells the caller a control ran when none did.
@@ -350,6 +427,9 @@ if ARGS and not (ARGS[0] == "--explain" and len(ARGS) == 2):
 
 REPO = pathlib.Path(".").resolve()
 files = json.loads((REPO / "package.json").read_text(encoding="utf-8"))["files"]
+NEGATED = [entry[1:] for entry in files if isinstance(entry, str) and entry.startswith("!")]
+POSITIVE = [entry for entry in files if not (isinstance(entry, str) and entry.startswith("!"))]
+
 
 # Author-side by directory: these exist only in a checkout, and their absence
 # from the payload degrades instead of crashing. Stating it as a directory rule
@@ -363,8 +443,8 @@ AUTHOR_SIDE_DIRS = {
                   "not something its users install",
     "design/": "dated design records and per-initiative SSOTs; history, not runtime",
     "benchmarks/": "the instruction-behavior benchmark; run from a checkout only",
-    "session-distill/": "the curator pipeline that authors instructions content. Users get the "
-                        "workflow guide, not the authoring machinery",
+    "session-distill/fixtures/": "retained capture and replay fixtures of the driver's own suites; "
+                                "their PROVENANCE files carry the author's probe paths",
     ".githooks/": "the pre-commit gate; enabled per clone with core.hooksPath",
 }
 
@@ -390,6 +470,27 @@ AUTHOR_SIDE_FILES = {
     "learn/ingest-learnings-export.py":
         "curator intake of a dashboard export; the user side of the loop is "
         "collect-learning.py, which does ship",
+    "session-distill/census.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/merge-ledger.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/plain-asks.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/update-state.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/migrate-ledger.py":
+        "the author-side ledger migration and its reader inventory; the checkout's ledger lives "
+        "under design/, which never ships",
+    "session-distill/REPIN.md":
+        "how to re-pin the driver's fixtures, which only a checkout has",
+    "session-distill/tables/ledger_readers.json":
+        "the reader registry of the CHECKOUT's ledger: every row names an author-side path, and "
+        "its one consumer is migrate-ledger.py, which does not ship (review Y #8)",
+
 }
 
 # Individual paths deliberately NOT shipped. Each needs a reason, and each must be
@@ -416,14 +517,47 @@ ALWAYS_PACKED = re.compile(r"^(package\.json|readme(\.[a-z]+)?|licen[sc]e(\.[a-z
 def always_packed(rel):
     return "/" not in rel and ALWAYS_PACKED.match(rel) is not None
 
-# This gate matches literal paths and directory prefixes. A glob in files[] would
-# be mis-classified rather than understood, so it fails instead of guessing.
+# This gate matches literal paths and directory prefixes. A glob in a POSITIVE entry would be
+# mis-classified rather than understood, so it fails instead of guessing.
+#
+# A NEGATED entry is different in kind and is modelled: `excluded_by_npm` translates it, because
+# with `files[]` present npm-packlist nulls the root `.npmignore` and a negation is then the only
+# rule npm honours — the one place bytecode can be kept out of the tarball (review Y #1). Its
+# patterns are still refused anywhere but at the front of a negation.
 GLOB = re.compile(r"[*?\[\]{}!]")
-_globs = sorted(e for e in files if GLOB.search(e))
+_globs = sorted(e for e in POSITIVE if GLOB.search(e))
 if _globs:
     sys.exit(f"check-package: FAILED — files[] contains glob pattern(s) {_globs}; this "
              "gate models literal paths and directory prefixes only, and would answer "
              "both directions wrongly rather than fail")
+_bad_negations = sorted(e for e in NEGATED if GLOB.search(e.replace("*", "").replace("?", "")))
+if _bad_negations:
+    sys.exit(f"check-package: FAILED — negated files[] entr(ies) {_bad_negations} carry a "
+             "character this gate's translation does not model; keep a negation to `*`, `**` and "
+             "`?` or teach `excluded_by_npm` the rest")
+# A negation may name BYTECODE and nothing else. npm force-includes README, LICENSE, the bin and
+# main targets whatever files[] says, so a negation naming one of those removed it from the content
+# and endpoint scans while the tarball still carried it — `!README.md` hid a forbidden identifier
+# and a live endpoint, and the packlist comparison agreed because npm shipped the file too
+# (review Y r2 #2). The supported spellings are the installer's (`SUPPORTED_NEGATIONS`), imported
+# rather than restated, so the gate cannot tolerate a negation the payload does not implement.
+sys.path.insert(0, str(REPO / "compose"))
+try:
+    from instructions_install import negation_supported
+except ImportError as exc:
+    sys.exit(f"check-package: cannot read the supported negations — {exc}. "
+             f"compose/instructions_install.py owns them, and this gate keeps no second copy")
+_unsupported = sorted(e for e in files
+                      if isinstance(e, str) and e.startswith("!") and not negation_supported(e))
+if _unsupported:
+    sys.exit("check-package: FAILED — " + "; ".join(
+        f"FILES_NEGATION_UNSUPPORTED {e}: a files[] negation may name only compiled Python "
+        f"(__pycache__, *.pyc, *.pyo); anything else hides a packed file from the content and "
+        f"endpoint scans, because npm force-includes README, LICENSE, bin and main whatever "
+        f"files[] says" for e in _unsupported))
+if not NEGATED:
+    sys.exit("check-package: FAILED — files[] carries no negated entry, so nothing keeps npm from "
+             "packing a local __pycache__: npm nulls the root .npmignore when files[] exists")
 
 SOURCES = ["install.sh", "compose/assemble.py"]
 # "$REPO/compose/x.py" / "$REPO/claude/settings.json"  and  REPO / "claude" / "settings.json"
@@ -534,15 +668,40 @@ while queue:
                 found.setdefault(sib, set()).add(rel)
                 queue.append(sib)
 
+def excluded_by_npm(rel):
+    """npm honours a negated `files[]` entry; nothing else excludes once `files[]` exists."""
+    for pattern in NEGATED:
+        pat = pattern.strip("/")
+        anchored = "/" in pat
+        out, i = [], 0
+        while i < len(pat):
+            if pat.startswith("**/", i):
+                out.append("(?:.*/)?"); i += 3
+            elif pat.startswith("**", i):
+                out.append(".*"); i += 2
+            elif pat[i] == "*":
+                out.append("[^/]*"); i += 1
+            elif pat[i] == "?":
+                out.append("[^/]"); i += 1
+            else:
+                out.append(re.escape(pat[i])); i += 1
+        prefix = "^" if anchored else "^(?:.*/)?"
+        if re.match(prefix + "".join(out) + "$", rel):
+            return True
+    return False
+
+
 def shipped(rel):
     # npm treats a directory entry as its whole subtree whether or not the entry
     # carries a trailing slash, and resolves `./gates/` to the same subtree as
     # `gates/`. Both spellings are normalized here, through the same rel_key the
     # runtime scan uses: comparing raw entries let `./gates/` satisfy neither this
     # test nor author_side(), so npm packed the tree while the gate reported OK.
+    if excluded_by_npm(rel):
+        return False
     if always_packed(rel):
         return True
-    for entry in files:
+    for entry in POSITIVE:
         e = rel_key(entry)
         if rel == e or rel.startswith(e + "/"):
             return True
@@ -829,6 +988,75 @@ gates = [n for names in author_files.values() for n in names]
 leg("author-side files", gates)
 leg("shipped instructions docs", instructions_prose)
 
+# Fourth direction: SHIPPED CODE may not reach for an author-side module. The third
+# direction asks this of prose, which covers a guide telling a reader to open a path
+# they will not have; it does not cover code, and code is where it is fatal rather
+# than confusing — a shipped module that loads `gates/x.py` works in every clone and
+# raises on the first packaged user, exactly the failure the first direction exists
+# to prevent. The driver reached for `gates/check-global-file.py` this way.
+#
+# Asked of string CONSTANTS, parsed, so a comment naming a gate is not a violation
+# while a path assembled for a loader is. Asked of every shipped `.py`, self-test
+# bodies included: a scan that skipped them would exempt a whole class of sites
+# without naming one, and this repo's rule is that an exemption names its site and
+# carries its reason. The two references that are self-test-only are named below.
+AUTHOR_IMPORT_EXEMPT = {
+    ("session-distill/runlib/dispatch.py", "benchmarks/tier/live.py"):
+        "named in OUT_OF_SCOPE as a path the driver's closure may NOT import, and in a self_test "
+        "assertion about that rule; the tier experiments are not loaded, they are forbidden",
+    ("session-distill/runlib/gate.py", "benchmarks/absence.py"):
+        "read as SOURCE in its self-test (ast, one function lifted out) rather than imported, "
+        "because importing it would pull in a host dispatcher; that leg is one of the module "
+        "suites a packaged user cannot run, and the driver's own `--self-test` does not run it",
+    ("session-distill/runlib/dispatch.py", "session-distill/census.py"):
+        "a self_test plant's subject: a SCRIPT_RUNS row naming a real file the site does not run, "
+        "which is how the stale-declaration refusal is stated. The v1 window census is not loaded "
+        "by anything shipped; after the WP-22 cutover it is not even declared",
+    ("session-distill/runlib/dispatch.py", "session-distill/migrate-ledger.py"):
+        "a PROGRAMS declaration row: the author-side migrator runs git. It is declared because the "
+        "closure inventory judges declared scripts, not because shipped code loads it",
+}
+shipped_python = sorted(
+    rel for rel in (str(p.relative_to(REPO)) for p in REPO.rglob("*.py"))
+    if shipped(rel) and not author_side(rel) and (REPO / rel).is_file())
+if not shipped_python:
+    sys.exit("check-package: FAILED — no shipped .py files found, so the author-side import scan "
+             "would pass over nothing")
+author_imports = []
+# Which exemptions the scan actually MET. Existence is not use: with both files present, deleting
+# the reference an exemption excuses left the exemption in place and the gate green, so the next
+# real reference from that file would have been excused by a line nobody had read in months
+# (review Y #5).
+exercised_exempt = set()
+for rel in leg("shipped python author-side loads", shipped_python):
+    try:
+        parsed = ast.parse((REPO / rel).read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as problem:
+        author_imports.append(f"{rel}: could not be parsed ({type(problem).__name__}), so the scan cannot judge it")
+        continue
+    for node in ast.walk(parsed):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            continue
+        named = rel_key(node.value)
+        if not named.endswith(".py") or not author_side(named):
+            continue
+        if (rel, named) in AUTHOR_IMPORT_EXEMPT:
+            exercised_exempt.add((rel, named))
+            continue
+        author_imports.append(f"{rel}:{node.lineno}: names the author-side module {named}, which a "
+                              f"packaged user does not have")
+stale_exempt = [f"{rel} -> {named}" for rel, named in AUTHOR_IMPORT_EXEMPT
+                if not (REPO / rel).is_file() or not (REPO / named).is_file()]
+if stale_exempt:
+    sys.exit("check-package: FAILED — author-side import exemption(s) naming a file that does not "
+             f"exist: {', '.join(stale_exempt)}; a stale exemption exempts nothing by name")
+unused_exempt = [f"{rel} -> {named}" for rel, named in AUTHOR_IMPORT_EXEMPT
+                 if (rel, named) not in exercised_exempt]
+if unused_exempt:
+    sys.exit("check-package: FAILED — author-side import exemption(s) the scan never met: "
+             f"{', '.join(unused_exempt)}; the reference each excuses is gone, so the entry now "
+             "excuses whatever is written next in that file. Delete the entry with the reference.")
+
 # provenance.json is EXEMPT above because a clone legitimately lacks a
 # pack-generated file — but the exemption also skips shipped(), and an unshipped
 # provenance regresses to the unbound-tarball shape silently, behind install.sh's
@@ -1000,7 +1228,8 @@ for p in tracked_files():
 leg("python lock writers without an unbounded wait", lock_writers)
 
 checked = sum(1 for r in found if r not in EXEMPT and not author_side(r) and (REPO / r).exists())
-if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mktemp_t or unbounded:
+if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mktemp_t or unbounded \
+        or author_imports:
     if missing:
         print(f"check-package: FAILED — {len(missing)} runtime path(s) not in package.json files[]:")
         for rel, srcs in missing:
@@ -1031,6 +1260,15 @@ if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mkte
               f"bound; take the lock through host_platform.lock_within (D-20261102-49b466):")
         for rel, n in unbounded:
             print(f"  {rel}:{n}")
+    if author_imports:
+        print(f"check-package: FAILED — {len(author_imports)} shipped python reference(s) to an "
+              f"author-side module; the code works in every clone and raises on the first packaged "
+              f"user:")
+        for msg in author_imports:
+            print(f"  {msg}")
+        print("  fix: move the code into a shipped module and import it from both sides "
+              "(author-side imports shipped, never the reverse), or name the site and its "
+              "reason in AUTHOR_IMPORT_EXEMPT")
     if prose_bad:
         print(f"check-package: FAILED — {len(prose_bad)} shipped-prose reference(s) "
               f"to a path the user will not have:")
@@ -1046,6 +1284,110 @@ if hollow:
     sys.exit(f"check-package: FAILED — leg(s) that judged nothing: {', '.join(hollow)}. "
              f"An empty subject satisfies every claim, so reporting it clean is the "
              f"most common way a gate lies. Point it at real subjects or delete it.")
+
+# ---- the fourth direction's instrument: npm's own expansion, not a model of it ----------------
+# Everything above reasons about what npm packs. npm is the authority, and it disagreed: with
+# `files[]` present, npm-packlist nulls the root `.npmignore`, so a local `__pycache__` under a
+# listed directory was eligible for the tarball while the installer and the endpoint gate excluded
+# it — "the rules agree" was a claim nobody had asked npm about (review Y #1). This leg asks it, on
+# a copy with a cache planted both ways, and fails on any difference the force-include set does not
+# explain.
+npm_bin = shutil.which("npm")
+if npm_bin is None:
+    print("check-package: SKIPPED the npm expansion leg: npm is not on PATH, so the tarball's own "
+          "file list cannot be derived here", file=sys.stderr)
+else:
+    # The INDEX where there is one — under the hook that is the snapshot the commit carries — and
+    # the tree itself otherwise, because this gate's own self-test judges copies that are not git
+    # repositories at all, and a crash there reads as "the gate failed on text that is no
+    # violation".
+    tracked = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True)
+    if tracked.returncode == 0 and tracked.stdout:
+        names = [n for n in tracked.stdout.decode().split("\0") if n]
+    else:
+        names = [str(q.relative_to(REPO)) for q in REPO.rglob("*")
+                 if q.is_file() and ".git/" not in str(q.relative_to(REPO))
+                 and not str(q.relative_to(REPO)).startswith(".git")]
+    with tempfile.TemporaryDirectory() as raw_tmp:
+        copy = pathlib.Path(raw_tmp) / "tree"
+        for rel in names:
+            src = REPO / rel
+            if not src.is_file():
+                continue
+            dst = copy / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+        planted = [
+            "session-distill/runlib/__pycache__/records.cpython-312.pyc",   # expanded from a dir entry
+            "session-distill/runlib/legacy.pyc",                            # a bare .pyc beside its source
+            "compose/__pycache__/instructions_install.cpython-312.pyc",     # a second listed tree
+            "session-distill/runlib/legacy.pyo",                            # the other bytecode suffix
+        ]
+        for rel in planted:
+            (copy / rel).parent.mkdir(parents=True, exist_ok=True)
+            (copy / rel).write_bytes(b"\x00planted")
+        # npm writes a compile cache into TMPDIR, and the umbrella's leg runner requires a leg
+        # to leave TMPDIR as it found it: npm gets a TMPDIR inside the copy, which goes with it.
+        npm_tmp = copy.parent / "npm-tmp"
+        npm_tmp.mkdir()
+        done = subprocess.run([npm_bin, "pack", "--dry-run", "--json", "--ignore-scripts"],
+                              cwd=copy, capture_output=True, text=True,
+                              env={**os.environ, "TMPDIR": str(npm_tmp),
+                                   "npm_config_cache": str(npm_tmp / "cache")})
+        if done.returncode != 0:
+            sys.exit(f"check-package: FAILED — npm pack --dry-run could not derive the tarball's "
+                     f"file list: {done.stderr.strip()[:300]}")
+
+        def entry_list(payload):
+            if isinstance(payload, dict):
+                if "files" in payload and "entryCount" in payload:
+                    return payload
+                for value in payload.values():
+                    found = entry_list(value)
+                    if found:
+                        return found
+            if isinstance(payload, list):
+                for value in payload:
+                    found = entry_list(value)
+                    if found:
+                        return found
+            return None
+        report = entry_list(json.loads(done.stdout))
+        if report is None:
+            sys.exit("check-package: FAILED — npm pack --dry-run --json returned no file list; its "
+                     "output shape changed and this leg cannot judge it")
+        npm_files = {row["path"] for row in report["files"]}
+        installer = importlib.util.spec_from_file_location(
+            "instructions_install_under_test", copy / "compose" / "instructions_install.py")
+        module = importlib.util.module_from_spec(installer)
+        sys.modules[installer.name] = module
+        installer.loader.exec_module(module)
+        own = set(module.InstructionsInstaller(copy, {"HOME": str(copy / "home")})._package_files())
+        # npm force-includes a few names whatever files[] says (probed, 2026-08-20): the manifest,
+        # the readme and the licence. They are npm's, not the installer's, so they are named here
+        # rather than counted as a disagreement.
+        forced = {name for name in npm_files if always_packed(name)}
+        leg("npm expansion rows", npm_files)
+        def is_cache(name):
+            # Both suffixes, because files[] now negates both and the installer's predicate knows
+            # both: a comparison that reads only `.pyc` would pass over the pair it is here to hold.
+            return name.endswith((".pyc", ".pyo")) or "__pycache__" in name.split("/")
+
+        npm_bytecode = sorted(n for n in npm_files if is_cache(n))
+        own_bytecode = sorted(n for n in own if is_cache(n))
+        if npm_bytecode or own_bytecode:
+            sys.exit("check-package: FAILED — compiled bytecode is still payload: npm packs "
+                     f"{npm_bytecode}, the installer stores {own_bytecode}. A negated files[] entry "
+                     "is the only rule npm honours once files[] exists.")
+        only_npm = sorted(npm_files - own - forced)
+        only_own = sorted(own - npm_files - {"package.json"})
+        if only_npm or only_own:
+            sys.exit("check-package: FAILED — the tarball and the private release are different "
+                     f"payloads: npm only {only_npm[:8]}, installer only {only_own[:8]}. One of the "
+                     "two reads files[] in a way the other does not.")
+        if not planted:
+            sys.exit("check-package: FAILED — the npm expansion leg planted nothing, so its "
+                     "agreement is a claim over an unplanted tree")
 
 print("check-package: OK — " + ", ".join(f"{n} {c}" for n, c in sorted(LEGS.items()))
       + f" ({len(EXEMPT)} exempt by name)")

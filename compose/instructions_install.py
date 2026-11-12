@@ -183,6 +183,55 @@ def _relative(value: str, label: str) -> str:
     return path.as_posix()
 
 
+# The ONLY `files[]` negations this package supports, as literal spellings.
+#
+# A negation is npm's one honoured exclusion once `files[]` exists, and it excludes from the
+# TARBALL — not from this installer, which applies `_is_bytecode` below, and not from the gates,
+# which scan what the tarball carries. Review Y r2 #2 showed what that difference costs: adding
+# `!README.md` removed README from the content and endpoint scans while npm force-included the
+# file anyway, so a forbidden identifier and a live endpoint in it became invisible with no
+# payload disagreement to notice. A negation can only be safe where every path it can exclude is
+# bytecode, and whether an arbitrary pattern has that property is not decidable by inspection —
+# so the supported set is enumerated instead, and `gates/check-package.sh` refuses any other
+# (`FILES_NEGATION_UNSUPPORTED`). This tuple is the authority the gates import; nothing re-models it.
+SUPPORTED_NEGATIONS = (
+    "__pycache__", "__pycache__/", "__pycache__/**",
+    "**/__pycache__", "**/__pycache__/**",
+    "*.pyc", "**/*.pyc", "*.pyo", "**/*.pyo",
+)
+
+
+def negation_supported(entry: str) -> bool:
+    """Whether a `files[]` entry is a negation this package supports (bytecode, and nothing else)."""
+    if not isinstance(entry, str) or not entry.startswith("!"):
+        return False
+    return entry[1:].strip() in SUPPORTED_NEGATIONS
+
+
+def _is_bytecode(relative: str) -> bool:
+    """Compiled Python, which is the author's and never the package's.
+
+    One predicate for every way a path can enter the payload — an explicit `files[]` entry and a
+    child of a listed directory alike. It was only on the directory branch, so naming a `.pyc`
+    outright still put it in the release inventory and in the release digest (review Y #4).
+
+    Skipped rather than refused: the author cannot be asked to clear a cache before every install,
+    the source beside it is the payload, and a stale `.pyc` shadowing source it no longer matches is
+    the worst shape to hand a user.
+
+    `.pyo` is here because SUPPORTED_NEGATIONS already admits `!*.pyo` and `!**/*.pyo`: an
+    allowlist that accepts a spelling this predicate cannot recognise is a pair that disagrees, and
+    `gates/check-package.sh` asks npm whether the two agree.
+
+    Uppercase `.PYC` is NOT covered, deliberately. Nothing in this toolchain writes one — CPython
+    writes lowercase names into `__pycache__` — and npm matches a `files[]` pattern
+    case-sensitively, so `!**/*.pyc` would not exclude one either. Both sides therefore give the
+    same answer about it, which is what the npm leg checks; teaching one side alone would be the
+    divergence. The day something produces such a file, both sides learn it together."""
+    parts = PurePosixPath(relative).parts
+    return relative.endswith((".pyc", ".pyo")) or "__pycache__" in parts
+
+
 def _inside(path: Path, root: Path) -> bool:
     try:
         path.absolute().relative_to(root.absolute())
@@ -309,10 +358,31 @@ class InstructionsInstaller:
         if not isinstance(listed, list) or not listed:
             raise InstallError("package.json files must declare the private runtime payload")
         paths: set[str] = {"package.json"}  # npm includes this manifest even when files[] omits it.
-        prohibited = ("gates/", "design/", "benchmarks/", "research/", "packages/", "session-distill/")
+        # NEGATED entries (`!pattern`) are npm's exclusions, and they are why they exist here at
+        # all: with `files[]` present npm-packlist nulls the root `.npmignore`, so the one place a
+        # cache can be excluded from the TARBALL is `files[]` itself (measured on npm 12.0.2:
+        # 226 entries with the caches, 224 without). This installer does not implement npm's
+        # pattern language — it applies its own cache rule below, and `gates/check-package.sh`
+        # holds the two expansions equal against `npm pack --dry-run --json`, so a negation that
+        # excludes anything else is a gate failure rather than a silent divergence.
+        listed = [entry for entry in listed
+                  if not (isinstance(entry, str) and entry.startswith("!"))]
+        if not listed:
+            raise InstallError("package.json files declares only exclusions, so it promises no payload")
+        # The driver (`session-distill/`) is runtime payload since WP-24: a private install stores it
+        # like `wrappers/` or `session-cost.py`, because a user who cannot run it cannot distill
+        # their own sessions. The author-side trees stay refused by name — a release carrying
+        # `gates/` would ship this repo's own judgement machinery to every adopter.
+        #
+        # Compared on the FIRST SEGMENT of the normalised path, not as a prefix with a slash.
+        # `_relative` strips the trailing slash, so `"gates/"` arrived here as `"gates"` and
+        # `startswith("gates/")` was false: the check fired only for an entry naming a file inside
+        # one of these trees, and never for the directory entry that packs the whole tree — the one
+        # shape npm actually uses. The refusal existed and could not fire where it mattered.
+        prohibited = ("gates", "design", "benchmarks", "research", "packages")
         for raw in listed:
             relative = _relative(raw, "package files entry")
-            if relative.startswith(prohibited):
+            if relative.split("/", 1)[0] in prohibited:
                 raise InstallError(f"author-only path is not a private runtime payload: {relative}")
             source = self.repo / relative
             # npm's prepack stamps this author-side provenance receipt.  A
@@ -323,6 +393,8 @@ class InstructionsInstaller:
             if source.is_symlink() or not source.exists():
                 raise InstallError(f"declared package file is missing or symlinked: {relative}")
             if source.is_file():
+                if _is_bytecode(relative):
+                    continue
                 paths.add(relative)
                 continue
             if not source.is_dir():
@@ -334,6 +406,8 @@ class InstructionsInstaller:
                     child_relative = child.relative_to(self.repo).as_posix()
                     if "/test_" in child_relative or child_relative.startswith("tests/"):
                         raise InstallError(f"test file is not a runtime payload: {child_relative}")
+                    if _is_bytecode(child_relative):
+                        continue
                     paths.add(child_relative)
         return sorted(paths)
 

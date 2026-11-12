@@ -69,8 +69,11 @@ STAGES = ("S1", "S2", "S3", "S4", "S5", "S5b", "S6", "S7", "S7b", "S8", "S9", "S
 # The stages whose one record holds more than one producer, and the parts each has. A stage absent
 # here keeps the single-producer record shape exactly as it was, and its readers do not change: S2
 # produces the reading views and the inventory of the library, which neither calls the other nor
-# may overwrite the other's record (design §6.1, §6.3).
-STAGE_PARTS = {"S2": ("views", "inventory")}
+# may overwrite the other's record (design §6.1, §6.3). S10 parses the owner's decisions and, for a 판정, adjudicates
+# them (design §10.1, §10.2; plan WP-20): two producers whose outputs neither may replace. S10b builds the final set
+# the owner confirms and reads the owner's confirmation of it (design §10.3; plan WP-20 K6): the confirmation reads
+# the build's manifest as its input, so the two are parts of one record rather than one producer replacing itself.
+STAGE_PARTS = {"S2": ("views", "inventory"), "S10": ("parse", "adjudicate"), "S10b": ("build", "confirm")}
 STATUSES = ("running", "complete", "partial", "failed")
 OUTCOMES = ("retained", "merged", "rejected", "quarantined")  # design §3.2 item 5
 
@@ -695,6 +698,12 @@ DECLARATION_READERS = {
                                                 "mid-amendment is refused by name (DECLARATION_DRIFT) rather than believed",
     ("runlib/records.py", "run_stage"): "admits a stage: what it reads under the lock is the StageRun.declaration the stage "
                                         "builds from",
+    ("runlib/destinations.py", "self_test"): "reads back the run.json its own fixture just wrote, to judge the "
+                                             "manifest against the roots a real declaration carries rather than a "
+                                             "shape invented in the suite. The module itself never reads the "
+                                             "declaration from disk: `document` and `write` are handed it by their "
+                                             "caller, which is what lets apply resolve destinations before it opens "
+                                             "any stage record",
     ("runlib/declare.py", "create"): "the declaration's writer (S0): writes run.json under the declaration lock",
     ("runlib/declare.py", "set_fields"): "the declaration's writer: an amendment's fields, read and written under the lock",
     ("runlib/declare.py", "amend"): "the declaration's writer: an amendment, read and written under the lock",
@@ -1231,9 +1240,9 @@ def self_test():
         base = {"declaration_seq": 0, "question": "fixture", "posture": "production"}
         declare_fixture(run_dir, base)
 
-        def start(stage, inputs=()):
+        def start(stage, inputs=(), part=None):
             try:
-                with run_stage(run_dir, stage, inputs) as st:
+                with run_stage(run_dir, stage, inputs, part=part) as st:
                     (run_dir / f"{stage}.out").write_text(f"{stage} output\n", encoding="utf-8")
                     st.output(f"{stage}.out")
                 return []
@@ -1328,13 +1337,15 @@ def self_test():
                "but the declaration log ends at 0")
         amend_fixture(run_dir, {**base, "declaration_seq": 1}, amend(1, scope=("S10",)))
         expect("amendment licenses S10, producer S1 not invalidated",
-               start("S10", [{"artifact": "S1.out", "producer_stage": "S1"}]))
-        pinned_s10 = (read_json(record_path(run_dir, "S10")).get("inputs")
-                      if record_path(run_dir, "S10").is_file() else [])
+               start("S10", [{"artifact": "S1.out", "producer_stage": "S1"}], part="parse"))
+        # S10 has parts (STAGE_PARTS), so its pinned inputs are its part's
+        held_s10 = read_json(record_path(run_dir, "S10")) if record_path(run_dir, "S10").is_file() else {}
+        pinned_s10 = ((held_s10.get("parts") or {}).get("parse") or held_s10).get("inputs") or []
         if [row.get("producer_seq") for row in pinned_s10] != [0]:
             failures.append(f"S10 pinned its producer's sequence as its own: {pinned_s10}")
+        # S10b has parts too (STAGE_PARTS), so the start names one; the declaration is judged before the part is
         expect("amendment does not list S10b",
-               start("S10b", [{"artifact": "S1.out", "producer_stage": "S1"}]), "DECLARATION_DRIFT S10b")
+               start("S10b", [{"artifact": "S1.out", "producer_stage": "S1"}], part="build"), "DECLARATION_DRIFT S10b")
         # a log that is not a numbered sequence, or not readable, is named
         good_log = amendments_path(run_dir).read_text(encoding="utf-8")
         amendments_path(run_dir).write_text(good_log.splitlines()[0] + "\n" + json.dumps(amend(2)) + "\n", encoding="utf-8")
