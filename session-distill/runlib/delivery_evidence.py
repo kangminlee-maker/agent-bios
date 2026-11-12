@@ -92,9 +92,11 @@ def contains(haystack, needle):
 
 
 def versions_of(units):
-    """`{path: {version_sha256: lines}}`: each carrier version's text as its units' lines in order."""
+    """`{path: {version_sha256: lines}}`: each carrier version's text as its units' lines in order. The order is the
+    inventory's published one, `n` (lead decision 2026-11-12): the emitted document carries no `start`, so a key on it
+    was always 0, and a unit that did carry one could reorder its carrier's lines against `n`."""
     out = {}
-    for unit in sorted(units, key=lambda u: (u["path"], u["version_sha256"], u.get("start", 0), u.get("n", 0))):
+    for unit in sorted(units, key=lambda u: (u["path"], u["version_sha256"], u.get("n", 0))):
         out.setdefault(unit["path"], {}).setdefault(unit["version_sha256"], []).extend(text_lines(unit["text"]))
     return out
 
@@ -444,7 +446,7 @@ def expected_state(row, level):
 
 def _unit(uid, path, text, version="a" * 64, layer="catalog", surface="relevant", ref="claude:guides/g", context=None, n=1):
     return {"unit_id": uid, "path": path, "text": text, "version_sha256": version, "layer": layer, "surface": surface,
-            "item_ref": ref, "operative_context": context or [uid], "n": n, "start": n * 100}
+            "item_ref": ref, "operative_context": context or [uid], "n": n}
 
 
 def _builder(row, level):
@@ -813,6 +815,28 @@ def self_test():
            ("unknown", "library_selected"))
     expect("control: the same item under a pin and a recorded injection is delivered",
            delivery(core, core_units, always, 5)["state"], "delivered")
+    # lead decision 2026-11-12: a carrier's lines are its units' in `n` order, on units as the inventory's production
+    # path emits them (no `start`); a stray `start` on each, numbered against `n`, changes nothing
+    from runlib import inventory
+    order_ctx = {"home": "/nonexistent-fixture-home", "state_root": None, "notes": {}, "commit": None,
+                 "release_ref": None, "snapshot": {}, "events": []}
+    ordered = inventory.carrier("catalog", "claude/guides/order.md", "# Order\n\n- first rule\n- second rule\n- third rule\n")
+    try:
+        emitted = inventory.emitted_document("current", [
+            {"layer": "catalog", "producer": "this suite's fixture producer", "status": "complete", "reasons": [],
+             "carriers": [ordered]}], order_ctx)[0]["units"]
+    except Exception as exc:  # noqa: BLE001 - the control below names it
+        emitted = []
+        failures.append(f"the inventory's production path made no units: {exc!r}")
+    by_n = [line for u in sorted(emitted, key=lambda u: u["n"]) for line in text_lines(u["text"])]
+    stray = [{**u, "start": 1000 - u["n"]} for u in reversed(emitted)]
+    lines_of = {name: (versions_of(given).get("claude/guides/order.md") or {}).get(ordered["version_sha256"])
+                for name, given in (("emitted", emitted), ("reversed", list(reversed(emitted))), ("stray", stray))}
+    expect("lead decision 2026-11-12: a carrier's lines follow `n` on producer-shaped units (no `start`), listed in any "
+           "order and with a stray `start` against `n`",
+           (len(emitted) >= 3 and not any("start" in u for u in emitted) and by_n[-1] == "- third rule",
+            lines_of["emitted"] == by_n, lines_of["reversed"] == by_n, lines_of["stray"] == by_n),
+           (True, True, True, True))
     # Codex WP-10 r1 #5: the licensed level's row and the native layer's level decide, read from a scratch table
     held_t = table()
     _TABLES["t"] = {**held_t, "licensed_levels": [{**r, "state": "exposed_not_read", "level": "library_listed",
