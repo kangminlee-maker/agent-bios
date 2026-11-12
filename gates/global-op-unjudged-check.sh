@@ -18,22 +18,72 @@
 set -u
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# --self-test: run the check again with HOSTILE GIT_* variables pointing at a DECOY repository, and
+# assert the decoy is untouched. That is the negative control for the finding this script was fixed
+# for: a list of five variables to unset let GIT_CONFIG and the GIT_CONFIG_COUNT family through, and
+# any of them can redirect a git write into the repository they name. The decoy stands in for the
+# real one so the control can be run without risking it.
+if [ "${1:-}" = "--self-test" ]; then
+  DECOY="$(mktemp -d "/tmp/global-op-decoy.XXXXXX")"
+  trap 'rm -rf "$DECOY"' EXIT
+  mkdir -p "$DECOY/worktree"
+  ( cd "$DECOY" && git init -q . && git config core.worktree "$DECOY/worktree"       && git config user.email d@e.invalid && git config user.name d ) || {
+    echo "FAIL: could not build the decoy repository"; exit 1; }
+  before=$(shasum "$DECOY/.git/config" | cut -d' ' -f1)
+  GIT_DIR="$DECOY/.git" GIT_WORK_TREE="$DECOY" GIT_CONFIG="$DECOY/.git/config"     GIT_COMMON_DIR="$DECOY/.git" GIT_TEMPLATE_DIR="$DECOY/template"     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="core.worktree" GIT_CONFIG_VALUE_0="/hijacked"     GIT_OBJECT_DIRECTORY="$DECOY/.git/objects" GIT_INDEX_FILE="$DECOY/.git/index"     bash "${BASH_SOURCE[0]}" > "$DECOY/run.log" 2>&1
+  code=$?
+  after=$(shasum "$DECOY/.git/config" | cut -d' ' -f1)
+  held=()
+  [ "$code" -eq 0 ] || held+=("the check did not pass under hostile GIT_* variables (exit $code): $(tail -3 "$DECOY/run.log")")
+  [ "$before" = "$after" ] || held+=("the decoy repository's config CHANGED: the sweep did not hold")
+  if git -C "$DECOY" config --get core.worktree | grep -q hijacked; then
+    held+=("core.worktree in the decoy was rewritten to the hijacked value")
+  fi
+  if [ "${#held[@]}" -gt 0 ]; then
+    for row in "${held[@]}"; do echo "FAIL: $row"; done
+    echo "global-op-unjudged-check --self-test: FAILED (${#held[@]})"
+    exit 1
+  fi
+  echo "global-op-unjudged-check --self-test: OK (the check passes with GIT_DIR, GIT_CONFIG, the"
+  echo "GIT_CONFIG_COUNT family, GIT_COMMON_DIR, GIT_TEMPLATE_DIR, GIT_OBJECT_DIRECTORY and"
+  echo "GIT_INDEX_FILE all aimed at a decoy repository, and the decoy's config is byte-identical"
+  echo "afterwards)"
+  exit 0
+fi
 LIMIT="${GLOBAL_OP_CHECK_TIMEOUT:-180}"
 WORK="$(mktemp -d "/tmp/global-op.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
-# A scratch repository with every GIT_* variable scrubbed: under the commit hook they point at the
-# hook's snapshot, and a `git init` inheriting them rewrites the REAL repository's config
-# (AGENTS.md's first trap).
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+# EVERY inherited GIT_* variable, swept from the environment rather than listed. A list is what the
+# first version of this script had, and it named five: `GIT_CONFIG`, `GIT_CONFIG_COUNT` with its
+# `GIT_CONFIG_KEY_n`/`VALUE_n` pairs, `GIT_COMMON_DIR` and `GIT_TEMPLATE_DIR` all survived it, and
+# each of them can send this harness's writes into the REAL repository's config — which is
+# AGENTS.md's first trap, with a wider mouth than the trap describes. Under the commit hook those
+# variables are exactly what is set.
+while IFS='=' read -r held _; do
+  case "$held" in GIT_*) unset "$held" || true ;; esac
+done < <(env)
+# `git` also reads these two without a GIT_ prefix.
+unset XDG_CONFIG_HOME GIT_CEILING_DIRECTORIES 2>/dev/null || true
+export GIT_CONFIG_NOSYSTEM=1                 # no /etc/gitconfig either
 export HOME="$WORK/home" CLAUDE_CONFIG_DIR="$WORK/home/.claude" CODEX_HOME="$WORK/home/.codex"
 export TMPDIR="$WORK/tmp"
-mkdir -p "$HOME" "$TMPDIR" "$WORK/repo/claude" "$WORK/repo/gates"
 
-cd "$WORK/repo"
-git init -q .
-git config user.email "fixture@example.invalid"
-git config user.name "fixture"
+# Every step that builds the fixture is fatal: a failed mkdir, a failed cd or a failed init leaves
+# the next git command running somewhere this script did not choose, and the repository it would
+# then write into is whichever one encloses the working directory.
+mkdir -p "$HOME" "$TMPDIR" "$WORK/repo/claude" || { echo "FAIL: could not build the fixture tree"; exit 1; }
+cd "$WORK/repo" || { echo "FAIL: could not enter the scratch repository"; exit 1; }
+git init -q . || { echo "FAIL: git init refused in the scratch repository"; exit 1; }
+# After init, prove the repository git now answers for is the scratch one and not the real tree.
+held_top=$(git rev-parse --show-toplevel 2>/dev/null || true)
+case "$held_top" in
+  "$WORK/repo"|"/private$WORK/repo") : ;;
+  *) echo "FAIL: git answers for $held_top, not the scratch repository at $WORK/repo"; exit 1 ;;
+esac
+git config user.email "fixture@example.invalid" || { echo "FAIL: git config refused"; exit 1; }
+git config user.name "fixture" || { echo "FAIL: git config refused"; exit 1; }
 
 # A global file with two rules, committed as the base.
 printf 'A rule that stays.\nA rule that goes.\n' > claude/CLAUDE.md
