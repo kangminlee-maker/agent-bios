@@ -270,9 +270,17 @@ def _unavailable(unit, session, surface):
                for r in session.get("unavailable") or [])
 
 
+def licensed(ident):
+    """One licensed level's row of the table (`licensed_levels`): its level, the state it gives and its basis."""
+    return next(r for r in table()["licensed_levels"] if r["id"] == ident)
+
+
 def _history(unit, session, row, selected):
     if selected:
-        return _result(unit, session, row, "unknown", "library_selected", ["selection_history"], "selection_history")
+        # the level, its state and its basis as the table licenses them (Codex WP-10 r1 #5: written here as literals,
+        # so the table's row decided nothing)
+        held = licensed("library_selected")
+        return _result(unit, session, row, held["state"], held["level"], ["selection_history"], held["basis"])
     return _result(unit, session, row, "unknown", None, ["not_in_selection_history"], "selection_history")
 
 
@@ -344,7 +352,11 @@ def _native(unit, units, session, decision_at, versions, row):
         return _result(unit, session, row, "unknown", None, ["no_recorded_injection_before_decision"], None)
     latest = max(events, key=lambda e: e["at"])
     if unit["unit_id"] in (latest.get("unit_ids") or []):
-        return _result(unit, session, row, "delivered", "loaded", [], "native")
+        # a recorded injection evidences `loaded`; whether that is delivery is the table's `delivered_at` (Codex WP-10
+        # r1 #5: the handler said delivered whatever the row's level was)
+        if _rank(row, "loaded") >= _rank(row, row["delivered_at"]):
+            return _result(unit, session, row, "delivered", "loaded", [], "native")
+        return _result(unit, session, row, "unknown", "loaded", ["below_the_level_the_table_delivers_at"], "native")
     release = session.get("release") or {}
     complete, read = derive.absence(release)
     if not complete:
@@ -801,6 +813,29 @@ def self_test():
            ("unknown", "library_selected"))
     expect("control: the same item under a pin and a recorded injection is delivered",
            delivery(core, core_units, always, 5)["state"], "delivered")
+    # Codex WP-10 r1 #5: the licensed level's row and the native layer's level decide, read from a scratch table
+    held_t = table()
+    _TABLES["t"] = {**held_t, "licensed_levels": [{**r, "state": "exposed_not_read", "level": "library_listed",
+                                                   "basis": "history_basis"} if r["id"] == "library_selected" else r
+                                                  for r in held_t["licensed_levels"]]}
+    try:
+        moved = delivery(core, core_units, history, 5)
+    finally:
+        _TABLES["t"] = held_t
+    expect("Codex WP-10 r1 #5: the selection history's answer is the licensed level's row: its state, level and basis",
+           (moved["state"], moved["level"], moved["selection"]), ("exposed_not_read", "library_listed", "history_basis"))
+    native_row = next(r for r in held_t["surfaces"] if r["id"] == "native_layer")
+    native_unit, native_units, native_session, native_at = _builder(native_row, "loaded")
+    _TABLES["t"] = {**held_t, "surfaces": [{**r, "levels": r["levels"] + ["acted on"], "delivered_at": "acted on"}
+                                           if r["id"] == "native_layer" else r for r in held_t["surfaces"]]}
+    try:
+        raised = delivery(native_unit, native_units, native_session, native_at)
+    finally:
+        _TABLES["t"] = held_t
+    expect("Codex WP-10 r1 #5: a native unit in the recorded injection is delivered only when the table delivers at "
+           "`loaded`: with the row's level moved above it, the same session is unknown below the level",
+           (delivery(native_unit, native_units, native_session, native_at)["state"], raised["state"], raised["reasons"]),
+           ("delivered", "unknown", ["below_the_level_the_table_delivers_at"]))
     codex = {"session_ref": "codex:t", "host": "codex", "basis": None, "pin_reason": "pin_predates_rollout_binding"}
     expect("a Codex pin naming no rollout is unknown with the F-22 reason",
            delivery(core, core_units, codex, 5)["reasons"], ["pin_predates_rollout_binding"])
