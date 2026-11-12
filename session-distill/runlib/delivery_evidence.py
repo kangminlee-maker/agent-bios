@@ -114,8 +114,23 @@ def of_carrier(read, unit, session):
     return read["path"] == unit["path"] or read["path"].endswith("/" + delivered_suffix(unit["path"]))
 
 
+def occurrences(haystack, needle):
+    """The indices at which `needle`'s lines occur as one contiguous run of `haystack`'s."""
+    if not needle:
+        return []
+    return [i for i in range(len(haystack) - len(needle) + 1) if haystack[i:i + len(needle)] == needle]
+
+
 def requirement(req_id, units, reads, session, versions):
-    """`(status, reason)` of one requirement of a unit's operative context: `met`, `unmet` or `unknown`."""
+    """`(status, reason)` of one requirement of a unit's operative context: `met`, `unmet` or `unknown`.
+
+    Its lines are met when the reads of its carrier before the decision returned all of them between them, of the
+    requirement's own version (§6.3: covered across reads, Codex WP-10 r1 #2). A read covers the lines it returned at the
+    one place of that version they occur; a read whose lines occur at more than one place covers nothing, since which of
+    them it returned is not known, unless it returned the requirement whole. A fragment the requirement's version shares
+    with another binds by the pin or the release (`bound_versions`): `bound_by_pin_or_release` when one was needed,
+    `version_unbound` when it was and none names a version; when even binding every shared fragment leaves a line
+    uncovered it is unmet - `version_mismatch` when a read returned it of another version only, `not_returned` else."""
     if req_id.startswith("k-"):
         return "unknown", "context_unresolved"
     req = units.get(req_id)
@@ -124,30 +139,45 @@ def requirement(req_id, units, reads, session, versions):
     want = text_lines(req["text"])
     held = versions.get(req["path"], {})
     known = {line for lines in held.values() for line in lines}
-    seen = []
+    own = held.get(req["version_sha256"], [])
+    bound = (session.get("bound_versions") or {}).get(req["path"])
+    targets = [set(range(i, i + len(want))) for i in occurrences(own, want)]
+    sole, by_binding, unbound, seen = set(), set(), set(), []
     for read in reads:
         if not of_carrier(read, req, session):
             continue
         got = returned_lines(read["returned"])
-        if not contains(got, want):
-            continue
+        whole = contains(got, want)
         while got and got[0] not in known:      # what the tool added around the file's bytes is not the file
             got = got[1:]
         while got and got[-1] not in known:
             got = got[:-1]
+        if not got or not (whole or set(got) & set(want)):
+            continue
         matching = sorted(version for version, lines in held.items() if contains(lines, got))
+        if req["version_sha256"] not in matching:
+            seen.append("version_mismatch")
+            continue
+        places = occurrences(own, got)
+        span = set().union(*targets) if whole and len(places) != 1 else \
+            (set(range(places[0], places[0] + len(got))) if len(places) == 1 else set())
         if matching == [req["version_sha256"]]:
-            return "met", None
-        if req["version_sha256"] in matching:
-            bound = (session.get("bound_versions") or {}).get(req["path"])
-            if bound == req["version_sha256"]:
-                return "met", "bound_by_pin_or_release"
-            seen.append("version_unbound" if bound is None else "version_mismatch")
+            sole |= span
+        elif bound == req["version_sha256"]:
+            by_binding |= span
+        elif bound is None:
+            unbound |= span
+            seen.append("version_unbound")
         else:
             seen.append("version_mismatch")
-    if not seen:
-        return "unmet", "not_returned"
-    return ("unknown", "version_unbound") if "version_unbound" in seen else ("unmet", "version_mismatch")
+    if any(t <= sole for t in targets):
+        return "met", None
+    if any(t <= sole | by_binding for t in targets):
+        return "met", "bound_by_pin_or_release"
+    if any(t <= sole | by_binding | unbound for t in targets):
+        return "unknown", "version_unbound"
+    # not covered even with every shared fragment bound: a line of it no read returned, or one returned of another version
+    return ("unmet", "version_mismatch") if "version_mismatch" in seen else ("unmet", "not_returned")
 
 
 def unit_read(unit, units, reads, session, versions):
@@ -265,7 +295,11 @@ def _guide(unit, units, session, decision_at, versions, row):
     if level is not None and _rank(row, level) >= _rank(row, row["delivered_at"]):
         return _result(unit, session, row, "delivered", level, [] if selection else ["selection_unknown"],
                        selection, requirements)
-    unparsed = [m for m in _before(session.get("unparsed"), decision_at) if of_carrier(m, unit, session)]
+    # a tool call whose bytes could not be read, naming the unit's carrier or the carrier of any requirement of its
+    # operative context not met, leaves the state unknown (Codex WP-10 r1 #3: only the unit's own carrier was asked)
+    pending = [units[r["unit_id"]] for r in requirements if r["status"] != "met" and r["unit_id"] in units]
+    unparsed = [m for m in _before(session.get("unparsed"), decision_at)
+                if any(of_carrier(m, carrier, session) for carrier in [unit] + pending)]
     partly = any(of_carrier(read, unit, session) for read in reads)
     exposed = row.get("exposed_at") is not None and (_rank(row, level) >= _rank(row, row["exposed_at"]) or partly)
     if exposed:
@@ -691,6 +725,40 @@ def self_test():
     expect("O3: ... and is unknown when nothing binds it", (twin_state({})["state"], twin_state({})["reasons"]),
            ("unknown", ["version_unbound"]))
     expect("control: bound to the other version, the requirement is unmet", twin_state({path: v2})["state"], "exposed_not_read")
+    # Codex WP-10 r1 #2: a requirement returned across reads is covered by them together, of its own version
+    head_rule = {"at": 2, "path": deployed, "returned": "     1\t## Review\n     2\t- Read the diff twice.\n"}
+    line3 = {"at": 3, "path": deployed, "returned": "     3\t### Exceptions\n"}
+    line4 = {"at": 5, "path": deployed, "returned": "     4\t- except a one-line typo fix.\n"}
+    split = {**pinned, "reads": [head_rule, line3, line4, second_read]}
+    expect("Codex WP-10 r1 #2: an enclosing exception returned across two reads, a line each, is covered: delivered",
+           (state(split)["state"], [r["status"] for r in state(split)["requirements"]]),
+           ("delivered", ["met", "met", "met", "met"]))
+    expect("control: one of its two lines never returned leaves it unmet, not_returned",
+           (state({**split, "reads": [head_rule, line3, second_read]})["state"],
+            state({**split, "reads": [head_rule, line3, second_read]})["requirements"][2]),
+           ("exposed_not_read", {"unit_id": "u-x1", "status": "unmet", "reason": "not_returned"}))
+    expect("control: the line the two versions share and the other version's own line do not combine into the "
+           "requirement's version",
+           delivery(lone, twins, {**pinned, "reads": [just_rule, line3,
+                                                      {**line4, "returned": "     4\t- except a docs-only change.\n"}],
+                                  "bound_versions": {}}, 10, twin_versions)["requirements"][-1],
+           {"unit_id": "u-x1", "status": "unmet", "reason": "not_returned"})
+    expect("control: ... and with the pin naming the requirement's version, its shared line binds and its own is still "
+           "missing", delivery(lone, twins, {**pinned, "reads": [just_rule, line3,
+                                                                 {**line4, "returned": "     4\t- except a docs-only change.\n"}],
+                                             "bound_versions": {path: v1}}, 10, twin_versions)["requirements"][-1],
+           {"unit_id": "u-x1", "status": "unmet", "reason": "not_returned"})
+    expect("control: the shared line and the requirement's own line, read apart, bind by the pin: delivered",
+           delivery(lone, twins, {**pinned, "reads": [just_rule, line3, line4], "bound_versions": {path: v1}}, 10,
+                    twin_versions)["state"], "delivered")
+    # Codex WP-10 r1 #3: an unparsed call naming the carrier of a requirement not met is a read nobody could judge
+    unparsed_second = {**pinned, "reads": pinned["reads"][:1], "unparsed": [{"at": 2, "path": deployed2}]}
+    expect("Codex WP-10 r1 #3: the unit's guide read whole and an unparsed call for the second guide its context needs "
+           "is unknown, read_unparsed, never exposed_not_read",
+           (state(unparsed_second)["state"], state(unparsed_second)["reasons"]), ("unknown", ["read_unparsed"]))
+    expect("control: an unparsed call for a guide no unmet requirement lives in leaves exposed_not_read",
+           state({**unparsed_second, "unparsed": [{"at": 2, "path": "/state/runtime/s/items/other/guides/other.md"}]})["state"],
+           "exposed_not_read")
     # the always surface
     core = _unit("u-c1", "claude/CLAUDE.md", "- Verify before you claim.", surface="always", ref="claude:core")
     core_units = {"u-c1": core}
