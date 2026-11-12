@@ -80,6 +80,7 @@ SUBJECTS = [
     "session-distill/runlib/placement.py",
     "session-distill/runlib/destinations.py",
     "session-distill/runlib/drift.py",
+    "session-distill/runlib/exposure.py",
     "session-distill/runlib/journal.py",
     "session-distill/runlib/sequencing.py",
     "session-distill/runlib/ranking.py",

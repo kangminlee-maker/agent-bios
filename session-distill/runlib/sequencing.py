@@ -21,6 +21,7 @@ running under the hook, and is bounded by a timeout.
 """
 import hashlib
 import itertools
+import inspect
 import json
 import os
 import pathlib
@@ -28,6 +29,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib import targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -57,13 +59,23 @@ def under_the_hook(environ=None):
     return reasons
 
 
+# The operation fields the stand-in READS, and therefore the fields a set's identity must bind.
+# `apply_to` is the only reader, and its self-test holds this tuple against the fields it names.
+OPERATION_FIELDS = ("type", "target", "names", "units")
+
+
 def set_hash(items):
     """The identity of a SET of items: its item ids, sorted, with each item's operations.
 
     Sorted, because the question "does this set admit an order" is about the set, and a hash that
     changed with the order would make the answer unfindable for the same set presented twice."""
+    # EVERY field `apply_to` reads. The set omitted `units`, which a merge's removals come from, so
+    # two sets with opposite verdicts shared an identity: with base x,y and route r->x, merging
+    # units=[x] is unsequenced and merging units=[y] is not, and both hashed the same. The identity
+    # is derived from `OPERATION_FIELDS` rather than listed twice, so a field added to `apply_to`
+    # cannot be left out of the identity (the WP-12 review).
     rows = sorted(({"item_id": item["item_id"],
-                    "operations": [{k: op.get(k) for k in ("type", "target", "names")}
+                    "operations": [{k: op.get(k) for k in OPERATION_FIELDS}
                                    for op in item.get("operations") or []]}
                    for item in items), key=lambda row: row["item_id"])
     return hashlib.sha256(json.dumps(rows, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
@@ -77,7 +89,14 @@ def apply_to(tree, item):
     why a route can precede its carrier and leave a tree that no gate should pass."""
     held = dict(tree)
     for op in item.get("operations") or []:
-        kind, target = op.get("type"), op.get("target")
+        kind = op.get("type")
+        # The IDENTITY, not the string the operation carries: `claude/g.md`, `./claude/g.md` and
+        # `claude//g.md` are one file, and keying the tree by the raw string made them three — a
+        # create under one spelling and a delete under another left the file present, and the order
+        # this module computed was an order over a tree that does not exist (the round-3 review).
+        # `targets.identity` is the one owner of that question; an unspellable target keeps its own
+        # string so the order is still computed and the spelling contract reports it by name.
+        target = targets.identity(op.get("target")) or op.get("target")
         if kind in ("create", "edit"):
             held[target] = "present"
         elif kind == "delete":
@@ -143,7 +162,11 @@ def sequence(items, gate=route_integrity, base=None, limit=SET_LIMIT):
     def walk(tree, applied):
         if len(applied) == len(rows):
             return True
-        key = frozenset(applied)
+        # Keyed on the applied set AND THE TREE. Keyed on the set alone, a dead end reached by one
+        # order marked the set dead for every order, and the operations do not commute: with x in
+        # the base, `create x` then `delete x` leaves a different tree than the reverse, so
+        # b,a,c passed while the search reported that no order existed at all (the WP-12 review).
+        key = (frozenset(applied), tree_hash(tree))
         if key in dead:
             return False
         for item_id in sorted(set(ids) - applied):
@@ -169,6 +192,52 @@ def sequence(items, gate=route_integrity, base=None, limit=SET_LIMIT):
             "hook_results": [{"item_id": item_id, "problems": problems}
                              for item_id, _tree, problems in trail],
             "gate": getattr(gate, "__name__", "gate")}
+
+
+def validate_order(items, order, gate=route_integrity, base=None):
+    """The row `sequence` returns, for the order the caller GIVES, or Refused naming the step.
+
+    "Does an order exist" and "does THIS order hold" are different questions, and a caller that
+    needed the second asked the first and compared answers. `sequence` returns the first passing
+    order its sorted-id search reaches, so a perfectly valid approved order was rejected whenever
+    another valid order sorted earlier (the WP-21 round-2 review). Validating is also one pass with
+    no search.
+    """
+    rows = list(items)
+    if not rows:
+        raise Refused("SEQUENCE_SET_EMPTY: an order over no item proves nothing about any apply")
+    by_id = {item["item_id"]: item for item in rows}
+    asked = list(order or ())
+    if sorted(asked) != sorted(by_id):
+        raise Refused(f"SEQUENCE_ORDER_NOT_A_PERMUTATION {', '.join(asked)}: the order names "
+                      f"{len(asked)} item(s) and the set holds {len(by_id)} "
+                      f"({', '.join(sorted(by_id))})")
+    tree = dict(base or {})
+    trail = []
+    for item_id in asked:
+        tree = apply_to(tree, by_id[item_id])
+        problems = gate(tree)
+        trail.append((item_id, tree, problems))
+        if problems:
+            raise Refused(f"SEQUENCE_ORDER_FAILS at {item_id} (step {len(trail)} of {len(asked)}): "
+                          f"{'; '.join(problems)}")
+    return {"set_hash": set_hash(rows),
+            "order": [item_id for item_id, _tree, _problems in trail],
+            "tree_hashes": [tree_hash(held) for _item_id, held, _problems in trail],
+            "hook_results": [{"item_id": item_id, "problems": problems}
+                             for item_id, _tree, problems in trail],
+            "gate": getattr(gate, "__name__", "gate")}
+
+
+def order_answer(items, order, gate=route_integrity, base=None):
+    """`validate_order`'s row, RETURNED rather than raised, as `subset_answer` is `sequence`'s."""
+    try:
+        return {**validate_order(items, order, gate, base), "sequenced": True}
+    except Refused as exc:
+        return {"set_hash": set_hash(list(items)), "sequenced": False,
+                "refusal": str(exc).split(":")[0].split(" at ")[0], "reason": str(exc),
+                "order": [], "tree_hashes": [], "hook_results": [],
+                "gate": getattr(gate, "__name__", "gate")}
 
 
 def subset_answer(items, gate=route_integrity, base=None):
@@ -210,8 +279,27 @@ def self_test():
     Every control here uses the deterministic stand-in. The real hook is not run: this suite is a leg
     of the umbrella, the umbrella is run by the hook, and the recursion is the failure the design of
     this module is built around. What the suite proves is the SEARCH; `--real-hook-check` proves the
-    hook runs over an intermediate tree at all, and the two are named separately on purpose."""
+    hook runs over an intermediate tree at all, and the two are named separately on purpose.
+    The body is wrapped so a control that DIES still speaks: a traceback is not a control firing,
+    and a revert trial that reads any output counts one as if it were (the WP-12 review). The
+    wrapper prints a [FAIL] line naming the control that was in flight, so the evidence says which
+    rule stopped being enforced.
+    """
     failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"sequencing --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"sequencing --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"sequencing --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} failed "
+              f"before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
     reporting = []
 
     def control(name, got, want):
@@ -238,6 +326,18 @@ def self_test():
         except Refused as exc:
             return str(exc)
         return ""
+
+    def guarded(call):
+        """The call's answer as text, or the exception as text.
+
+        `refusal` catches only `Refused`; a revert that makes a control raise KeyError instead ends
+        the suite in a traceback, and a trial reading any output counts that as the control firing.
+        Found by this unit's own round-2 revert trial on the permutation guard.
+        """
+        try:
+            return str(call())
+        except BaseException as exc:  # noqa: BLE001 - the exception is the answer here
+            return f"RAISED {type(exc).__name__}: {exc}"
 
     def sequenced(name, call):
         """A positive control's answer, or a named failure when the call refuses.
@@ -278,6 +378,48 @@ def self_test():
     clean("and every intermediate tree of that order passed",
           [row for row in pair["hook_results"] if row["problems"]])
 
+    # ---- validating ONE given order, which is a different question from searching ----------------
+    #
+    # "Does an order exist" and "does THIS order hold" are not the same, and WP-21's caller needed
+    # the second: it asked the first and compared the answers, so a valid APPROVED order was refused
+    # whenever another valid order sorted earlier. The pair below is that case — both orders pass,
+    # and the one validated is the one asked about.
+    given = sequenced("a given order that holds is returned as given",
+                      lambda: validate_order([carrier, route], ["i-carrier", "i-route"]))
+    control("a given order that holds is returned as given", json.dumps(given["order"]),
+            '["i-carrier", "i-route"]')
+    control("and its trees are the trees of THAT order, one per step",
+            str(len(given["tree_hashes"])), "2")
+    control("a given order that does not hold is refused at the step that failed, with the gate's "
+            "own words",
+            refusal(lambda: validate_order([carrier, route], ["i-route", "i-carrier"])),
+            "SEQUENCE_ORDER_FAILS at i-route (step 1 of 2)")
+    control("while the search, asked the other question about the same set, finds the order that "
+            "does hold — which is why a caller must not read one as the other",
+            json.dumps(sequenced("the search on that same set",
+                                 lambda: sequence([carrier, route]))["order"]),
+            '["i-carrier", "i-route"]')
+    control("an order naming an item the set does not hold is refused rather than validated",
+            guarded(lambda: refusal(
+                lambda: validate_order([carrier, route], ["i-carrier", "i-ghost"]))),
+            "SEQUENCE_ORDER_NOT_A_PERMUTATION")
+    control("and so is one that leaves an item out",
+            guarded(lambda: refusal(
+                lambda: validate_order([carrier, route], ["i-carrier"]))),
+            "SEQUENCE_ORDER_NOT_A_PERMUTATION")
+    control("an empty set is refused by the same name as the search's, since an order over no item "
+            "proves nothing either way",
+            refusal(lambda: validate_order([], [])), "SEQUENCE_SET_EMPTY")
+    control("`order_answer` returns the refusal as a row, like `subset_answer`",
+            json.dumps(order_answer([carrier, route], ["i-route", "i-carrier"])["sequenced"]),
+            "false")
+    control("and the row carries the reason, so the caller can say which step failed",
+            order_answer([carrier, route], ["i-route", "i-carrier"])["reason"],
+            "SEQUENCE_ORDER_FAILS at i-route")
+    control("while a holding order comes back sequenced",
+            json.dumps(order_answer([carrier, route], ["i-carrier", "i-route"])["sequenced"]),
+            "true")
+
     # F17 / done-when 7: the route and a carrier NOBODY creates. No order can help, and the set is
     # named before the freeze rather than after half of it is applied.
     orphan = {"item_id": "i-route-orphan",
@@ -290,6 +432,115 @@ def self_test():
             said, "i-carrier, i-route-orphan")
     control("and says what happens to such a set before the freeze", said,
             "re-formed into one item or deferred")
+
+    # ---- the search, against an INDEPENDENT exhaustive answer ------------------------------------
+    #
+    # The memo was keyed on the applied SET, so a dead end reached by one order marked the set dead
+    # for every order — and these operations do not commute: with x already there, `create x` then
+    # `delete x` leaves a different tree than the reverse. The set below has an order (b, a, c) and
+    # the search said none existed. The control does not re-implement the search; it enumerates the
+    # permutations with `itertools` and applies the module's own `apply_to` and gate, which is an
+    # independent answer to the same question (the WP-12 review).
+    import itertools
+
+    def exhaustive(rows, gate_fn=route_integrity, base=None):
+        """Every order that passes, by brute force. Decidable for the small sets this gate judges."""
+        by = {row["item_id"]: row for row in rows}
+        held = []
+        for order in itertools.permutations(sorted(by)):
+            tree, ok = dict(base or {}), True
+            for name in order:
+                tree = apply_to(tree, by[name])
+                if gate_fn(tree):
+                    ok = False
+                    break
+            if ok:
+                held.append(list(order))
+        return held
+
+    overlapping = [{"item_id": "a-create", "operations": [{"type": "create", "target": "x"}]},
+                   {"item_id": "b-delete", "operations": [{"type": "delete", "target": "x"}]},
+                   {"item_id": "c-route", "operations": [{"type": "route", "target": "r",
+                                                          "names": "x"}]}]
+    held_base = {"x": "present"}
+    held_answer = subset_answer(overlapping, base=held_base)
+    control("a set whose items touch one target in opposite directions is sequenced, because the "
+            "tree an order reaches is part of the state the search remembers",
+            json.dumps({"sequenced": held_answer.get("sequenced")}), '{"sequenced": true}')
+    control("and the order it returns is one brute force also accepts",
+            json.dumps(held_answer.get("order") in exhaustive(overlapping, base=held_base)), "true")
+    clean("while brute force finds at least one order, so the question is answerable at all",
+          [] if exhaustive(overlapping, base=held_base) else ["no order passes by brute force"])
+    # And the other direction: the search must not CLAIM an order where brute force finds none.
+    unorderable = [{"item_id": "a-route", "operations": [{"type": "route", "target": "r",
+                                                          "names": "gone"}]}]
+    control("a set brute force rejects is refused by the search too",
+            str(subset_answer(unorderable).get("refusal")), "SEQUENCE_NONE")
+    clean("and brute force agrees there is none", exhaustive(unorderable))
+
+    # ---- the tree is keyed by IDENTITY, not by the string an operation carries --------------------
+    #
+    # `claude/g.md`, `./claude/g.md` and `claude//g.md` are one file. Keyed by the raw string they
+    # were three, so a create under one spelling and a delete under another left the file present
+    # and every order computed here was an order over a tree that does not exist.
+    control("a delete spelled otherwise removes what a create put there, because both name one file",
+            json.dumps(apply_to(
+                apply_to({}, {"item_id": "i-1",
+                              "operations": [{"type": "create", "target": "claude/g.md"}]}),
+                {"item_id": "i-2",
+                 "operations": [{"type": "delete", "target": "./claude/g.md"}]})),
+            "{}")
+    control("and a second spelling of a create is the same key, not a second file",
+            json.dumps(sorted(apply_to(
+                apply_to({}, {"item_id": "i-1",
+                              "operations": [{"type": "create", "target": "claude/g.md"}]}),
+                {"item_id": "i-2",
+                 "operations": [{"type": "create", "target": "claude//g.md"}]}))),
+            '["claude/g.md"]')
+    # A route's entry names the path it points AT (`names`), and the carrier it is written into is
+    # the target — so the identity that matters here is the one in the entry's key.
+    control("a route written under a second spelling of its carrier is one entry, not two",
+            json.dumps(sorted(apply_to(
+                apply_to({}, {"item_id": "i-1",
+                              "operations": [{"type": "route", "target": "claude/g.md",
+                                              "names": "claude/h.md"}]}),
+                {"item_id": "i-2", "operations": [{"type": "route", "target": "./claude/g.md",
+                                                   "names": "claude/h.md"}]}))),
+            '["route:claude/g.md->claude/h.md"]')
+    control("an unspellable target keeps its own string, so the order is still computed and the "
+            "spelling contract is what reports it",
+            json.dumps(sorted(apply_to({}, {"item_id": "i-1",
+                                            "operations": [{"type": "create",
+                                                            "target": "/etc/passwd"}]}))),
+            '["/etc/passwd"]')
+
+    # ---- the set identity binds every field the stand-in reads -----------------------------------
+    #
+    # `units` was missing, so two sets with OPPOSITE verdicts shared one hash: with x and y in the
+    # base and a route to x, merging units=[x] breaks the route and merging units=[y] does not.
+    merge_x = [{"item_id": "m", "operations": [{"type": "merge", "target": "out",
+                                               "units": ["x"]}]},
+               {"item_id": "r", "operations": [{"type": "route", "target": "router/r.md",
+                                                "names": "x"}]}]
+    merge_y = [{"item_id": "m", "operations": [{"type": "merge", "target": "out",
+                                               "units": ["y"]}]},
+               {"item_id": "r", "operations": [{"type": "route", "target": "router/r.md",
+                                                "names": "x"}]}]
+    merge_base = {"x": "present", "y": "present"}
+    control("two sets that differ only in a merge's units have different identities",
+            json.dumps(set_hash(merge_x) != set_hash(merge_y)), "true")
+    control("and their verdicts really do differ, so the identity had to tell them apart",
+            json.dumps({"x": subset_answer(merge_x, base=merge_base).get("sequenced"),
+                        "y": subset_answer(merge_y, base=merge_base).get("sequenced")}),
+            '{"x": false, "y": true}')
+    control("the identity is derived from the fields the stand-in reads, named in one place",
+            json.dumps(list(OPERATION_FIELDS)),
+            json.dumps(["type", "target", "names", "units"]))
+    clean("and every field `apply_to` reads is one of them, so a field added there cannot be left "
+          "out of the identity",
+          [field for field in ("type", "target", "names", "units")
+           if f'op.get("{field}")' not in inspect.getsource(apply_to)
+           and f"op.get('{field}')" not in inspect.getsource(apply_to)])
 
     # The exported checker on an approved SUBSET: the full set has an order, the subset does not, and
     # the subset is what is judged (done-when 7's control fixture; WP-20 and WP-21 re-run this).
@@ -419,6 +670,23 @@ def self_test():
             "not a leg" if "sequencing-real-hook-check" not in
             (HERE.parent / "gates" / "check-parity.sh").read_text(encoding="utf-8") else "a leg",
             "not a leg")
+
+    # The wrapper that makes a dying control speak. Asserted from the source, because a suite that
+    # ends in a traceback prints no control name at all and a revert trial then reads the traceback
+    # as the control firing (the WP-12 review).
+    # The WRAPPER's own source, not the file's. A scan of the whole file is satisfied by this
+    # control's own text — the phrase it looks for appears in the line that looks for it — which is
+    # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
+    # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
+    wrapper_text = inspect.getsource(self_test)
+    control("a control that dies names itself, since a traceback is not a control firing",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "died after" in line and "print(" in line), "<no such line>"),
+            "self-test [FAIL] the suite died after")
+    control("and the wrapper is what the entry point runs, so the body cannot be called around it",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "_self_test_body(" in line), "<no such line>"),
+            "return _self_test_body(failures, ran)")
 
     reporting.append(True)
     if failures:

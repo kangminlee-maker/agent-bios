@@ -321,6 +321,166 @@ NEG
   case_is "a self_test body is in the scan's scope, not outside it" \
           "names the author-side module gates/check-lexicon.py"
 
+  # The third direction for shipped JSON DATA. A table is neither prose nor code, and
+  # session-distill/tables/destinations.json legitimately names an author-side writer in a
+  # row that declares writer_scope: author -- a declaration whose reader is the runtime rule
+  # in destinations.py. Three plants: an undeclared path fails, a declared path that exists
+  # nowhere fails anyway, and removing the runtime reader makes the declaration stop
+  # excusing anything.
+  fresh
+  python3 - "$W" <<'JPLANT'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/tables/redundancy.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+d["$planted"] = {"note": "gates/check-lexicon.py"}
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+JPLANT
+  case_is "shipped json data naming an author-side path with no declaration" \
+          "names the author-side path gates/check-lexicon.py in a row that does not declare"
+
+  fresh
+  python3 - "$W" <<'JPLANT2'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/tables/redundancy.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+d["$planted"] = {"note": "gates/no-such-gate-here.py", "writer_scope": "author"}
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+JPLANT2
+  case_is "a declared path that exists nowhere fails anyway" \
+          "exists nowhere in this repo"
+
+  # The declaration's reader is what makes it safe: remove the runtime rule and the
+  # declaration must stop excusing the reference -- the same single-sourcing the
+  # audience: author rule has, where the gate imports the assembler's own reader.
+  fresh
+  python3 - "$W" <<'JPLANT3'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+if "author_rows_absent" not in t:
+    sys.exit("self-test mutation is stale: destinations.py no longer carries author_rows_absent")
+p.write_text(t.replace("author_rows_absent", "author_rows_gone"), encoding="utf-8")
+JPLANT3
+  case_is "a writer_scope declaration whose runtime reader is gone excuses nothing" \
+          "no longer DEFINES author_rows_absent"
+
+  # The mutation above removes EVERY occurrence of the name, so it never tested what the old rule
+  # actually asked — whether the name appears in the text. These two keep the name and take away
+  # the thing that reads the declaration. The first leaves the DEFINITION and the comments and
+  # removes only the invocations; the second removes the definition and leaves the comment that
+  # mentions it. Each plant asserts the name still occurs afterwards, so the control also proves
+  # the old text rule would have passed the mutated file.
+  fresh
+  python3 - "$W" <<'JPLANT4'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+# EVERY call site, whatever it is handed. Removing one form while another survived left the rule
+# invoked and the plant passed: the gate said so, in the commit hook, after a second call site was
+# added by an unrelated fix. The mutation therefore asserts its own result.
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+if "def author_rows_absent" not in held:
+    sys.exit("self-test mutation is stale: the definition did not survive the plant")
+if re.search(r"\bauthor_rows_absent\s*\(", held.replace("def author_rows_absent(", "", 1)):
+    sys.exit("self-test mutation is stale: a call to author_rows_absent survived the plant, so the "
+             "rule is still invoked and this case would test nothing")
+p.write_text(held, encoding="utf-8")
+JPLANT4
+  case_is "a runtime rule that is defined and never invoked reads no declaration" \
+          "never calls it outside its own suite"
+
+  fresh
+  python3 - "$W" <<'JPLANT5'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def author_rows_renamed(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer defines author_rows_absent")
+if "author_rows_absent" not in held:
+    sys.exit("self-test mutation is stale: no mention of the name survived, so this plant would "
+             "also have failed the old text rule and proves nothing about the comment")
+p.write_text(held, encoding="utf-8")
+JPLANT5
+  case_is "and a comment naming the rule does not stand in for the rule" \
+          "no longer DEFINES author_rows_absent"
+
+  # A call from the SUITE is not a runtime reader, whatever the suite's function is called. The
+  # exclusion was the single name `self_test`, and the day that suite gained a dying-control wrapper
+  # its body moved to `_self_test_body` — so the call this gate counted came from the suite again
+  # (the round-3 review). The plant moves the only runtime call into the suite's body and leaves it
+  # called there, so the name, the definition and a call all survive.
+  fresh
+  python3 - "$W" <<'JPLANT5B'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+# ...and now call it from the SUITE's own body, which is where the hole was.
+mark = "def _self_test_body(failures, ran):\n"
+if mark not in held:
+    sys.exit("self-test mutation is stale: destinations.py has no _self_test_body to call from")
+held = held.replace(mark, mark + "    author_rows_absent(None)\n", 1)
+if not re.search(r"\bauthor_rows_absent\s*\(", held.replace("def author_rows_absent(", "", 1)):
+    sys.exit("self-test mutation is stale: the planted call did not survive, so the case would "
+             "pass for the wrong reason")
+p.write_text(held, encoding="utf-8")
+JPLANT5B
+  case_is "a rule the SUITE alone calls is not a runtime reader, whatever the suite is named" \
+          "never calls it outside its own suite"
+
+  # The same hole one hop further out: the call sits in a HELPER, and the helper's only caller is
+  # the suite. One hop of exclusion counted that as a runtime reader (the round-4 review), so the
+  # closure is computed to a fixpoint and this case is what proves it.
+  fresh
+  python3 - "$W" <<'JPLANT5C'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+# A top-level helper that calls it, called only from the suite's own body.
+mark = "def _self_test_body(failures, ran):\n"
+if mark not in held:
+    sys.exit("self-test mutation is stale: destinations.py has no _self_test_body to call from")
+held = held.replace(mark,
+                    "def fixture_reader():\n    return author_rows_absent(None)\n\n\n" + mark
+                    + "    fixture_reader()\n", 1)
+if "def fixture_reader():" not in held or "    fixture_reader()\n" not in held:
+    sys.exit("self-test mutation is stale: the planted helper or its call did not survive")
+p.write_text(held, encoding="utf-8")
+JPLANT5C
+  case_is "a rule reached only through a helper the suite alone calls is not a runtime reader "\
+"either, which one hop of exclusion could not see" \
+          "never calls it outside its own suite"
+
+  # The exemption is keyed to the ROW. The same path written in a second row is a reference nothing
+  # has excused, and keyed by (file, path) alone it was excused anyway.
+  fresh
+  python3 - "$W" <<'JPLANT6'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/tables/drift_layers.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+held = [l for l in d["layers"] if "design/session-distill/ledger.json" in (l.get("prefixes") or [])]
+if not held:
+    sys.exit("self-test mutation is stale: no layer carries the exempted ledger prefix")
+d["layers"].append({"layer": "$planted", "prefixes": ["design/session-distill/ledger.json"]})
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+JPLANT6
+  case_is "an exemption excuses its own row, not the same path written in another" \
+          "names the author-side path design/session-distill/ledger.json in a row that does not"
+
   # An exemption is only safe while it names a real site: a stale one exempts by a path
   # nobody has, which is the shape this repo keeps finding (a declared author-side file
   # that moved, a concept home matching nothing).
@@ -1056,6 +1216,200 @@ if unused_exempt:
     sys.exit("check-package: FAILED — author-side import exemption(s) the scan never met: "
              f"{', '.join(unused_exempt)}; the reference each excuses is gone, so the entry now "
              "excuses whatever is written next in that file. Delete the entry with the reference.")
+
+# ---- the third direction for shipped JSON DATA -------------------------------------------------
+#
+# The prose and code legs above read markdown and .py. A shipped TABLE is neither, and
+# `session-distill/tables/destinations.json` names `session-distill/update-state.py` — an
+# author-side writer — in a row a shipped module reads at runtime. A packaged user does not have
+# that file, which is the same failure the code leg exists for, arriving as data. It is admissible
+# only in a row that declares `writer_scope: author`, because that declaration has a READER: the
+# runtime rule in `session-distill/runlib/destinations.py` records such a row as not installed and
+# does not certify its destination. A label whose only reader is this gate changes nothing a user
+# receives, so the gate requires that rule to still be there.
+AUTHOR_SCOPE_RULE = ("session-distill/runlib/destinations.py", "author_rows_absent")
+
+
+def rule_reader(rel, name):
+    """Whether the runtime rule `name` is still DEFINED in `rel`, and still CALLED there.
+
+    The first version asked only whether the NAME occurred in the file's text, which a comment
+    mentioning it satisfies — and a comment reads nothing, so the declaration would again have had
+    no reader but this gate. Both halves come off the syntax tree now, and a call reached only from
+    `self_test` does not count: a rule the suite alone invokes changes nothing a user receives.
+    """
+    path = REPO / rel
+    if not path.is_file():
+        return False, False
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError):
+        return False, False
+    defined = any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name
+                  for node in ast.walk(tree))
+    # The SUITE, whatever it is called. Excluding the one name `self_test` stopped working the day
+    # the suite gained a dying-control wrapper and its body moved to `_self_test_body`: the call
+    # the gate was counting then came from the suite again (the round-3 review). Any top-level
+    # function whose name begins `self_test` or `_self_test` is the suite, and so is a function the
+    # suite alone calls — but one hop is what this gate needs, because the rule it asks about is
+    # invoked from the manifest's own entry point or from nowhere.
+    functions = {node.name: node for node in tree.body
+                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    suite = {name for name in functions
+             if name == "self_test" or name.startswith("_self_test")
+             or name.startswith("self_test")}
+    # To a FIXPOINT, not one hop: a helper whose only caller is the suite is the suite, and the
+    # gate counted `author_rows_absent` as read because a fixture helper called it — a helper the
+    # suite alone called (the round-4 review). The closure is computed the way the effect audit
+    # computes its own test-only set, and a function with no caller at all is not suite: an entry
+    # point reached from outside this file would otherwise disappear.
+    callers = {name: set() for name in functions}
+    for held_name, held_node in functions.items():
+        for node in ast.walk(held_node):
+            if isinstance(node, ast.Call):
+                held_called = ast.unparse(node.func).split(".")[-1]
+                if held_called in callers:
+                    callers[held_called].add(held_name)
+    moved = True
+    while moved:
+        moved = False
+        for held_name in functions:
+            if held_name in suite or not callers[held_name]:
+                continue
+            if callers[held_name] <= suite:
+                suite.add(held_name)
+                moved = True
+    runtime = ast.Module(body=[node for node in tree.body
+                               if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                                       and node.name in suite)],
+                         type_ignores=[])
+    called = any(isinstance(node, ast.Call)
+                 and ast.unparse(node.func).split(".")[-1] == name
+                 for node in ast.walk(runtime))
+    return defined, called
+
+
+# Each exemption is keyed to the ROW that carries it, by JSON pointer, and not to the file. Keyed
+# by (file, path) alone, one annotated occurrence excused the same path written anywhere else in
+# that file — including in a live data row a shipped module reads, which is the failure the leg
+# exists for. The pointer is what the scan meets, so a reference that moves to another row fails as
+# an unmet exemption rather than being quietly carried.
+# Two references this leg found on the day it was added, each named with its own reason and the
+# condition that retires it. They are TRANSITIONAL, not licensed: the shape exists because work is
+# in flight, and the answer is finishing it. An entry whose reference is gone fails below, so
+# neither can quietly outlive its finding.
+JSON_AUTHOR_REF_EXEMPT = {
+    ("session-distill/tables/drift_layers.json", "/layers/6/prefixes/0",
+     "design/session-distill/ledger.json"):
+        "the ledger drift layer's prefix, written against THIS repo's checkout while the layer "
+        "vocabulary is undecided (the table's own open_question says so). A packaged user has no "
+        "design/ tree, so the prefix is wrong for them — an open finding, to be fixed with the "
+        "layer vocabulary rather than by deleting the layer. Retires when config_manifest_B's keys "
+        "are decided.",
+    ("session-distill/tables/drift_layers.json", "/layers/6/prefixes/2",
+     "design/session-distill/versions.json"):
+        "the same prefix list, same reason.",
+}
+shipped_json = sorted(
+    rel for rel in (str(p.relative_to(REPO)) for p in REPO.rglob("*.json"))
+    if shipped(rel) and not author_side(rel) and (REPO / rel).is_file())
+if not shipped_json:
+    sys.exit("check-package: FAILED — no shipped .json files found, so the data scan would pass "
+             "over nothing")
+
+
+def declared_author_scope(data):
+    """Every author-side path a JSON document declares with `writer_scope: author`.
+
+    Walked rather than read at one key, because the declaration must travel with the row it
+    excuses: a top-level flag would excuse every path in the file.
+    """
+    held = set()
+    if isinstance(data, dict):
+        if data.get("writer_scope") == "author":
+            for value in data.values():
+                if isinstance(value, str):
+                    held.add(rel_key(value))
+        for value in data.values():
+            held |= declared_author_scope(value)
+    elif isinstance(data, list):
+        for value in data:
+            held |= declared_author_scope(value)
+    return held
+
+
+def json_strings(data, pointer=""):
+    """Every string in a JSON document, with the JSON pointer it sits at.
+
+    The pointer is what ties an exemption to one row rather than to the whole file.
+    """
+    if isinstance(data, dict):
+        for key, value in data.items():
+            yield from json_strings(value, f"{pointer}/{key}")
+    elif isinstance(data, list):
+        for index, value in enumerate(data):
+            yield from json_strings(value, f"{pointer}/{index}")
+    elif isinstance(data, str):
+        yield pointer, data
+
+
+json_refs = []
+exercised_json_exempt = set()
+rule_file, rule_name = AUTHOR_SCOPE_RULE
+rule_defined, rule_called = rule_reader(rule_file, rule_name)
+for rel in leg("shipped json data refs", shipped_json):
+    try:
+        data = json.loads((REPO / rel).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as problem:
+        json_refs.append(f"{rel}: could not be parsed ({type(problem).__name__}), so the scan "
+                         f"cannot judge it")
+        continue
+    excused = declared_author_scope(data)
+    for pointer, text in json_strings(data):
+        named = rel_key(text)
+        if "/" not in named or named.endswith("/"):
+            continue
+        if not author_side(named):
+            continue
+        # Exemptions are consulted BEFORE existence, because a prose field's key is the whole
+        # sentence and no such path exists: the existence branch would report the sentence instead
+        # of the reference the exemption is about. The POINTER must match: the same path written in
+        # another row of the same file is a different reference, and nothing has excused it.
+        held_exempt = next(((held_rel, held_at, held_named)
+                            for held_rel, held_at, held_named in JSON_AUTHOR_REF_EXEMPT
+                            if rel == held_rel and pointer == held_at
+                            and named.startswith(held_named)), None)
+        if held_exempt:
+            exercised_json_exempt.add(held_exempt)
+        elif not (REPO / named).exists():
+            json_refs.append(f"{rel}: names {named}, which exists nowhere in this repo — a "
+                             f"declaration can excuse a path the reader will not have, never one "
+                             f"nobody has")
+        elif named not in excused:
+            json_refs.append(f"{rel}: names the author-side path {named} in a row that does not "
+                             f"declare writer_scope: author, so a packaged user receives a table "
+                             f"pointing at a file they do not have")
+        elif not rule_defined:
+            json_refs.append(f"{rel}: declares writer_scope: author for {named} while "
+                             f"{rule_file} no longer DEFINES {rule_name}() — the declaration's only "
+                             f"reader would be this gate, which changes nothing a user receives")
+        elif not rule_called:
+            json_refs.append(f"{rel}: declares writer_scope: author for {named} while "
+                             f"{rule_file} defines {rule_name}() and never calls it outside its own "
+                             f"suite — a rule nothing invokes reads no declaration, so the label "
+                             f"again changes nothing a user receives")
+stale_json_exempt = [f"{rel} -> {named} (at {pointer})"
+                     for rel, pointer, named in JSON_AUTHOR_REF_EXEMPT
+                     if (rel, pointer, named) not in exercised_json_exempt]
+if stale_json_exempt:
+    sys.exit("check-package: FAILED — shipped-JSON exemption(s) the scan never met: "
+             f"{', '.join(stale_json_exempt)}; the reference each excuses is gone, so the entry now "
+             "excuses whatever is written next in that file. Delete the entry with the reference.")
+if json_refs:
+    sys.exit("check-package: FAILED — " + str(len(json_refs)) + " shipped JSON reference(s) to an "
+             "author-side path:\n      " + "\n      ".join(json_refs)
+             + "\n      fix: declare the row `writer_scope: author` (and keep the runtime rule that "
+               "reads it), or stop naming the path")
 
 # provenance.json is EXEMPT above because a clone legitimately lacks a
 # pack-generated file — but the exemption also skips shipped(), and an unshipped

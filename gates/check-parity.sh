@@ -570,6 +570,12 @@ fi
 # The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
 # belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
 # by the pre-commit hook and a leg that ran the hook would recurse.
+# WP-21's §11 exposure predicate: one branch per table row, three generated cases each.
+if [ -f session-distill/runlib/exposure.py ]; then
+  leg -q "FAIL: session-distill exposure predicate self-test (session-distill/runlib/exposure.py)" \
+    python3 session-distill/runlib/exposure.py --self-test
+fi
+
 # WP-21's drift and order: the comparison, the layers nobody compared, and the global-file refusal.
 # The O10 case against the REAL global-file gate is `gates/global-op-unjudged-check.sh`, an
 # author-side script and not a leg: it drives git over a scratch repository, and a shipped suite
@@ -577,6 +583,14 @@ fi
 if [ -f session-distill/runlib/drift.py ]; then
   leg -q "FAIL: session-distill drift and order self-test (session-distill/runlib/drift.py)" \
     python3 session-distill/runlib/drift.py --self-test
+fi
+
+# WP-21's identity contract: what an operation's target NAMES, for every surface that asks. Its own
+# leg because it is the OWNER of that question — `drift` and `journal` carried a copy each, and the
+# copies disagreed about `./claude/CLAUDE.md`.
+if [ -f session-distill/runlib/targets.py ]; then
+  leg -q "FAIL: session-distill target identity self-test (session-distill/runlib/targets.py)" \
+    python3 session-distill/runlib/targets.py --self-test
 fi
 
 # WP-21's write-ahead journal: §10.5's record, its framing, and the order no effect may precede.

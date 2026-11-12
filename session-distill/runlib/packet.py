@@ -734,11 +734,11 @@ def self_test():
         reached = []
     except Exception as exc:  # noqa: BLE001 - a module that no longer builds its schema fails the control by name
         codex_stages, handed, found, reached = set(), {}, {}, [f"RAISED {type(exc).__name__}: {str(exc)[:160]}"]
-    # S7b's contract leaves five properties optional, which the subset cannot hold without letting the host answer
-    # null where s7b.schema.json refuses it: its owner decides the contract (lane L, reported 2026-11-12), and until
-    # then a Codex S7b call is refused before anything is sent. Named here by site, so the declaration lapses with them.
-    unprojectable = {"s7b": {"#", "#/properties/alternative", "#/properties/alternative/properties/destination",
-                             "#/properties/destination_review", "#/properties/disposition_review"}}
+    # Every schema a Codex seat can be sent projects cleanly. S7b's five optional properties were the one exception
+    # (named by site here while its owner decided the contract); each is now required with its absence given a name —
+    # `merge_findings` and `alternative.destination` nullable, both judgments' `evidence` required outright — so the
+    # exception is gone rather than carried, and this dict is empty because there is nothing to excuse.
+    unprojectable = {}
     wrong = list(reached)
     if codex_stages != set(sent_by) or not handed:
         wrong.append(f"the stages with a Codex seat are {sorted(codex_stages)}, the ones named here {sorted(sent_by)}")

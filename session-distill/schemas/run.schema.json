@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md; retrieval (optional) and judge (optional): design/session-distill/2026-11-11T1545--58ad0cf--a-run-declares-what-s5-retrieves-and-which-candidates-s6-judges.md; sweeps (optional): plan WP-11 J3a, lead decision E2 (2026-11-11)",
+  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md; retrieval (optional) and judge (optional): design/session-distill/2026-11-11T1545--58ad0cf--a-run-declares-what-s5-retrieves-and-which-candidates-s6-judges.md; sweeps (optional): plan WP-11 J3a, lead decision E2 (2026-11-11); environment (optional): what the run HANDS its writers rather than where they may write, WP-21",
   "title": "Run declaration",
   "type": "object",
   "additionalProperties": false,
@@ -18,6 +18,13 @@
     "root": {"type": "string", "pattern": "^/"}
   },
   "properties": {
+    "environment": {
+      "$comment": "What the run HANDS its writers, as opposed to where they may write. `home` is the HOME every S11/S12 writer is given: a writer that derives a root from HOME derives it from this one, and `destinations.py` computes each fixed root from it and compares the result with its class root. Optional here and REQUIRED by the destination manifest (ENVIRONMENT_HOME_UNDECLARED), so a declaration written before this block existed stays valid while no manifest can be produced without it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["home"],
+      "properties": {"home": {"$ref": "#/$defs/root"}}
+    },
     "question": {"$ref": "#/$defs/text"},
     "kind": {"type": "string", "enum": ["periodic", "targeted"]},
     "posture": {"type": "string", "enum": ["production", "rehearsal", "development"]},
@@ -131,8 +138,8 @@
     },
     "destinations": {
       "type": "object", "additionalProperties": false,
-      "required": ["checkout", "install_roots", "personal_layers", "launcher_shell_integration",
-                   "runtime_state", "nudge", "recovery"],
+      "$comment": "RELEASE 1's classes only (D-20261112-2cf1c4): S11 writes the declared checkout and commits, and runs no writer that would need the others, so requiring their roots would refuse the narrowed declaration the release promises to accept. The full vocabulary stays in `properties`, typed, so a wider declaration is still admitted and still judged; `destinations.resolution_problems` at scope=\"all\" is what requires a root for the rest. A control holds this list against the table's own release-1 classes.",
+      "required": ["checkout", "runtime_state", "recovery"],
       "properties": {"checkout": {"$ref": "#/$defs/root"}, "install_roots": {"$ref": "#/$defs/root"},
                      "personal_layers": {"$ref": "#/$defs/root"},
                      "launcher_shell_integration": {"$ref": "#/$defs/root"},

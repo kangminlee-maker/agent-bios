@@ -1,43 +1,166 @@
 {
-  "$comment": "design §10.5 and amendment N#4 (the destination manifest): every writer S11 and S12 run resolves its destination from the environment the run hands it, and that destination must be inside the root its class declares in `run.json.destinations`. This table is the writer inventory — which writer writes under which class, which environment overrides decide its path, and what each writer falls back to when an override is unset. `runlib/destinations.py` reads it; it decides nothing this table does not state. The fallback is stated here ONLY so drift is decidable: the suite reads each `fallback_source` file and fails when the literal is no longer there, which is why a copy is tolerable where a silent one would not be. The run never relies on a fallback — an unset required override is OVERRIDE_MISSING before the first effect, because a fallback is a path the run did not declare even when it happens to land inside the fixture HOME. The class belongs to the (writer, override) PAIR rather than to the writer: one environment variable has one value, so a variable two writers read must name one class for both - `AGENT_BIOS_STATE_DIR` is the private state root for install.sh, the private installer and the shell integration alike, while the shell integration's own rc-file edit goes under ZDOTDIR. A writer that takes no override declares the class it writes under directly in `writes_without_override`.",
+  "$comment": "Where S11 and S12 may write, by (writer, override) pair. THE ROWS ARE DERIVED, not remembered: `destinations.closure()` reads every script package.json files[] ships plus the writers declared `writer_scope: author`, finds each environment read whose value reaches a write in that file, and `inventory_problems()` fails in both directions. The first version of this table was written from memory and was wrong both ways — it lacked nine overrides real writers read, and it certified AGENT_BIOS_STATE_DIR for install.sh, which assigns STATE_DIR from $HOME unconditionally (install.sh:48) and never reads that variable, so the certificate was about a value that cannot reach the writer. The class is a judgement over the derived pair: the override's own meaning decides it (config homes and state roots are install_roots, ZDOTDIR is launcher_shell_integration, the distill state is nudge, a HOME-derived personal layer is personal_layers), and a writer no §10.6 effect can invoke is named in not_a_destination with the reason it cannot. `derived_at_line` is the line the derivation found, for a reader; nothing reads it, and it is not authority.",
   "classes_from": "schemas/run.schema.json properties.destinations.required",
   "writers": [
     {
-      "writer": "install.sh",
-      "fallbacks": [
-        {
-          "override": "CLAUDE_CONFIG_DIR",
-          "literal": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-        },
-        {
-          "override": "CODEX_HOME",
-          "literal": "${CODEX_HOME:-$HOME/.codex}"
-        },
-        {
-          "override": "AGENT_BIOS_STATE_DIR",
-          "literal": "STATE_DIR=\"$HOME/.local/share/agent-bios\""
-        }
-      ],
-      "fallback_source": "install.sh",
-      "$comment": "The compatibility installer writes the two host config homes and the private state root. Its own STATE_DIR line is unconditional, so the override reaches it through the environment it is handed rather than through a shell default.",
+      "writer": "compose/assemble.py",
       "destinations": [
         {
           "override": "CLAUDE_CONFIG_DIR",
-          "class": "install_roots"
+          "class": "install_roots",
+          "derived_at_line": 800
         },
         {
           "override": "CODEX_HOME",
-          "class": "install_roots"
-        },
-        {
-          "override": "AGENT_BIOS_STATE_DIR",
-          "class": "install_roots"
+          "class": "install_roots",
+          "derived_at_line": 801
         }
       ],
-      "writes_without_override": null
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 802,
+          "root": "state_dir = pathlib.Path(args.state_dir or pathlib.Path.home() / \".local/share/agent-bios\")"
+        }
+      ],
+      "$comment": "Compiles the instruction payload into the two config homes and the state root; the run hands it the environment it must write under.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is how the run gives it the state root instead of letting it derive one: the option wins over AGENT_BIOS_STATE_DIR and over the HOME fallback, and an argument cannot be inherited by a child the way a variable can."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/canary.sh",
+      "destinations": [
+        {
+          "override": "AGENT_BIOS_STATE_DIR",
+          "class": "install_roots",
+          "derived_at_line": 45
+        },
+        {
+          "override": "CLAUDE_CONFIG_DIR",
+          "class": "install_roots",
+          "derived_at_line": 14
+        }
+      ],
+      "$comment": "The install canary writes its marker under the state root and the Claude config home to prove a deploy reached them.",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/instructions-state.py",
+      "destinations": [
+        {
+          "override": "CLAUDE_CONFIG_DIR",
+          "class": "install_roots",
+          "derived_at_line": 49
+        },
+        {
+          "override": "CODEX_HOME",
+          "class": "install_roots",
+          "derived_at_line": 50
+        }
+      ],
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 45,
+          "root": "STATE_DIR = pathlib.Path.home() / \".local/share/agent-bios\""
+        }
+      ],
+      "$comment": "Reads and rewrites the private installation's stored state under the state root and both config homes.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes; the environment and the HOME fallback are only read when it is absent."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/instructions_app.py",
+      "destinations": [
+        {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 103
+        }
+      ],
+      "$comment": "Writes the desktop app bridge's files under the owner's home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of any variable."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/instructions_import.py",
+      "destinations": [
+        {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 91
+        }
+      ],
+      "$comment": "Imports an instruction corpus into paths rooted at the owner's home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of any variable."
+        }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_install.py",
+      "destinations": [
+        {
+          "override": "AGENT_BIOS_STATE_DIR",
+          "class": "install_roots",
+          "derived_at_line": 326
+        },
+        {
+          "override": "CLAUDE_CONFIG_DIR",
+          "class": "install_roots",
+          "derived_at_line": 328
+        },
+        {
+          "override": "CODEX_HOME",
+          "class": "install_roots",
+          "derived_at_line": 329
+        },
+        {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 325
+        },
+        {
+          "override": "ZDOTDIR",
+          "class": "launcher_shell_integration",
+          "derived_at_line": 330
+        }
+      ],
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 327,
+          "root": "self.user_root = Path(environment_value(self.env, \"AGENT_BIOS_INSTRUCTIONS_DIR\", \"AGENT_BIOS_CORPUS_DIR\", str(home / \".config/agent-bios/corpus\"))).expanduser()"
+        }
+      ],
       "fallbacks": [
         {
           "override": "AGENT_BIOS_STATE_DIR",
@@ -57,29 +180,282 @@
         }
       ],
       "fallback_source": "compose/instructions_install.py",
-      "$comment": "The private installer. It reads its whole environment through `self.env`, so the run's overrides reach it without a shell.",
+      "$comment": "The private installer: it writes the catalog, the store, the launcher status and the shell hook across the state root, both config homes and ZDOTDIR.",
+      "root_from": "home",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/instructions_session.py",
+      "destinations": [
+        {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 538
+        }
+      ],
+      "$comment": "Writes the per-session instruction selection under the owner's home.",
+      "channels": {
+        "password_database": [
+          {
+            "line": 72,
+            "guarded_by": "HOME",
+            "reason": "The read is `pwd.getpwuid(os.getuid()).pw_dir`, reached only inside `if home is None:` where `home = env.get('HOME')`. The run always hands this writer HOME, so the branch is unreachable for a confined run — and the value is used to BUILD A LOOKUP PATTERN for Claude's own user-scope instruction files, not a destination. Established from the source, which is the only way this one can be established: running the writer against a real HOME to see where it lands is the accident this whole unit exists to prevent."
+          }
+        ]
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/instructions_setup.py",
+      "destinations": [
+        {
+          "override": "AGENT_LAUNCH_VENV",
+          "class": "install_roots",
+          "derived_at_line": 130
+        },
+        {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 50
+        }
+      ],
+      "$comment": "Provisions the managed venv and writes setup state under the owner's home.",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/instructions_store.py",
+      "destinations": [
+        {
+          "override": "AGENT_BIOS_STATE_DIR",
+          "class": "install_roots",
+          "derived_at_line": 385
+        }
+      ],
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 388,
+          "root": "self.user_root = Path(user_root or environment_value(os.environ,"
+        }
+      ],
+      "$comment": "Owns the instruction store under the state root.",
+      "root_from": "home",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/instructions_understand.py",
       "destinations": [
         {
           "override": "CLAUDE_CONFIG_DIR",
-          "class": "install_roots"
+          "class": "install_roots",
+          "derived_at_line": 385
         },
         {
           "override": "CODEX_HOME",
-          "class": "install_roots"
+          "class": "install_roots",
+          "derived_at_line": 385
         },
         {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 384
+        }
+      ],
+      "$comment": "Writes the understanding records into whichever host's config home the call names — the override key itself is chosen at runtime, so both keys are rows.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of any variable."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/prune-backups.py",
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 234,
+          "root": "state = pathlib.Path(args.state_dir or pathlib.Path.home() / \".local/share/agent-bios\")"
+        }
+      ],
+      "$comment": "Prunes backups under the state root.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes; pruning is the one operation where a wrong root deletes rather than writes, so it is given rather than derived."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "compose/windows_deploy.py",
+      "destinations": [
+        {
           "override": "AGENT_BIOS_STATE_DIR",
-          "class": "install_roots"
+          "class": "install_roots",
+          "derived_at_line": 387
+        },
+        {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 386
+        }
+      ],
+      "$comment": "Writes the Windows shortcut and its state under the state root; on this platform no apply reaches it, but the pair is real and classified rather than excused.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--root"
+          ],
+          "reason": "`--root` is the deployment root the run passes; nothing is derived from the environment when it is present."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "install.sh",
+      "destinations": [
+        {
+          "override": "CLAUDE_CONFIG_DIR",
+          "class": "install_roots",
+          "derived_at_line": 43
+        },
+        {
+          "override": "CODEX_HOME",
+          "class": "install_roots",
+          "derived_at_line": 44
         },
         {
           "override": "ZDOTDIR",
-          "class": "launcher_shell_integration"
+          "class": "launcher_shell_integration",
+          "derived_at_line": 56
         }
       ],
-      "writes_without_override": null
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 48,
+          "root": "STATE_DIR=\"$HOME/.local/share/agent-bios\""
+        }
+      ],
+      "fallbacks": [
+        {
+          "override": "CLAUDE_CONFIG_DIR",
+          "literal": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+        },
+        {
+          "override": "CODEX_HOME",
+          "literal": "${CODEX_HOME:-$HOME/.codex}"
+        }
+      ],
+      "fallback_source": "install.sh",
+      "$comment": "The compatibility installer. It resolves both config homes and ZDOTDIR from the environment AND fixes STATE_DIR, BIN_DIR and LAUNCH_DIR from $HOME with no override at all (install.sh:48, :47, :45) — which is why an AGENT_BIOS_STATE_DIR row for this writer certified a value it cannot use.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of AGENT_BIOS_STATE_DIR and ahead of the `$HOME/.local/share/agent-bios` fallback in its own source."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "launch/agent-launch.py",
+      "destinations": [
+        {
+          "override": "AGENT_BIOS_SESSION_DISTILL_STATE",
+          "class": "nudge",
+          "derived_at_line": 10776
+        },
+        {
+          "override": "AGENT_BIOS_STATE_DIR",
+          "class": "install_roots",
+          "derived_at_line": 4196
+        },
+        {
+          "override": "AGENT_BIOS_UPDATE_CHECK_STATE",
+          "class": "install_roots",
+          "derived_at_line": 8328
+        },
+        {
+          "override": "AGENT_LAUNCH_VERSION_FILE",
+          "class": "install_roots",
+          "derived_at_line": 8321
+        },
+        {
+          "override": "CLAUDE_CONFIG_DIR",
+          "class": "install_roots",
+          "derived_at_line": 1448
+        },
+        {
+          "override": "CODEX_HOME",
+          "class": "install_roots",
+          "derived_at_line": 4168
+        }
+      ],
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 8314,
+          "root": "INSTRUCTIONS_STATUS_PATH = pathlib.Path("
+        }
+      ],
+      "$comment": "The launcher: it writes its profile, venv, update-check and version state, the distill nudge state, and reads both config homes to place per-host files.",
+      "root_from": "home",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "launch/agent-launch.zsh",
+      "writes_without_override": "install_roots",
+      "fixed_roots": [
+        {
+          "derived_at_line": 191,
+          "root": "local host=\"$1\" foreign=\"$2\" state=\"$HOME/.local/share/agent-bios\" first prog stamp"
+        }
+      ],
+      "$comment": "The shell function caches a host's subcommands under the state root.",
+      "root_from": "home",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "launch/provision-venv.sh",
+      "destinations": [
+        {
+          "override": "AGENT_LAUNCH_VENV",
+          "class": "install_roots",
+          "derived_at_line": 12
+        }
+      ],
+      "$comment": "Creates the managed venv at AGENT_LAUNCH_VENV.",
+      "release_1_invoked": false
     },
     {
       "writer": "launch/shell_integration.py",
+      "destinations": [
+        {
+          "override": "AGENT_BIOS_STATE_DIR",
+          "class": "install_roots",
+          "derived_at_line": 30
+        },
+        {
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 28
+        },
+        {
+          "override": "ZDOTDIR",
+          "class": "launcher_shell_integration",
+          "derived_at_line": 29
+        }
+      ],
       "fallbacks": [
         {
           "override": "ZDOTDIR",
@@ -91,21 +467,53 @@
         }
       ],
       "fallback_source": "launch/shell_integration.py",
-      "$comment": "The shell connection record and the rc-file edit. ZDOTDIR falling back to HOME is why HOME alone is not enough to confine this writer.",
+      "$comment": "Owns the shell connection: the .zshrc block under ZDOTDIR and the receipt and backups under the state root.",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "session-distill/runlib/inventory.py",
       "destinations": [
         {
-          "override": "ZDOTDIR",
-          "class": "launcher_shell_integration"
-        },
-        {
-          "override": "AGENT_BIOS_STATE_DIR",
-          "class": "install_roots"
+          "override": "HOME",
+          "class": "personal_layers",
+          "derived_at_line": 2567,
+          "read_only": "the census READS the owner's home; nothing of this writer's is written under it. The pair is a row because the derivation sees the read reach a write, and a row that came back certified would present a read as a destination release-1 S11 may write (the round-4 review)"
         }
       ],
-      "writes_without_override": null
+      "writes_without_override": "runtime_state",
+      "fixed_roots": [
+        {
+          "derived_at_line": 8382,
+          "root": "home_ref = f\"@fixture/core:{pathlib.Path.home()}/.claude/an-item-under-the-owners-home\"",
+          "not_a_destination": "the line builds a fixture REFERENCE string for a control (`@fixture/core:<home>/...`), not a path anything opens; the derivation sees the home expression reach a write because the string is written into the fixture file"
+        }
+      ],
+      "$comment": "Reads the owner's home to take the census. Its only writes go inside the run directory; the HOME pair is a row because the derivation sees the read reach a write, and the class states what the run may not do with it.",
+      "root_from": "argument",
+      "$comment_root_from": "its writes go inside the run directory it is handed; the HOME it reads is a READ of the owner's home for the census, which the personal_layers row states, not a destination",
+      "channels": {
+        "absolute_literals": {
+          "tokens": [
+            "/bin/sleep",
+            "/etc/passwd",
+            "/tmp",
+            "/usr/bin:/bin",
+            "/var/tmp"
+          ],
+          "reason": "None of the five is a destination. `/tmp` and `/var/tmp` are the CANDIDATE list the census picks a scratch directory from and are joined with the run's own TMPDIR before anything is written; `/usr/bin:/bin` is a PATH default for a child environment; `/etc/passwd` is a string a control hands to the confinement to be refused; `/bin/sleep` is the program a control starts so that a second process exists to hold a lock, and it writes nothing."
+        }
+      },
+      "release_1_invoked": true
     },
     {
       "writer": "session-distill/update-state.py",
+      "destinations": [
+        {
+          "override": "AGENT_BIOS_SESSION_DISTILL_STATE",
+          "class": "nudge",
+          "derived_at_line": 24
+        }
+      ],
       "fallbacks": [
         {
           "override": "AGENT_BIOS_SESSION_DISTILL_STATE",
@@ -113,51 +521,145 @@
         }
       ],
       "fallback_source": "session-distill/update-state.py",
-      "$comment": "The nudge baseline the launcher reads. Its fallback goes through `pathlib.Path.home()`, which reads HOME when set and the password database when not — so an unset override here can resolve to the real home of whoever runs the process. That is the sharpest case for OVERRIDE_MISSING.",
+      "$comment": "The nudge state of §10.6, written by a script the owner runs from a checkout. It is NOT in package.json files[], so the derivation over the shipped set cannot see it; `writer_scope: author` declares that, and inventory_problems fails if files[] ever ships it or it disappears.",
+      "writer_scope": "author",
+      "release_1_invoked": false
+    },
+    {
+      "writer": "wrappers/claude-run.sh",
       "destinations": [
         {
-          "override": "AGENT_BIOS_SESSION_DISTILL_STATE",
-          "class": "nudge"
+          "override": "CLAUDE_CONFIG_DIR",
+          "class": "install_roots",
+          "derived_at_line": 551
         }
       ],
-      "writes_without_override": null
+      "$comment": "The Claude wrapper writes its session log under the Claude config home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--home",
+            "--root"
+          ],
+          "reason": "`--root` and `--home` are passed by the run; the wrapper forwards them to the host instead of exporting a variable the host's own children would inherit."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "wrappers/codex-helm.sh",
+      "destinations": [
+        {
+          "override": "CODEX_HOME",
+          "class": "install_roots",
+          "derived_at_line": 345
+        }
+      ],
+      "$comment": "The Codex helm writes its state under the Codex home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--home"
+          ],
+          "reason": "`--home` is passed by the run rather than exported, so a child of the host does not inherit it."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "wrappers/codex-run.sh",
+      "destinations": [
+        {
+          "override": "CODEX_HOME",
+          "class": "install_roots",
+          "derived_at_line": 154
+        }
+      ],
+      "$comment": "The Codex wrapper writes its session state under the Codex home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--home"
+          ],
+          "reason": "`--home` is passed by the run rather than exported, so a child of the host does not inherit it."
+        }
+      },
+      "release_1_invoked": false
+    },
+    {
+      "writer": "wrappers/codex_frame_filter.py",
+      "destinations": [
+        {
+          "override": "AGENT_BIOS_STATE_DIR",
+          "class": "install_roots",
+          "derived_at_line": 434
+        }
+      ],
+      "$comment": "The frame filter writes its cache under the state root.",
+      "channels": {
+        "absolute_literals": {
+          "tokens": [
+            "/Users/canary/private-value"
+          ],
+          "reason": "A canary value inside a fixture payload, written so a leak of it can be recognised in output. Nothing opens it."
+        }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "git",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "One commit per applied item. The destination is the working tree the run was given, which has no environment override: the confinement is that the tree is the fixture clone named by the `checkout` class, never a worktree sharing the owner's .git.",
+      "$comment": "One commit per applied item — in RELEASE 2. Release 1 does not run this writer at all: the four review rounds on certifying that commit each produced new blocking defects, and the fifth of round 4's was the repository's own hook writing under /tmp and provisioning under HOME, which certifying the commit would have had to cover. The row stays so the writer is declared and named rather than forgotten.",
       "destinations": [],
-      "writes_without_override": "checkout"
+      "writes_without_override": "checkout",
+      "root_from": "argument",
+      "$comment_root_from": "the working tree the run was given, as an argument to every git call; there is no environment override for it, and the confinement is that the tree is the clone the `checkout` class names",
+      "release_1_invoked": false,
+      "$comment_release_1": "not invoked by release-1 S11: the apply writes the approved changes into files of the declared checkout and executes NO git; it names the commit command for the owner to run, and the owner commits as usual so the repository's hooks run in the owner's own environment (D-20261113-f22b7d, narrowing D-20261112-2cf1c4)"
     },
     {
       "writer": "session-distill/runlib/stage_close.py",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "The close writes the ledger, the version registry and the coverage state, all inside the checkout. The nudge is its own class because it is written last and by another writer.",
+      "$comment": "The close writes the ledger, the version registry and the coverage state, all inside the checkout. The nudge is its own class because it is written last and by another writer. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
       "destinations": [],
-      "writes_without_override": "checkout"
+      "writes_without_override": "checkout",
+      "writer_unwritten": true,
+      "root_from": "argument",
+      "$comment_root_from": "the run directory and the checkout are passed to the stage, as they are to every stage",
+      "release_1_invoked": true
     },
     {
       "writer": "session-distill/runlib/stage_apply.py",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "A personal-layer patch is applied under the owner's own layer root. HOME is required with no fallback declared, because a personal layer resolved from the password database is the one case where a missing override writes outside every root the run named.",
+      "$comment": "Two destinations, and release 1 invokes one of them. The file edits land in the declared checkout, whose root the stage is passed — and in release 1 that is the stage's whole effect: it writes files and executes no git (D-20261113-f22b7d). A personal-layer patch is applied under the owner's own layer root; HOME is required with no fallback declared, because a personal layer resolved from the password database is the one case where a missing override writes outside every root the run named — and that destination is NOT invoked in release 1 (D-20261112-2cf1c4), so its row is named rather than certified. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
       "destinations": [
         {
           "override": "HOME",
-          "class": "personal_layers"
+          "class": "personal_layers",
+          "release_1_invoked": false,
+          "$comment_release_1": "not invoked by release-1 S11: the release applies file edits to the declared checkout and commits them, and writes no personal layer (D-20261112-2cf1c4)"
         }
       ],
-      "writes_without_override": null
+      "writes_without_override": "checkout",
+      "writer_unwritten": true,
+      "release_1_invoked": true,
+      "root_from": "argument",
+      "$comment_root_from": "the declared checkout, passed to the apply as an argument: release 1's effect is the file edits in that tree and the commit over them, so the root is never taken from the environment"
     },
     {
       "writer": "session-distill/runlib/recovery.py",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "Recovery writes only its own journal and report, under the class whose root exists so that a recovery after a drifted apply has somewhere to land that the apply did not touch.",
+      "$comment": "Recovery writes only its own journal and report, under the class whose root exists so that a recovery after a drifted apply has somewhere to land that the apply did not touch. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
       "destinations": [],
-      "writes_without_override": "recovery"
+      "writes_without_override": "recovery",
+      "writer_unwritten": true,
+      "root_from": "argument",
+      "$comment_root_from": "the recovery root is passed to it, like every other stage's",
+      "release_1_invoked": true
     },
     {
       "writer": "session-distill/runlib/journal.py",
@@ -165,7 +667,27 @@
       "fallback_source": null,
       "$comment": "The write-ahead journal itself. It is runtime state rather than part of the run so that a run directory lost with its machine does not take the record of what was already applied with it.",
       "destinations": [],
-      "writes_without_override": "runtime_state"
+      "writes_without_override": "runtime_state",
+      "root_from": "argument",
+      "$comment_root_from": "the journal's root is the function's own `root` argument (`append(path, record, root)`), which the run passes from the declared runtime_state; it reads no variable for it",
+      "channels": {
+        "absolute_literals": {
+          "tokens": [
+            "/etc/passwd",
+            "/tmp"
+          ],
+          "reason": "`/etc/passwd` and `/tmp` are control inputs: the first is a target the lexical check must refuse as absolute, the second is where a control builds its own temp tree. Every real journal path is reached through the confined handle under the root the run passes."
+        }
+      },
+      "release_1_invoked": true
+    }
+  ],
+  "not_a_destination": [
+    {
+      "writer": "install.sh",
+      "override": "AGENT_BIOS_UNINSTALL_ARCHIVE",
+      "reason": "The uninstall archive is written only by `install.sh uninstall`, which no operation in §10.6's vocabulary invokes.",
+      "derived_at_line": 1349
     }
   ]
 }

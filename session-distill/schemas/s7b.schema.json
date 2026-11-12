@@ -11,7 +11,8 @@
     "faithful_merge",
     "alternative",
     "bars",
-    "notes"
+    "notes",
+    "merge_findings"
   ],
   "properties": {
     "verdict": {
@@ -38,10 +39,14 @@
       "$comment": "For every merge: whether meaning is preserved and no unrelated obligation is introduced. `n/a` only where the proposal holds no merge operation; code checks that against the operations rather than trusting the value."
     },
     "merge_findings": {
-      "type": "array",
+      "type": [
+        "array",
+        "null"
+      ],
       "items": {
         "$ref": "#/$defs/merge_finding"
-      }
+      },
+      "$comment": "Nullable AND required: the strict provider dialect requires every property, so absence cannot carry a meaning. `null` is what absence meant — this candidate has no merge operation to review — and `[]` is a merge reviewed with nothing found. The two are different answers and the field keeps both; code reads null exactly as it read absence (`or []`), so no reader gains a third case."
     },
     "alternative": {
       "$ref": "#/$defs/alternative_or_null"
@@ -70,7 +75,8 @@
       "additionalProperties": false,
       "required": [
         "holds",
-        "reason"
+        "reason",
+        "evidence"
       ],
       "properties": {
         "holds": {
@@ -84,7 +90,7 @@
           "items": {
             "$ref": "#/$defs/text"
           },
-          "$comment": "What in the candidate, the judgments or the units the reviewer read it from; a reason resting on nothing is the finding this field makes visible."
+          "$comment": "Required, and NOT nullable: an empty list is already the answer this field exists to make visible — a reason resting on nothing. Absence and `[]` meant the same thing, so requiring it adds no state downstream; a nullable stand-in would have added one."
         }
       }
     },
@@ -112,54 +118,6 @@
           "$ref": "#/$defs/text"
         }
       }
-    },
-    "alternative": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "disposition",
-        "reason"
-      ],
-      "properties": {
-        "disposition": {
-          "type": "string",
-          "enum": [
-            "place",
-            "correct",
-            "re-deliver",
-            "keep",
-            "reduce",
-            "incubate",
-            "drop",
-            "none"
-          ]
-        },
-        "destination": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "layer"
-          ],
-          "properties": {
-            "layer": {
-              "$ref": "#/$defs/text"
-            },
-            "carrier": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "minLength": 1,
-              "$comment": "Nullable: the policy of runlib/validate.py admits a nullable as a type list and refuses oneOf. The pattern refuses a control character only - a single line. WHICH layers exist and whether the path is relative are `runlib/placement.destination_problems`'s, so one rule has one authority; the pattern is here because a schema can say 'one line' without restating anything.",
-              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
-            }
-          }
-        },
-        "reason": {
-          "$ref": "#/$defs/text"
-        }
-      },
-      "$comment": "The alternative the owner can take with 수정. Code holds it to the same allowed pairs as the proposal: an alternative §7.2 forbids is not an alternative."
     },
     "bar_judgment": {
       "type": "object",
@@ -189,7 +147,8 @@
       "additionalProperties": false,
       "required": [
         "disposition",
-        "reason"
+        "reason",
+        "destination"
       ],
       "properties": {
         "disposition": {
@@ -206,10 +165,14 @@
           ]
         },
         "destination": {
-          "type": "object",
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
           "required": [
-            "layer"
+            "layer",
+            "carrier"
           ],
           "properties": {
             "layer": {
@@ -224,7 +187,8 @@
               "$comment": "Nullable: the policy of runlib/validate.py admits a nullable as a type list and refuses oneOf. The pattern refuses a control character only - a single line. WHICH layers exist and whether the path is relative are `runlib/placement.destination_problems`'s, so one rule has one authority; the pattern is here because a schema can say 'one line' without restating anything.",
               "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
             }
-          }
+          },
+          "$comment": "Nullable AND required, for the strict dialect: `null` is what absence meant — the alternative names no destination, which is the answer for a disposition that places nothing (keep, drop, none). WHICH layers exist and whether the carrier is a relative path inside the tree are `runlib/placement.destination_problems`'s, which this review's alternative goes through exactly as S7's own proposal does."
         },
         "reason": {
           "$ref": "#/$defs/text"

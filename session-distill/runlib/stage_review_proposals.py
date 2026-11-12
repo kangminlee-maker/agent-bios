@@ -17,6 +17,7 @@ import collections
 import json
 import pathlib
 import sys
+import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
@@ -57,12 +58,46 @@ def merge_targets(proposal):
             if op.get("type") in MERGE_TYPES]
 
 
+def _schema_review_blocks():
+    """The schema's `*_review` object fields — the blocks a review can call not-holding.
+
+    Derived from the schema so the contradiction rule cannot fall behind it; the schema is the
+    authority on which blocks exist, and a second list here would be a second authority.
+    """
+    schema = json.loads(schema_bytes().decode("utf-8"))
+    held = schema.get("properties") or {}
+    defs = schema.get("$defs") or {}
+
+    def names_holds(shape):
+        """Whether this property is an object carrying `holds` — following one `$ref` hop.
+
+        The blocks are `$ref`s to `#/$defs/judgment`, so reading `properties` off the property
+        itself found nothing and the rule judged an EMPTY set: every verdict passed and the control
+        was green about nothing. That is the shape this repo calls a check that cannot fire.
+        """
+        shape = shape or {}
+        ref = shape.get("$ref") or ""
+        if ref.startswith("#/$defs/"):
+            shape = defs.get(ref.split("/")[-1]) or {}
+        return "holds" in (shape.get("properties") or {})
+
+    return {name for name, shape in held.items()
+            if name.endswith("_review") and names_holds(shape)}
+
+
 def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incubating=False):
     """Every problem of one review, by name: its shape, the merge question, the bars, the alternative."""
     # BEFORE the shape check, and that order is the whole point: the schema's additionalProperties
     # already refuses an unknown field, so this rule was unreachable behind it and said nothing. A
     # review that wrote itself a decision deserves to be told why, not that a property was
     # unexpected.
+    # The root type first. REVIEW_DECIDES keeps its precedence over the SHAPE, which is the whole
+    # reason it comes before the schema — but only for an object: on a scalar the membership test
+    # raised TypeError and the stage ended with a traceback instead of one named invalid row (the
+    # WP-12 review).
+    if not isinstance(review, dict):
+        return (_shape_problems(review)
+                or [f"REVIEW_NOT_AN_OBJECT {type(review).__name__}: a review is an object"])
     problems = [f"REVIEW_DECIDES {field}: a review shows disagreement and the owner resolves it; it "
                 f"does not carry a decision of its own"
                 for field in ("approved", "decision", "applied", "confirmed") if field in review]
@@ -71,6 +106,22 @@ def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incu
     problems = _shape_problems(review)
     if problems:
         return problems
+    # A verdict of `agree` that carries a NEGATIVE finding is a contradiction, and it reached the
+    # owner as agreement with nothing to resolve: `disposition_review.holds=false` with
+    # `verdict=agree` and no alternative passed, and the document then counted it as agreement
+    # (the WP-12 review). The reviewer's own claims are preserved; what is refused is calling the
+    # set of them agreement.
+    # The schema's own review blocks, derived from it rather than listed here: a block added to the
+    # schema would otherwise be a finding this rule cannot see.
+    negative = [name for name in sorted(_schema_review_blocks())
+                if isinstance(review.get(name), dict) and review[name].get("holds") is False]
+    if review.get("verdict") == "agree" and negative:
+        problems.append(f"REVIEW_VERDICT_CONTRADICTS {', '.join(sorted(negative))}: a verdict of "
+                        f"agree with a finding that does not hold would reach the owner as "
+                        f"agreement with nothing to resolve")
+    if review.get("verdict") == "agree" and review.get("faithful_merge") == "no":
+        problems.append("REVIEW_VERDICT_CONTRADICTS faithful_merge: a verdict of agree with an "
+                        "unfaithful merge would reach the owner as agreement")
     proposal = proposal_row.get("proposal") or {}
     merges = merge_targets(proposal)
     # The merge question, against the operations rather than against the answer's own word for them.
@@ -173,6 +224,24 @@ def document(proposals, reviews, candidates=None, only=None):
     problems = stage_propose.subset_problems(only, by_id)
     if problems:
         raise Refused("; ".join(problems))
+    # The UPSTREAM population, inherited when this call asks for no narrower one. An S7 document
+    # that was itself a subset reached here and came out `subset: null` while reviewing only those
+    # rows, so the review read as the whole population; and the CLI has no `only` of its own, which
+    # is exactly the path a reader would take (the WP-12 review, D-20261112-f46263: a subset names
+    # its population and never narrows silently). `inherited` says where the marker came from, so
+    # the provenance is not lost in the inheriting.
+    upstream = (proposals or {}).get("subset")
+    inherited = only is None and upstream is not None
+    if inherited:
+        # A narrower request would have to be a subset of what S7 recorded: narrowing past the
+        # upstream population is how a review of three rows could claim to be a review of thirty.
+        only = sorted(upstream)
+    elif only is not None and upstream is not None:
+        outside = sorted(set(only) - set(upstream))
+        if outside:
+            raise Refused(f"SUBSET_OUTSIDE_UPSTREAM {', '.join(outside)}: S7's document is itself a "
+                          f"subset of {len(upstream)} row(s), so a review cannot ask for a row it "
+                          f"does not carry")
     if only is not None:
         by_id = {cid: row for cid, row in by_id.items() if cid in set(only)}
     for cid in sorted(by_id):
@@ -188,6 +257,8 @@ def document(proposals, reviews, candidates=None, only=None):
     tally = collections.Counter
     return {"stage": STAGE, "reviews": rows,
             "subset": sorted(only) if only is not None else None,
+            "subset_inherited": inherited,
+            "upstream_subset": sorted(upstream) if upstream is not None else None,
             "returned": sorted(returned, key=lambda r: r["item_id"]),
             "unreviewed": sorted(unreviewed, key=lambda r: r["item_id"]),
             "contract": {"placement_contract_sha256": placement.contract_digest(),
@@ -227,8 +298,28 @@ def self_test():
     """Positive control first, then one planted violation per rule, each named.
 
     Golden: no model call is made here or by this module. What is judged is the packet S7b would be
-    sent and the review it would return."""
-    failures, ran, reporting = [], [], []
+    sent and the review it would return.
+    The body is wrapped so a control that DIES still speaks: a traceback is not a control firing,
+    and a revert trial that reads any output counts one as if it were (the WP-12 review). The
+    wrapper prints a [FAIL] line naming the control that was in flight, so the evidence says which
+    rule stopped being enforced.
+    """
+    failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"stage_review_proposals --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"stage_review_proposals --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"stage_review_proposals --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} failed "
+              f"before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
+    reporting = []
 
     def control(name, got, want):
         if reporting:
@@ -249,15 +340,33 @@ def self_test():
             failures.append((name, f"expected nothing, got {problems}"))
 
     def review(**over):
+        # Every property the strict provider dialect requires is present, which is now every
+        # property: `merge_findings: None` is "this candidate has no merge to review" (what absence
+        # used to mean) and each judgment carries its `evidence` list, empty where the review rests
+        # on nothing.
         held = {"verdict": "agree",
                 "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다",
                                        "evidence": ["c1"]},
-                "destination_review": {"holds": True, "reason": "가장 싼 자리다"},
+                "destination_review": {"holds": True, "reason": "가장 싼 자리다",
+                                       "evidence": []},
+                "merge_findings": None,
                 "faithful_merge": "n/a", "alternative": None,
                 "bars": [{"bar": bar, "holds": True, "reason": "충족"} 
                          for bar in placement.contract_bars()],
                 "notes": "동의한다"}
         held.update(over)
+        # An override that names a judgment without its `evidence` gets the empty list, because the
+        # overrides here are about the judgment's VERDICT and every one of them would otherwise have
+        # to restate a field it does not care about. The rule itself is not softened: a review that
+        # really omits `evidence` is refused by name, which the control below plants.
+        for name in ("disposition_review", "destination_review"):
+            if isinstance(held.get(name), dict):
+                held[name] = {"evidence": [], **held[name]}
+        # The same for an alternative an override names: `destination: None` is "this alternative
+        # names no destination", which is what its absence meant, and an override about the
+        # DISPOSITION should not have to say so.
+        if isinstance(held.get("alternative"), dict):
+            held["alternative"] = {"destination": None, **held["alternative"]}
         return held
 
     def row(**over):
@@ -444,6 +553,18 @@ def self_test():
             "stage", "; ".join(registers) or "<nothing registered>", "stage.output(OUTPUT)")
     clean("one write and one registration, so neither can be left behind by the other",
           [] if len(writes) == len(registers) == 1 else [f"{len(writes)} writes, {len(registers)} registrations"])
+    def refused_text(call):
+        """The refusal as text, or any other exception as text — the same rule as `refused` below.
+
+        Defined here because the controls above use it: catching `Refused` alone made a control die
+        rather than speak when the refusal under test was reverted.
+        """
+        try:
+            call()
+        except Exception as exc:  # noqa: BLE001 - the exception IS the answer here
+            return f"{type(exc).__name__}: {exc}"
+        return ""
+
     # S7b takes the same subset S7 does, and asks S7's question about it rather than its own.
     two = {"proposals": [row(candidate_id="k1"), row(candidate_id="k2")]}
     reviews_two = {cid: review() for cid in ("k1", "k2")}
@@ -452,6 +573,156 @@ def self_test():
             f'{one["counts"]["proposals"]}:{json.dumps(one["subset"])}', '1:["k2"]')
     control("and a full review says it is not a subset",
             json.dumps(document(two, reviews_two)["subset"]), "null")
+
+    # ---- the upstream population is inherited, not dropped ---------------------------------------
+    #
+    # S7's document may itself be a subset. Handed one with no `only` of its own, this stage reviewed
+    # only the rows it held and reported `subset: null` — a review of one row that read as a review
+    # of the population (the WP-12 review). The CLI has no `only` option, so that was the ONLY path
+    # a reader would take.
+    upstream_doc = {"proposals": [row(candidate_id="k2")], "subset": ["k2"]}
+    held_inherited = document(upstream_doc, reviews_two)
+    control("an S7 document that is itself a subset is reviewed as that subset, by name",
+            json.dumps(held_inherited["subset"]), '["k2"]')
+    control("and the document says the marker was inherited rather than asked for, so the "
+            "provenance survives",
+            json.dumps({"inherited": held_inherited["subset_inherited"],
+                        "upstream": held_inherited["upstream_subset"]}),
+            '{"inherited": true, "upstream": ["k2"]}')
+    control("a review of the whole population still says so, and names no upstream subset",
+            json.dumps({"subset": document(two, reviews_two)["subset"],
+                        "inherited": document(two, reviews_two)["subset_inherited"],
+                        "upstream": document(two, reviews_two)["upstream_subset"]}),
+            '{"subset": null, "inherited": false, "upstream": null}')
+    control("and a narrower request of its own is NOT recorded as inherited",
+            json.dumps({"subset": one["subset"], "inherited": one["subset_inherited"]}),
+            '{"subset": ["k2"], "inherited": false}')
+    control("asking for a row the upstream subset does not carry is refused by name, since "
+            "narrowing past it is how a review of one row could claim thirty",
+            refused_text(lambda: document({"proposals": [row(candidate_id="k1"),
+                                                         row(candidate_id="k2")],
+                                           "subset": ["k2"]},
+                                          reviews_two, only=["k1"])),
+            "SUBSET_OUTSIDE_UPSTREAM k1")
+    clean("while a request inside it is answered",
+          [] if document({"proposals": [row(candidate_id="k1"), row(candidate_id="k2")],
+                          "subset": ["k1", "k2"]},
+                         reviews_two, only=["k2"])["subset"] == ["k2"]
+          else ["a request inside the upstream subset was not answered"])
+
+    # ---- a verdict that contradicts its own findings ---------------------------------------------
+    #
+    # `verdict=agree` with `disposition_review.holds=false` and no alternative passed, and the
+    # document then counted it as agreement with `owner_resolves=false`: a negative finding reached
+    # the owner marked as agreement with nothing to resolve (the WP-12 review).
+    clean("the derived block set is NOT empty, since an empty one would pass every verdict while "
+          "the control above stayed green",
+          [] if _schema_review_blocks() else ["the schema named no review block"])
+    control("the blocks the rule judges come from the schema, not from a list written here",
+            json.dumps(sorted(_schema_review_blocks())),
+            json.dumps(["destination_review", "disposition_review"]))
+    for field in sorted(_schema_review_blocks()):
+        held_review = review(verdict="agree", **{field: {"holds": False, "reason": "r"}})
+        control(f"a verdict of agree with a {field} that does not hold is refused by name",
+                "; ".join(review_problems(held_review, row())),
+                f"REVIEW_VERDICT_CONTRADICTS {field}")
+    control("and an agree verdict over an unfaithful merge too",
+            "; ".join(review_problems(review(verdict="agree", faithful_merge="no"), row())),
+            "REVIEW_VERDICT_CONTRADICTS faithful_merge")
+    clean("a verdict of agree whose findings all hold is clean, so the rule judges the "
+          "contradiction and not the verdict",
+          review_problems(review(verdict="agree"), row()))
+    clean("and a DISAGREE verdict carrying the same negative finding is clean, which is the shape "
+          "the contradiction was hiding behind",
+          [problem for problem in review_problems(
+              review(verdict="disagree", disposition_review={"holds": False, "reason": "r"},
+                     alternative={"disposition": "drop", "reason": "r"}), row())
+           if "VERDICT_CONTRADICTS" in problem])
+
+    # ---- the provider's strict dialect: every property required, absence given a name ------------
+    #
+    # The first live Codex S7b call was refused by the provider with `invalid_json_schema`. The
+    # strict subset a provider-hosted structured answer must fit requires EVERY property to be in
+    # `required`, so a field whose absence carried a meaning cannot exist: five of this contract's
+    # properties were optional, and lane E's projection refused the call before sending rather than
+    # letting a nullable stand-in admit a null this schema would then reject.
+    #
+    # Each of the five was decided on what its absence MEANT, so no reader gains a third case:
+    # `merge_findings` is nullable (null = no merge to review, [] = a merge reviewed with nothing
+    # found — two different answers), `alternative.destination` is nullable (null = the alternative
+    # names no destination), its `carrier` was already nullable and is now required, and both
+    # judgments' `evidence` is required outright because [] was already what absence said and is
+    # the finding the field exists to make visible.
+    held_schema = json.loads(packet.schema_bytes(json.loads(schema_bytes())))
+    held_projected, held_strict = packet.provider_schema(held_schema, "codex")
+    clean("the contract projects into the provider's strict subset with nothing left over, which "
+          "is what lets a Codex seat be sent this call at all", held_strict)
+    control("and the projection is produced rather than refused",
+            "produced" if held_projected is not None else "refused", "produced")
+    control("every property is required, which is the subset's rule and now this contract's shape",
+            json.dumps(sorted(set(held_schema["properties"]) - set(held_schema["required"]))), "[]")
+    control("a null `merge_findings` reads exactly as its absence did: no merge to review",
+            json.dumps(review_problems(review(merge_findings=None), row())), "[]")
+    control("while [] is a merge reviewed with nothing found, which is a different answer and is "
+            "held to the proposal's own operations",
+            "; ".join(review_problems(
+                review(faithful_merge="yes", merge_findings=[]),
+                row(proposal={"disposition": "reduce",
+                              "operations": [{"type": "merge",
+                                              "target": "claude/guides/g.md#one"}]}))),
+            "MERGE_FINDING_ABSENT claude/guides/g.md#one")
+    control("a review that really omits `evidence` is still refused by name, so requiring it is a "
+            "rule and not a default the fixture hands out",
+            "; ".join(review_problems({**review(),
+                                       "disposition_review": {"holds": True, "reason": "r"}},
+                                      row())),
+            "REVIEW_INVALID disposition_review")
+    control("and one that omits the whole `merge_findings` property is refused too, since absence "
+            "is no longer a value this contract has",
+            "; ".join(review_problems({k: v for k, v in review().items()
+                                       if k != "merge_findings"}, row())),
+            "REVIEW_INVALID <root>: 'merge_findings' is a required property")
+    control("a null alternative destination is the alternative naming none",
+            "; ".join(review_problems(
+                review(verdict="disagree",
+                       disposition_review={"holds": False, "reason": "r"},
+                       alternative={"disposition": "none", "reason": "r", "destination": None}),
+                row())),
+            "")
+    control("and an omitted one is refused, so the host must say which it means",
+            # Built past the fixture helper on purpose: the helper fills `destination: None` for
+            # every override, which is right for a fixture about a disposition and would hide the
+            # omission this control is about.
+            "; ".join(review_problems(
+                {**review(verdict="disagree",
+                          disposition_review={"holds": False, "reason": "r"}),
+                 "alternative": {"disposition": "drop", "reason": "r"}},
+                row())),
+            "REVIEW_INVALID alternative: 'destination' is a required property")
+    control("the duplicate `alternative` definition is gone: `alternative_or_null` is what the "
+            "contract refers to, and two copies of one contract is the defect this unit keeps "
+            "finding", json.dumps(sorted(json.loads(schema_bytes())["$defs"])),
+            '["alternative_or_null", "bar_judgment", "judgment", "merge_finding", "text"]')
+
+    # ---- a scalar review is a named row, not a traceback -----------------------------------------
+    def guarded(call):
+        """The call's answer, or the exception as the answer.
+
+        A control that DIES is not a control: with the root-type guard reverted the membership test
+        raises TypeError, the suite ended on a traceback, and the revert trial counted it as silent
+        rather than as the guard firing. The exception is what the control reads now.
+        """
+        try:
+            return "; ".join(call())
+        except BaseException as exc:  # noqa: BLE001 - the exception IS the answer here
+            return f"the control died: {type(exc).__name__}: {exc}"
+
+    for held_scalar in (7, "a string", [1, 2], None):
+        control(f"a {type(held_scalar).__name__} review is refused by name rather than raising",
+                guarded(lambda: review_problems(held_scalar, row()))[:40], "REVIEW_INVALID")
+    control("and REVIEW_DECIDES keeps its precedence over the shape for an OBJECT, which is why it "
+            "comes first",
+            "; ".join(review_problems({"approved": True}, row())), "REVIEW_DECIDES approved")
     def refused(call):
         """The refusal as text, or any other exception as text.
 
@@ -528,16 +799,28 @@ def self_test():
                      disposition_review={"holds": False, "reason": "r"}), misfire)
            if "DESTINATION" in p or "LAYER_UNKNOWN" in p])
 
-    control("`run` refuses a subset by name: the stage's output is one file, so a subset run would "
-            "replace the whole review with those rows",
-            refused(lambda: run("/nonexistent-run", reviews_two, only=["k2"])), "SUBSET_IN_RUN S7b")
-    control("and the refusal is S7's sentence, so one rule has one wording",
-            next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
-                 if "SUBSET_IN_RUN" in line and "raise" in line),
-            "stage_propose.SUBSET_IN_RUN")
-    control("the refusal comes before the run directory is touched, so a bad call cannot half-open "
-            "a stage", refused(lambda: run("/nonexistent-run", reviews_two, only=["k2"])),
-            "SUBSET_IN_RUN")
+    # The absent run lives UNDER a temporary directory this control owns, and is removed whichever
+    # way the call goes. `/nonexistent-run` was the path: with the subset guard reverted,
+    # `records.run_stage` reaches `stagelock.hold`, which creates the locks directory before reading
+    # the declaration — so a revert trial of this very control tried to write `/nonexistent-run/locks`
+    # at the filesystem root. The WP-21 review found it, and this repo has paid for a control writing
+    # outside its fixture before.
+    with tempfile.TemporaryDirectory(prefix="s7b-absent-") as absent_root:
+        absent_run = str(pathlib.Path(absent_root) / "no-such-run")
+        control("`run` refuses a subset by name: the stage's output is one file, so a subset run "
+                "would replace the whole review with those rows",
+                refused(lambda: run(absent_run, reviews_two, only=["k2"])), "SUBSET_IN_RUN S7b")
+        clean("and nothing was created for it, not even a lock directory",
+              [] if not pathlib.Path(absent_run).exists()
+              else [f"{absent_run} exists after a refused call"])
+        control("and the refusal is S7's sentence, so one rule has one wording",
+                next(line.strip() for line in
+                     pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                     if "SUBSET_IN_RUN" in line and "raise" in line),
+                "stage_propose.SUBSET_IN_RUN")
+        control("the refusal comes before the run directory is touched, so a bad call cannot "
+                "half-open a stage",
+                refused(lambda: run(absent_run, reviews_two, only=["k2"])), "SUBSET_IN_RUN")
 
     control("the question is S7's, asked once: this file calls S7's own check",
             next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
@@ -552,6 +835,24 @@ def self_test():
     clean("and that name resolves to the file S7 really writes",
           [] if INPUTS[0]["artifact"] == stage_propose.OUTPUT else
           [f'{INPUTS[0]["artifact"]!r} is not {stage_propose.OUTPUT!r}'])
+
+    # The wrapper that makes a dying control speak. Asserted from the source, because a suite that
+    # ends in a traceback prints no control name at all and a revert trial then reads the traceback
+    # as the control firing (the WP-12 review).
+    # The WRAPPER's own source, not the file's. A scan of the whole file is satisfied by this
+    # control's own text — the phrase it looks for appears in the line that looks for it — which is
+    # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
+    # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
+    import inspect
+    wrapper_text = inspect.getsource(self_test)
+    control("a control that dies names itself, since a traceback is not a control firing",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "died after" in line and "print(" in line), "<no such line>"),
+            "self-test [FAIL] the suite died after")
+    control("and the wrapper is what the entry point runs, so the body cannot be called around it",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "_self_test_body(" in line), "<no such line>"),
+            "return _self_test_body(failures, ran)")
 
     reporting.append(True)
     if failures:
