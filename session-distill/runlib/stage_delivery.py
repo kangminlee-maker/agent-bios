@@ -824,6 +824,13 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
             evidence["item_pointer_in_compiled_text"] = pointers
         if shared.get("router_path") is not None:
             evidence["router_path"] = shared["router_path"]
+        # WHY a pointer could not be established, which S2 now publishes
+        # (`compiled_text_absent` | `catalog_rule_unread`) instead of leaving the list absent. An
+        # absent list and an established absence read the same to the judge, and the judge then
+        # asserted "no pointer" from an input nobody had read; with the reason it answers
+        # `pointer_unavailable:<reason>` instead.
+        if shared.get("item_pointer_unavailable"):
+            evidence["item_pointer_unavailable"] = shared["item_pointer_unavailable"]
         surfaces = surface_facts(shared)
         counts.update({"coverage_facts": len(facts), "unavailable_rows": len(unavailable),
                        "coverage_refs_unresolved": unresolved_refs,
@@ -1063,19 +1070,14 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
             # with no surface at all. So the surface is attached per pair, from the session's own
             # selection, and a session that states none leaves the judge to answer
             # `surface_unclassified` rather than be handed a guess.
-            # The surface the session was given the item at, else the item's CATALOGUE surface as S2
-            # published it. The second is what classifies the ladder of a unit the session was not
-            # given, which is where §6.3's absence lives: without it the judge answered
-            # `surface_unclassified` for every such unit and no absence could ever be found.
-            surface = ((evidence.get("selected") or {}).get(unit.get("item_ref"))
-                       or (evidence.get("history_selected") or {}).get(unit.get("item_ref"))
-                       or session_surfaces.get(refs_by_unit.get(unit["unit_id"])))
-            # Only where the judge's own classifier cannot place the unit already: the native layers
-            # are matched BY LAYER, and attaching a surface to one of them moved it onto the
-            # always-rule ladder, where its recorded-injection absence read as `not_in_release`
-            # instead of `not_in_recorded_injection` (found by the frozen native fixture).
-            classified = delivery_evidence.surface_row(unit) is not None
-            subject = unit if classified or not surface else {**unit, "surface": surface}
+            # ONE owner for that rule: `delivery_evidence.attach_surface`. This stage carried its
+            # own copy — the snapshot's selection, then the selection history, then S2's published
+            # catalogue surface, and only where the judge's own classifier cannot place the unit
+            # already — and a rule in two places is what this review keeps finding. The copy is
+            # gone; the stage translates the unit id to its item ref, which is the one thing only
+            # the stage knows, and the rule itself answers.
+            subject = delivery_evidence.attach_surface(
+                unit, evidence, session_surfaces.get(refs_by_unit.get(unit["unit_id"])))
             # The version universe this run names, not the current units alone: see
             # `version_universe`. Computed once per document, above the pair loop.
             answer = delivery_evidence.delivery(subject, units, evidence, pair["decision_at"],
@@ -2311,6 +2313,79 @@ def _self_test_body(failures, ran):
                 json.dumps(pointer_evidence.get("router_path")), "router/relevant.md")
         clean("no part of the compiled text reaches the judge with them",
               [key for key in pointer_evidence if key == "instruction_text"])
+        # The REASON a pointer could not be established, which S2 publishes and this stage used to
+        # drop. An absent list and an established absence read the same to the judge, and the judge
+        # asserted "no pointer" from an input nobody had read (lane E's probe, P1).
+        unavailable_shared = {**pointer_shared, "item_pointer_in_compiled_text": [],
+                              "item_pointer_unavailable": "compiled_text_absent"}
+        unavailable_evidence, _unavailable_counts = session_evidence(
+            facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
+            lambda ref: unavailable_shared, facts_store, None, None, facts_units)
+        control("the reason S2 publishes for a pointer it could not establish reaches the judge",
+                json.dumps(unavailable_evidence.get("item_pointer_unavailable")),
+                '"compiled_text_absent"')
+        control("and the other reason it can publish reaches it the same way, since the two are "
+                "different situations for a reader",
+                json.dumps(session_evidence(
+                    facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
+                    lambda ref: {**unavailable_shared,
+                                 "item_pointer_unavailable": "catalog_rule_unread"},
+                    facts_store, None, None, facts_units)[0].get("item_pointer_unavailable")),
+                '"catalog_rule_unread"')
+        clean("while a session whose pointers WERE established carries no reason, so the key is the "
+              "unavailability and not a field that is always there",
+              [key for key in pointer_evidence if key == "item_pointer_unavailable"])
+
+        unplaced_unit = {"unit_id": "u-u", "path": "claude/guides/z.md", "text": "- z",
+                         "version_sha256": "b" * 64, "layer": "catalog",
+                         "item_ref": "claude:guides/z", "carrier_id": "c-" + "1" * 24, "n": 1,
+                         "operative_context": ["u-u"]}
+
+        # ONE owner for the surface rule, held by source: the stage translates the unit id to its
+        # item ref and the rule answers. The copy this stage carried is the class of defect the
+        # review found, so the control is that the stage no longer makes that decision itself.
+        held_source = pathlib.Path(__file__).read_text(encoding="utf-8")
+        control("the stage attaches a pair's surface through the one rule, not a copy of it",
+                "yes" if "delivery_evidence.attach_surface(" in held_source else "no", "yes")
+        # The stage still PUBLISHES `history_selected` as evidence, which is its job; what it may
+        # no longer do is read it to decide a surface. That is the exact text of the copy that was
+        # here, so the control names it rather than any mention of the field.
+        # Assembled from pieces so that the pattern itself never appears as a literal in this
+        # file: spelled whole, the control's own line matched it and the control failed on itself.
+        held_copy = 'get("history_selected") or {}).' + 'get(unit'
+        clean("and keeps no surface decision of its own: the copy read the session's selection, "
+              "then its history, then the catalogue",
+              [line.strip() for line in held_source.splitlines() if held_copy in line])
+        # The native layers are the ones the TABLE names, read from it rather than spelled here:
+        # a unit the table already places is returned untouched, because attaching a surface to one
+        # moves it onto an item ladder (the frozen native fixture found that).
+        held_native = next(row["layers"][0] for row in delivery_evidence.table()["surfaces"]
+                           if row.get("layers"))
+        control("the rule places a native unit by its layer, leaving it untouched rather than "
+                "moving it onto an item ladder",
+                json.dumps("surface" in delivery_evidence.attach_surface(
+                    {"unit_id": "u-n", "layer": held_native, "item_ref": "claude:x"},
+                    {"selected": {"claude:x": "requested"}}, None)),
+                "false")
+        control("and a unit no layer places takes the session's own surface",
+                json.dumps(delivery_evidence.attach_surface(
+                    {"unit_id": "u-s", "layer": "guides", "item_ref": "claude:guides/g"},
+                    {"selected": {"claude:guides/g": "requested"}}, None).get("surface")),
+                '"requested"')
+        control("a unit with no surface from the session, the history or the catalogue stays "
+                "unplaced, and the judge NAMES that rather than answering unknown silently",
+                # Its own row, built here with every field a unit carries: a unit whose layer
+                # places nothing and whose session names no surface. `attach_surface` returns it
+                # unchanged, and what the judge then says is the point — a named state, not a
+                # silent unknown.
+                json.dumps((delivery_evidence.delivery(
+                    delivery_evidence.attach_surface(unplaced_unit,
+                                                     {"basis": "pin", "selected": {}}, None),
+                    {"u-u": unplaced_unit},
+                    {"basis": "pin", "selected": {}, "injection_at": 1,
+                     "release": {"complete": True, "layers": {}, "items": []}}, 10)
+                    or {}).get("reasons") or []),
+                "surface_unclassified")
         control("the counts say how many pointer facts and unit surfaces were published",
                 json.dumps(pointer_counts), '"pointer_facts": 1')
         control("and how many surfaces", json.dumps(pointer_counts), '"unit_surfaces": 1')
