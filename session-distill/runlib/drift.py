@@ -32,6 +32,7 @@ from the owner's homes, and its suite asserts it spawns nothing.
 """
 import json
 import pathlib
+import posixpath
 import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
@@ -88,18 +89,70 @@ def table_problems():
     return problems
 
 
+def target_identity(target):
+    """The canonical identity of a target path, or None when it is not a target at all.
+
+    One identity for validation, layer mapping, chaining, journalling and application, because
+    anything less makes two spellings of one file into two files. `claude/guides//g.md` and
+    `claude/guides/g.md` both passed the producer's path rules and both mapped to the guides layer
+    while the hash chain keyed on the RAW string, so one file could be edited twice with neither
+    operation seeing the other's after-hash (found by the WP-21 review).
+
+    Spellings that could name one file two ways are refused rather than silently normalized, which
+    is `target_problems`'s job; this function answers what the identity IS.
+    """
+    if not isinstance(target, str) or not target:
+        return None
+    return posixpath.normpath(target)
+
+
+def target_problems(target):
+    """Why this target may not be applied, by name. Empty means its spelling is canonical.
+
+    Refusing is the half that matters: normalizing quietly would let an approval naming
+    `claude/guides//g.md` apply to `claude/guides/g.md`, and the owner approved the text they read.
+    """
+    if not isinstance(target, str) or not target:
+        return [f"TARGET_ABSENT {target!r}: an operation names a path"]
+    problems = []
+    if target.startswith("/") or target.startswith("~"):
+        problems.append(f"TARGET_ABSOLUTE {target!r}: a target is a path inside the checkout")
+    parts = target.split("/")
+    if ".." in parts:
+        problems.append(f"TARGET_TRAVERSAL {target!r}: a `..` segment leaves the checkout")
+    if "." in parts or "" in parts[1:] or target.endswith("/"):
+        problems.append(f"TARGET_SPELLING {target!r}: an empty or `.` component makes two spellings "
+                        f"of one file, and the chain, the layer and the journal would key on "
+                        f"different ones")
+    if target != posixpath.normpath(target):
+        problems.append(f"TARGET_UNCANONICAL {target!r}: its canonical form is "
+                        f"{posixpath.normpath(target)!r}")
+    return problems
+
+
 def layer_of(target):
     """The layer a target lies in, or None. The longest matching prefix wins.
 
     Longest, not first: `claude/CLAUDE.md` is the global file while `claude/guides/` is the guides
     layer, and a first-match rule would make the answer depend on the table's order.
     """
-    if not isinstance(target, str) or not target:
+    held = target_identity(target)
+    if held is None:
         return None
+    # By COMPONENT, and a prefix ending in `/` is a DIRECTORY while one that does not is an exact
+    # file. Treating every prefix as unrestricted text made `install.sh.backup` enforcement and
+    # `claude/CLAUDE.md.extra` the global file — a sibling by name became the thing itself, and with
+    # those layers in B an operation on it was certified as drift-checked (the WP-21 review).
+    parts = held.split("/")
     best, best_length = None, -1
     for row in table()["layers"]:
         for prefix in row.get("prefixes") or ():
-            if (target == prefix or target.startswith(prefix)) and len(prefix) > best_length:
+            if prefix.endswith("/"):
+                held_parts = prefix.rstrip("/").split("/")
+                matched = parts[:len(held_parts)] == held_parts and len(parts) > len(held_parts)
+            else:
+                matched = held == posixpath.normpath(prefix)
+            if matched and len(prefix) > best_length:
                 best, best_length = row["layer"], len(prefix)
     return best
 
@@ -204,7 +257,13 @@ def chain_problems(f):
     problems, last = [], {}
     for item in f or ():
         for operation in item.get("operations") or ():
-            target = operation.get("target")
+            raw = operation.get("target")
+            for held in target_problems(raw):
+                problems.append(f"{held.split()[0]} {item.get('item_id')}: {held}")
+            # Keyed on the CANONICAL identity: keyed on the raw string, `claude/guides//g.md` and
+            # `claude/guides/g.md` were two targets, so one file could be edited twice with neither
+            # operation seeing the other's after-hash.
+            target = target_identity(raw)
             before = operation.get("before_state_sha256")
             if target in last:
                 after = last[target]["after"]
@@ -229,17 +288,33 @@ def order_problems(f, gate=None, base=None):
     returned as a row rather than raised, so the caller can return the items instead of stopping the
     run.
     """
+    # The COMPLETE operations, not a two-field summary. The adapter kept only `type` and `target`,
+    # and `sequencing.apply_to` reads `names` for route destinations and `units` for removals: a
+    # valid carrier-then-route set therefore could not be sequenced at all, and a merge's removals
+    # were invisible to the intermediate trees (the WP-21 review).
     items = [{"item_id": item.get("item_id"),
-              "operations": [{"type": operation.get("type"), "target": operation.get("target")}
-                             for operation in item.get("operations") or ()]}
+              "operations": [dict(operation) for operation in item.get("operations") or ()]}
              for item in f or ()]
     if not items:
         return {"ordered": [], "problems": []}
+    approved = [item["item_id"] for item in items]
     answer = sequencing.subset_answer(items, gate=gate or sequencing.route_integrity, base=base)
     # `subset_answer` returns the order as a list of ITEM IDS and says whether it sequenced at all,
     # which is the row WP-12 built for exactly this caller.
     if answer.get("sequenced"):
-        return {"ordered": list(answer.get("order") or []), "problems": [], "answer": answer}
+        held_order = list(answer.get("order") or [])
+        # The APPROVED order is what the owner read and what the hash chain was validated against.
+        # `sequence` searches item ids in sorted order, so it can return a DIFFERENT order that also
+        # passes — and this function returned that one. Applying it would apply a set in an order
+        # nobody approved and whose chain was never checked, so a rearrangement is refused and the
+        # owner is asked again (the WP-21 review).
+        if held_order != approved:
+            return {"ordered": [], "answer": answer,
+                    "problems": [f"ORDER_REARRANGED {', '.join(held_order)}: an order exists but it "
+                                 f"is not the approved one ({', '.join(approved)}); the chain was "
+                                 f"validated against the approved order, so applying this one "
+                                 f"would apply a sequence nobody approved"]}
+        return {"ordered": held_order, "problems": [], "answer": answer}
     reason = answer.get("reason") or answer.get("refusal") or "no order admits every intermediate state"
     return {"ordered": [], "answer": answer,
             "problems": [f"ORDER_NONE {reason}: the approved set has no order whose every "
@@ -273,9 +348,14 @@ def global_op_problems(f, judgments=None):
         operations = item.get("operations") or ()
         if not any(layer_of(operation.get("target")) == GLOBAL_LAYER for operation in operations):
             continue
+        # A MERGE can add content to the always-loaded file as surely as an edit can, and it was
+        # not in this list: a merge alone produced an empty `adding` and returned before reading its
+        # judgment at all, so `faithful_merge` absent, `no` and `n/a` all passed (the WP-21 review).
+        # A pure deletion stays the exception, because the global file taking deletions is what
+        # makes the ceiling reusable room.
         adding = [operation for operation in operations
                   if layer_of(operation.get("target")) == GLOBAL_LAYER
-                  and operation.get("type") in ADDING_OPERATIONS]
+                  and operation.get("type") in ADDING_OPERATIONS + MERGE_OPERATIONS]
         if not adding:
             continue
         merging = any(operation.get("type") in MERGE_OPERATIONS for operation in operations)
@@ -372,6 +452,89 @@ def self_test():
         if after is not None:
             operation["after_state_sha256"] = after
         return {"item_id": item_id, "operations": [operation]}
+
+    # ---- one canonical target identity -----------------------------------------------------------
+    #
+    # Four readers used to key on the raw string: the layer map, the chain, the journal and whatever
+    # applies the operation. Two spellings of one file were then two files.
+    control("two spellings of one path have one identity",
+            f'{target_identity("claude/guides//g.md")}|{target_identity("claude/guides/g.md")}',
+            "claude/guides/g.md|claude/guides/g.md")
+    control("and the non-canonical spelling is REFUSED rather than quietly normalized, because the "
+            "owner approved the text they read",
+            "; ".join(target_problems("claude/guides//g.md")), "TARGET_SPELLING")
+    for bad, want in (("/etc/passwd", "TARGET_ABSOLUTE"), ("~/x", "TARGET_ABSOLUTE"),
+                      ("a/../../x", "TARGET_TRAVERSAL"), ("a/./x", "TARGET_SPELLING"),
+                      ("claude/guides/", "TARGET_SPELLING")):
+        control(f"a target spelled {bad!r} is refused by name",
+                "; ".join(target_problems(bad)), want)
+    clean("while a canonical target passes", target_problems("claude/guides/g.md"))
+    control("the chain keys on that identity, so one file edited twice is one chain",
+            "; ".join(chain_problems([
+                fx_item("i-1", target="claude/guides/g.md", before=A, after=B),
+                fx_item("i-2", target="claude/guides//g.md", before=A)])),
+            "TARGET_MISMATCH")
+    control("and the second spelling is refused on its own account too",
+            "; ".join(chain_problems([fx_item("i-2", target="claude/guides//g.md")])),
+            "TARGET_SPELLING")
+
+    # ---- the layer map matches COMPONENTS, not text ----------------------------------------------
+    control("a suffix sibling of an exact-file entry is NOT that file",
+            json.dumps({"install.sh": layer_of("install.sh"),
+                        "install.sh.backup": layer_of("install.sh.backup"),
+                        "claude/CLAUDE.md": layer_of("claude/CLAUDE.md"),
+                        "claude/CLAUDE.md.extra": layer_of("claude/CLAUDE.md.extra")}),
+            '{"install.sh": "enforcement", "install.sh.backup": null, '
+            '"claude/CLAUDE.md": "global", "claude/CLAUDE.md.extra": null}')
+    control("a directory prefix matches a path INSIDE it and not a sibling that starts with its name",
+            json.dumps({"claude/guides/g.md": layer_of("claude/guides/g.md"),
+                        "claude/guidesextra/g.md": layer_of("claude/guidesextra/g.md"),
+                        "claude/guides": layer_of("claude/guides")}),
+            '{"claude/guides/g.md": "guides", "claude/guidesextra/g.md": null, '
+            '"claude/guides": null}')
+    control("and an equivalent spelling lands in the same layer",
+            json.dumps(layer_of("claude/guides//g.md")), '"guides"')
+
+    # ---- the order that comes back is the order that was approved ---------------------------------
+    #
+    # `sequence` searches item ids in sorted order, so it can find a DIFFERENT order that also
+    # passes. Returning that one would apply a sequence nobody approved and whose chain was never
+    # checked against it.
+    reordered = order_problems([fx_item("z-first", target="claude/guides/z.md"),
+                                fx_item("a-second", target="claude/guides/a.md")])
+    control("an order that is not the approved one is refused by name",
+            "; ".join(reordered["problems"]) or json.dumps(reordered["ordered"]),
+            "ORDER_REARRANGED")
+    clean("and nothing is returned to apply", reordered["ordered"])
+    held_in_order = order_problems([fx_item("a-first", target="claude/guides/a.md"),
+                                    fx_item("z-second", target="claude/guides/z.md")])
+    control("while the approved order is returned unchanged when it is the one that passes",
+            json.dumps(held_in_order["ordered"]), '["a-first", "z-second"]')
+    # The adapter kept only `type` and `target`. `sequencing.apply_to` reads `names` for a route's
+    # destination and `units` for a merge's removals, so a carrier-then-route set could not be
+    # sequenced at all: the route named nothing and every intermediate tree failed route integrity.
+    fx_carrier = {"item_id": "a-carrier",
+                  "operations": [{"type": "create", "target": "claude/guides/g.md",
+                                  "before_state_sha256": A}]}
+    fx_route = {"item_id": "b-route",
+                "operations": [{"type": "route", "target": "claude/CLAUDE.md",
+                                "names": "claude/guides/g.md", "before_state_sha256": A}]}
+    held_full = order_problems([fx_carrier, fx_route])
+    clean("a carrier-then-route set sequences, which it cannot do unless the route's own `names` "
+          "reached sequencing", held_full["problems"])
+    control("and the approved order is what comes back", json.dumps(held_full["ordered"]),
+            '["a-carrier", "b-route"]')
+    held_reversed = order_problems([fx_route, fx_carrier])
+    control("while routing before the carrier is refused, since the route would name nothing",
+            "; ".join(held_reversed["problems"]), "ORDER_REARRANGED")
+    held_merge = order_problems([{"item_id": "m-1",
+                                  "operations": [{"type": "create", "target": "claude/guides/g.md",
+                                                  "before_state_sha256": A},
+                                                 {"type": "merge", "target": "claude/CLAUDE.md",
+                                                  "units": ["claude/guides/g.md"],
+                                                  "before_state_sha256": A}]}])
+    clean("and a merge's `units` reach it too, so its removals are in the intermediate trees",
+          held_merge["problems"])
 
     # ---- the table -------------------------------------------------------------------------------
     clean("the layer map is well formed", table_problems())
@@ -543,6 +706,22 @@ def self_test():
                 "operations": [{"type": kind, "target": target, "before_state_sha256": A}
                                for kind in types]}
 
+    # A MERGE ALONE. It was not in the adding list, so it produced an empty set and returned before
+    # reading its judgment: absent, `no` and `n/a` all passed. A merge adds content to the
+    # always-loaded file as surely as an edit does.
+    for judged, label in ((None, "absent"), ("no", "no"), ("n/a", "n/a")):
+        control(f"a merge alone into the global file with faithful_merge {label} is refused",
+                "; ".join(global_op_problems([fx_global(item_id="i-m", types=("merge",))],
+                                             {} if judged is None else {"i-m": judged})),
+                "GLOBAL_OP_UNJUDGED i-m")
+    clean("and the same merge judged faithful passes",
+          global_op_problems([fx_global(item_id="i-m", types=("merge",))], {"i-m": "yes"}))
+    clean("while a pure deletion is never refused here, because deletions are what make the "
+          "ceiling reusable room",
+          global_op_problems([fx_global(item_id="i-d", types=("delete",))]))
+    control("a reduce is treated like a merge, since it rewrites the file's content too",
+            "; ".join(global_op_problems([fx_global(item_id="i-r", types=("reduce",))])),
+            "GLOBAL_OP_UNJUDGED i-r")
     control("a deletion paired with an edit into the global file is refused without a merge "
             "judgment", "; ".join(global_op_problems([fx_global()])), "GLOBAL_OP_UNJUDGED i-g")
     control("and the refusal says why the gate does not catch it",
@@ -570,13 +749,85 @@ def self_test():
     # This module reads no configuration and spawns nothing: the live manifest is handed to it.
     import ast
     own = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
-    spawners = sorted({ast.unparse(node.func) for node in ast.walk(own) if isinstance(node, ast.Call)
-                       and ast.unparse(node.func).split(".")[0] in ("subprocess", "os")})
-    clean("drift spawns nothing and reads no environment: what it compares, it is given", spawners)
-    reads = sorted({ast.unparse(node.func) for node in ast.walk(own) if isinstance(node, ast.Call)
-                    and "read_text" in ast.unparse(node.func)})
+    # The effect audit, over the RUNTIME code and through import bindings. The old version read the
+    # printed first component of each call, so `import os as _o` then `_o.system(...)` passed, a
+    # `getattr(os, "system")(...)` passed, and its read assertion only required `TABLE_PATH.read_text`
+    # to occur SOMEWHERE in the collected set — a second read of another file would have joined it
+    # without changing the answer. All three were the WP-21 review's finding.
+    WATCHED = ("subprocess", "os", "shutil", "tempfile", "socket", "urllib", "http")
+    ALLOWED = ("os.path.normpath", "os.environ.get", "os.path.join", "os.fspath")
+
+    def effects_in(source):
+        """The watched calls a module's runtime code makes, by canonical name."""
+        tree = ast.parse(source)
+        runtime = ast.Module(body=[node for node in tree.body
+                                   if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                                           and node.name in ("self_test", "main"))],
+                             type_ignores=[])
+        bindings, held = {}, set()
+        for node in ast.walk(runtime):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    bindings[alias.asname or alias.name.split(".")[0]] = alias.name.split(".")[0]
+                    if alias.asname and alias.name.split(".")[0] in WATCHED:
+                        held.add(f"import {alias.name} as {alias.asname} (an alias on a watched "
+                                 f"module hides its calls from this check)")
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                for alias in node.names:
+                    bindings[alias.asname or alias.name] = node.module.split(".")[0]
+        for node in ast.walk(runtime):
+            if not isinstance(node, ast.Call):
+                continue
+            rendered = ast.unparse(node.func)
+            root_name = rendered.split(".")[0].split("(")[0]
+            if bindings.get(root_name) in WATCHED or root_name in WATCHED:
+                canonical = rendered.replace(root_name, bindings.get(root_name, root_name), 1)
+                if canonical not in ALLOWED:
+                    held.add(canonical)
+            if isinstance(node.func, ast.Call) and getattr(node.func.func, "id", "") == "getattr":
+                inner = node.func
+                if inner.args and ast.unparse(inner.args[0]).split(".")[0] in WATCHED:
+                    held.add(f"getattr({ast.unparse(inner.args[0])}, ...) — a dynamic lookup on a "
+                             f"watched module")
+        return sorted(held)
+
+    def reads_in(source):
+        """Every path this module's runtime code reads, by the expression it reads from."""
+        tree = ast.parse(source)
+        runtime = ast.Module(body=[node for node in tree.body
+                                   if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                                           and node.name in ("self_test", "main"))],
+                             type_ignores=[])
+        held = set()
+        for node in ast.walk(runtime):
+            if isinstance(node, ast.Call):
+                rendered = ast.unparse(node.func)
+                if any(mark in rendered for mark in ("read_text", "read_bytes", "open")):
+                    held.add(rendered)
+        return sorted(held)
+
+    own_source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    clean("drift spawns nothing and reads no environment: what it compares, it is given",
+          effects_in(own_source))
+    control("the audit sees a PLAIN call",
+            "; ".join(effects_in("import os\ndef f():\n    os.system('x')\n")), "os.system")
+    control("and an ALIASED one, which the printed-first-component rule did not",
+            "; ".join(effects_in("import os as _o\ndef f():\n    _o.system('x')\n")), "os.system")
+    control("and names the alias itself", "; ".join(effects_in("import subprocess as sp\n")),
+            "import subprocess as sp")
+    control("and a dynamic lookup",
+            "; ".join(effects_in("import os\ndef f():\n    getattr(os, 'system')('x')\n")),
+            "getattr(os, ...)")
+    clean("while the allowed path helpers are not effects",
+          effects_in("import os\ndef f():\n    return os.path.normpath('a')\n"))
+    # The read assertion is an EXACT set, not a containment: a second read would have joined the
+    # old answer without changing it.
     control("and the only file it reads is its own table",
-            ", ".join(reads), "TABLE_PATH.read_text")
+            json.dumps(reads_in(own_source)), json.dumps(["TABLE_PATH.read_text"]))
+    control("a second read is named, rather than hiding behind the first",
+            json.dumps(reads_in("import pathlib\nX = pathlib.Path('a').read_text()\n"
+                                "Y = pathlib.Path('b').read_bytes()\n")),
+            json.dumps(["pathlib.Path('a').read_text", "pathlib.Path('b').read_bytes"]))
 
     print(f"drift --self-test: {'FAILED' if failures else 'OK'} ({len(ran)} controls: the layer map "
           f"and its longest-prefix rule, targeted drift apart from untargeted, an approved "

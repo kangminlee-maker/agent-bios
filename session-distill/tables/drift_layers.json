@@ -4,38 +4,65 @@
   "layers": [
     {
       "layer": "global",
-      "prefixes": ["claude/CLAUDE.md", "codex/AGENTS.md", "ko/claude/CLAUDE.md", "ko/codex/AGENTS.md"],
+      "prefixes": [
+        "claude/CLAUDE.md",
+        "codex/AGENTS.md",
+        "ko/claude/CLAUDE.md",
+        "ko/codex/AGENTS.md"
+      ],
       "$comment": "The always-loaded global file and its projections. `declare.fixture()` keys B on this name, so it is the one layer a run declares today."
     },
     {
       "layer": "guides",
-      "prefixes": ["claude/guides/", "codex/guides/", "ko/claude/guides/", "ko/codex/guides/"],
+      "prefixes": [
+        "claude/guides/",
+        "codex/guides/",
+        "ko/claude/guides/",
+        "ko/codex/guides/"
+      ],
       "$comment": "§7.4's `guides` destination; the Codex and ko trees are projections, so an operation on one is an operation on the layer."
     },
     {
       "layer": "skills",
-      "prefixes": ["claude/skills/"],
+      "prefixes": [
+        "claude/skills/"
+      ],
       "$comment": "One tree serves both hosts (AGENTS.md: `claude/skills/` is not mirrored), so there is no codex prefix to name."
     },
     {
       "layer": "hooks",
-      "prefixes": [".githooks/", "claude/hooks/"],
+      "prefixes": [
+        ".githooks/",
+        "claude/hooks/"
+      ],
       "$comment": "§7.4's `hooks` destination: a hook registered with a host, and the repository's own commit hook."
     },
     {
       "layer": "gates",
-      "prefixes": ["gates/"],
+      "prefixes": [
+        "gates/"
+      ],
       "$comment": "§7.4's `gates` destination. Author-side: an operation here is verified in the checkout, never at an installed path."
     },
     {
       "layer": "enforcement",
-      "prefixes": ["compose/", "launch/", "learn/", "wrappers/", "install.sh"],
+      "prefixes": [
+        "compose/",
+        "launch/",
+        "learn/",
+        "wrappers/",
+        "install.sh"
+      ],
       "$comment": "§7.4's `enforcement` destination: the machinery that decides what a session receives, rather than text a session reads."
     },
     {
       "layer": "ledger",
-      "prefixes": ["design/session-distill/ledger.json", "session-distill/coverage.json", "design/session-distill/versions.json"],
-      "$comment": "What S12's close writes. Not a §7.4 destination - no learning is placed here - but an operation can target it, and a target in an uncompared layer is what the refusal is about."
+      "prefixes": [
+        "design/session-distill/ledger.json",
+        "session-distill/coverage.json",
+        "design/session-distill/versions.json"
+      ],
+      "$comment": "What S12's close writes. Not a §7.4 destination - no learning is placed here - but an operation can target it, and a target in an uncompared layer is what the refusal is about. THE PREFIXES HERE ARE THIS REPO'S OWN LAYOUT. `design/session-distill/ledger.json` and `design/session-distill/versions.json` exist in a checkout and not in a packaged install, where the ledger a run applies to is a RUN INPUT (lifecycle intake takes it as an argument) rather than a fixed path. So for a packaged user these two prefixes name nothing and the layer matches no target. The fix belongs with the `config_manifest_B` vocabulary this table's open_question records — the layer's paths should come from the declaration — not with deleting the layer, which would make a ledger operation unlayered and therefore refused before any effect. `gates/check-package.sh` carries the same statement as a named, retiring exemption, so neither copy can outlive the finding quietly."
     }
   ]
 }
