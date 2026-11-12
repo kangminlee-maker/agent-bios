@@ -58,12 +58,23 @@ has.
 
 ## The proposal
 
-- **Operations**, typed, each with the expected before-state hash of its target: `create(path, content)`,
-  `edit(path, anchor, diff)`, `delete(path, anchor)`, `merge(units, into, text)`, `route(entry)`. A create needs an
-  allowed parent and scope. A keep, incubate, drop or none carries NO operations: those change the ledger alone.
-  Name a target by the `path` a unit above shows (or the new file's path for a create) and locate an edit or a delete
-  by that unit's `heading`. For `before_state_sha256` write `absent`: you cannot hash a file, so code replaces the
-  field on every operation with the state of its target as it reads it, and a value of yours is never used.
+- **Operations**, typed, each with the expected before-state hash of its target: `create`, `edit`, `delete`,
+  `merge`, `route`. A create needs an allowed parent and scope. A keep, incubate, drop or none carries NO operations:
+  those change the ledger alone. Code places your text exactly and applies no patch, so write an operation this way:
+  - `target` is the `path` a unit above shows (the new file's path for a create), or `path#heading` to name one
+    section by that unit's `heading`. A section is its heading line and everything down to the next heading of the
+    same or a higher level; the heading must occur once in the file.
+  - `create`: `content` is the whole new file.
+  - `edit`: `content` is the text to write. With `anchor` - an exact passage copied from the unit's text, occurring
+    once in the section or file - `content` replaces that passage. With a heading and no anchor, `content` replaces
+    the whole section, so begin it with the heading line. With neither, `content` is the whole file. Do not write a
+    `diff`: an edit without `content` is refused.
+  - `delete`: the `anchor` passage, or the section the heading names, or - with neither - the file.
+  - `merge`: `units` are the `path` or `path#heading` of each unit merged; `content` is the merged text, written to
+    the target as an edit writes it. Every unit other than the target is removed.
+  - `route`: `entry` is one line, appended to the section or file `target` names; `names` is the path it points at.
+  For `before_state_sha256` write `absent`: you cannot hash a file, so code replaces the field on every operation
+  with the state of its target as it reads it, and a value of yours is never used.
 - **Artifact set**, complete: the English canonical text, the Korean translation under `ko/claude/` when the item is
   user-facing, the catalog and router registration, and for an author-side item the gate change together with its
   negative control.

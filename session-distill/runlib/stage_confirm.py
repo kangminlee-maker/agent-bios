@@ -363,14 +363,18 @@ def confirm(run_dir, version=None, copy_path=None):
 
 # ---- self-test --------------------------------------------------------------------------------------------------
 
-def fx_run(root):
+def fx_run(root, declaration=None, edit=None):
     """A run carried to S10's parse over S10's own fixture rows (`stage_approvals.fixture`: a place, a keep, a guarded
     reduce, an item awaiting R, a disputed row and a legacy group), each producer's file written under its own stage
     record, as `stage_propose.fx_through_s6` writes S6's. S10's parse is the real one. Returns the run directory."""
     from runlib import declare, stage_render
     text, rows_doc, frozen, _declaration = stage_approvals.fixture()
+    # S11's suite declares a checkout that exists (`declaration`) and gives an operation the state of a real file
+    # (`edit(rows_doc)`, before the rows are written)
+    if edit:
+        edit(rows_doc)
     run_dir = pathlib.Path(root) / "out" / "r1"
-    declare.create(run_dir, declare.fixture())
+    declare.create(run_dir, declaration or declare.fixture())
     with records.run_stage(run_dir, "S2", [], part="inventory") as stage:
         records.write_json(run_dir, run_dir / INVENTORY, {"units": [
             {"unit_id": "u-k", "layer": "catalog", "path": "claude/guides/k.md"}],

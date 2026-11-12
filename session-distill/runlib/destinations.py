@@ -2483,11 +2483,25 @@ def _self_test_body(failures, ran):
                          if r["writer"].startswith(held_uninvoked)
                          and r["certification"] == RELEASE_1_UNINVOKED])),
             json.dumps([]))
-    equals("the scope is per DESTINATION and not per writer, because S11 is itself one of the "
-            "writers: the apply stage's checkout row is answered and its personal-layer row is "
-            "named, in the same release",
+    apply_writer = "session-distill/runlib/stage_apply.py"
+    equals("release 1's apply stage is a written writer with one destination, the checkout it is "
+            "passed: its row is answered from the argument and names no override",
             json.dumps([(r["class"], r["certification"]) for r in release_rows
-                        if r["writer"].startswith("session-distill/runlib/stage_apply.py")]),
+                        if r["writer"].startswith(apply_writer)]),
+            json.dumps([["checkout", "argument"]]))
+    # The row as it stood before the stage was written, PLANTED: a forward writer with a
+    # personal-layer destination the release does not invoke. The property is the table's rule and
+    # not that row's history, so it is held on a row built here rather than on one that has gone.
+    equals("the scope is per DESTINATION and not per writer: a writer whose checkout row is "
+            "answered has its uninvoked personal-layer row named, in the same release",
+            json.dumps(with_table(
+                lambda held: _row(held, apply_writer).update(
+                    writer_unwritten=True,
+                    destinations=[{"override": "HOME", "class": "personal_layers",
+                                   "release_1_invoked": False}]),
+                lambda: [(r["class"], r["certification"])
+                         for r in resolved_rows(fx_declaration(), fx_env())
+                         if r["writer"].startswith(apply_writer)])),
             json.dumps([["personal_layers", RELEASE_1_UNINVOKED], ["checkout", "forward"]]))
     equals("an entry that says nothing inherits its writer's answer, so a row cannot be narrowed "
             "by the writer's silence",

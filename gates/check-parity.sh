@@ -562,6 +562,12 @@ if [ -f session-distill/runlib/stage_confirm.py ]; then
   leg -q "FAIL: session-distill S10b confirm self-test (session-distill/runlib/stage_confirm.py)" \
     python3 session-distill/runlib/stage_confirm.py --self-test
 fi
+# S11 apply, release 1: the confirmed final set written into files of the declared checkout, and nothing else
+# (D-20261113-f22b7d). The suite writes under its own temp trees only.
+if [ -f session-distill/runlib/stage_apply.py ]; then
+  leg -q "FAIL: session-distill S11 apply self-test (session-distill/runlib/stage_apply.py)" \
+    python3 session-distill/runlib/stage_apply.py --self-test
+fi
 # S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
 if [ -f session-distill/runlib/stage_approvals.py ]; then
   leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \

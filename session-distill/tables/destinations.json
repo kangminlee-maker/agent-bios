@@ -634,20 +634,12 @@
       "writer": "session-distill/runlib/stage_apply.py",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "Two destinations, and release 1 invokes one of them. The file edits land in the declared checkout, whose root the stage is passed — and in release 1 that is the stage's whole effect: it writes files and executes no git (D-20261113-f22b7d). A personal-layer patch is applied under the owner's own layer root; HOME is required with no fallback declared, because a personal layer resolved from the password database is the one case where a missing override writes outside every root the run named — and that destination is NOT invoked in release 1 (D-20261112-2cf1c4), so its row is named rather than certified. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
-      "destinations": [
-        {
-          "override": "HOME",
-          "class": "personal_layers",
-          "release_1_invoked": false,
-          "$comment_release_1": "not invoked by release-1 S11: the release applies file edits to the declared checkout and commits them, and writes no personal layer (D-20261112-2cf1c4)"
-        }
-      ],
+      "$comment": "Release 1's S11: the approved changes written into files of the declared checkout, whose root the stage reads from the declaration it is passed - and that is its whole effect outside the run directory. It writes files and starts no process (D-20261113-f22b7d). It reads no override and no HOME: the personal-layer destination is not this release's (D-20261112-2cf1c4), so there is no row for it here until a release writes one, and the derived closure would name the pair the day the source reads it (INVENTORY_INCOMPLETE). Its plan, journal and record are inside the run directory.",
+      "destinations": [],
       "writes_without_override": "checkout",
-      "writer_unwritten": true,
       "release_1_invoked": true,
       "root_from": "argument",
-      "$comment_root_from": "the declared checkout, passed to the apply as an argument: release 1's effect is the file edits in that tree and the commit over them, so the root is never taken from the environment"
+      "$comment_root_from": "the declared checkout, read from the run's declaration: the root is never taken from the environment"
     },
     {
       "writer": "session-distill/runlib/recovery.py",

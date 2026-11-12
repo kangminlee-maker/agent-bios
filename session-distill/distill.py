@@ -108,7 +108,7 @@ STARTUP_WITHHELD = entry.WITHHELD
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_delivery, \
         stage_form, stage_judge, \
-        stage_adjudicate, stage_approvals, stage_confirm, stage_propose, stage_render, stage_retrieve, \
+        stage_adjudicate, stage_apply, stage_approvals, stage_confirm, stage_propose, stage_render, stage_retrieve, \
         stage_review_korean, stage_review_proposals, \
         stagelock, views
     from runlib import ledger as ledger_lib
@@ -557,6 +557,13 @@ def cmd_confirm(args):
     return 0
 
 
+def cmd_apply(args):
+    """S11 (runlib/stage_apply.py), release 1: the confirmed final set written into files of the declared checkout,
+    and nothing else. It starts no process; its report ends with the two commands the owner runs."""
+    say("\n".join(stage_apply.report_lines(stage_apply.run(run_dir_of(args)))))
+    return 0
+
+
 def cmd_render(args):
     """S9 (runlib/stage_render.py): the review of S4's population through S7, its owner copy and its rows, written once
     as the next version. It reads the pinned ledger S4 read, for the legacy groups."""
@@ -665,7 +672,7 @@ HANDLERS.update({"census": cmd_census, "views": cmd_views, "inventory": cmd_inve
                  "form": cmd_form, "retrieve": cmd_retrieve, "deliver": cmd_deliver, "judge": cmd_judge,
                  "render": cmd_render, "parse-decisions": cmd_parse_decisions, "propose": cmd_propose,
                  "review-proposals": cmd_review_proposals, "review-korean": cmd_review_korean,
-                 "adjudicate": cmd_adjudicate, "confirm": cmd_confirm})
+                 "adjudicate": cmd_adjudicate, "confirm": cmd_confirm, "apply": cmd_apply})
 
 
 def build_parser():
@@ -699,7 +706,9 @@ def build_parser():
                  "parse-decisions": f"{stage}: the owner's decision copy into approvals and adjudications",
                  "review-korean": f"{stage}: the review's Korean against its English payload, one regeneration",
                  "adjudicate": f"{stage}: the owner's adjudications recomputed, the newly admitted through S7 and S7b",
-                 "confirm": f"{stage}: the final set built for the owner's confirmation, or (--decide) the owner's 확인"}
+                 "confirm": f"{stage}: the final set built for the owner's confirmation, or (--decide) the owner's 확인",
+                 "apply": f"{stage}: the confirmed final set written into files of the declared checkout; runs no git "
+                          f"and no installer, and names the two commands the owner runs"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -1032,7 +1041,8 @@ def self_test():
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
         implemented = ("census", "views", "inventory", "form", "retrieve", "deliver", "judge", "propose",
-                       "review-proposals", "render", "parse-decisions", "review-korean", "adjudicate", "confirm")
+                       "review-proposals", "render", "parse-decisions", "review-korean", "adjudicate", "confirm",
+                       "apply")
         # The structural half, which is what this suite lacked: a `cmd_` function the parser never
         # dispatches to is an implemented command that answers STAGE_NOT_IMPLEMENTED, and the loop
         # below cannot see it — it ASSERTED that answer for `deliver` while `cmd_deliver` sat in the
@@ -1081,6 +1091,10 @@ def self_test():
                 "stage record is written or changed",
                 code == 1 and "DELIVERY_SOURCES_MISSING" in err and stage_files() == before, f"{code} {err}")
         before = stage_files()
+        code, err = cli("apply", "--run-id", "r1")
+        control("apply (S11) over a run whose final set is not confirmed is refused by name, and no stage record is "
+                "written or changed",
+                code == 1 and "CONFIRMATION_ABSENT S11" in err and stage_files() == before, f"{code} {err}")
         code, err = cli("judge", "--run-id", "r1")
         control("judge (S6) with neither --dry nor --cells is refused by name before anything is recorded",
                 code == 1 and "INPUT_INVALID judge --cells" in err and stage_files() == before, f"{code} {err}")

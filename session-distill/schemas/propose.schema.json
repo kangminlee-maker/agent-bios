@@ -135,6 +135,19 @@
             "$ref": "#/$defs/text"
           }
         },
+        "unit_states": {
+          "type": "array",
+          "$comment": "Set by code, never by the model (runlib/stage_propose.py with_before_states): for a merge, the state of each unit that lives in another file than the target, as S7 read it. S11 holds that file to it before it removes the unit; a merge whose other-file unit carries no state is refused.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["unit", "state"],
+            "properties": {
+              "unit": {"$ref": "#/$defs/text"},
+              "state": {"type": "string", "pattern": "^([0-9a-f]{64}|absent)(?![\\s\\S])"}
+            }
+          }
+        },
         "names": {
           "type": "string",
           "$comment": "For a route: the path the entry points at. runlib/sequencing.py reads it to ask whether an intermediate tree would hold a route to nothing."

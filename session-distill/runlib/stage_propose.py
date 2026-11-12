@@ -949,7 +949,26 @@ def with_before_states(answer, checkout):
             continue
         state, held = file_state(checkout, operation.get("target"))
         problems += [f"OPERATION_TARGET_REFUSED operations[{n}]: {p}" for p in held]
-        operations.append({**operation, **({"before_state_sha256": state} if state else {})})
+        filled = {**operation, **({"before_state_sha256": state} if state else {})}
+        # A merge removes its units, and a unit in ANOTHER file than the target is a file the
+        # operation's one before-state says nothing about. Its state is read here for the same
+        # reason the target's is, and S11 refuses a merge that reaches such a file without it.
+        # Whatever the answer wrote in `unit_states` is replaced, as the target's hash is.
+        filled.pop("unit_states", None)
+        if operation.get("type") == "merge" and isinstance(operation.get("units"), list):
+            from runlib import targets
+            own = targets.identity(str(operation.get("target") or "").split("#", 1)[0])
+            states = []
+            for unit in operation["units"]:
+                if not isinstance(unit, str) or targets.identity(unit.split("#", 1)[0]) == own:
+                    continue
+                unit_state, unit_held = file_state(checkout, unit)
+                problems += [f"OPERATION_TARGET_REFUSED operations[{n}] unit {unit}: {p}" for p in unit_held]
+                if unit_state:
+                    states.append({"unit": unit, "state": unit_state})
+            if states:
+                filled["unit_states"] = states
+        operations.append(filled)
     return {**answer, "operations": operations}, problems
 
 
@@ -2376,6 +2395,17 @@ def _self_test_body(failures, ran):
                 json.dumps([op["before_state_sha256"] for op in filled["operations"]]),
                 json.dumps([hashlib.sha256(b"the guide\n").hexdigest(), "absent"]))
         clean("and a readable target raises nothing", filled_problems)
+        (state_root / "claude" / "guides" / "kept.md").write_bytes(b"# K\n\n## One\n\n## Two\n")
+        (state_root / "claude" / "guides" / "other.md").write_bytes(b"other\n")
+        merged_answer, merged_problems = with_before_states(
+            {"operations": [{"type": "merge", "target": "claude/guides/kept.md#One", "before_state_sha256": "absent",
+                             "units": ["claude/guides/kept.md#Two", "claude/guides/other.md"],
+                             "unit_states": [{"unit": "x", "state": "absent"}]}]}, str(state_root))
+        control("a merge's unit in another file than the target gets its state from code, the model's own "
+                "`unit_states` is replaced, and a unit in the target's own file needs none",
+                json.dumps([merged_problems, merged_answer["operations"][0].get("unit_states")]),
+                json.dumps([[], [{"unit": "claude/guides/other.md",
+                                  "state": hashlib.sha256(b"other\n").hexdigest()}]]))
         escaped, escaped_problems = with_before_states(
             {"operations": [{"type": "edit", "target": "../outside.md", "before_state_sha256": wrong}]},
             str(state_root))
