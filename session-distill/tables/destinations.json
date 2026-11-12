@@ -32,7 +32,8 @@
           ],
           "reason": "`--state-dir` is how the run gives it the state root instead of letting it derive one: the option wins over AGENT_BIOS_STATE_DIR and over the HOME fallback, and an argument cannot be inherited by a child the way a variable can."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/canary.sh",
@@ -48,7 +49,8 @@
           "derived_at_line": 14
         }
       ],
-      "$comment": "The install canary writes its marker under the state root and the Claude config home to prove a deploy reached them."
+      "$comment": "The install canary writes its marker under the state root and the Claude config home to prove a deploy reached them.",
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions-state.py",
@@ -80,7 +82,8 @@
           ],
           "reason": "`--state-dir` is the root the run passes; the environment and the HOME fallback are only read when it is absent."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_app.py",
@@ -99,7 +102,8 @@
           ],
           "reason": "`--state-dir` is the root the run passes, ahead of any variable."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_import.py",
@@ -118,7 +122,8 @@
           ],
           "reason": "`--state-dir` is the root the run passes, ahead of any variable."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_install.py",
@@ -176,7 +181,8 @@
       ],
       "fallback_source": "compose/instructions_install.py",
       "$comment": "The private installer: it writes the catalog, the store, the launcher status and the shell hook across the state root, both config homes and ZDOTDIR.",
-      "root_from": "home"
+      "root_from": "home",
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_session.py",
@@ -196,7 +202,8 @@
             "reason": "The read is `pwd.getpwuid(os.getuid()).pw_dir`, reached only inside `if home is None:` where `home = env.get('HOME')`. The run always hands this writer HOME, so the branch is unreachable for a confined run — and the value is used to BUILD A LOOKUP PATTERN for Claude's own user-scope instruction files, not a destination. Established from the source, which is the only way this one can be established: running the writer against a real HOME to see where it lands is the accident this whole unit exists to prevent."
           }
         ]
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_setup.py",
@@ -212,7 +219,8 @@
           "derived_at_line": 50
         }
       ],
-      "$comment": "Provisions the managed venv and writes setup state under the owner's home."
+      "$comment": "Provisions the managed venv and writes setup state under the owner's home.",
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_store.py",
@@ -231,7 +239,8 @@
         }
       ],
       "$comment": "Owns the instruction store under the state root.",
-      "root_from": "home"
+      "root_from": "home",
+      "release_1_invoked": false
     },
     {
       "writer": "compose/instructions_understand.py",
@@ -260,7 +269,8 @@
           ],
           "reason": "`--state-dir` is the root the run passes, ahead of any variable."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/prune-backups.py",
@@ -280,7 +290,8 @@
           ],
           "reason": "`--state-dir` is the root the run passes; pruning is the one operation where a wrong root deletes rather than writes, so it is given rather than derived."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "compose/windows_deploy.py",
@@ -304,7 +315,8 @@
           ],
           "reason": "`--root` is the deployment root the run passes; nothing is derived from the environment when it is present."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "install.sh",
@@ -352,7 +364,8 @@
           ],
           "reason": "`--state-dir` is the root the run passes, ahead of AGENT_BIOS_STATE_DIR and ahead of the `$HOME/.local/share/agent-bios` fallback in its own source."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "launch/agent-launch.py",
@@ -396,7 +409,8 @@
         }
       ],
       "$comment": "The launcher: it writes its profile, venv, update-check and version state, the distill nudge state, and reads both config homes to place per-host files.",
-      "root_from": "home"
+      "root_from": "home",
+      "release_1_invoked": false
     },
     {
       "writer": "launch/agent-launch.zsh",
@@ -408,7 +422,8 @@
         }
       ],
       "$comment": "The shell function caches a host's subcommands under the state root.",
-      "root_from": "home"
+      "root_from": "home",
+      "release_1_invoked": false
     },
     {
       "writer": "launch/provision-venv.sh",
@@ -419,7 +434,8 @@
           "derived_at_line": 12
         }
       ],
-      "$comment": "Creates the managed venv at AGENT_LAUNCH_VENV."
+      "$comment": "Creates the managed venv at AGENT_LAUNCH_VENV.",
+      "release_1_invoked": false
     },
     {
       "writer": "launch/shell_integration.py",
@@ -451,7 +467,8 @@
         }
       ],
       "fallback_source": "launch/shell_integration.py",
-      "$comment": "Owns the shell connection: the .zshrc block under ZDOTDIR and the receipt and backups under the state root."
+      "$comment": "Owns the shell connection: the .zshrc block under ZDOTDIR and the receipt and backups under the state root.",
+      "release_1_invoked": false
     },
     {
       "writer": "session-distill/runlib/inventory.py",
@@ -484,7 +501,8 @@
           ],
           "reason": "None of the five is a destination. `/tmp` and `/var/tmp` are the CANDIDATE list the census picks a scratch directory from and are joined with the run's own TMPDIR before anything is written; `/usr/bin:/bin` is a PATH default for a child environment; `/etc/passwd` is a string a control hands to the confinement to be refused; `/bin/sleep` is the program a control starts so that a second process exists to hold a lock, and it writes nothing."
         }
-      }
+      },
+      "release_1_invoked": true
     },
     {
       "writer": "session-distill/update-state.py",
@@ -503,7 +521,8 @@
       ],
       "fallback_source": "session-distill/update-state.py",
       "$comment": "The nudge state of §10.6, written by a script the owner runs from a checkout. It is NOT in package.json files[], so the derivation over the shipped set cannot see it; `writer_scope: author` declares that, and inventory_problems fails if files[] ever ships it or it disappears.",
-      "writer_scope": "author"
+      "writer_scope": "author",
+      "release_1_invoked": false
     },
     {
       "writer": "wrappers/claude-run.sh",
@@ -523,7 +542,8 @@
           ],
           "reason": "`--root` and `--home` are passed by the run; the wrapper forwards them to the host instead of exporting a variable the host's own children would inherit."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "wrappers/codex-helm.sh",
@@ -542,7 +562,8 @@
           ],
           "reason": "`--home` is passed by the run rather than exported, so a child of the host does not inherit it."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "wrappers/codex-run.sh",
@@ -561,7 +582,8 @@
           ],
           "reason": "`--home` is passed by the run rather than exported, so a child of the host does not inherit it."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "wrappers/codex_frame_filter.py",
@@ -580,7 +602,8 @@
           ],
           "reason": "A canary value inside a fixture payload, written so a leak of it can be recognised in output. Nothing opens it."
         }
-      }
+      },
+      "release_1_invoked": false
     },
     {
       "writer": "git",
@@ -590,7 +613,10 @@
       "destinations": [],
       "writes_without_override": "checkout",
       "root_from": "argument",
-      "$comment_root_from": "the working tree the run was given, as an argument to every git call; there is no environment override for it, and the confinement is that the tree is the clone the `checkout` class names"
+      "$comment_root_from": "the working tree the run was given, as an argument to every git call; there is no environment override for it, and the confinement is that the tree is the clone the `checkout` class names",
+      "release_1_invoked": true,
+      "isolation": "git",
+      "$comment_isolation": "git reads configuration no variable names — the system file, the user's global file, and the repository's own config. The run hands it the isolation that closes the first two and judges the third before any effect; `destinations.GIT_ENVIRONMENT` is the one owner of those names, so this row says WHICH isolation applies and not what it is."
     },
     {
       "writer": "session-distill/runlib/stage_close.py",
@@ -601,21 +627,27 @@
       "writes_without_override": "checkout",
       "writer_unwritten": true,
       "root_from": "argument",
-      "$comment_root_from": "the run directory and the checkout are passed to the stage, as they are to every stage"
+      "$comment_root_from": "the run directory and the checkout are passed to the stage, as they are to every stage",
+      "release_1_invoked": true
     },
     {
       "writer": "session-distill/runlib/stage_apply.py",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "A personal-layer patch is applied under the owner's own layer root. HOME is required with no fallback declared, because a personal layer resolved from the password database is the one case where a missing override writes outside every root the run named. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
+      "$comment": "Two destinations, and release 1 invokes one of them. The file edits land in the declared checkout, whose root the stage is passed. A personal-layer patch is applied under the owner's own layer root; HOME is required with no fallback declared, because a personal layer resolved from the password database is the one case where a missing override writes outside every root the run named — and that destination is NOT invoked in release 1 (D-20261112-2cf1c4), so its row is named rather than certified. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
       "destinations": [
         {
           "override": "HOME",
-          "class": "personal_layers"
+          "class": "personal_layers",
+          "release_1_invoked": false,
+          "$comment_release_1": "not invoked by release-1 S11: the release applies file edits to the declared checkout and commits them, and writes no personal layer (D-20261112-2cf1c4)"
         }
       ],
-      "writes_without_override": null,
-      "writer_unwritten": true
+      "writes_without_override": "checkout",
+      "writer_unwritten": true,
+      "release_1_invoked": true,
+      "root_from": "argument",
+      "$comment_root_from": "the declared checkout, passed to the apply as an argument: release 1's effect is the file edits in that tree and the commit over them, so the root is never taken from the environment"
     },
     {
       "writer": "session-distill/runlib/recovery.py",
@@ -626,7 +658,8 @@
       "writes_without_override": "recovery",
       "writer_unwritten": true,
       "root_from": "argument",
-      "$comment_root_from": "the recovery root is passed to it, like every other stage's"
+      "$comment_root_from": "the recovery root is passed to it, like every other stage's",
+      "release_1_invoked": true
     },
     {
       "writer": "session-distill/runlib/journal.py",
@@ -645,7 +678,8 @@
           ],
           "reason": "`/etc/passwd` and `/tmp` are control inputs: the first is a target the lexical check must refuse as absolute, the second is where a control builds its own temp tree. Every real journal path is reached through the confined handle under the root the run passes."
         }
-      }
+      },
+      "release_1_invoked": true
     }
   ],
   "not_a_destination": [

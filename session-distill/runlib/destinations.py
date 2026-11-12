@@ -29,7 +29,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import declare, records  # noqa: E402
+from runlib import declare, records, targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -752,6 +752,7 @@ def environment_for(row, declaration):
     held = {}
     for entry in row.get("destinations") or ():
         held[entry["override"]] = roots.get(entry.get("class"))
+    held.update(ISOLATIONS.get(row.get("isolation")) or {})
     home = declared_home(declaration)
     if home:
         held["HOME"] = home
@@ -773,6 +774,33 @@ def reads_not_given(writer, environment, root=None):
     # names with their reasons (`reads_excused`) so the manifest shows them instead of hiding them;
     # what withholds certification is a read nobody has reasoned about.
     return sorted(held - set(environment or {}) - set(excused_overrides(writer)))
+
+
+def entry_invoked_in_release_1(row, entry):
+    """Whether release-1 S11 may write THIS destination of this writer.
+
+    The scope is per destination, not per writer, because S11 is itself one of the writers: the
+    apply stage edits the declared checkout (invoked) and patches a personal layer (not invoked in
+    release 1). An entry says so for itself and otherwise inherits its writer's answer, so a row
+    cannot be narrowed by the writer's silence.
+    """
+    held = entry.get("release_1_invoked")
+    return bool(row.get("release_1_invoked")) if held is None else bool(held)
+
+
+def invoked_in_release_1(writer):
+    """Whether release-1 S11 may invoke this writer at all.
+
+    The scope is a FACT each row carries, not a sentence in a design record: release 1's apply writes
+    the declared checkout and makes the git commit, and runs nothing else
+    (`D-20261112-2cf1c4`). A row the release may not invoke has its certification WITHHELD by the
+    name `not_invoked_in_release_1`, so a reader asking what this release may write reads the
+    manifest rather than the record.
+    """
+    for row in writers():
+        if row["writer"] == writer:
+            return bool(row.get("release_1_invoked"))
+    return False
 
 
 def excused_overrides(writer):
@@ -1031,26 +1059,128 @@ def channel_problems(root=None):
 # the third is READ and judged before the first git call, because a scrubbed environment cannot
 # close a file inside the repository the run was given.
 GIT_ENVIRONMENT = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
-GIT_CONFIG_REFUSED = (
-    ("worktree", "GIT_CONFIG_WORKTREE", "points the work tree somewhere other than the checkout the "
-                                        "run declared, so every commit would land outside it"),
-    ("include", "GIT_CONFIG_INCLUDE", "includes another configuration file, and what that file sets "
-                                      "is not in this answer"),
-    ("includeif", "GIT_CONFIG_INCLUDE", "includes another configuration file conditionally, and what "
-                                        "that file sets is not in this answer"),
+# What the repository's own config may say, as a POLICY that refuses what it cannot read rather than
+# a scan for three keys. Everything here is decided from the config's TEXT: asking `git config` runs
+# git inside the configuration being judged, and `include.path` is the mechanism that would decide
+# the answer.
+GIT_CONFIG_REFUSED = {
+    "core.worktree": ("GIT_CONFIG_WORKTREE", "points the work tree somewhere other than the "
+                                             "checkout the run declared, so every commit would "
+                                             "land outside it"),
+    "core.alternateobjectdirectories": ("GIT_CONFIG_ALTERNATES", "adds another object store, so "
+                                                                 "what a commit writes and reads "
+                                                                 "is not only this repository's"),
+    "objects.alternates": ("GIT_CONFIG_ALTERNATES", "adds another object store"),
+    "include.path": ("GIT_CONFIG_INCLUDE", "includes another configuration file, and what that "
+                                           "file sets is not in this answer"),
+    "includeif.path": ("GIT_CONFIG_INCLUDE", "includes another configuration file conditionally, "
+                                             "and what that file sets is not in this answer"),
+}
+# The other half of "what it cannot read": keys whose VALUE IS A COMMAND the commit would run. A
+# policy that refuses a redirected work tree and allows a clean filter has judged where the bytes
+# land and not what produced them. `filter.<name>.clean` and `.process` run on the very files S11
+# applied, and `core.fsmonitor` runs on `git status` inside the commit, so these are refused by one
+# rule rather than named one driver at a time.
+GIT_CONFIG_EXECUTES = (
+    "core.fsmonitor", "core.sshcommand", "core.gitproxy", "core.askpass", "core.editor",
+    "core.pager", "credential.helper", "diff.external", "uploadpack.packobjectshook",
 )
+GIT_EXECUTING_SUFFIXES = ("clean", "smudge", "process", "textconv", "command")
+# The one key that is CERTIFIED rather than refused: this repository sets `core.hooksPath` to its own
+# `.githooks`, and S11's commit runs with the repository's own hooks on purpose — that hook is what
+# runs the gates, and a commit made without it would leave an applied change nobody has judged. So
+# the policy proves the hooks directory lies inside the declared checkout, through the same walk the
+# target contract uses, and refuses anything that reaches outside it.
+GIT_HOOKS_KEY = "core.hookspath"
+
+
+ISOLATIONS = {
+    # The one owner of these names. A row declares WHICH isolation applies to it; what the
+    # isolation is lives here, so the table cannot drift from the environment the run produces.
+    "git": GIT_ENVIRONMENT,
+}
+RELEASE_1_UNINVOKED = "not_invoked_in_release_1"
+RELEASE_1_WHY = ("not invoked by release-1 S11: the apply writes the declared checkout and commits, "
+                 "and names the install command for the owner to run instead of running it "
+                 "(D-20261112-2cf1c4)")
+
+
+HOOK_REFUSAL = {
+    # What a REFUSED commit hook means, stated here because S11 does not exist yet and a contract
+    # agreed in a message is a contract nobody can check. S11 reads this; the controls below hold it
+    # clause by clause, so a future apply loop cannot quietly mean something else by it.
+    "commit": "did not happen: the hook exited non-zero and git made no commit",
+    "working_tree": "holds the applied edits — S11 LEAVES the files as they are and does not "
+                    "restore them, because restoring is a second set of effects on the owner's "
+                    "tree and the journal has already recorded the first",
+    "journal": "records the effect as not done, so a resumed run sees an applied-but-uncommitted "
+               "tree rather than a finished one",
+    "report": "tells the owner exactly that, with the hook's exit status and its output, since the "
+              "hook is the repository's own gate and what it refused is the answer the owner needs",
+}
+
+
+def _git_config_lines(text):
+    """`(number, section, key, value, problem)` per meaningful line of a git config's TEXT.
+
+    One parser with two readers — the policy and the certificate. They were two hand-written loops
+    over the same file, which is a restatement: the certificate could read a key the policy skipped.
+    """
+    section = ""
+    for number, line in enumerate(text.splitlines(), 1):
+        stripped = line.split("#", 1)[0].split(";", 1)[0].strip()
+        if not stripped:
+            continue
+        if stripped.startswith("["):
+            if "]" not in stripped:
+                yield (number, section, None, None,
+                       f"a section header with no closing bracket ({line.strip()[:60]!r}), so what "
+                       f"follows it belongs to no section this can name")
+                continue
+            # `[includeIf "gitdir:/x"]` is one section; the subsection is part of the condition and
+            # not of the key, so it is dropped for the key and kept in the message.
+            section = stripped[1:].split("]")[0].split('"')[0].strip().lower()
+            continue
+        if "=" not in stripped:
+            # A bare key is a boolean true in git's own grammar. It is still a key, and a key this
+            # policy refuses is refused whether or not it carries a value.
+            name, value = stripped, "true"
+        else:
+            name, _, value = stripped.partition("=")
+        if not section:
+            yield (number, section, None, None,
+                   f"a key outside any section ({line.strip()[:60]!r})")
+            continue
+        yield (number, section, f"{section}.{name.strip().lower()}",
+               value.strip().strip('"'), None)
 
 
 def git_problems(checkout):
     """What the declared checkout's own git configuration does that the environment cannot close.
 
+    A POLICY that refuses what it cannot read, not a scan for three keys. The round-3 review found
+    the scan accepting `hooksPath`, several valid spellings of the keys it did look for, a `.git`
+    that is a symlink, and a config it could not parse at all.
+
     Read as TEXT, deliberately: asking `git config` for the answer runs git in the configuration
     being judged, and `include.path` is exactly the mechanism that would decide the answer. A `.git`
-    that is a FILE (a worktree, a submodule) points at a directory elsewhere, so the config this
-    would read is not the one git will — that is refused rather than followed.
+    that is a FILE or a SYMLINK points somewhere else, so the config this would read is not the one
+    git will — both are refused rather than followed.
+
+    `core.hooksPath` is CERTIFIED rather than refused: S11's commit runs with the repository's own
+    hooks on purpose (that hook is what runs the gates, and a commit made without it leaves an
+    applied change nobody judged), and this repository sets the key to its own `.githooks`. The
+    certificate names the resolved directory and holds it inside the declared checkout, through the
+    target contract's own walk, so a hooks path that reaches outside through a symlinked component
+    is refused like any other escape.
     """
     base = pathlib.Path(checkout or "")
     held = base / ".git"
+    # `is_symlink` and not `os.lstat`: this module's own audit allows no os-level call, and a
+    # symlink test is the same question asked through the path object.
+    if held.is_symlink():
+        return [f"GIT_DIR_SYMLINK {held}: `.git` is a symbolic link, so the repository git opens is "
+                f"not the one this judged, and what a commit reaches is decided somewhere else"]
     if held.is_file():
         return [f"GIT_DIR_INDIRECT {held}: `.git` is a file pointing at a git directory elsewhere, "
                 f"so the configuration judged here is not the one git would read"]
@@ -1059,30 +1189,93 @@ def git_problems(checkout):
                 f"commit there would be written into whatever repository encloses it"]
     config = held / "config"
     if not config.is_file():
-        return []
+        # An absent config is not an empty one. git falls back to its own defaults plus whatever the
+        # environment and the system file say, and this policy cannot state what that will be.
+        return [f"GIT_CONFIG_ABSENT {config}: the repository carries no config, so what git will "
+                f"read is not established here and no effect may proceed on it"]
     problems = []
-    text = config.read_text(encoding="utf-8", errors="replace")
-    section = ""
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("[") :
-            section = stripped[1:].split("]")[0].split('"')[0].strip().lower()
+    for number, _section, key, held_value, problem in _git_config_lines(
+            config.read_text(encoding="utf-8", errors="replace")):
+        if problem:
+            problems.append(f"GIT_CONFIG_UNPARSEABLE {config}:{number}: {problem}")
             continue
-        name, _, value = stripped.partition("=")
-        key = f"{section}.{name.strip().lower()}" if section else name.strip().lower()
-        for token, code, why in GIT_CONFIG_REFUSED:
-            if key in (f"core.{token}", f"{token}.path") or section == token:
-                problems.append(f"{code} {config}: {key} = {value.strip()!r} — it {why}")
-                break
+        if key == GIT_HOOKS_KEY:
+            # Certified, not refused — `git_certificate` is what says which hooks directory it was.
+            problems += _hooks_problems(base, held_value, config, number)
+            continue
+        refusal = GIT_CONFIG_REFUSED.get(key)
+        if refusal:
+            code, why = refusal
+            problems.append(f"{code} {config}:{number}: {key} = {held_value!r} — it {why}")
+            continue
+        if key in GIT_CONFIG_EXECUTES or key.rsplit(".", 1)[-1] in GIT_EXECUTING_SUFFIXES:
+            problems.append(f"GIT_CONFIG_EXECUTES {config}:{number}: {key} = {held_value!r} — the "
+                            f"value is a command the commit would run, on the files S11 just "
+                            f"applied, and what that command does is not in this answer")
     return problems
 
 
-def resolved_rows(declaration, environ, root=None):
+def git_certificate(checkout):
+    """`{repository, config, hooks}` — what the policy established about this checkout, by name.
+
+    The refusals are `git_problems`'; this is what a reader gets when there are none. `hooks` names
+    the RESOLVED directory, because "the hooks ran" and "these hooks ran" are different claims and
+    only the second is worth making.
+    """
+    base = pathlib.Path(checkout or "")
+    config = base / ".git" / "config"
+    hooks = None
+    if config.is_file():
+        for _number, _section, key, value, _problem in _git_config_lines(
+                config.read_text(encoding="utf-8", errors="replace")):
+            if key == GIT_HOOKS_KEY and value:
+                hooks = str((base / value).resolve())
+    return {"repository": str(base / ".git"), "config": str(config),
+            "hooks": hooks or "the repository sets no hooks path, so git uses .git/hooks",
+            "isolation": dict(GIT_ENVIRONMENT)}
+
+
+def _hooks_problems(base, value, config, number):
+    """Whether a declared hooks path is inside the declared checkout, by the target contract's walk.
+
+    A relative hooks path is where this repository puts its own (`.githooks`), and it is exactly
+    what S11 wants to run. An absolute one, a traversal, or a path reaching outside through a
+    symlinked component is an escape: the hook would be code from outside the tree the run was
+    given, running with the commit.
+    """
+    if not value:
+        return [f"GIT_HOOKS_UNSET {config}:{number}: the key is present and names nothing, so which "
+                f"hooks run is decided by git's fallback rather than by anything declared"]
+    for held in targets.lexical_problems(value):
+        code, _, detail = held.partition(" ")
+        return [f"GIT_HOOKS_OUTSIDE {config}:{number}: {value!r} — {detail or code}, so the hooks "
+                f"that would run with the commit are not inside the declared checkout"]
+    for held in targets.filesystem_problems(value, str(base)):
+        code, _, detail = held.partition(" ")
+        return [f"GIT_HOOKS_OUTSIDE {config}:{number}: {value!r} — {detail or code}"]
+    resolved = (base / value).resolve()
+    if not inside(str(resolved), str(pathlib.Path(base).resolve())):
+        return [f"GIT_HOOKS_OUTSIDE {config}:{number}: {value!r} resolves to {resolved}, which is "
+                f"not inside the declared checkout, so the commit would run code from outside the "
+                f"tree the run was given"]
+    return []
+
+
+def resolved_rows(declaration, environ, root=None, scope="release_1"):
     """One row per writer: `{class, writer, path, root, inside}` as N#4 names it.
 
     `path` is what the writer will actually write under, taken from the environment the run hands it
     — never from this process's own environment unless the caller passes it.
+
+    `scope` is the RELEASE, as a parameter rather than a constant: `release_1` resolves only the
+    writers release-1 S11 may invoke and names the rest `not_invoked_in_release_1`
+    (`D-20261112-2cf1c4`), and `all` resolves every row. S11 and the manifest take the default; the
+    wider scope is how the resolution machinery stays exercised for the writers a later release
+    will invoke, so narrowing the release does not quietly retire the mechanism that confines them.
     """
+    if scope not in ("release_1", "all"):
+        raise Refused(f"RESOLUTION_SCOPE_UNKNOWN {scope!r}: the scopes are 'release_1' and 'all'; "
+                      f"a typo that resolved everything would widen the release silently")
     roots = (declaration or {}).get("destinations") or {}
     home = declared_home(declaration)
     rows = []
@@ -1097,6 +1290,20 @@ def resolved_rows(declaration, environ, root=None):
                          "certification": "not_installed",
                          "not_installed": "author-side writer, not present in this install"})
             continue
+        if scope == "release_1" and not row.get("release_1_invoked"):
+            # The SCOPE, as a state of the row: release 1's S11 writes the declared checkout and
+            # commits, and runs nothing else (D-20261112-2cf1c4). Certification is withheld by that
+            # name rather than computed, because computing it would mean certifying what a writer
+            # this release never invokes would do — which is exactly the unbounded surface three
+            # review rounds kept finding new defects in.
+            rows.append({"class": row.get("writes_without_override")
+                         or (row.get("destinations") or [{}])[0].get("class"),
+                         "writer": row["writer"], "path": None, "root": None, "inside": None,
+                         "certification": RELEASE_1_UNINVOKED,
+                         # One owner for the sentence: a row says something of its own only where
+                         # its reason differs, instead of the same sentence written out 22 times.
+                         "why": row.get("$comment_release_1") or RELEASE_1_WHY})
+            continue
         # What this writer is GIVEN, and what it reads that is not in it. The environment is the
         # mechanism; the disclosure is what says the mechanism is not enough for this writer.
         given = environment_for(row, declaration)
@@ -1106,6 +1313,16 @@ def resolved_rows(declaration, environ, root=None):
         # of the same writer that is in root.
         for entry in row.get("destinations") or ():
             override, cls = entry.get("override"), entry.get("class")
+            if scope == "release_1" and not entry_invoked_in_release_1(row, entry):
+                # The scope is per DESTINATION, because S11 is itself a writer here: the apply
+                # stage edits the declared checkout (invoked) and patches a personal layer (not
+                # invoked in release 1). Naming this row rather than certifying it is what keeps a
+                # deferred finding about the personal layers out of reach.
+                rows.append({"class": cls, "writer": f"{row['writer']} [{override}]",
+                             "path": None, "root": None, "inside": None,
+                             "certification": RELEASE_1_UNINVOKED,
+                             "why": entry.get("$comment_release_1") or RELEASE_1_WHY})
+                continue
             # `held_root`, not `root`: the parameter names the INSTALLATION being inspected, and
             # this loop used to rebind it to a class root — so anything later in the function that
             # needed the installation root got a destination instead.
@@ -1222,6 +1439,11 @@ def resolution_problems(rows):
             # Judging it would produce DESTINATION_ROOT_ABSENT for a writer that cannot write,
             # which is how the packaged manifest refused over a file npm does not ship.
             continue
+        if row.get("certification") == RELEASE_1_UNINVOKED:
+            # Not an escape and not a certification: a writer this release does not invoke has
+            # nothing to confine. It is named in the manifest and S11 refuses any operation that
+            # would reach it, which is the apply stage's question rather than this one's.
+            continue
         if row.get("certification") == "forward":
             # A forward declaration: no file, no path, nothing to confine. `INVENTORY_FORWARD_LANDED`
             # is what fails the day the writer appears.
@@ -1273,7 +1495,18 @@ def document(declaration, environ, root=None):
             + resolution_problems(rows))
     if held:
         raise Refused("; ".join(held))
+    held_checkout = ((declaration or {}).get("destinations") or {}).get("checkout")
     return {"stage": "S11", "resolved": rows,
+            # The git certificate is IN the manifest, because a certificate whose only reader is
+            # the gate that produced it establishes nothing for the stage that commits. S11 reads
+            # the resolved hooks directory from here and says it in its report.
+            "git": git_certificate(held_checkout),
+            "release_scope": {"scope": "release_1",
+                              "decision": "D-20261112-2cf1c4",
+                              "uninvoked": sorted({r["writer"] for r in rows
+                                                   if r.get("certification")
+                                                   == RELEASE_1_UNINVOKED})},
+            "hook_refusal": dict(HOOK_REFUSAL),
             "overrides_required": list(required_overrides()),
             "classes": list(CLASSES),
             "writers_scanned": sorted({entry["writer"] for entry in closure(root)}),
@@ -1642,8 +1875,13 @@ def _self_test_body(failures, ran):
     # `.git/config` (AGENTS.md's first trap).
     fixture_checkout = pathlib.Path(tempfile.mkdtemp(prefix="dest-checkout-", dir="/tmp"))
     (fixture_checkout / ".git").mkdir(parents=True, exist_ok=True)
+    (fixture_checkout / ".githooks").mkdir(parents=True, exist_ok=True)
+    # The fixture carries a hooksPath, because this repository does and S11's commit is meant to run
+    # it. A fixture without one would let the manifest control below pass on the "no hooks path"
+    # branch and never assert the resolved directory at all.
     (fixture_checkout / ".git" / "config").write_text(
-        "[core]\n\tbare = false\n\trepositoryformatversion = 0\n", encoding="utf-8")
+        "[core]\n\tbare = false\n\trepositoryformatversion = 0\n\thooksPath = .githooks\n",
+        encoding="utf-8")
 
     def fx_declaration(**over):
         held = dict(FIXTURE["destinations"])
@@ -1799,7 +2037,7 @@ def _self_test_body(failures, ran):
             "WRITER_SOURCE_ABSENT install.sh")
 
     # ---- the resolution --------------------------------------------------------------------------
-    rows = resolved_rows(fx_declaration(), fx_env())
+    rows = resolved_rows(fx_declaration(), fx_env(), scope="all")
     clean("with every override set inside its class's root, nothing refuses", resolution_problems(rows))
     clean("every writer in the inventory is answered for", [row["writer"] for row in writers()
                                                             if not any(r["writer"].startswith(row["writer"])
@@ -1823,7 +2061,7 @@ def _self_test_body(failures, ran):
     unset = resolution_problems(resolved_rows(
         {**fx_declaration(), "destinations": {k: v for k, v
                                               in fx_declaration()["destinations"].items()
-                                              if k != "nudge"}}, fx_env()))
+                                              if k != "nudge"}}, fx_env(), scope="all"))
     control("an unset override is refused before anything else, naming the writer and the variable",
             "; ".join(unset), "OVERRIDE_MISSING session-distill/update-state.py "
                               "[AGENT_BIOS_SESSION_DISTILL_STATE] AGENT_BIOS_SESSION_DISTILL_STATE")
@@ -1839,12 +2077,12 @@ def _self_test_body(failures, ran):
                 {**fx_declaration(), "destinations": {k: v for k, v
                                                       in fx_declaration()["destinations"].items()
                                                       if k != "nudge"}},
-                fx_env(CODEX_HOME=f"{root}-other/codex")))),
+                fx_env(CODEX_HOME=f"{root}-other/codex"), scope="all"))),
             "OVERRIDE_MISSING")
 
     # DESTINATION_OUTSIDE_ROOT: an actual escape, under a second fixture root.
     escaped = resolution_problems(resolved_rows(
-        fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{root}-other/nudge/state.json")))
+        fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{root}-other/nudge/state.json"), scope="all"))
     # The inversion changes WHERE an escape can come from, and these controls follow it. A
     # per-override certificate is now the declared root of that name's class, so an override row
     # cannot escape its own root by construction — testing that it can would be testing a state the
@@ -1861,10 +2099,10 @@ def _self_test_body(failures, ran):
     nudge_root = fx_declaration()["destinations"]["nudge"]
     clean("a caller whose claim MATCHES what the run produces is no disagreement",
           resolution_problems(resolved_rows(
-              fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=nudge_root))))
+              fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=nudge_root), scope="all")))
     clean("every override row's path IS its class root, which is why it cannot escape: the row "
           "carries no value the run did not produce",
-          [r["writer"] for r in resolved_rows(fx_declaration(), {})
+          [r["writer"] for r in resolved_rows(fx_declaration(), {}, scope="all")
            if "[" in r["writer"] and "[fixed:" not in r["writer"]
            and r.get("path") and r["path"] != r["root"]])
     # The lexical rule the FIXED roots are judged by, asked of `inside` directly — the question is
@@ -1881,7 +2119,7 @@ def _self_test_body(failures, ran):
     control("a run that declares no root for a class is refused rather than defaulting to one",
             "; ".join(resolution_problems(resolved_rows(
                 {"destinations": {k: v for k, v in fx_declaration()["destinations"].items()
-                                  if k != "checkout"}}, fx_env()))),
+                                  if k != "checkout"}}, fx_env(), scope="all"))),
             "DESTINATION_ROOT_ABSENT")
 
     # ---- the derived inventory ---------------------------------------------------------------
@@ -1980,13 +2218,14 @@ def _self_test_body(failures, ran):
           [name for name in ("AGENT_BIOS_UNINSTALL_ARCHIVE", "XDG_CACHE_HOME", "GIT_DIR",
                              "AGENT_LAUNCH_CONFIG", "AGENT_BIOS_INSTRUCTIONS_DIR")
            if name in given_install])
-    equals("and the environment is the same answer for every writer: the names its row declares, "
-            "with no extras anywhere",
+    equals("and the environment is the same answer for every writer: the names its row declares "
+            "plus the isolation its row names, with no extras anywhere",
             json.dumps(sorted({name for row in writers()
                                for name in environment_for(row, fx_declaration())
                                if name != "HOME"
                                and name not in {e["override"]
-                                                for e in row.get("destinations") or ()}})),
+                                                for e in row.get("destinations") or ()}
+                               and name not in (ISOLATIONS.get(row.get("isolation")) or {})})),
             "[]")
     control("a run that declares no home is refused before any writer is handed anything",
             "; ".join(environment_problems({**FIXTURE, "environment": {}})),
@@ -2008,7 +2247,7 @@ def _self_test_body(failures, ran):
     clean("the real writers read nothing they are not given, once the excused pairs carry their "
           "reasons",
           [f"{row['writer']}: {row['reads_not_given']}" for row in
-           resolved_rows(fx_declaration(), fx_env()) if row.get("reads_not_given")])
+           resolved_rows(fx_declaration(), fx_env(), scope="all") if row.get("reads_not_given")])
     equals("and an excused pair is SHOWN with its reason rather than hidden, since the run does "
             "not hand it and something has to say why that is safe",
             json.dumps(sorted(excused_overrides("install.sh"))),
@@ -2024,7 +2263,7 @@ def _self_test_body(failures, ran):
             "yes" if reads_not_given("install.sh", {}, None) else "the disclosure is empty", "yes")
 
     # ---- the fixed roots, computed from the given HOME ----------------------------------------
-    fixed_rows = [r for r in resolved_rows(fx_declaration(), fx_env()) if "[fixed:" in r["writer"]]
+    fixed_rows = [r for r in resolved_rows(fx_declaration(), fx_env(), scope="all") if "[fixed:" in r["writer"]]
     equals("every fixed-root row carries a path computed from the declared home, not the class "
             "root restated",
             json.dumps(sorted({r["certification"] for r in fixed_rows})), '["computed"]')
@@ -2041,7 +2280,7 @@ def _self_test_body(failures, ran):
     control("a declaration whose class root does not contain what the writer computes is refused "
             "by name rather than certified",
             "; ".join(resolution_problems(resolved_rows(
-                fx_declaration(install_roots="/srv/elsewhere"), fx_env()))),
+                fx_declaration(install_roots="/srv/elsewhere"), fx_env(), scope="all"))),
             "DESTINATION_OUTSIDE_ROOT install.sh [fixed:")
     # The bounded BRANCH of `resolved_rows`, exercised through `resolved_rows` itself. It used to be
     # asked of `fixed_destination` and `_inside` separately, so the branch that decides between
@@ -2056,7 +2295,7 @@ def _self_test_body(failures, ran):
     def bounded_rows(declaration):
         return with_source("install.sh", unreadable_source,
                            lambda held_root: [r for r in resolved_rows(declaration, fx_env(),
-                                                                       held_root)
+                                                                       held_root, scope="all")
                                               if r["writer"].startswith("install.sh [fixed")])
 
     held_home = declared_home(fx_declaration())
@@ -2078,15 +2317,15 @@ def _self_test_body(failures, ran):
     control("and a row that claims a fixed root while the run declares no home is uncertified, "
             "never certified at the root",
             "; ".join(p for p in resolution_problems(resolved_rows(
-                {**fx_declaration(), "environment": {}}, fx_env())) if "UNCERTIFIED" in p),
+                {**fx_declaration(), "environment": {}}, fx_env(), scope="all")) if "UNCERTIFIED" in p),
             "the run declares no home")
     equals("a writer the run PASSES its root is certified by that, which is the preferred channel "
             "because an argument cannot be inherited",
-            json.dumps(sorted({r["certification"] for r in resolved_rows(fx_declaration(), fx_env())
+            json.dumps(sorted({r["certification"] for r in resolved_rows(fx_declaration(), fx_env(), scope="all")
                                if r["writer"] in ("git", "session-distill/runlib/journal.py")})),
             '["argument"]')
     control("and the row says so, naming what passes it",
-            next(r["why"] for r in resolved_rows(fx_declaration(), fx_env()) if r["writer"] == "git"),
+            next(r["why"] for r in resolved_rows(fx_declaration(), fx_env(), scope="all") if r["writer"] == "git"),
             "the run passes this writer its root")
     control("a fixed-root row that says neither how its root is reached is a table defect",
             "; ".join(with_table(lambda held: [row.pop("root_from") for row in held["writers"]
@@ -2248,6 +2487,16 @@ def _self_test_body(failures, ran):
                 "; ".join(git_problems(git_root)), "GIT_CONFIG_INCLUDE")
         (git_root / ".git").rename(git_root / ".git-moved")
         (git_root / ".git").write_text(f"gitdir: {git_root / '.git-moved'}\n", encoding="utf-8")
+        # A symlinked `.git` is its own case and had no control until the revert trial reported the
+        # row silent: a symlink to a directory IS a directory to `is_dir`, so without the symlink
+        # branch this repository would be judged and git would open another one.
+        (git_root / ".git").rename(git_root / ".git-real")
+        (git_root / ".git").symlink_to(git_root / ".git-real", target_is_directory=True)
+        control("a `.git` that is a SYMLINK is refused: it answers `is_dir` like any directory, so "
+                "the configuration judged here would not be the repository git opens",
+                "; ".join(git_problems(git_root)), "GIT_DIR_SYMLINK")
+        (git_root / ".git").unlink()
+        (git_root / ".git-real").rename(git_root / ".git")
         control("a `.git` FILE pointing at a directory elsewhere — a worktree or a submodule — is "
                 "refused rather than followed, since the config judged would not be the one git "
                 "reads", "; ".join(git_problems(git_root)), "GIT_DIR_INDIRECT")
@@ -2255,8 +2504,250 @@ def _self_test_body(failures, ran):
                 "writes into whatever repository encloses it",
                 "; ".join(git_problems(git_root / "no-repository-here")),
                 "GIT_REPOSITORY_ABSENT")
+
+        # The policy's strict half: what it cannot READ is refused, not passed over. Each of these
+        # was a round-3 finding — the scan accepted all of them.
+        (git_root / ".git").unlink()
+        (git_root / ".git-moved").rename(git_root / ".git")
+        (git_root / ".git" / "config").unlink()
+        control("a repository carrying no config at all is refused, because what git will then read "
+                "is its own defaults plus the system file and nothing here states that",
+                "; ".join(git_problems(git_root)), "GIT_CONFIG_ABSENT")
+        (git_root / ".git" / "config").write_text("[core\n\tbare = false\n", encoding="utf-8")
+        control("a section header with no closing bracket is refused rather than skipped, since "
+                "every key after it belongs to a section this cannot name",
+                "; ".join(git_problems(git_root)), "GIT_CONFIG_UNPARSEABLE")
+        (git_root / ".git" / "config").write_text("worktree = /srv/elsewhere\n", encoding="utf-8")
+        control("and so is a key outside any section",
+                "; ".join(git_problems(git_root)), "GIT_CONFIG_UNPARSEABLE")
+        for spelling in ("workTree", "WORKTREE", "worktree"):
+            (git_root / ".git" / "config").write_text(
+                f"[core]\n\t{spelling} = /srv/elsewhere\n", encoding="utf-8")
+            control(f"the work tree is refused however it is spelled ({spelling}), because git's "
+                    f"own key names are case-insensitive and a scan for one spelling answers for "
+                    f"one spelling", "; ".join(git_problems(git_root)), "GIT_CONFIG_WORKTREE")
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\tworktree\n", encoding="utf-8")
+        control("a bare key is a boolean true in git's grammar, so a refused key with no value is "
+                "still refused", "; ".join(git_problems(git_root)), "GIT_CONFIG_WORKTREE")
+        (git_root / ".git" / "config").write_text(
+            "[objects]\n\talternates = /srv/other-objects\n", encoding="utf-8")
+        control("an alternate object store is refused: what a commit writes and reads would not be "
+                "only this repository's", "; ".join(git_problems(git_root)),
+                "GIT_CONFIG_ALTERNATES")
+        for key in ("[core]\n\tfsmonitor = /srv/watcher\n",
+                    '[filter "big"]\n\tclean = /srv/scrub %f\n',
+                    "[credential]\n\thelper = /srv/ask\n"):
+            (git_root / ".git" / "config").write_text(key, encoding="utf-8")
+            control(f"a config value that IS A COMMAND is refused ({key.split()[0]}), because a "
+                    f"policy that judges where the bytes land and not what produced them would let "
+                    f"a clean filter run on the files S11 just applied",
+                    "; ".join(git_problems(git_root)), "GIT_CONFIG_EXECUTES")
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\tworktree = /srv/elsewhere  # a comment does not make it a comment\n"
+            "\t; nor does this\n", encoding="utf-8")
+        control("a refused key is refused with a trailing comment on its line",
+                "; ".join(git_problems(git_root)), "GIT_CONFIG_WORKTREE")
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\t# worktree = /srv/elsewhere\n", encoding="utf-8")
+        clean("and a commented-out key is not a key", git_problems(git_root))
+
+        # `core.hooksPath` is the one key CERTIFIED rather than refused, because S11's commit runs
+        # with the repository's own hooks on purpose. The certificate names the resolved directory.
+        (git_root / ".githooks").mkdir()
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\thooksPath = .githooks\n", encoding="utf-8")
+        clean("a hooks path inside the declared checkout is accepted, which is what this repository "
+              "itself sets and what makes S11's commit run the gates", git_problems(git_root))
+        equals("and the certificate NAMES the resolved hooks directory, because \"the hooks ran\" "
+               "and \"these hooks ran\" are different claims",
+               git_certificate(git_root)["hooks"], str((git_root / ".githooks").resolve()))
+        equals("the certificate carries the isolation it was judged under, so a reader is not left "
+               "to assume it", json.dumps(git_certificate(git_root)["isolation"]),
+               json.dumps(GIT_ENVIRONMENT))
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\thooksPath = /usr/local/evil-hooks\n", encoding="utf-8")
+        control("an absolute hooks path is refused: the commit would run code from outside the tree "
+                "the run was given", "; ".join(git_problems(git_root)), "GIT_HOOKS_OUTSIDE")
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\thooksPath = ../../elsewhere/hooks\n", encoding="utf-8")
+        control("so is one that climbs out with `..`",
+                "; ".join(git_problems(git_root)), "GIT_HOOKS_OUTSIDE")
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\thooksPath =\n", encoding="utf-8")
+        control("and a key present with no value is refused rather than read as the default, since "
+                "which hooks run would then be decided by git's fallback",
+                "; ".join(git_problems(git_root)), "GIT_HOOKS_UNSET")
+        outside = pathlib.Path(tempfile.mkdtemp(prefix="dest-git-outside-", dir="/tmp"))
+        try:
+            (outside / "hooks").mkdir()
+            os.symlink(str(outside), str(git_root / "linked"))
+            (git_root / ".git" / "config").write_text(
+                "[core]\n\thooksPath = linked/hooks\n", encoding="utf-8")
+            control("a hooks path that reaches outside through a SYMLINKED component is refused: "
+                    "every component is lexically inside the checkout and the directory git would "
+                    "run is not, which is why this goes through the target contract's own walk "
+                    "rather than a text comparison",
+                    "; ".join(git_problems(git_root)), "GIT_HOOKS_OUTSIDE")
+            equals("and the refusal is reported by the walk rather than by `inside` alone — the "
+                   "lexical rules pass this value, so a policy resting on them only would accept it",
+                   json.dumps(targets.lexical_problems("linked/hooks")), "[]")
+        finally:
+            shutil.rmtree(outside, ignore_errors=True)
     finally:
         shutil.rmtree(git_root, ignore_errors=True)
+
+    # ---- the release's scope, as a fact the rows carry -----------------------------------------
+    #
+    # Release 1's S11 writes the declared checkout and makes the git commit, and runs nothing else
+    # (D-20261112-2cf1c4). The six findings that were deferred with that decision are all about
+    # writers it never invokes, so the scope has to be checkable rather than asserted in a record.
+    release_rows = resolved_rows(fx_declaration(), fx_env())
+    equals("the rows release 1 may invoke are exactly the checkout-and-git set",
+            json.dumps(sorted({r["writer"].split(" [")[0] for r in release_rows
+                               if r["certification"] != RELEASE_1_UNINVOKED})),
+            json.dumps(sorted(["git", "session-distill/runlib/inventory.py",
+                               "session-distill/runlib/journal.py",
+                               "session-distill/runlib/recovery.py",
+                               "session-distill/runlib/stage_apply.py",
+                               "session-distill/runlib/stage_close.py"])))
+    clean("and NO row outside that set comes back certified — the installer, the launcher, "
+          "update-state and the personal layers are named, never confined-and-allowed, so a "
+          "deferred finding about one of them cannot become reachable without this failing",
+          [r["writer"] for r in release_rows
+           if r["certification"] != RELEASE_1_UNINVOKED
+           and r["writer"].split(" [")[0] not in ("git", "session-distill/runlib/inventory.py",
+                                                  "session-distill/runlib/journal.py",
+                                                  "session-distill/runlib/recovery.py",
+                                                  "session-distill/runlib/stage_apply.py",
+                                                  "session-distill/runlib/stage_close.py")])
+    clean("every named row says WHY in its own words rather than leaving the reader to the decision "
+          "record", [r["writer"] for r in release_rows
+                     if r["certification"] == RELEASE_1_UNINVOKED
+                     and "release-1" not in str(r.get("why"))])
+    clean("and no named row carries a path, so nothing downstream can read one and write there",
+          [r["writer"] for r in release_rows
+           if r["certification"] == RELEASE_1_UNINVOKED and r.get("path") is not None])
+    # The subject is TAKEN FROM THE TABLE rather than written out: a literal author-side path in a
+    # shipped module is refused by the package gate, and a name copied here would go stale the day
+    # the row is renamed.
+    held_uninvoked = next(row["writer"] for row in writers()
+                          if not row.get("release_1_invoked") and row.get("destinations")
+                          and not row.get("writer_unwritten"))
+    equals("the fact is the TABLE's, so flipping one row's declaration moves it into the release "
+            "and back out",
+            json.dumps(with_table(
+                lambda held: _row(held, held_uninvoked).__setitem__("release_1_invoked", True),
+                lambda: [r["certification"] for r
+                         in resolved_rows(fx_declaration(), fx_env())
+                         if r["writer"].startswith(held_uninvoked)
+                         and r["certification"] == RELEASE_1_UNINVOKED])),
+            json.dumps([]))
+    equals("the scope is per DESTINATION and not per writer, because S11 is itself one of the "
+            "writers: the apply stage's checkout row is answered and its personal-layer row is "
+            "named, in the same release",
+            json.dumps([(r["class"], r["certification"]) for r in release_rows
+                        if r["writer"].startswith("session-distill/runlib/stage_apply.py")]),
+            json.dumps([["personal_layers", RELEASE_1_UNINVOKED], ["checkout", "forward"]]))
+    equals("an entry that says nothing inherits its writer's answer, so a row cannot be narrowed "
+            "by the writer's silence",
+            json.dumps([entry_invoked_in_release_1({"release_1_invoked": True}, {}),
+                        entry_invoked_in_release_1({"release_1_invoked": False}, {}),
+                        entry_invoked_in_release_1({"release_1_invoked": True},
+                                                   {"release_1_invoked": False})]),
+            "[true, false, false]")
+    # What the narrowing BUYS the declaration: the classes only uninvoked writers write no longer
+    # need a root. The lead asked what `environment.home` is still needed for, and this is the other
+    # half of that answer — the home is required, the class roots for those writers are not.
+    held_classes = {entry.get("class") for row in writers()
+                    for entry in list(row.get("destinations") or ())
+                    + list(row.get("fixed_roots") or ())
+                    if entry_invoked_in_release_1(row, entry)}
+    held_classes |= {row.get("writes_without_override") for row in writers()
+                     if row.get("release_1_invoked")}
+    narrowed = {k: v for k, v in fx_declaration()["destinations"].items()
+                if k in held_classes}
+    clean("a declaration carrying roots only for the classes release 1 writes resolves with no "
+          "refusal, so the owner no longer has to name a root for a writer S11 will not run",
+          resolution_problems(resolved_rows({**fx_declaration(), "destinations": narrowed},
+                                            fx_env())))
+    control("and the same declaration at the WIDER scope refuses by name, which is what says the "
+            "narrowing is the release's and not the mechanism's",
+            "; ".join(resolution_problems(resolved_rows(
+                {**fx_declaration(), "destinations": narrowed}, fx_env(), scope="all"))),
+            "DESTINATION_ROOT_ABSENT")
+    clean("and the same row, unflipped, is named by that state — without this the control above "
+          "would pass over a row that was never named at all",
+          [r["certification"] for r in release_rows
+           if r["writer"].startswith(held_uninvoked)
+           and r["certification"] != RELEASE_1_UNINVOKED])
+    control("an unknown scope is refused rather than read as one of the two, because a typo that "
+            "resolved everything would widen the release silently",
+            refusal(lambda: resolved_rows(fx_declaration(), fx_env(), scope="releaes_1")),
+            "RESOLUTION_SCOPE_UNKNOWN")
+    equals("`environment.home` is still required, and these are what needs it: the HOME handed to "
+            "the writers the release DOES invoke, and git's own isolation, which closes the global "
+            "config file by name and still runs the hook with a HOME",
+            json.dumps(sorted({r["writer"].split(" [")[0] for r in release_rows
+                               if r["certification"] != RELEASE_1_UNINVOKED
+                               and "HOME" in environment_for(
+                                   next(w for w in writers()
+                                        if w["writer"] == r["writer"].split(" [")[0]),
+                                   fx_declaration())})),
+            json.dumps(sorted(["git", "session-distill/runlib/inventory.py",
+                               "session-distill/runlib/journal.py",
+                               "session-distill/runlib/recovery.py",
+                               "session-distill/runlib/stage_apply.py",
+                               "session-distill/runlib/stage_close.py"])))
+    control("and a declaration without it is refused, so the narrowing did not make the home "
+            "optional", "; ".join(environment_problems({"destinations": {}})),
+            "ENVIRONMENT_HOME_UNDECLARED")
+
+    # ---- what a REFUSED commit hook means ------------------------------------------------------
+    #
+    # S11's commit runs with the repository's own hooks on purpose. The hook can refuse, and a
+    # refusal is not a crash: the edits are on disk and the commit is not. The contract is a value
+    # so the apply stage cannot mean something else by it.
+    control("the contract says the commit did not happen", HOOK_REFUSAL["commit"], "did not happen")
+    control("that the working tree keeps the applied edits",
+            HOOK_REFUSAL["working_tree"], "holds the applied edits")
+    control("that S11 LEAVES them rather than restoring, because a restore is a second set of "
+            "effects on the owner's tree", HOOK_REFUSAL["working_tree"], "LEAVES the files")
+    control("that the journal records the effect as NOT done, so a resumed run does not read a "
+            "finished one", HOOK_REFUSAL["journal"], "not done")
+    control("and that the report gives the owner the hook's exit status rather than a summary of it",
+            HOOK_REFUSAL["report"], "exit status")
+
+    # ---- the isolation as the child receives it ------------------------------------------------
+    #
+    # The mapping is declared above; this is what a git process would actually be handed. Tested on
+    # a CHILD because the claim is about the environment the effect runs in, and a dict read in this
+    # process is not that: an inherited GIT_DIR or GIT_WORK_TREE in the suite's own environment
+    # would reach git and not appear in any assertion made here.
+    git_row = next(row for row in writers() if row["writer"] == "git")
+    equals("the produced environment for git is exactly the isolation plus the declared HOME",
+            json.dumps(environment_for(git_row, fx_declaration()), sort_keys=True),
+            json.dumps({"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+                        "HOME": declared_home(fx_declaration())}, sort_keys=True))
+    equals("the table says WHICH isolation applies and the code owns what it is, so the two cannot "
+            "drift apart", git_row.get("isolation"), "git")
+    # WHAT A CHILD RECEIVES is evidence this module cannot produce. A shipped module may not launch
+    # an undeclared child: an inline `python -c` program must be declared in the dispatch closure's
+    # INLINE_PROGRAMS and a scratch script comes back DISPATCH_UNRESOLVED, both in another lane's
+    # file, and `/usr/bin/env` would make a host tool a declared dependency of the driver for one
+    # control. So the mapping is asserted here and the child evidence is author-side, in
+    # `pretrial-git.py --child-probe`, which launches a real process over this same mapping with
+    # GIT_DIR and GIT_WORK_TREE set in its own environment and prints what the child received. What
+    # this control holds is the half that is decidable in-process: the mapping carries no name the
+    # run did not declare, so there is nothing for a child to inherit through it.
+    clean("the produced environment carries no name beyond the isolation and the declared HOME, "
+          "which is what makes the child's inheritance decidable from the mapping alone",
+          [name for name in environment_for(git_row, fx_declaration())
+           if name not in set(GIT_ENVIRONMENT) | {"HOME"}])
+    clean("and no GIT name this process happens to carry is in it, since the mapping is built from "
+          "the declaration rather than copied from os.environ",
+          [name for name in environment_for(git_row, fx_declaration())
+           if name.startswith("GIT") and name not in GIT_ENVIRONMENT])
     control("the manifest refuses before any effect when the checkout's git config carries one of "
             "them, rather than after the first commit",
             refusal(lambda: document(fx_declaration(checkout=str(REPO / "no-such-checkout")),
@@ -2329,21 +2820,21 @@ def _self_test_body(failures, ran):
         equals("a writer this install does not have carries `not_installed` rather than an absent "
                "field",
                json.dumps(sorted({str(r.get("certification"))
-                                  for r in resolved_rows(fx_declaration(), fx_env(), str(pack))
+                                  for r in resolved_rows(fx_declaration(), fx_env(), str(pack), scope="all")
                                   if r.get("not_installed")})),
                '["not_installed"]')
         equals("and an override the declaration names no root for carries `unset`",
                json.dumps(sorted({str(r.get("certification")) for r in resolved_rows(
                    {**fx_declaration(), "destinations": {k: v for k, v
                                                          in fx_declaration()["destinations"].items()
-                                                         if k != "nudge"}}, fx_env(), str(pack))
+                                                         if k != "nudge"}}, fx_env(), str(pack), scope="all")
                                   if r.get("unset")})),
                '["unset"]')
         control("the author-scope writer is named as not installed there",
                 ", ".join(author_rows_absent(pack)), author_writer or "none")
         clean("and its absence is not a fidelity failure in that layout",
               [p for p in fidelity_problems(pack) if "WRITER_SOURCE_ABSENT" in p])
-        held_rows = resolved_rows(fx_declaration(), fx_env(), root=pack)
+        held_rows = resolved_rows(fx_declaration(), fx_env(), root=pack, scope="all")
         control("its row is recorded rather than dropped, so the manifest does not read as though "
                 "no such writer existed",
                 "; ".join(r.get("not_installed", "") for r in held_rows
@@ -2429,8 +2920,23 @@ def _self_test_body(failures, ran):
         "resolved": [], "overrides_required": [], "refused": doc_or_refusal}
     control("the document is produced at all, rather than refusing over its own inventory",
             "dict" if isinstance(doc_or_refusal, dict) else str(doc_or_refusal)[:200], "dict")
-    control("the document carries one resolved row per answered writer",
-            str(len(doc["resolved"])), str(len(rows)))
+    control("the document carries one resolved row per answered writer, at the RELEASE's scope — "
+            "the rows above are the wider scope, and the document is what S11 reads",
+            str(len(doc["resolved"])),
+            str(len(resolved_rows(fx_declaration(), fx_env()))))
+    equals("the manifest CARRIES the git certificate, so the stage that commits reads the resolved "
+            "hooks directory from the document rather than from a gate's own memory",
+            doc["git"]["hooks"],
+            str((fixture_checkout / ".githooks").resolve()))
+    equals("and it carries the release's scope with the decision that set it, so a reader of the "
+            "manifest alone can say which writers this release may not invoke",
+            json.dumps([doc["release_scope"]["scope"], doc["release_scope"]["decision"],
+                        len(doc["release_scope"]["uninvoked"])]),
+            json.dumps(["release_1", "D-20261112-2cf1c4",
+                        len([r for r in doc["resolved"]
+                             if r.get("certification") == RELEASE_1_UNINVOKED])]))
+    control("and what a refused commit hook means, which is the one effect S11 cannot undo by "
+            "retrying", doc["hook_refusal"]["commit"], "did not happen")
     control("and the overrides the run must set", json.dumps(doc["overrides_required"]),
             "AGENT_BIOS_SESSION_DISTILL_STATE")
     # `inside` is None where there is nothing to confine — a writer this install does not have, and
@@ -2440,23 +2946,28 @@ def _self_test_body(failures, ran):
           "a state rather than inferring one from a missing field",
           [r["writer"] for r in doc["resolved"] if not r.get("certification")])
     equals("and the states are exactly the declared vocabulary, with none invented and none left "
-           "to be inferred from an absent field",
+           "to be inferred from an absent field — at the release's scope `computed` does not "
+           "appear, because the only writer with a computed root is one release 1 never invokes",
            json.dumps(sorted({str(r.get("certification")) for r in doc["resolved"]})),
+           '["argument", "forward", "given", "not_invoked_in_release_1"]')
+    equals("and at the WIDER scope the same rows are certified rather than named, so the release "
+           "narrows what S11 may invoke without retiring the confinement that judges the rest "
+           "(this control and the one above were the same assertion written twice until round 3; "
+           "they now ask the two scopes)",
+           json.dumps(sorted({str(r.get("certification")) for r
+                              in resolved_rows(fx_declaration(), fx_env(), scope="all")})),
            '["argument", "computed", "forward", "given"]')
-    equals("and the states are the declared ones, with no row certified by silence",
-            json.dumps(sorted({str(r.get("certification")) for r in doc["resolved"]})),
-            '["argument", "computed", "forward", "given"]')
     clean("with every row that HAS a path inside its root",
           [r["writer"] for r in doc["resolved"] if r["inside"] is False])
     equals("and the rows with nothing to confine say which they are, by a named state, rather "
             "than reading as escapes or as certified",
             json.dumps(sorted({str(r.get("certification") or r.get("not_installed"))
                                for r in doc["resolved"] if r["inside"] is None})),
-            '["forward"]')
+            '["forward", "not_invoked_in_release_1"]')
     control("a document over an environment the caller claims and the run does not produce is "
             "refused instead of written",
             refusal(lambda: document(fx_declaration(),
-                                     fx_env(CODEX_HOME=f"{root}-other/codex"))),
+                                     fx_env(HOME=f"{root}-other/home"))),
             "DESTINATION_UNCERTIFIED")
     control("and so is one over a mutated table, so the manifest cannot be written from a broken "
             "inventory",
@@ -2488,13 +2999,14 @@ def _self_test_body(failures, ran):
         # Nothing is written when anything refuses: the escape case must leave no manifest at all.
         other = held_root / "r2"
         declare.create(other, fx_declaration())
-        said = refusal(lambda: write(other, declaration, fx_env(CODEX_HOME=f"{root}-other/codex")))
+        said = refusal(lambda: write(other, declaration, fx_env(HOME=f"{root}-other/home")))
         control("a refused resolution writes nothing", said, "DESTINATION_UNCERTIFIED")
         clean("not even an empty manifest, and no stage record either",
               [name for name in (OUTPUT, "records") if (other / name).exists() and name == OUTPUT]
               + ([f"an S11 record exists"] if records.record_path(other, "S11").exists() else []))
         clean("and the escape target itself was never touched: it is a fixture path and has no file",
-              [] if not pathlib.Path(f"{root}-other/codex").exists() else ["/elsewhere/codex exists"])
+              [] if not pathlib.Path(f"{root}-other/home").exists()
+              else [f"{root}-other/home exists"])
     finally:
         shutil.rmtree(held_root, ignore_errors=True)
 
