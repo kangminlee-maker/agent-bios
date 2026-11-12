@@ -203,6 +203,24 @@ def surface_row(unit):
     return None
 
 
+def attach_surface(unit, session, catalogue_surface=None):
+    """The unit as §6.3 judges it in THIS session, by S5b's rule, held here so that the frozen fixtures and the
+    stage attach a surface the same way.
+
+    The surface is a fact about the session, not the unit: two sessions can hold one unit at different surfaces.
+    A unit the table already places (a native layer, matched by its layer) is returned as it is, since a surface
+    attached to it would move it onto an item ladder. Otherwise the surface is the one the session's snapshot
+    selected its item at, else the one its selection history names, else the item's catalogue surface S2
+    published for this unit (`unit_surfaces`, which the caller translates to this unit). With none of them the
+    unit stays unplaced, and `delivery` answers `surface_unclassified` rather than be handed a guess."""
+    if surface_row(unit) is not None:
+        return unit
+    ref = unit.get("item_ref")
+    surface = ((session.get("selected") or {}).get(ref) or (session.get("history_selected") or {}).get(ref)
+               or catalogue_surface)
+    return {**unit, "surface": surface} if surface else unit
+
+
 def _selection(unit, session):
     """What selection evidence the session has for the unit's item: `(basis, selected, surface)`."""
     basis = session.get("basis")
@@ -319,11 +337,15 @@ def _guide(unit, units, session, decision_at, versions, row):
     status, requirements = unit_read(unit, units, reads, session, versions)
     selection = basis if basis in ("pin", "selection_history") and selected else None
     level = None
+    unread = None
     if basis == "pin" and selected:
         level = "selected"
         if _unavailable(unit, session, surface):
             return _result(unit, session, row, "selected_unavailable", level, ["route_unavailable"], "pin", requirements)
-        if _injected(session, decision_at) and _pointer(unit, session, surface):
+        pointer = _pointer(unit, session, surface) if _injected(session, decision_at) else None
+        if isinstance(pointer, str):  # no pointer fact could be read, and the reason why
+            unread = pointer
+        elif pointer:
             level = "pointer exposed"
             if _router_read(unit, session, reads):
                 level = "router read"
@@ -354,7 +376,8 @@ def _guide(unit, units, session, decision_at, versions, row):
     if basis == "pin" and not selected:
         return _absence(unit, session, row, "pin")
     if basis == "pin":
-        return _result(unit, session, row, "unknown", level, ["not_exposed_before_decision"], "pin", requirements)
+        return _result(unit, session, row, "unknown", level, [unread or "not_exposed_before_decision"], "pin",
+                       requirements)
     return _result(unit, session, row, "unknown", None, [session.get("pin_reason") or "unpinned"], None, requirements)
 
 
@@ -365,11 +388,19 @@ def _pointer(unit, session, surface):
     Answered from the FACT when the session carries one (`item_pointer_in_compiled_text`, published by S2 where
     the snapshot is readable), because the compiled text is the owner's and does not enter a run; the text path
     below stays for the frozen fixtures and for a caller that holds the text. A fact of None is "this surface has
-    no pointer to find", which is not the same as a pointer that is missing, so it is returned as given."""
+    no pointer to find", which is not the same as a pointer that is missing, so it is returned as given.
+
+    Where there is no fact, the answer is a REASON (a string), never False: S2's `item_pointer_unavailable` when
+    it says why it published none, else `pointer_unread` when the session holds no text either. Read off an
+    empty text, every pointer was "missing", which is a claim about a text nobody read (WP-11b X r1)."""
     stated = session.get("item_pointer_in_compiled_text") or {}
     if unit.get("item_ref") in stated:
         return stated[unit["item_ref"]]
-    text = session.get("instruction_text") or ""
+    if session.get("item_pointer_unavailable"):
+        return f"pointer_unavailable:{session['item_pointer_unavailable']}"
+    if not isinstance(session.get("instruction_text"), str):
+        return "pointer_unread"
+    text = session["instruction_text"]
     if surface == "relevant":
         return bool(session.get("router_path")) and f"Relevant procedures: {session['router_path']}" in text
     emitted = [path for path, ref in (session.get("emitted") or {}).items() if ref == unit.get("item_ref")]
@@ -524,12 +555,29 @@ def _builder(row, level):
     return unit, {unit["unit_id"]: unit}, {"session_ref": "claude:s", "basis": "pin"}, 5
 
 
+def _held(unit, session):
+    """`(unit, catalogue_surface)`: a builder's unit as S5b holds it, with no surface of its own, and the catalogue
+    surface S2 would publish for it where the session's own selection does not name its item."""
+    bare = {key: value for key, value in unit.items() if key != "surface"}
+    if surface_row(bare) is not None or attach_surface(bare, session).get("surface") == unit.get("surface"):
+        return bare, None
+    return bare, unit.get("surface")
+
+
+def _delivery_case(unit, session, at, expected):
+    bare, catalogue = _held(unit, session)
+    case = {"kind": "delivery", "unit": bare, "units": {bare["unit_id"]: bare}, "session": session,
+            "decision_at": at, "expected": expected}
+    if catalogue is not None:
+        case["catalogue_surface"] = catalogue
+    return case
+
+
 def _cases(section, row, held):
     if section == "licensed_levels":
         unit = _unit("u-h", "claude/guides/h.md", "- h", ref="claude:guides/h")
         session = {"session_ref": "claude:s", "basis": row["basis"], "history_selected": {"claude:guides/h": "relevant"}}
-        return [{"kind": "delivery", "unit": unit, "units": {unit["unit_id"]: unit}, "session": session, "decision_at": 5,
-                 "expected": {"state": row["state"], "level": row["level"]}}]
+        return [_delivery_case(unit, session, 5, {"state": row["state"], "level": row["level"]})]
     if row["id"] == "executable_consumed":
         binding = {"bound": True, "receipt_id": "r" * 64, "transaction_id": "t1", "installer_digest": "d1",
                    "release_digest": "rd", "begun_by_installer_digest": None}
@@ -542,14 +590,21 @@ def _cases(section, row, held):
                 {"kind": "installer", "binding": {"bound": False}, "receipt": None, "artifacts": artifacts,
                  "expected": {"state": "unknown", "level": None}}]
     if row["producer"] == "absent":
-        unit, units, session, at = _builder(row, row["levels"][0])
-        return [{"kind": "delivery", "unit": unit, "units": units, "session": session, "decision_at": at,
-                 "expected": {"state": "unknown", "level": None, "reason": f"producer_absent:{row['id']}"}}]
+        unit, _units, session, at = _builder(row, row["levels"][0])
+        return [_delivery_case(unit, session, at,
+                               {"state": "unknown", "level": None, "reason": f"producer_absent:{row['id']}"})]
     cases = []
     for level in row["levels"]:
-        unit, units, session, at = _builder(row, level)
-        cases.append({"kind": "delivery", "unit": unit, "units": units, "session": session, "decision_at": at,
-                      "expected": {"state": expected_state(row, level), "level": level}})
+        unit, _units, session, at = _builder(row, level)
+        cases.append(_delivery_case(unit, session, at, {"state": expected_state(row, level), "level": level}))
+    if row["id"] == "guide":
+        # the unit whose item no source names: neither the session's selection, its history nor S2's catalogue
+        # surface places it, so the stage's rule attaches nothing and §6.3 is not asked to guess a ladder
+        unit = _unit("u-q", "claude/guides/q.md", "- An item no source names.", ref="claude:guides/q")
+        session = {"session_ref": "claude:s", "basis": "pin", "selected": {"claude:guides/g": "relevant"}}
+        case = _delivery_case(unit, session, 5, {"state": "unknown", "level": None, "reason": "surface_unclassified"})
+        case.pop("catalogue_surface", None)
+        cases.append(case)
     return cases
 
 
@@ -575,7 +630,9 @@ def run_fixture(fixture):
             if case["kind"] == "installer":
                 result = installer_exposure(case["binding"], case["receipt"], case["artifacts"])
             else:
-                result = delivery(case["unit"], case["units"], case["session"], case["decision_at"])
+                # the surface attached per (session, unit) by the stage's own rule, never carried on the unit
+                unit = attach_surface(case["unit"], case["session"], case.get("catalogue_surface"))
+                result = delivery(unit, case["units"], case["session"], case["decision_at"])
             got = {"state": result["state"], "level": result["level"]}
             if "reason" in case["expected"]:
                 got["reason"] = (result["reasons"] or [None])[0]
@@ -681,6 +738,51 @@ def self_test():
         expect("the generator's fixtures are the frozen ones", json.loads(target.read_text(encoding="utf-8"))["fixtures"],
                fixtures)
         refused("a second generation", lambda: generate_fixtures(target), "FIXTURES_FROZEN")
+
+    # ---- WP-11b X r1: the surface is attached per (session, unit) by the stage's rule, never carried on a unit
+    cases = [case for fixture in fixtures for case in fixture["cases"] if case["kind"] == "delivery"]
+    expect("every frozen delivery case holds its unit as S5b does, with no surface of its own",
+           (bool(cases), sorted(case["unit"]["unit_id"] for case in cases if "surface" in case["unit"])), (True, []))
+    expect("and exactly one frozen case is a unit no source places, expected `surface_unclassified`",
+           [case["unit"]["unit_id"] for case in cases if case["expected"].get("reason") == "surface_unclassified"],
+           ["u-q"])
+    bare = {"unit_id": "u-b", "layer": "catalog", "item_ref": "claude:guides/b"}
+    expect("the surface the session's selection names comes first, then its history, then S2's catalogue surface",
+           [attach_surface(bare, {"selected": {"claude:guides/b": "requested"},
+                                  "history_selected": {"claude:guides/b": "always"}}, "relevant").get("surface"),
+            attach_surface(bare, {"history_selected": {"claude:guides/b": "always"}}, "relevant").get("surface"),
+            attach_surface(bare, {}, "relevant").get("surface"),
+            "surface" in attach_surface(bare, {"selected": {"claude:other": "always"}})],
+           ["requested", "always", "relevant", False])
+    native_bare = {"unit_id": "u-nb", "layer": "native_global", "item_ref": None}
+    expect("control: a native unit is placed by its layer, and nothing the session names moves it onto an item ladder",
+           attach_surface(native_bare, {"selected": {None: "always"}}, "always"), native_bare)
+    expect("control: the frozen always-rule fixture with its session's selection emptied and no catalogue surface is unplaced",
+           [line.split(":")[0] for line in run_fixture({"id": "surfaces/always_rule", "cases": [
+               {**case, "session": {**case["session"], "selected": {}}} for case in by_id["surfaces/always_rule"]["cases"]]})],
+           ["FIXTURE_FAILED surfaces/always_rule case 0", "FIXTURE_FAILED surfaces/always_rule case 1"])
+
+    # ---- WP-11b X r1: a pointer S2 could not compute is a named unknown, never "missing" read off an empty text
+    guide_row = next(r for r in held["surfaces"] if r["id"] == "guide")
+    p_unit, p_units, p_session, p_at = _builder(guide_row, "pointer exposed")
+    p_unit = attach_surface(_held(p_unit, p_session)[0], p_session)
+
+    def pointer_answer(session):
+        result = delivery(p_unit, p_units, session, p_at)
+        return result["state"], result["level"], result["reasons"]
+    textless = {key: value for key, value in p_session.items() if key != "instruction_text"}
+    expect("a selected, injected guide whose snapshot published no pointer fact names S2's reason",
+           pointer_answer({**textless, "item_pointer_unavailable": "compiled_text_absent"}),
+           ("unknown", "selected", ["pointer_unavailable:compiled_text_absent"]))
+    expect("and with neither a fact, a reason nor a text, the pointer is unread rather than missing",
+           pointer_answer(textless), ("unknown", "selected", ["pointer_unread"]))
+    expect("control: the published fact answers where it is there, the reason beside it notwithstanding",
+           pointer_answer({**textless, "item_pointer_unavailable": "compiled_text_absent",
+                           "item_pointer_in_compiled_text": {"claude:guides/g": True}})[:2],
+           (expected_state(guide_row, "pointer exposed"), "pointer exposed"))
+    expect("control: and a fact of False is a pointer that is missing, as before",
+           pointer_answer({**textless, "item_pointer_in_compiled_text": {"claude:guides/g": False}}),
+           ("unknown", "selected", ["not_exposed_before_decision"]))
 
     # returned bytes
     expect("a reading tool's line-number prefixes are removed", returned_lines("     1\t- a\n     2→- b\n"), ["- a", "- b"])

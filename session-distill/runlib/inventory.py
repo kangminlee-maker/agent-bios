@@ -5766,6 +5766,10 @@ def emitted_document(reference, rows, ctx):
     `unknown_entries`."""
     ctx.setdefault("carriers_named", []).extend(item for row in rows for item in row.get("carriers") or [])
     units = operative_context(produce(rows))
+    if reference == "current":
+        # the units S5 retrieves and S6 judges: every selection inventory publishes a surface for each of them
+        # that belongs to an item, the ones its session was not given included (`unit_surfaces`)
+        ctx["judged_units"] = units
     place = {"home": ctx.get("home"), "decisions": {}}
     position = {row["layer"]: n for n, row in enumerate(rows)}
     listed = sorted(units, key=lambda unit: (position.get(unit["layer"], len(position)), unit["carrier_id"],
@@ -6001,7 +6005,8 @@ def item_pointers(items, text, repo):
 
 
 def unit_surfaces(units, snapshot_items, baseline_items_held):
-    """Per unit of this selection, the CATALOGUE surface of its item, with where it was read.
+    """Per unit given (the selection's own units, and every judged unit that belongs to an item, since S5b reads a
+    surface for each unit it pairs with a session), the CATALOGUE surface of its item, with where it was read.
 
     The surface is what classifies a unit's §6.3 ladder, and it was published only for the items a
     session was given — so a unit of an item the session did NOT receive had no classified ladder
@@ -6079,9 +6084,13 @@ def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None, snaps
         # beside a selection that holds items would read as "no item has a pointer anywhere".
         if text is not None and ctx.get("repo"):
             document["item_pointer_in_compiled_text"] = item_pointers(items, text, ctx["repo"])
+        else:
+            # never both absent: a reader told nothing could not tell "not computable" from "no item"
+            document["item_pointer_unavailable"] = "compiled_text_absent" if text is None else "catalog_rule_unread"
         if text is not None:
             document["router_path"] = router_path_of(text)
-        document["unit_surfaces"] = unit_surfaces(units, items, baseline_held)
+        judged = [unit for unit in ctx.get("judged_units") or [] if unit.get("item_ref")]
+        document["unit_surfaces"] = unit_surfaces(units + judged, items, baseline_held)
         if vocabulary:
             table = table_of({**SHARED_INVENTORY_TABLE["fields"], "unavailable": list_of(table_of({
                 "ref": as_enum(vocabulary[0]), "surface": as_enum(vocabulary[1]), "reason": as_metadata()}))},
@@ -7053,13 +7062,15 @@ SHARED_INVENTORY_TABLE = table_of({
         "ref": as_metadata(), "pointer": as_scalar(nullable=True),
         "basis": as_enum(("router_line", "emitted_path", "surface_has_no_pointer", "item_names_no_member"))})),
     "router_path": as_metadata(nullable=True),
-    # the catalogue surface of every unit this selection holds, and where it was read
+    # why the pointer predicate is not published: the snapshot holds no compiled text, or this run has no catalog
+    "item_pointer_unavailable": as_enum(("compiled_text_absent", "catalog_rule_unread")),
+    # the catalogue surface of every unit this selection holds and every judged unit of an item, and where it was read
     "unit_surfaces": list_of(table_of({"unit_ref": as_opaque("unit_ref"), "surface": as_metadata(nullable=True),
                                        "source": as_enum(("snapshot", "baseline", "unpublished"))})),
     "baseline_unmapped": list_of(as_metadata()),
     "baseline_items_expected": as_scalar(nullable=True),
 }, optional=("unavailable", "items", "instruction_text_sha256", "instruction_coverage",
-             "item_pointer_in_compiled_text", "router_path", "unit_surfaces",
+             "item_pointer_in_compiled_text", "item_pointer_unavailable", "router_path", "unit_surfaces",
              "baseline_unmapped", "baseline_items_expected"), schema="shared_inventory_document")
 
 
@@ -14884,6 +14895,26 @@ def self_test():
                               for path in sorted((planted_out / "inventory" / "shared").glob("selection-*.json"))}
             planted_ref = selection_doc["reference"].get("content_ref")
             own_inventory = planted_shared.get(f"selection-{inventory_id('selection', planted_ref)}.json") or {}
+            # WP-11b X r1 (ii), through the real producer: the selection inventory publishes a surface row for EVERY
+            # unit S5 can pair with this session (current's units of an item), not only for its own units, and a
+            # unit whose item neither the snapshot nor the baseline names reads `unpublished` with a null surface,
+            # never as a known surface
+            planted_current = written_json(planted_out / "inventory" / "current.json")
+            planted_judged = {unit["unit_ref"] for unit in planted_current.get("units") or [] if unit.get("item_ref")}
+            planted_surfaces = {row["unit_ref"]: (row["surface"], row["source"])
+                                for row in own_inventory.get("unit_surfaces") or []}
+            check("(ii) the pinned session's selection inventory carries a surface row for every judged unit of an item",
+                  bool(planted_judged) and not (planted_judged - set(planted_surfaces)),
+                  f"judged={len(planted_judged)} rows={len(planted_surfaces)} "
+                  f"missing={len(planted_judged - set(planted_surfaces))}")
+            planted_sources = collections.Counter(source for _surface, source in planted_surfaces.values())
+            check("(ii) and the pair stays apart: a unit of the snapshot's item carries its known surface, a unit "
+                  "nothing names carries `unpublished` and a null surface, and no other row mixes the two",
+                  planted_sources["snapshot"] > 0 and planted_sources["unpublished"] > 0
+                  and all((surface is None) == (source == "unpublished")
+                          for surface, source in planted_surfaces.values()),
+                  f"{dict(planted_sources)} "
+                  f"{sorted({(surface, source) for surface, source in planted_surfaces.values()}, key=str)[:6]}")
             planted_release_path = planted_out / "inventory" / "shared" / f"release-{inventory_id('release', 'ref1')}.json"
             planted_release = json.loads(planted_release_path.read_text(encoding="utf-8")) if planted_release_path.is_file() else {}
             check("done-when 1, per shared release inventory: the baseline the pinned session's snapshot names maps "
@@ -17223,21 +17254,32 @@ def self_test():
             w11b_partial_bytes, w11b_partial = w11b_published("\n".join(w11b_lines[:1]))
             w11b_whole_bytes, w11b_whole = w11b_published("\n".join(w11b_lines))
             w11b_none_bytes, w11b_none = w11b_published("- an unrelated line\n")
-            w11b_counts = {row["unit_ref"]: (row["covered"], row["total"]) for row in w11b_partial["instruction_coverage"]}
-            w11b_total = {row["unit_ref"]: row["total"] for row in w11b_whole["instruction_coverage"]}
+            def w11b_coverage(document):
+                """The document's `instruction_coverage` rows, or [] when it publishes none: a removed publication
+                fails the controls below by their names, never as a KeyError that ends the section."""
+                rows = document.get("instruction_coverage") if isinstance(document, dict) else None
+                return rows if isinstance(rows, list) else []
+            check("W11b: every selection inventory with a compiled text publishes its coverage rows",
+                  all(isinstance(document.get("instruction_coverage"), list) and document["instruction_coverage"]
+                      for document in (w11b_partial, w11b_whole, w11b_none)),
+                  f"{[type(document.get('instruction_coverage')).__name__ for document in (w11b_partial, w11b_whole, w11b_none)]}")
+            w11b_counts = {row["unit_ref"]: (row["covered"], row["total"]) for row in w11b_coverage(w11b_partial)}
+            w11b_total = {row["unit_ref"]: row["total"] for row in w11b_coverage(w11b_whole)}
             check("W11b: a snapshot covering k of a unit's n operative-context lines publishes k and n, and one "
                   "covering all of them publishes n and n",
                   # A unit whose whole context IS that one line is fully covered by the partial text,
                   # which is correct and not what this row is about: the property is that at least one
                   # unit reads strictly partial, and that no unit ever reads more than its total.
-                  bool(w11b_counts) and w11b_total
+                  bool(w11b_counts) and bool(w11b_total)
                   and any(0 < covered < total for covered, total in w11b_counts.values())
                   and all(0 <= covered <= total for covered, total in w11b_counts.values())
-                  and all(row["covered"] == row["total"] for row in w11b_whole["instruction_coverage"])
-                  and all(row["covered"] == 0 and row["total"] > 0 for row in w11b_none["instruction_coverage"]),
+                  and bool(w11b_coverage(w11b_whole))
+                  and all(row["covered"] == row["total"] for row in w11b_coverage(w11b_whole))
+                  and bool(w11b_coverage(w11b_none))
+                  and all(row["covered"] == 0 and row["total"] > 0 for row in w11b_coverage(w11b_none)),
                   f"partial={sorted(w11b_counts.items())} whole="
-                  f"{[(row['unit_ref'], row['covered'], row['total']) for row in w11b_whole['instruction_coverage']]} "
-                  f"none={[(row['unit_ref'], row['covered']) for row in w11b_none['instruction_coverage']]}")
+                  f"{[(row['unit_ref'], row['covered'], row['total']) for row in w11b_coverage(w11b_whole)]} "
+                  f"none={[(row['unit_ref'], row['covered']) for row in w11b_coverage(w11b_none)]}")
             # The run never contains the text. Judged on the BYTES of every planted snapshot, by the lines
             # themselves rather than by a field name: a field renamed or added would carry the text past a
             # key-name assertion. The digest is published, so the reader can still bind what it was told about.
@@ -17257,18 +17299,19 @@ def self_test():
                   w11b_whole["instruction_text_sha256"]
                   == hashlib.sha256("\n".join(w11b_lines).encode("utf-8")).hexdigest()
                   and w11b_published(None)[1]["instruction_text_sha256"] is None
-                  and w11b_published(None)[1]["instruction_coverage"] == [],
-                  f"{w11b_whole['instruction_text_sha256']}")
+                  and w11b_published(None)[1].get("instruction_coverage") == [],
+                  f"{w11b_whole.get('instruction_text_sha256')}")
             # The prefix-stripping rule, the one `delivery_evidence.returned_lines` applies: a text a reading
             # tool numbered covers the same lines as the file's own bytes, and a digit that BEGINS a line of the
             # text is never taken for a prefix (only a text whose every line carries one is stripped).
             w11b_numbered = "\n".join(f"{n + 1:6d}\t{line}" for n, line in enumerate(w11b_lines))
             _bytes, w11b_prefixed = w11b_published(w11b_numbered)
             check("W11b: a compiled text a reading tool numbered covers the same lines as the file's own bytes",
-                  [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_prefixed["instruction_coverage"]]
-                  == [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_whole["instruction_coverage"]],
-                  f"numbered={[(row['unit_ref'], row['covered']) for row in w11b_prefixed['instruction_coverage']]} "
-                  f"plain={[(row['unit_ref'], row['covered']) for row in w11b_whole['instruction_coverage']]}")
+                  bool(w11b_coverage(w11b_prefixed)) and
+                  [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_coverage(w11b_prefixed)]
+                  == [(row["unit_ref"], row["covered"], row["total"]) for row in w11b_coverage(w11b_whole)],
+                  f"numbered={[(row['unit_ref'], row['covered']) for row in w11b_coverage(w11b_prefixed)]} "
+                  f"plain={[(row['unit_ref'], row['covered']) for row in w11b_coverage(w11b_whole)]}")
             # The asymmetry, in both directions. A unit's line is the file's own bytes and the compiled
             # text may have been numbered by whatever returned it, so the text is held both ways and the
             # unit's line is compared as written. The first of these rows was silent when the rule
@@ -17345,9 +17388,32 @@ def self_test():
             # Non-empty and one row per unit: a list that happens to be empty is still a list, and
             # the first form of this check passed over a reverted producer for that reason.
             w11b_doc_surfaces = w11b_facts_doc.get("unit_surfaces")
+            # WP-11b X r1: one pointer row per item the session received, each with its expected answer (the list
+            # being a list passed over a producer that published []), or a named reason where none is computable
+            w11b_pointed = w11b_published(w11b_text, items=w11b_catalog_items)[1]
+            w11b_pointer_rows = {row["ref"]: (row["pointer"], row["basis"])
+                                 for row in w11b_pointed.get("item_pointer_in_compiled_text") or []}
+            check("W11b X r1: a selection publishes one pointer row per item it received, each its own answer",
+                  w11b_pointer_rows == {"claude:guides/g": (True, "emitted_path"), "claude:rel": (True, "router_line"),
+                                        "claude:core": (None, "surface_has_no_pointer"),
+                                        "claude:gone": (None, "item_names_no_member")}
+                  and len(w11b_pointed.get("item_pointer_in_compiled_text") or []) == len(w11b_catalog_items)
+                  and "item_pointer_unavailable" not in w11b_pointed, f"{w11b_pointer_rows}")
+            w11b_textless = w11b_published(None)[1]
+            _p, w11b_repoless = shared_document("selection", "w11b-repoless", p26_rows(w11b_items),
+                                                {"home": p26_home, "commit": None},
+                                                snapshot={"items": [{"ref": "a-ref", "surface": "always"}],
+                                                          "output": {"instruction_text": w11b_text}})
+            check("W11b X r1: where the pointers cannot be computed the selection names why, and never "
+                  "publishes neither",
+                  w11b_textless.get("item_pointer_unavailable") == "compiled_text_absent"
+                  and "item_pointer_in_compiled_text" not in w11b_textless
+                  and w11b_repoless.get("item_pointer_unavailable") == "catalog_rule_unread"
+                  and "item_pointer_in_compiled_text" not in w11b_repoless,
+                  f"{w11b_textless.get('item_pointer_unavailable')} {w11b_repoless.get('item_pointer_unavailable')}")
             check("W11b: and the pointer facts and the router reach the document, with one surface row "
                   "per unit of the selection",
-                  isinstance(w11b_facts_doc.get("item_pointer_in_compiled_text"), list)
+                  bool(w11b_facts_doc.get("item_pointer_in_compiled_text"))
                   and w11b_facts_doc.get("router_path") == "/ref/router/relevant.md"
                   and isinstance(w11b_doc_surfaces, list)
                   and len(w11b_doc_surfaces) == len({row["unit_ref"] for row in w11b_facts_doc["edges"]})

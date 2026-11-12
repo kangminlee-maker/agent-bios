@@ -259,7 +259,8 @@
                          "pointer": {"type": ["boolean", "null"]},
                          "basis": {"enum": ["router_line", "emitted_path", "surface_has_no_pointer", "item_names_no_member"]}}}},
         "router_path": {"$comment": "the path the compiled text names as its router, read out of that text", "type": ["string", "null"]},
-        "unit_surfaces": {"$comment": "the catalogue surface of every unit this selection holds, with where it was read: the snapshot answers for the items the session was given, the installed baseline for the rest (WP-11b)", "type": "array", "items": {
+        "item_pointer_unavailable": {"$comment": "why item_pointer_in_compiled_text is not published, which a selection inventory then always says: the snapshot holds no compiled text, or the run had no catalog to spell the emitted paths by", "enum": ["compiled_text_absent", "catalog_rule_unread"]},
+        "unit_surfaces": {"$comment": "the catalogue surface of every unit this selection holds and of every judged unit that belongs to an item, with where it was read: the snapshot answers for the items the session was given, the installed baseline for the rest, and a unit neither answers for is unpublished (WP-11b)", "type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["unit_ref", "surface", "source"],
           "properties": {"unit_ref": {"type": "string", "pattern": "^r-[0-9a-f]{24}$"},
                          "surface": {"type": ["string", "null"]},
