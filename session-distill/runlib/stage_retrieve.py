@@ -253,21 +253,26 @@ def stored_evidence(run_dir, names):
 
 
 def cited(candidate, subject_of):
-    """`(evidence ids a candidate cites, problems)`: its admission's quotes and the quotes of its events' claims."""
+    """`(evidence ids a candidate cites, problems)`: its admission's quotes, and the quotes of every claim it cites - by
+    its admission's `claim_ids`, its tension's `instance_claim_ids` and its events' claims - each claim once. Codex WP-10
+    r1 #1: the claims cited directly were skipped, so a quote reached only through one was never verified again."""
     events = {r["id"]: r for r in subject_of["events"]}
-    ids, problems = set(), []
+    ids, problems, claim_ids = set(), [], []
     for requirement in (candidate.get("admission") or {}).values():
         ids.update(requirement.get("evidence_ids") or [])
+        claim_ids += list(requirement.get("claim_ids") or [])
+    claim_ids += list((candidate.get("tension") or {}).get("instance_claim_ids") or [])
     for event_id in candidate.get("event_ids") or []:
         row = events.get(event_id)
         if row is None:
             continue
-        for claim_id in row["claim_ids"] + row["outcome_claim_ids"]:
-            claim = subject_of["claims"].get(claim_id)
-            if claim is None:
-                problems.append(f"CLAIM_UNKNOWN {claim_id}")
-                continue
-            ids.update(q["evidence_id"] for q in claim["quotes"])
+        claim_ids += row["claim_ids"] + row["outcome_claim_ids"]
+    for claim_id in dict.fromkeys(claim_ids):
+        claim = subject_of["claims"].get(claim_id)
+        if claim is None:
+            problems.append(f"CLAIM_UNKNOWN {claim_id}")
+            continue
+        ids.update(q["evidence_id"] for q in claim["quotes"])
     return sorted(ids), problems
 
 
@@ -763,6 +768,26 @@ def self_test():
                     "counted in the summary", target_id and a_row.get("quote_ok") is False
                     and a_row.get("quote_problems") == [f"QUOTE_MISMATCH {target_id}"]
                     and a_doc["summary"].get("quote_failed") == 1, f"{target_id} {a_row.get('quote_problems')}")
+            # Codex WP-10 r1 #1: the same altered quote, reached only through a claim the candidate cites directly - by
+            # its admission's claim_ids, and by its tension's instance_claim_ids - is QUOTE_MISMATCH too
+            sub_a = guarded(lambda: stage_form.subject(altered), {"events": [], "claims": {}})
+            direct = next((c for c, claim in sub_a["claims"].items()
+                           if any(q["evidence_id"] == target_id for q in claim["quotes"])), None)
+            names_a = [t["name"] for t in guarded(lambda: records.read_json(altered / "views.json")["transcripts"], [])]
+            stored_a = guarded(lambda: stored_evidence(altered, names_a), {})
+            by_claims = {"candidate_id": "k-direct", "event_ids": [],
+                         "admission": {"observed_event": {"claim_ids": [direct], "evidence_ids": []}}}
+            by_tension = {"candidate_id": "k-tension", "event_ids": [], "admission": {},
+                          "tension": {"instance_claim_ids": [direct]}}
+            got_direct = [guarded(lambda k=k: quote_problems(altered, cited(k, sub_a)[0], stored_a, {}), ["RAISED"])
+                          for k in (by_claims, by_tension)]
+            control("Codex WP-10 r1 #1: an altered quote reached only through a claim cited directly - by the admission's "
+                    "claim_ids or the tension's instance_claim_ids - is QUOTE_MISMATCH by evidence id",
+                    direct and target_id and got_direct == [[f"QUOTE_MISMATCH {target_id}"]] * 2,
+                    f"{direct} {target_id} {got_direct}")
+            control("Codex WP-10 r1 #1: a claim cited directly that no store holds is CLAIM_UNKNOWN",
+                    guarded(lambda: cited({**by_claims, "admission": {"observed_event": {"claim_ids": ["c-none"]}}},
+                                          sub_a)[1], []) == ["CLAIM_UNKNOWN c-none"])
             # a tampered immutable copy, at the function: the record's own copy hashes otherwise
             tampered = copy_of("tampered")
             sub_t = guarded(lambda: stage_form.subject(tampered), None)
