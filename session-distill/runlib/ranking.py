@@ -187,16 +187,53 @@ def owner_resolves_position(row):
     return values["false"]
 
 
+# One reader per key id. The ORDER of the tuple and each key's DIRECTION come from the table, not
+# from here: the tuple was written out in order with the descending sign hardcoded, so the table
+# could declare a different key order, or turn `consequence` descending, and the ranking would not
+# move and no control would fail (the WP-12 review). A key the table declares and nothing here can
+# read is refused by name rather than ignored.
+KEY_READERS = {
+    "status_group": lambda held, row, group: group,
+    "consequence": lambda held, row, group: held["consequence_classes"].index(row["consequence"]),
+    "lineages": lambda held, row, group: row["lineages"],
+    "owner_resolves": lambda held, row, group: owner_resolves_position(row),
+    "kind": lambda held, row, group: held["kind_order"].index(row["kind"]),
+    "diagnosis": lambda held, row, group: held["diagnosis_order"].index(row["diagnosis"]),
+    "change": lambda held, row, group: held["change_order"].index(
+        "change" if changes_library(row) else "no-change"),
+    "candidate_id": lambda held, row, group: str(row["candidate_id"]),
+}
+
+
 def _position(held, row, group):
-    """The tuple itself, with every lookup in one place so a failed one cannot escape as a ValueError."""
-    return (group,
-            held["consequence_classes"].index(row["consequence"]),
-            -row["lineages"],  # descending, the one key that is
-            owner_resolves_position(row),
-            held["kind_order"].index(row["kind"]),
-            held["diagnosis_order"].index(row["diagnosis"]),
-            held["change_order"].index("change" if changes_library(row) else "no-change"),
-            str(row["candidate_id"]))
+    """The tuple itself, built from the table's key order so neither surface can move alone.
+
+    Every lookup is in one place so a failed one cannot escape as a ValueError.
+    """
+    keys = held.get("keys") or []
+    if not keys:
+        raise Refused("RANK_KEYS_ABSENT: the table declares no key, so the order would be "
+                      "whatever `sorted` does with equal rows")
+    held_tuple = []
+    for key in keys:
+        read = KEY_READERS.get(key.get("id"))
+        if read is None:
+            raise Refused(f"RANK_KEY_UNREADABLE {key.get('id')!r}: the table declares this key and "
+                          f"nothing here reads it, so the order it asks for is not the order rows "
+                          f"come out in")
+        value = read(held, row, group)
+        direction = key.get("direction", "ascending")
+        if direction == "descending":
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise Refused(f"RANK_KEY_DESCENDING_UNORDERABLE {key.get('id')}={value!r}: only a "
+                              f"number can be reversed by negating it, so a descending order over "
+                              f"this value cannot be expressed")
+            value = -value
+        elif direction != "ascending":
+            raise Refused(f"RANK_KEY_DIRECTION_UNKNOWN {key.get('id')}={direction!r}: the table "
+                          f"declares ascending or descending")
+        held_tuple.append(value)
+    return tuple(held_tuple)
 
 
 def ranked(rows):
@@ -238,8 +275,28 @@ def self_test():
     """Positive control first, then one planted violation per rule, each named.
 
     Done-when 9 is the last two controls: two rows differing only in candidate id order
-    deterministically, and the order is total over every row the fixtures hold."""
-    failures, ran, reporting = [], [], []
+    deterministically, and the order is total over every row the fixtures hold.
+    The body is wrapped so a control that DIES still speaks: a traceback is not a control firing,
+    and a revert trial that reads any output counts one as if it were (the WP-12 review). The
+    wrapper prints a [FAIL] line naming the control that was in flight, so the evidence says which
+    rule stopped being enforced.
+    """
+    failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"ranking --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"ranking --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"ranking --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} failed "
+              f"before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
+    reporting = []
 
     def control(name, got, want):
         if reporting:
@@ -562,6 +619,76 @@ def self_test():
                  row(candidate_id="z-owner", kind="unclassified", diagnosis="unknown",
                      owner_resolves=True)])),
             "z-owner,a-gap")
+    # ---- the table's key order and directions DECIDE, rather than being described ---------------
+    #
+    # `_position` wrote the tuple out in order with the descending sign hardcoded: the table could
+    # declare `consequence` before `status_group`, or turn `consequence` descending, and no row
+    # would move and no control would fail (the WP-12 review).
+    def with_keys(mutate, call):
+        """Run `call` with the table's keys mutated, restoring them however the call ends."""
+        held = table()
+        kept = list(held["keys"])
+        held["keys"] = mutate([dict(key) for key in kept])
+        try:
+            return call()
+        finally:
+            held["keys"] = kept
+
+    def order_of(rows):
+        return ",".join(held_row["candidate_id"] for held_row in ranked(rows))
+
+    # The ids are ordered AGAINST the answer: `a-cost` is the graver consequence and sorts first,
+    # so a mutation that stops the consequence key deciding reverses the pair.
+    pair = [row(candidate_id="z-quality", consequence="quality", lineages=1),
+            row(candidate_id="a-cost", consequence="cost", lineages=1)]
+    control("the keys as declared put the graver consequence first",
+            order_of(pair), "a-cost,z-quality")
+    control("and turning that key DESCENDING in the table reverses them, so the direction is read "
+            "rather than written here",
+            with_keys(lambda keys: [{**key, "direction": "descending"}
+                                    if key["id"] == "consequence" else key for key in keys],
+                      lambda: order_of(pair)),
+            "z-quality,a-cost")
+    # And the key ORDER: with `candidate_id` ahead of every other key, the id decides. Here that
+    # happens to agree with the declared answer, so the DESCENDING id is what distinguishes it.
+    control("moving a key ahead of another in the table changes which one decides",
+            with_keys(lambda keys: ([key for key in keys if key["id"] == "candidate_id"]
+                                    + [{**key, "id": key["id"]}
+                                       for key in keys if key["id"] != "candidate_id"]),
+                      lambda: order_of([row(candidate_id="z-cost", consequence="cost", lineages=1),
+                                        row(candidate_id="a-quality", consequence="quality",
+                                            lineages=1)])),
+            "a-quality,z-cost")
+    control("a key the table declares and nothing here reads is refused by name, since the order it "
+            "asks for is not the order rows come out in",
+            refusal(lambda: with_keys(lambda keys: keys + [{"id": "invented",
+                                                            "direction": "ascending"}],
+                                      lambda: order_of(pair))),
+            "RANK_KEY_UNREADABLE 'invented'")
+    control("a direction that is neither is refused too",
+            refusal(lambda: with_keys(lambda keys: [{**key, "direction": "sideways"}
+                                                    if key["id"] == "kind" else key
+                                                    for key in keys],
+                                      lambda: order_of(pair))),
+            "RANK_KEY_DIRECTION_UNKNOWN kind='sideways'")
+    control("and a descending order over a value that is not a number, since negating it is the "
+            "only way a tuple expresses descending",
+            refusal(lambda: with_keys(lambda keys: [{**key, "direction": "descending"}
+                                                    if key["id"] == "candidate_id" else key
+                                                    for key in keys],
+                                      lambda: order_of(pair))),
+            "RANK_KEY_DESCENDING_UNORDERABLE candidate_id")
+    control("and the same pair without the mutation still orders by the consequence, so the "
+            "mutations above are what the controls are reading",
+            order_of(pair), "a-cost,z-quality")
+    control("a table with NO keys is refused rather than left to sorted() over equal rows",
+            refusal(lambda: with_keys(lambda keys: [], lambda: order_of(pair))),
+            "RANK_KEYS_ABSENT")
+    control("every key the table declares has a reader, and every reader a key: one set, named in "
+            "both places",
+            json.dumps(sorted(KEY_READERS)),
+            json.dumps(sorted(key["id"] for key in table()["keys"])))
+
     def s7b_key_field(name):
         key = next((key for key in table()["keys"] if key["id"] == "owner_resolves"), None)
         return f"<no owner_resolves key>" if key is None else str(key.get(name))
@@ -575,6 +702,23 @@ def self_test():
             "and not merely present",
             "; ".join(with_key_design("§7.5, the eighth key.", fidelity_problems)),
             "DESIGN_SENTENCE_DIVERGED the amendment")
+
+    # The wrapper that makes a dying control speak. Asserted from the source, because a suite that
+    # ends in a traceback prints no control name at all and a revert trial then reads the traceback
+    # as the control firing (the WP-12 review).
+    # The WRAPPER's own source, not the file's. A scan of the whole file is satisfied by this
+    # control's own text — the phrase it looks for appears in the line that looks for it — which is
+    # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
+    # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
+    wrapper_text = inspect.getsource(self_test)
+    control("a control that dies names itself, since a traceback is not a control firing",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "died after" in line and "print(" in line), "<no such line>"),
+            "self-test [FAIL] the suite died after")
+    control("and the wrapper is what the entry point runs, so the body cannot be called around it",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "_self_test_body(" in line), "<no such line>"),
+            "return _self_test_body(failures, ran)")
 
     reporting.append(True)
     if failures:

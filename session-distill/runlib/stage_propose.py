@@ -123,6 +123,31 @@ def mapped_incubate(entry):
     return None
 
 
+# The placement claims a default carries: it proposes NOTHING, so every claim is null or false.
+# They are required by the schema, and the default used to leave them out and carry two fields of
+# its own instead — so the one answer code writes was the one answer the stage refused as invalid
+# (the WP-12 review).
+# NULL, not false: the default proposes nothing, and `false` would be a claim about a situation
+# nobody read. Every field is nullable in the schema, and §7.4's rules name their own scope — a
+# disposition that changes no file is outside all of them.
+LEGACY_DEFAULT_PLACEMENT = {"consumer": None, "artifact_form": None, "blocking": None,
+                            "criterion": None, "judges": None,
+                            "situation_promoted_items": None,
+                            "situation_covered_by_guide": None,
+                            "names_situation_of_guide": None, "owner_only": None}
+
+
+def legacy_metadata(entry):
+    """What a legacy default is ACCOUNTED under, outside the answer itself.
+
+    The group and whether the entry arrived with its own decision are the review's accounting, not
+    fields of a proposal: carrying them inside the answer made it fail the schema's
+    additionalProperties, which is the schema being right.
+    """
+    return {"legacy_group": decision1_kind(entry),
+            "entered_with_decision": mapped_incubate(entry) is not None}
+
+
 def legacy_answer(entry):
     """The default proposal code makes for a legacy entry no call is spent on.
 
@@ -139,17 +164,18 @@ def legacy_answer(entry):
         return {"disposition": "incubate", "consequence": "none", "operations": [],
                 "destination": {"layer": "incubator", "carrier": None},
                 "expected_observation": mapped.get("expected_observation"),
-                "unknowns": [],
+                "unknowns": [], "placement": dict(LEGACY_DEFAULT_PLACEMENT),
                 "reasons": {"what_happened": f"레거시 항목 {entry.get('id')}은 이미 incubate 결정을 들고 있다",
                             "proposal": "그 결정 그대로 흡입에 들어온다",
                             "reason": f"스키마 2로 맵핑된 결정이 있어 기본값이 적용되지 않는다. 묶음 {group}.",
                             "cost": "없음",
                             "serves": "그 결정을 내린 사람과 그것을 확인할 다음 창",
                             "falsifier": "저장된 관측이 만료에 이르러 확인되지 않으면 그 결정이 틀렸다"},
-                "legacy_group": group, "entered_with_decision": True}
+                }
     return {"disposition": held["disposition"], "consequence": "none", "operations": [],
             "destination": {"layer": "incubator", "carrier": None},
             "expected_observation": None, "unknowns": [],
+            "placement": dict(LEGACY_DEFAULT_PLACEMENT),
             "reasons": {"what_happened": f"대장의 레거시 항목 {entry.get('id')}이 흡입에 남아 있다",
                         "proposal": "제안 없음: 소유자가 정한 기본값대로 흡입에 남긴다",
                         "reason": (f"이 항목에는 분류 블록이 없어 이번 창의 증거가 더 말해 주는 것이 없다. "
@@ -157,7 +183,7 @@ def legacy_answer(entry):
                         "cost": "없음: 대장도 라이브러리도 바뀌지 않는다",
                         "serves": "이 항목을 다시 읽을 다음 창의 작업자",
                         "falsifier": "이 상황이 다시 일어나 새 증거가 생기면 보통 후보로 올라온다"},
-            "legacy_group": group, "entered_with_decision": False}
+            }
 
 
 def legacy_split(entries):
@@ -171,7 +197,8 @@ def legacy_split(entries):
         (calls if call_spent_on(entry) else defaults).append(entry)
     groups = collections.Counter(decision1_kind(entry) for entry in defaults)
     return {"calls": [e.get("id") for e in calls],
-            "defaults": [{"id": e.get("id"), "group": decision1_kind(e), "answer": legacy_answer(e)}
+            "defaults": [{"id": e.get("id"), "group": decision1_kind(e),
+                          "answer": legacy_answer(e), **legacy_metadata(e)}
                          for e in defaults],
             "groups": dict(groups),
             "counts": {"entries": len(entries), "calls": len(calls), "defaults": len(defaults),
@@ -274,9 +301,20 @@ def regeneration_packet(answer, candidate, derivation, derivation_row, failing, 
                     f"above and in plain words. Change NOTHING else: the disposition, the "
                     f"operations, the destination and the claims stay exactly as they are, and code "
                     f"refuses an answer in which anything else moved.")
+    # THE ORIGINAL ANSWER ITSELF. The packet never read its `answer` parameter, so two proposals
+    # differing in disposition, operations or destination produced identical bytes: the seat was
+    # asked to rewrite the Korean of a proposal it was never shown, and `regenerated_problems`
+    # would then refuse whatever it wrote back for having moved everything (the WP-12 review).
+    immutable = {key: value for key, value in (answer or {}).items() if key != "reasons"}
+    original = ("\n\nTHE PROPOSAL TO REWRITE (its non-Korean fields are fixed; reproduce them "
+                "exactly):\n"
+                + json.dumps(immutable, ensure_ascii=False, indent=1, sort_keys=True)
+                + "\n\nIts current Korean fields, for reference:\n"
+                + json.dumps((answer or {}).get("reasons") or {}, ensure_ascii=False, indent=1,
+                             sort_keys=True))
     built = packet_for(candidate, derivation, derivation_row, units=units, call_id=call_id,
                        seat="regenerate")
-    return built + payload_note.encode("utf-8")
+    return built + original.encode("utf-8") + payload_note.encode("utf-8")
 
 
 def regenerated_problems(before, after):
@@ -477,6 +515,55 @@ def _non_prose_values(answer):
     return held
 
 
+# What an operation of each type must CARRY to be executable, beyond the three fields the schema
+# requires of every operation. The schema cannot express this — `if`/`then` is not a keyword the
+# validator supports — so it is here, named per type, and the self-test holds the set of types
+# against the schema's own enum so a new type cannot arrive unjudged.
+OPERATION_CONTENT = {"create": ("content",), "edit": ("content",), "delete": (),
+                     "merge": ("units",), "route": ("names",)}
+
+# The blocks a LIBRARY-CHANGING proposal must carry. A disposition that changes an installed
+# instruction without them is a proposal nobody can execute or review: `artifact_set` is the text
+# that would be written and where it registers, `behavior_contract` is the seven claims S7b and the
+# owner read. The schema makes both optional, since a ledger-only disposition carries neither.
+CHANGING_BLOCKS = ("artifact_set", "behavior_contract")
+
+
+def content_problems(answer, item=""):
+    """What a proposal of this disposition and these operation types must carry, by name.
+
+    A `place` proposal with no `artifact_set`, no `behavior_contract` and an operation carrying only
+    its type, target and before-hash passed every check: S7 accepted a library-changing proposal
+    with none of the content needed to execute or review it (the WP-12 review).
+    """
+    if not isinstance(answer, dict):
+        return []
+    problems = []
+    disposition = answer.get("disposition")
+    changes = disposition not in placement.LEDGER_ONLY + ("none", None)
+    if changes:
+        for block in CHANGING_BLOCKS:
+            held = answer.get(block)
+            if not isinstance(held, dict) or not held:
+                problems.append(f"CONTENT_BLOCK_ABSENT {item}{block}: a {disposition} changes an "
+                                f"installed instruction, so it carries the text to write and the "
+                                f"claims a reviewer reads")
+    for n, operation in enumerate(answer.get("operations") or ()):
+        if not isinstance(operation, dict):
+            continue
+        kind = operation.get("type")
+        wanted = OPERATION_CONTENT.get(kind)
+        if wanted is None:
+            continue
+        for field in wanted:
+            value = operation.get(field)
+            if value is None or (isinstance(value, (str, list, tuple)) and not value):
+                problems.append(f"OPERATION_FIELD_ABSENT {item}operations[{n}] {kind}: a {kind} "
+                                f"carries {field}, or there is nothing for the apply stage to "
+                                f"write")
+    return problems
+
+
 def non_prose_problems(answer, item=""):
     """A control character in a non-prose string, by field and value.
 
@@ -507,6 +594,11 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
     Order matters only in that the shape comes first: a contract check over a malformed answer
     reports the malformation twice in different words."""
     problems = _shape_problems(answer)
+    # A non-object answer is a NAMED invalid row, not a crash. The membership tests below raise
+    # TypeError on a scalar, and they ran before the schema errors were returned, so a model
+    # answering `7` ended the stage with a traceback instead of one refused row (the WP-12 review).
+    if not isinstance(answer, dict):
+        return problems or [f"ANSWER_NOT_AN_OBJECT {type(answer).__name__}: a proposal is an object"]
     for field in DERIVED_FIELDS:
         if field in answer:
             problems.append(f"ANSWER_REDERIVES_DERIVED {field}: S6 derived it, so a proposal that "
@@ -515,6 +607,7 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
         return problems
     proposal = proposal_of(answer, candidate, derivation_row, legacy_incubating)
     problems += non_prose_problems(answer, item=f"{candidate.get('candidate_id')}: ")
+    problems += content_problems(answer, item=f"{candidate.get('candidate_id')}: ")
     problems += placement.problems(proposal, active_keep)
     # §10.4: a ledger-only disposition changes no installed instruction, so it carries no operations
     # and needs no test. The structural table owns the rest of §7.3; this one is §10.4's own sentence.
@@ -524,16 +617,31 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
                         f"{len(answer['operations'])} library operation(s)")
     # The unknowns. A state the derivation named must be carried by name; a proposal may carry more
     # than the run has (a field it could not use for its own reason), but never fewer.
-    wanted = {row["field"] for row in named_states(derivation)}
-    carried = {row["field"] for row in answer.get("unknowns") or []}
-    for field in sorted(wanted - carried):
-        state = next(r["state"] for r in named_states(derivation) if r["field"] == field)
-        problems.append(f"UNKNOWN_NOT_CARRIED {candidate['candidate_id']}.{field}={state}: the "
-                        f"derivation named this state, so the proposal carries it forward rather "
-                        f"than resting on an answer nobody has")
-    for row in answer.get("unknowns") or []:
-        if row["field"] not in {s["field"] for s in UNKNOWN_SOURCES}:
-            problems.append(f"UNKNOWN_FIELD_UNDECLARED {row['field']}: not one of "
+    wanted = {row["field"]: row["state"] for row in named_states(derivation)}
+    held_rows = [row for row in answer.get("unknowns") or [] if isinstance(row, dict)]
+    carried = {}
+    for row in held_rows:
+        carried.setdefault(row.get("field"), []).append(row.get("state"))
+    for field in sorted(set(wanted) - set(carried)):
+        problems.append(f"UNKNOWN_NOT_CARRIED {candidate['candidate_id']}.{field}={wanted[field]}: "
+                        f"the derivation named this state, so the proposal carries it forward "
+                        f"rather than resting on an answer nobody has")
+    # The STATE, not only the field. The guard compared field sets alone, so a proposal could carry
+    # every field with its state rewritten — `derived` where S6 said `untested: s8_deferred` — and
+    # the owner would read the run as having answered what it never answered. The state a proposal
+    # carries for a field the derivation named must be the derivation's own (the WP-12 review).
+    for field, states in sorted(carried.items()):
+        if field in wanted and any(state != wanted[field] for state in states):
+            problems.append(f"UNKNOWN_STATE_REWRITTEN {candidate['candidate_id']}.{field}: the "
+                            f"derivation says {wanted[field]!r} and the proposal carries "
+                            f"{sorted({str(s) for s in states})}; a proposal explains a state, it "
+                            f"does not restate it")
+        if len(states) > 1:
+            problems.append(f"UNKNOWN_FIELD_REPEATED {candidate['candidate_id']}.{field}: carried "
+                            f"{len(states)} times, so two states would answer for one field")
+    for row in held_rows:
+        if row.get("field") not in {s["field"] for s in UNKNOWN_SOURCES}:
+            problems.append(f"UNKNOWN_FIELD_UNDECLARED {row.get('field')}: not one of "
                             f"{', '.join(s['field'] for s in UNKNOWN_SOURCES)}")
     # §10's R rule, stated by the answer rather than inferred later: a core item admitted by
     # adjudication must say it requires an R, and one that does not is returned rather than carried
@@ -607,10 +715,29 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
     if only is not None:
         rows = {cid: row for cid, row in rows.items() if cid in set(only)}
     verdicts = (derivations or {}).get("verdicts") or {}
-    legacy_ids = set(legacy or ())
+    # `legacy` may be a set of ids OR a mapping id -> ledger entry. The mapping is what lets the
+    # OWNER'S DEFAULT be applied here: with ids alone this stage knew which candidates were legacy
+    # and nothing about them, so an entry with no classification block — the 118 the owner's
+    # decision is about — got ANSWER_ABSENT and the default never reached a document (the WP-12
+    # review). The ids form stays because WP-20 passes it.
+    legacy_entries = dict(legacy) if isinstance(legacy, dict) else {cid: None for cid in legacy or ()}
+    legacy_ids = set(legacy_entries)
+    defaulted, default_groups = [], collections.Counter()
     proposals, returned = [], []
     for cid in sorted(rows):
         answer = (answers or {}).get(cid)
+        if answer is None and cid in legacy_ids and legacy_entries[cid] is not None:
+            entry = legacy_entries[cid]
+            if call_spent_on(entry):
+                # A block exists, so a call was owed and no answer came back. Code does not answer
+                # for an entry the owner's decision says the model must read.
+                returned.append({"candidate_id": cid, "problems": [
+                    f"LEGACY_CALL_UNANSWERED {cid}: the entry carries a classification block, so a "
+                    f"call was spent on it and the default does not apply"]})
+                continue
+            answer = legacy_answer(entry)
+            defaulted.append(cid)
+            default_groups[decision1_kind(entry)] += 1
         if answer is None:
             returned.append({"candidate_id": cid, "problems": [f"ANSWER_ABSENT {cid}: S7 made no "
                                                                f"proposal for a candidate it was given"]})
@@ -623,6 +750,10 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
         waits, why = awaiting_r(answer, rows[cid], verdicts.get(cid))
         proposals.append({**review_row(answer, rows[cid], verdicts.get(cid)), "proposal": answer,
                           "legacy_incubating": cid in legacy_ids,
+                          # Which answers are the owner's default and which a model wrote: the
+                          # review groups the defaulted ones, and a reader cannot tell them apart
+                          # from the proposal alone.
+                          "answered_by": "default" if cid in defaulted else "model",
                           "awaiting_R": waits, "awaiting_R_reason": why})
     not_derived = [r["candidate_id"] for r in (derivations or {}).get("not_derived") or []]
     tally = collections.Counter
@@ -636,9 +767,17 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
             # `subset` says what population this document is about, so a reader cannot mistake a
             # second pass over three candidates for a run over all of them.
             "subset": sorted(only) if only is not None else None,
+            # The legacy default's own accounting, counted over the entries THIS run holds: the
+            # owner's decision groups the defaulted entries by the first word of `decision1`, and a
+            # remembered figure would be wrong the first time an entry moved.
+            "legacy": {"defaulted": sorted(defaulted),
+                       "groups": dict(sorted(default_groups.items())),
+                       "entries": len(legacy_ids),
+                       "with_entry": sum(1 for v in legacy_entries.values() if v is not None)},
             "counts": {"candidates": len(rows), "proposed": len(proposals), "returned": len(returned),
                        "not_derived": len(not_derived),
                        "awaiting_R": sum(1 for p in proposals if p["awaiting_R"]),
+                       "legacy_defaulted": len(defaulted),
                        "disposition": dict(tally(p["disposition"] for p in proposals)),
                        "status_group": dict(tally(p["status_group"] for p in ranking.ranked(proposals)))}}
 
@@ -892,10 +1031,14 @@ def run_legacy_fixture(case):
     """What code answers for one legacy entry: whether a call is spent, and the default it makes."""
     entry = case["entry"]
     answer = legacy_answer(entry)
+    # The accounting comes from `legacy_metadata`, not from the answer: those two fields are the
+    # review's, and carrying them inside a proposal is what made the default schema-invalid.
+    held = legacy_metadata(entry)
     return {"call_spent": call_spent_on(entry), "disposition": answer["disposition"],
-            "entered_with_decision": answer["entered_with_decision"],
-            "group": answer["legacy_group"], "entry_id": entry.get("id"),
-            "observation": bool(answer.get("expected_observation"))}
+            "entered_with_decision": held["entered_with_decision"],
+            "group": held["legacy_group"], "entry_id": entry.get("id"),
+            "observation": bool(answer.get("expected_observation")),
+            "schema_problems": _shape_problems(answer)}
 
 
 def run_fixture(case):
@@ -961,8 +1104,28 @@ def self_test():
     """The fixtures, then one planted violation per rule, each named.
 
     Golden only: no model call is made here and none is made by this module - S7's call is the
-    driver's, and this suite judges the packet it would send and the answer it would receive."""
-    failures, ran, reporting = [], [], []
+    driver's, and this suite judges the packet it would send and the answer it would receive.
+    The body is wrapped so a control that DIES still speaks: a traceback is not a control firing,
+    and a revert trial that reads any output counts one as if it were (the WP-12 review). The
+    wrapper prints a [FAIL] line naming the control that was in flight, so the evidence says which
+    rule stopped being enforced.
+    """
+    failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"stage_propose --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"stage_propose --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"stage_propose --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} failed "
+              f"before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
+    reporting = []
 
     def control(name, got, want):
         if reporting:
@@ -1194,7 +1357,7 @@ def self_test():
                                            "legacy_text": "incubating"}]}
     control("a legacy_migration row that carries the word incubate is still not a mapped decision: it "
             "records the migration of a status, not a judgment",
-            str(legacy_answer(migrated_as_incubate)["entered_with_decision"]), "False")
+            str(legacy_metadata(migrated_as_incubate)["entered_with_decision"]), "False")
     control("so such an entry takes the owner's default",
             legacy_answer(migrated_as_incubate)["disposition"], "none")
     clean("a legacy default carries no library operation, which is what none_stays_in_intake asks",
@@ -1492,6 +1655,152 @@ def self_test():
     control("and it says plainly that nothing else may move", said_packet,
             "Change NOTHING else")
 
+    # THE ORIGINAL PROPOSAL ITSELF. The packet never read its `answer` parameter: two proposals
+    # differing in disposition, operations or destination produced identical bytes, so the seat was
+    # asked to rewrite the Korean of a proposal it was never shown — and `regenerated_problems`
+    # would then refuse whatever came back for having moved everything (the WP-12 review).
+    def packet_of(answer):
+        return regeneration_packet(answer, *_candidate()[:1], ANSWERED, _candidate()[1],
+                                   failing=["reason"]).decode("utf-8")
+
+    other = _answered(disposition="correct",
+                      operations=[{"type": "edit", "target": "claude/guides/other.md",
+                                   "before_state_sha256": "a" * 64, "content": "other text"}])
+    control("two different originals produce DIFFERENT retry packets, which they could not do "
+            "while the original was never read",
+            json.dumps(packet_of(before) != packet_of(other)), "true")
+    control("and the packet carries the original's own disposition", packet_of(before), '"place"')
+    control("and its operations, which the retry must reproduce exactly",
+            packet_of(other), "claude/guides/other.md")
+    control("the Korean fields are shown as the reference they are, not as fields to keep",
+            packet_of(before), "Its current Korean fields, for reference")
+    clean("and the packet is one document: the original appears once, not once per field",
+          [] if packet_of(before).count("THE PROPOSAL TO REWRITE") == 1
+          else [f"the original appears {packet_of(before).count('THE PROPOSAL TO REWRITE')} times"])
+
+    # ---- a carried unknown STATE is the derivation's own ------------------------------------------
+    #
+    # The guard compared field SETS, so a proposal could carry every field the derivation named with
+    # the state rewritten — `derived` where S6 said `untested: s8_deferred` — and the owner would
+    # read the run as having answered what it never answered (the WP-12 review).
+    # RELEASE_1 is the derivation that names states: with S8 deferred, `unit_outcomes` is `none`
+    # and `delivery` is `delivery_assembly_waiting`. `_carry` is what carrying them forward looks
+    # like, and the rewrite below keeps every field and replaces every state.
+    carried = _carry(RELEASE_1)
+    rewritten = _answered(unknowns=[{**held_row, "state": "derived"} for held_row in carried])
+    r1_candidate = _candidate("k-r1")
+    control("a proposal that rewrites a state the derivation named is refused by field",
+            "; ".join(answer_problems(rewritten, r1_candidate[0], RELEASE_1, r1_candidate[1])),
+            "UNKNOWN_STATE_REWRITTEN")
+    control("and the refusal names both the derivation's state and the proposal's",
+            "; ".join(answer_problems(rewritten, r1_candidate[0], RELEASE_1, r1_candidate[1])),
+            "the proposal carries ['derived']")
+    clean("while carrying the states S6 named is clean, which is what carrying forward means",
+          [problem for problem in answer_problems(_answered(unknowns=carried), r1_candidate[0],
+                                                  RELEASE_1, r1_candidate[1])
+           if "UNKNOWN_" in problem])
+    clean("and the field SET is identical in both, so the guard that compared sets alone saw no "
+          "difference between them",
+          [] if ({held_row["field"] for held_row in carried}
+                 == {held_row["field"] for held_row in rewritten["unknowns"]})
+          else ["the rewrite changed the field set, so it is not the case the review found"])
+    control("one field carried twice is refused, since two states would answer for one field",
+            "; ".join(answer_problems(
+                _answered(unknowns=[*carried, dict(carried[0])]), r1_candidate[0], RELEASE_1,
+                r1_candidate[1])),
+            "UNKNOWN_FIELD_REPEATED")
+
+    # ---- a library-changing proposal carries the content to execute and review it ----------------
+    #
+    # A `place` with no `artifact_set`, no `behavior_contract` and an operation carrying only its
+    # type, target and before-hash passed EVERY check: S7 accepted a proposal that changes the
+    # library with none of the content needed to execute or review it (the WP-12 review). The
+    # schema cannot say this — `if`/`then` is not a keyword the validator supports — so it is code,
+    # and the controls below are what make the code the second surface rather than a restatement.
+    def bare(**over):
+        held = _answered(**over)
+        held.pop("artifact_set", None)
+        held.pop("behavior_contract", None)
+        held["operations"] = [{"type": "create", "target": "claude/guides/g.md",
+                               "before_state_sha256": "a" * 64}]
+        return held
+
+    held_bare = "; ".join(answer_problems(bare(), *_candidate()[:1], ANSWERED, _candidate()[1]))
+    control("a library-changing proposal with no artifact_set is refused by name",
+            held_bare, "CONTENT_BLOCK_ABSENT k1: artifact_set")
+    control("and with no behavior_contract", held_bare,
+            "CONTENT_BLOCK_ABSENT k1: behavior_contract")
+    control("and a create carrying no content, since there would be nothing to write",
+            held_bare, "OPERATION_FIELD_ABSENT k1: operations[0] create: a create carries content")
+    clean("the full answer carries all three, so the rule can be satisfied rather than only fired",
+          [problem for problem in answer_problems(_answered(), *_candidate()[:1], ANSWERED,
+                                                  _candidate()[1])
+           if "CONTENT_" in problem or "OPERATION_FIELD_" in problem])
+    clean("a LEDGER-ONLY disposition carries neither block, because it changes no installed "
+          "instruction",
+          [problem for problem in content_problems(
+              {"disposition": "keep", "operations": [], "reasons": {"reason": "r"}})
+           if "CONTENT_BLOCK_ABSENT" in problem])
+    clean("and `none` likewise",
+          content_problems({"disposition": "none", "operations": []}))
+    for kind, field in (("edit", "content"), ("merge", "units"), ("route", "names")):
+        control(f"a {kind} with no {field} is refused by name",
+                "; ".join(content_problems(
+                    {"disposition": "place", "artifact_set": {"english": "t"},
+                     "behavior_contract": {"recognition": "r"},
+                     "operations": [{"type": kind, "target": "claude/guides/g.md",
+                                     "before_state_sha256": "a" * 64}]})),
+                f"OPERATION_FIELD_ABSENT operations[0] {kind}: a {kind} carries {field}")
+    clean("a DELETE carries no content, since removing a file needs no text",
+          content_problems({"disposition": "place", "artifact_set": {"english": "t"},
+                            "behavior_contract": {"recognition": "r"},
+                            "operations": [{"type": "delete", "target": "claude/guides/g.md",
+                                            "before_state_sha256": "a" * 64}]}))
+    control("an EMPTY value is as absent as a missing one, which is the shape a model writes",
+            "; ".join(content_problems(
+                {"disposition": "place", "artifact_set": {"english": "t"},
+                 "behavior_contract": {"recognition": "r"},
+                 "operations": [{"type": "create", "target": "claude/guides/g.md",
+                                 "before_state_sha256": "a" * 64, "content": ""}]})),
+            "OPERATION_FIELD_ABSENT operations[0] create")
+    control("every operation type the SCHEMA admits has a content rule, so a new type cannot arrive "
+            "unjudged",
+            json.dumps(sorted(OPERATION_CONTENT)),
+            json.dumps(sorted(json.loads(schema_bytes().decode("utf-8"))["$defs"]["operation"]
+                              ["properties"]["type"]["enum"])))
+    clean("and each rule's field is one the schema admits on an operation",
+          [f"{kind}.{field}" for kind, fields in OPERATION_CONTENT.items() for field in fields
+           if field not in json.loads(schema_bytes().decode("utf-8"))["$defs"]["operation"]
+           ["properties"]])
+    control("the blocks a changing proposal must carry are named in one place",
+            json.dumps(list(CHANGING_BLOCKS)),
+            json.dumps(["artifact_set", "behavior_contract"]))
+
+    # ---- a scalar answer is a named row, not a traceback -----------------------------------------
+    def guarded(call):
+        """The call's answer, or the exception as the answer.
+
+        A control that DIES is not a control: with the root-type guard reverted the membership test
+        raises TypeError, the suite ended on a traceback, and the revert trial counted it as silent
+        rather than as the guard firing. The exception is what the control reads now.
+        """
+        try:
+            return "; ".join(call())
+        except BaseException as exc:  # noqa: BLE001 - the exception IS the answer here
+            return f"the control died: {type(exc).__name__}: {exc}"
+
+    for held_scalar in (7, "a string", [1, 2], None):
+        control(f"a {type(held_scalar).__name__} answer is refused by name rather than raising",
+                guarded(lambda: answer_problems(held_scalar, *_candidate()[:1], ANSWERED,
+                                          _candidate()[1]))[:40],
+                "ANSWER_INVALID")
+    control("and such an answer comes out as a returned ROW of the document, which is what a stage "
+            "that ends in a traceback cannot do",
+            guarded(lambda: [json.dumps(document(
+                {"verdicts": {"k1": _candidate("k1")[1]}, "not_derived": [], **ANSWERED},
+                {"candidates": [_candidate("k1")[0]]}, {"k1": 7})["returned"])]),
+            "ANSWER_INVALID")
+
     # The subset WP-20's adjudication second pass asks for.
     many = {"candidates": [_candidate("k1")[0], _candidate("k2")[0], _candidate("k3")[0]]}
     derivs = {"verdicts": {cid: _candidate(cid)[1] for cid in ("k1", "k2", "k3")},
@@ -1576,6 +1885,88 @@ def self_test():
     doc = document(derivations, cands, {"k1": _answered(), "k2": _answered(disposition="rewrite")})
     control("a candidate whose answer does not hold is returned, not dropped",
             json.dumps(doc["returned"]), "k2")
+
+    # ---- the owner's legacy default, THROUGH the stage ------------------------------------------
+    #
+    # D-20261111-e53a01: an incubating ledger entry arriving by lifecycle intake gets `none` by
+    # default, an entry WITH a classification block goes to the model, and the review groups the
+    # defaulted ones by the first word of `decision1`. `legacy_split` and `legacy_answer` held all
+    # of that and NOTHING CALLED THEM: `document` required an answer for every candidate, so the
+    # 118 entries with no block came out ANSWER_ABSENT and the owner's default never reached a
+    # document at all (the WP-12 review). The default also could not have passed if it had: it
+    # carried `legacy_group` and `entered_with_decision` as answer fields and no `placement`, so
+    # the one answer code writes was the one answer the schema refused.
+    legacy_entry = {"id": "k-legacy", "status": "incubating",
+                    "decisions": [{"field": "decision1", "kind": "legacy_migration",
+                                   "legacy_text": "below-bar-default kept for later"}]}
+    legacy_cands = {"candidates": [_candidate("k-legacy", kind="unclassified",
+                                              diagnosis="unknown", eligible=False)[0]]}
+    legacy_derivs = {"verdicts": {"k-legacy": _candidate("k-legacy", kind="unclassified",
+                                                         diagnosis="unknown",
+                                                         eligible=False)[1]},
+                     "not_derived": [], **ANSWERED}
+    legacy_doc = document(legacy_derivs, legacy_cands, {}, None, {"k-legacy": legacy_entry})
+    # The default is APPLIED: the entry is no longer ANSWER_ABSENT, and what it meets now is the
+    # placement rule. That second half is the WP-12 review's placement finding (the promotion guard
+    # refuses the owner's `none` precisely for a legacy entry below the bar, which every one of the
+    # 142 is) and it is fixed in `placement.py` with the C2 work, not here. This control states
+    # exactly where the chain stops today, so it becomes a clean row the moment that lands rather
+    # than passing on an expectation nobody re-reads.
+    control("a legacy entry with no answer and no classification block reaches the CONTRACT from "
+            "the owner's default instead of being returned for want of an answer",
+            json.dumps([row["problems"] for row in legacy_doc["returned"]]),
+            "PAIR_DISALLOWED none k-legacy")
+    clean("so the default is no longer reported as a missing answer, which is what hid it",
+          [row for row in legacy_doc["returned"]
+           if any("ANSWER_ABSENT" in problem for problem in row["problems"])])
+    control("and the answer code made for it is the owner's `none`",
+            legacy_answer(legacy_entry)["disposition"], "none")
+    control("the document groups the defaulted entries by the first word of decision1, counted "
+            "over the entries this run holds",
+            json.dumps(legacy_doc["legacy"]["groups"]), '{"below-bar-default": 1}')
+    control("with the defaulted ids named", json.dumps(legacy_doc["legacy"]["defaulted"]),
+            '["k-legacy"]')
+    control("and counted in the document's own counts",
+            json.dumps(legacy_doc["counts"]["legacy_defaulted"]), "1")
+    # A block exists, so a call was owed. Code does not answer for an entry the owner's decision
+    # sends to the model, and the absence is named for what it is rather than as a missing answer.
+    classified = {"id": "k-legacy", "status": "incubating",
+                  "decisions": [{"field": "decision1", "kind": "legacy_migration",
+                                 "legacy_text": "classified a block is present"}],
+                  "classification": {"type": "D", "layer": "guide",
+                                     "meets_promotion_bar": False}}
+    held_classified = document(legacy_derivs, legacy_cands, {}, None, {"k-legacy": classified})
+    control("an entry that DOES carry a classification block is not defaulted: a call was spent on "
+            "it, and its absence is named as an unanswered call",
+            json.dumps(held_classified["returned"]), "LEGACY_CALL_UNANSWERED k-legacy")
+    clean("and nothing was proposed for it", held_classified["proposals"])
+    clean("nor was it counted as defaulted, so the grouping counts what code answered",
+          [] if held_classified["counts"]["legacy_defaulted"] == 0
+          else ["a defaulted entry was counted for an entry a call was owed on"])
+    control("the ids-only form still works, since WP-20 passes a set of ids",
+            json.dumps(document(legacy_derivs, legacy_cands,
+                                {"k-legacy": _answered(disposition="none", operations=[])},
+                                None, ["k-legacy"])["counts"]["legacy_defaulted"]),
+            "0")
+    control("and a row a model answered is marked as the model's, not the default's",
+            json.dumps(sorted({row["answered_by"] for row in doc["proposals"]})), '["model"]')
+    # The default against the SCHEMA, directly: this is what the stage refused before.
+    clean("the default answer is schema-valid on its own, both with and without a mapped decision",
+          _shape_problems(legacy_answer(legacy_entry))
+          + _shape_problems(legacy_answer({"id": "k-m", "status": "incubating",
+                                           "decisions": [{"schema": 2, "disposition": "incubate",
+                                                          "expected_observation": {
+                                                              "occasion": "o",
+                                                              "exposure_rule": "e",
+                                                              "expected_behavior": "b",
+                                                              "retrieval_terms": ["t"],
+                                                              "expiry": "2026-12-01"}}]})))
+    control("its accounting travels BESIDE the answer, because the schema is right to refuse a "
+            "proposal carrying fields of its own",
+            json.dumps(sorted(legacy_metadata(legacy_entry))),
+            json.dumps(["entered_with_decision", "legacy_group"]))
+    clean("and neither of those names is a field of the answer",
+          [name for name in legacy_metadata(legacy_entry) if name in legacy_answer(legacy_entry)])
     control("a candidate with no answer at all is returned too, by name",
             json.dumps(doc["returned"]), "ANSWER_ABSENT k3")
     control("and the counts reconcile with the candidates given",
@@ -1741,6 +2132,24 @@ def self_test():
                    if not (cli_run / name).is_file()])
     finally:
         shutil.rmtree(root, ignore_errors=True)
+
+    # The wrapper that makes a dying control speak. Asserted from the source, because a suite that
+    # ends in a traceback prints no control name at all and a revert trial then reads the traceback
+    # as the control firing (the WP-12 review).
+    # The WRAPPER's own source, not the file's. A scan of the whole file is satisfied by this
+    # control's own text — the phrase it looks for appears in the line that looks for it — which is
+    # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
+    # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
+    import inspect
+    wrapper_text = inspect.getsource(self_test)
+    control("a control that dies names itself, since a traceback is not a control firing",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "died after" in line and "print(" in line), "<no such line>"),
+            "self-test [FAIL] the suite died after")
+    control("and the wrapper is what the entry point runs, so the body cannot be called around it",
+            next((line.strip() for line in wrapper_text.splitlines()
+                  if "_self_test_body(" in line), "<no such line>"),
+            "return _self_test_body(failures, ran)")
 
     reporting.append(True)
     if failures:
