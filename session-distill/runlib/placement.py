@@ -167,8 +167,16 @@ def global_files():
 
 
 def _global_ops(proposal):
-    held = global_files()
-    return [op for op in _operations(proposal) if str(op.get("target") or "") in held]
+    """The operations that touch the always-loaded global file, by IDENTITY and not by spelling.
+
+    Literal membership read `./claude/CLAUDE.md` as a different file from `claude/CLAUDE.md`, so an
+    edit on the global file passed the rule that allows only deletion and merge there (the WP-12
+    review). `targets.identity` is the one owner of "which file is this", so the question is asked
+    of it rather than answered again here.
+    """
+    held = {targets.identity(name) or name for name in global_files()}
+    return [op for op in _operations(proposal)
+            if (targets.identity(op.get("target")) or str(op.get("target") or "")) in held]
 
 
 def _library_ops(proposal):
@@ -460,6 +468,34 @@ def _carrier_problem(carrier):
     return None
 
 
+# The operation types whose text has to END UP in a named file. A delete removes and a merge is
+# executed as deletes plus one edit into a target the operation itself names, so neither needs the
+# destination to say where the item lands.
+CARRIER_REQUIRING_TYPES = ("create", "edit")
+
+
+def carrier_problems(proposal):
+    """A proposal that CHANGES the library must name the file that carries the change.
+
+    `carrier` is nullable on purpose — a disposition with no operation carries nothing — but a
+    proposal with library operations and no carrier names no file at all, and the review found it
+    accepted (the WP-12 review). The rule is the pairing, not the field.
+    """
+    writing = _operations(proposal, CARRIER_REQUIRING_TYPES)
+    if not writing:
+        # A removal names its own target and adds no text, so nothing has to say where the item
+        # lands; `merge` is executed as deletes plus one edit into a target the operation already
+        # names. The rule is about text that must END UP somewhere.
+        return []
+    held = (proposal.get("destination") or {}).get("carrier")
+    if held:
+        return []
+    return [f"CARRIER_ABSENT destination.carrier: the proposal writes "
+            f"{len(writing)} operation(s) of type "
+            f"{', '.join(sorted({str(op.get('type')) for op in writing}))} and names no carrier, so "
+            f"nothing says which file would hold the text"]
+
+
 def destination_problems(destination, where="destination", item=""):
     """A destination's problems, by name: its layer against §7.4's order, its carrier against the rules.
 
@@ -595,6 +631,7 @@ def problems(proposal, active_keep=None):
     return (pair_problems(proposal) + structural_problems(proposal, active_keep)
             + destination_problems(proposal.get("destination"),
                                    item=f"{proposal.get('item_id') or proposal.get('candidate_id')}: ")
+            + carrier_problems(proposal)
             + input_problems(proposal) + placement_problems(proposal))
 
 
@@ -767,6 +804,16 @@ def _self_test_body(failures, ran):
         if want not in got:
             failures.append((name, f"expected {want!r} in {got!r}"))
 
+    def equals(name, got, want):
+        """A control whose expectation is the WHOLE answer, not a fragment of it.
+
+        `control` asks `want in str(got)`, which is right for a refusal's name inside a longer
+        message and wrong for a value (the WP-12 review asked for equality where exact values and
+        counts are meant)."""
+        ran.append(name)
+        if str(got) != str(want):
+            failures.append((name, f"expected exactly {want!r}, got {str(got)[:400]!r}"))
+
     def clean(name, problems):
         if reporting:
             raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}")
@@ -905,6 +952,43 @@ def _self_test_body(failures, ran):
             said({**place, "operations": [{"type": "create", "target": "ko/claude/CLAUDE.md",
                                            "before_sha256": None}]}),
             "GLOBAL_OP_DISALLOWED")
+    # The global file by IDENTITY, not by spelling: literal membership read `./claude/CLAUDE.md` as
+    # another file and let an edit through the rule that allows only deletion and merge there.
+    for spelling in ("./claude/CLAUDE.md", "claude/./CLAUDE.md", "claude/guides/../CLAUDE.md"):
+        control(f"an equivalent spelling of the global file is the same file ({spelling})",
+                said({**place, "operations": [{"type": "edit", "target": spelling,
+                                               "before_sha256": "a" * 64}]}),
+                "GLOBAL_OP_DISALLOWED")
+    clean("while a file whose name merely starts with the global file's is not it",
+          [p for p in problems({**place, "operations": [
+              {"type": "edit", "target": "claude/CLAUDE.md.bak", "before_sha256": "a" * 64}]})
+           if "GLOBAL_OP_DISALLOWED" in p])
+    equals("and the identity question has one owner, so this rule cannot answer it differently from "
+            "the target contract",
+            json.dumps([targets.identity("./claude/CLAUDE.md") == targets.identity("claude/CLAUDE.md"),
+                        targets.identity("claude/CLAUDE.md.bak")
+                        == targets.identity("claude/CLAUDE.md")]),
+            "[true, false]")
+
+    # A proposal that CHANGES the library must name the file that carries the change. `carrier` is
+    # nullable for a disposition that carries nothing, which is why the rule is the pairing.
+    control("a proposal with library operations and no carrier is refused by name",
+            said({**place, "destination": {**place["destination"], "carrier": None}}),
+            "CARRIER_ABSENT")
+    control("and the refusal names the operation types whose text would have had nowhere to land",
+            said({**place, "destination": {**place["destination"], "carrier": None}}),
+            "operation(s) of type create and names no carrier")
+    clean("while a disposition that carries no operation needs no carrier, which is what makes the "
+          "field nullable", carrier_problems({"operations": [],
+                                              "destination": {"carrier": None}}))
+    clean("and neither does a pure removal, which names its own target and adds no text",
+          carrier_problems({"operations": [{"type": "delete", "target": "claude/guides/g.md"}],
+                            "destination": {"carrier": None}}))
+    clean("nor a merge, which is executed as deletes plus one edit into a target the operation "
+          "itself names", carrier_problems({"operations": [{"type": "merge",
+                                                            "target": "claude/guides/g.md"}],
+                                            "destination": {"carrier": None}}))
+    clean("and a proposal that names one is clean", carrier_problems(place))
     clean("while a delete on the global file is allowed",
           problems({**place, "disposition": "reduce", "kind": "obsolete", "diagnosis": "unknown",
                     "operations": [{"type": "delete", "target": "claude/CLAUDE.md",
