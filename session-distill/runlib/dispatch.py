@@ -138,11 +138,22 @@ USES = ("judge", "producing", "authoring")  # claude-run's call profiles (plan W
 # and its overrides; claude-run's pinned host, its cell and its read root), and claude-run's unreadable
 # transcript (exit 70). The self-test derives each set from the adapter's own source and holds this to it.
 ADAPTER_CODES = {"codex": ("HOST_VERSION_MISMATCH", "CONTEXT_EVIDENCE_MISSING", "CODEX_PROFILE_UNSUPPORTED",
-                           "CODEX_INSTRUCTION_OVERRIDE_UNSUPPORTED", "CODEX_INSTRUCTION_OVERRIDE_REPEATED"),
+                           "CODEX_INSTRUCTION_OVERRIDE_UNSUPPORTED", "CODEX_INSTRUCTION_OVERRIDE_REPEATED",
+                           "ADAPTER_ARGUMENT_INVALID", "CAPTURE_HELPER_MISSING", "CALL_ID_MISSING",
+                           "CAPTURE_DIR_NOT_EMPTY", "HOST_BINARY_UNPINNED", "HOST_VERSION_UNPINNED"),
                  "claude": ("HOST_VERSION_MISMATCH", "HOST_BINARY_UNPINNED", "CELL_UNDER_HOME", "CELL_OUTSIDE_ROOT",
                             "CELL_ROOT_OWNER", "CELL_ROOT_MODE", "CELL_ANCESTOR_SURFACE", "CELL_CWD_MISSING",
                             "READ_ROOT_MISMATCH", "TRANSCRIPT_UNREADABLE", "RECORD_KIND_UNKNOWN",
-                            "ATTACHMENT_TYPE_UNKNOWN", "RECORD_VERSION_UNKNOWN")}
+                            "ATTACHMENT_TYPE_UNKNOWN", "RECORD_VERSION_UNKNOWN", "ADAPTER_ARGUMENT_INVALID",
+                            "CALL_ID_MISSING", "HOST_VERSION_UNPINNED", "CAPTURE_HELPER_MISSING", "CELL_LAYOUT_INVALID",
+                            "CELL_EXISTS", "TOKEN_MISSING")}
+# The codes an adapter names only after the host has run (claude-run's transcript reading). Every other code is a
+# refusal made before anything is sent, so a call refused by one with no request seen spent nothing, and is settled
+# at zero rather than left unreconciled (D7: two Judge B reservations of a call that never reached its host).
+ADAPTER_AFTER_SEND = {"codex": (), "claude": ("TRANSCRIPT_UNREADABLE", "RECORD_KIND_UNKNOWN", "ATTACHMENT_TYPE_UNKNOWN",
+                                              "RECORD_VERSION_UNKNOWN")}
+ADAPTER_PRE_SEND = {host: tuple(c for c in codes if c not in ADAPTER_AFTER_SEND[host])
+                    for host, codes in ADAPTER_CODES.items()}
 ADAPTER_REFUSAL = {host: re.compile(rb"^" + host.encode() + rb"-run: (" + "|".join(codes).encode() + rb")\b[^\n]{0,400}")
                    for host, codes in ADAPTER_CODES.items()}
 # the channels monitor.CodexFeed reads; the retry warnings are what HTTPS attempt coverage reconciles (design §3.2)
@@ -1638,8 +1649,9 @@ class Supervisor:
                 for part in ("home", "config", "cwd"):
                     (cell / part).mkdir()
                 pinned = gate.seats(self.seats_path)["hosts"][host]
-                # what the host loads by itself under the profile, declared per host version (seats.json `context`)
-                builtin = (pinned.get("context") or {}).get(profile, {}) if pinned.get("version") == host_version else {}
+                # what the host loads by itself under the profile, declared per host version (seats.json `context`),
+                # without the declaration's own provenance (the version it was observed at, and whether it is carried)
+                builtin = gate.builtin_context(pinned, profile, host_version)
                 manifest = {"workdir_path": str(cell / "cwd"), "workdir_files": [], "instructions": [],
                             "appended_prompts": [], "skills": [], "agents": [], "hooks": [], "mcp_servers": [], **builtin,
                             **(admitted["declared"] or {})}
@@ -1741,6 +1753,11 @@ class Supervisor:
             result = gate.Call(call_dir).result
             reconciled = self._reconcile(call_dir, call, mon, result if isinstance(result, dict) else {},
                                          stopped, exit_status)
+            # a refusal the adapter names before sending, with no request seen, spent nothing: the call is settled
+            # at zero, measured, rather than left unreconciled with its reservation's spend unknown
+            if refused is not None and not mon.ledger.requests \
+                    and refused.group(1).decode("utf-8", "replace") in ADAPTER_PRE_SEND[host]:
+                reconciled = True
             # HC#2: reconciliation can MEASURE a row that was still pending when the rows were first read -
             # a compaction measured from the aggregate - so the excess may exist only now. The offer is made
             # here, before the seat projection, the usage record and everything after them.
@@ -3316,7 +3333,7 @@ call_id = packet.splitlines()[0].split(": ", 1)[1]
 capture, cell = pathlib.Path(os.environ["REVIEW_CAPTURE_DIR"]), pathlib.Path(os.environ["DISTILL_CELL"])
 schema = json.loads(pathlib.Path(spec["schema_path"]).read_text()) if spec.get("schema_path") else None
 model, effort = spec["model"], spec["effort"]
-# codex-cli 0.163.0 loads its four built-in skills under any profile, and its capture names them
+# codex-cli loads its built-in skills under any profile, and its capture names them (seats.json `context`)
 context = {"instructions": [], "appended_prompts": [], "agents": [], "hooks": [],
            "skills": ["imagegen", "openai-docs", "skill-creator", "skill-installer"] if host == "codex" else []}
 # the appended system prompts the adapter was handed: reported by the sha256 of the bytes THIS process
@@ -3707,7 +3724,9 @@ def self_test(scratch=None):
                 for got, code in zip(quoted, ("PRINCIPLES_MISSING", "SCHEMA_REFERENCE_MISSING"))), f"{quoted!r}")
 
     astra = "codex:gpt-6-astra/xhigh"
-    codex_flags = gate.pinned_flags_sha256("codex", "0.163.0", "hermetic")
+    # the Codex host version is read from seats.json, as the Claude one is below, so a re-pin moves this suite with it
+    pinned_codex = gate.seats()["hosts"]["codex"]["version"]
+    codex_flags = gate.pinned_flags_sha256("codex", pinned_codex, "hermetic")
     pinned_launcher = receipts.LAUNCHER        # one control points the receipt writer at a failing script
     # Every view-window control below runs on a CLAUDE seat, because a view-window call is admitted only on
     # a host whose adapter can convey the cap check (d) reserves, and codex-run conveys none (BB#4). S3's
@@ -3727,7 +3746,8 @@ def self_test(scratch=None):
         # the self-test's seats, declared as a run declares its seats (design §4 pins the others)
         run["seats"].update({"S6.judge": judge, "S6.luna": luna, "S7": judge, "S8": judge, "S9": judge})
         if allowance is not None:
-            run["host_allowance"][astra] = {"allowance_tokens": allowance, "host_version": "0.163.0", "flag_set_sha256": codex_flags}
+            run["host_allowance"][astra] = {"allowance_tokens": allowance, "host_version": pinned_codex,
+                                            "flag_set_sha256": codex_flags}
         run["host_allowance"][vseat] = {"allowance_tokens": claude_allowance if window_allowance is None else window_allowance,
                                         "host_version": pinned_claude, "flag_set_sha256": claude_flags}
         declare.create(directory, run)
@@ -3736,12 +3756,13 @@ def self_test(scratch=None):
     clock = [1_800_000_000.0]
     measured_seats = scratch / "seats-measured.json"
     held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
-    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=True)
+    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=True,
+                                                                measured_version=pinned_codex)
     # BA#1: the self-test's own seat capacity for the Codex seat it dispatches view windows on. The
     # checkout's seats.json leaves every Codex seat undeclared because no capture reports one, which is
     # what `a-view-window-call-on-a-seat-with-no-declared-capacity-is-refused` reads against the real file.
     held["seat_capacity"] = {**(held.get("seat_capacity") or {}),
-                             astra: {"context_capacity": 200_000, "host_version": "0.163.0",
+                             astra: {"context_capacity": 200_000, "host_version": pinned_codex,
                                      "basis": "the self-test's own declaration, not a measurement"}}
     measured_seats.write_text(json.dumps(held), encoding="utf-8")
 
@@ -6100,7 +6121,7 @@ def self_test(scratch=None):
     # Every code the adapters' own sources name is driven, READ_ROOT_MISMATCH among them.
     refusing = [(judge if host == "claude" else luna, 70 if code == "TRANSCRIPT_UNREADABLE" else 3 if host == "codex" else 2,
                  f"{host}-run: {code} named by the adapter") for host in sorted(derived) for code in sorted(derived[host])]
-    wrong = []
+    wrong, settled_ = [], []
     for n, (seat, status, line) in enumerate(refusing):
         code = line.split(": ", 1)[1].split()[0]
         dr_ = run_dir(f"run-adapter-{n}", {"S6": 400_000})
@@ -6111,8 +6132,51 @@ def self_test(scratch=None):
         if not (out["outcome"] == "failed" and out.get("codes") == [code] and out.get("why") == line.split(": ", 1)[1]
                 and len(out["attempts"]) == 1 and refused_call.get("runner_refused") == line.split(": ", 1)[1]):
             wrong.append((code, out, refused_call.get("runner_refused")))
+        host_ = "claude" if seat == judge else "codex"
+        spent_ = [r.get("spent") for r in sr_.ledger()["stages"].get("S6", {}).get("reservations", {}).values()]
+        settled_.append((code, host_, [s_.get("complete") if s_ else None for s_ in spent_],
+                         [s_.get("measured") if s_ else None for s_ in spent_]))
     control("every-adapter-refusal-is-the-item-outcome", refusing and not wrong
             and "claude-run: READ_ROOT_MISMATCH named by the adapter" in [line for _, _, line in refusing], f"{wrong}")
+    # D7: a refusal made before anything is sent, with no request seen, is one reservation settled at zero, measured;
+    # one an adapter names after its host ran stays unreconciled, since what the host spent is not known
+    # The expectation is the control's own, never ADAPTER_PRE_SEND's: the four codes claude-run names from the
+    # transcript it reads after its host ran; every other code is a refusal made before anything is sent
+    after_send = {("claude", c) for c in ("TRANSCRIPT_UNREADABLE", "RECORD_KIND_UNKNOWN", "ATTACHMENT_TYPE_UNKNOWN",
+                                          "RECORD_VERSION_UNKNOWN")}
+    unsettled = [row for row in settled_ if row[2] != [(row[1], row[0]) not in after_send]
+                 or ((row[1], row[0]) not in after_send and row[3] != [0])]
+    control("a-pre-send-refusal-is-one-reservation-settled-at-zero", settled_ and not unsettled
+            and {(h, c) for c, h, _c, _m in settled_} >= after_send
+            and any(code == "HOST_BINARY_UNPINNED" and h == "codex" for code, h, _c, _m in settled_)
+            and {(h, c) for h, codes in ADAPTER_AFTER_SEND.items() for c in codes} == after_send, f"{unsettled}")
+    # D7: every nonzero exit an adapter takes before it starts its host names a code dispatch reads; one that names
+    # none would leave the call's runner_refused empty and its item retried against the same host
+    def unnamed_exits(text, host):
+        lines = text.split("\n")
+        found = []
+        for n, line in enumerate(lines):
+            if line.lstrip().startswith("#") or not re.search(r"\bexit [1-9]", line):
+                continue
+            # the statement the exit ends: its own line and the lines before it back to the previous exit, at most three
+            start = n
+            while start > max(0, n - 3) and not re.search(r"\bexit\b", lines[start - 1]):
+                start -= 1
+            window = "\n".join(lines[start:n + 1])
+            named = any(code in ADAPTER_CODES[host]
+                        for code in re.findall(host + r"-run: ([A-Z][A-Z0-9_]*[A-Z0-9])\b", window))
+            if not named and '"$helper"' not in window:
+                found.append(f"line {n + 1}: {line.strip()[:80]}")
+        return found
+    loose = {h: unnamed_exits(sources[h][0] or "", h) for h in sources}
+    planted_exits = unnamed_exits('  echo "codex-run: the binary is gone" >&2; exit 2\n'
+                                  '  python3 "$helper" check --x || exit 2\n'
+                                  '  echo "codex-run: HOST_BINARY_UNPINNED gone" >&2; exit 2\n'
+                                  '  echo "codex-run: the next one names nothing" >&2; exit 2\n', "codex")
+    control("every-pre-send-adapter-exit-names-a-code", all(sources[h][0] for h in sources) and not any(loose.values())
+            and planted_exits == ["line 1: echo \"codex-run: the binary is gone\" >&2; exit 2",
+                                  "line 4: echo \"codex-run: the next one names nothing\" >&2; exit 2"],
+            f"{loose} {planted_exits}")
     # the same named line from the other adapter, or on a zero exit, is no refusal
     dr_ = run_dir("run-adapter-not-ours", {"S6": 400_000})
     sr_ = supervisor(dr_, "adapter-refuses", refusal="claude-run: CONTEXT_EVIDENCE_MISSING x", exit=3)
@@ -6127,6 +6191,13 @@ def self_test(scratch=None):
     sg_ = supervisor(dg_)
     sg_.seed_from(calibrated)
     clean = sg_.item("S6", "clean", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    # the built-in context a Codex call's manifest declares is seats.json's declaration without its provenance
+    clean_manifest = (records.read_json(pathlib.Path(clean["accepted"]) / "call.json").get("manifest") or {}) \
+        if clean.get("accepted") else {}
+    declared_builtin = gate.builtin_context(gate.seats()["hosts"]["codex"], "hermetic", pinned_codex)
+    control("a-codex-call-declares-its-built-in-context-without-its-provenance", bool(declared_builtin.get("skills"))
+            and clean_manifest.get("skills") == declared_builtin["skills"]
+            and not set(clean_manifest) & set(gate.CONTEXT_PROVENANCE), f"{sorted(clean_manifest)}")
     sg_.mode = "refusal-frame"
     refused_item = sg_.item("S6", "refused", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
     first = gate.accept(refused_item["attempts"][0]) if refused_item["attempts"] else {"failures": []}
@@ -6194,18 +6265,18 @@ def self_test(scratch=None):
                   reservation=rc2, caps=caps, view_window=False)
     control("a-non-window-call-on-the-same-seat-needs-no-capacity", got is None, f"{got}")
     for row, entry, why in (
-            ("without a basis", {"context_capacity": 1_000_000, "host_version": "0.163.0"}, "no basis"),
-            ("with a blank basis", {"context_capacity": 1_000_000, "host_version": "0.163.0", "basis": "  "},
+            ("without a basis", {"context_capacity": 1_000_000, "host_version": pinned_codex}, "no basis"),
+            ("with a blank basis", {"context_capacity": 1_000_000, "host_version": pinned_codex, "basis": "  "},
              "no basis"),
-            ("that is not a number", {"context_capacity": "big", "host_version": "0.163.0", "basis": "b"},
+            ("that is not a number", {"context_capacity": "big", "host_version": pinned_codex, "basis": "b"},
              "not a positive integer"),
             ("at another host version", {"context_capacity": 1_000_000, "host_version": "0.1.0", "basis": "b"},
-             "not '0.163.0'")):
+             f"not {pinned_codex!r}")):
         bad = scratch / f"seats-capacity-{row.replace(' ', '-')}.json"
         bad_held = json.loads(measured_seats.read_text(encoding="utf-8"))
         bad_held["seat_capacity"][astra] = entry
         bad.write_text(json.dumps(bad_held), encoding="utf-8")
-        found, reason = gate.seat_capacity(astra, "0.163.0", path=bad)
+        found, reason = gate.seat_capacity(astra, pinned_codex, path=bad)
         control(f"a-seat-capacity-{row.replace(' ', '-')}-is-no-capacity", found is None and why in (reason or ""),
                 f"{found} {reason}")
     found, basis = gate.seat_capacity(vseat, pinned_claude)

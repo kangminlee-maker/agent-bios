@@ -120,27 +120,27 @@ while [ $# -gt 0 ]; do
     --capture) capture_dir="${2:?--capture needs a value}"; shift 2 ;;
     -)         shift ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "codex-run: unknown argument: $1" >&2; usage >&2; exit 2 ;;
+    *) echo "codex-run: ADAPTER_ARGUMENT_INVALID unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
 
 case "$profile" in
   inherit|hermetic|custom) ;;
-  *) echo "codex-run: --profile must be inherit|hermetic|custom" >&2; exit 2 ;;
+  *) echo "codex-run: ADAPTER_ARGUMENT_INVALID --profile must be inherit|hermetic|custom" >&2; exit 2 ;;
 esac
 case "$multi_agent" in
   ""|auto|on|off) ;;
-  *) echo "codex-run: --multi-agent must be auto|on|off" >&2; exit 2 ;;
+  *) echo "codex-run: ADAPTER_ARGUMENT_INVALID --multi-agent must be auto|on|off" >&2; exit 2 ;;
 esac
 
 config_key_from_override() {
   kv="$1"
   case "$kv" in
     *=*) key="${kv%%=*}" ;;
-    *) echo "codex-run: -c must be key=value: $kv" >&2; exit 2 ;;
+    *) echo "codex-run: ADAPTER_ARGUMENT_INVALID -c must be key=value: $kv" >&2; exit 2 ;;
   esac
   case "$key" in
-    ''|*[!A-Za-z0-9_.-]*) echo "codex-run: invalid -c key: $key" >&2; exit 2 ;;
+    ''|*[!A-Za-z0-9_.-]*) echo "codex-run: ADAPTER_ARGUMENT_INVALID invalid -c key: $key" >&2; exit 2 ;;
   esac
   printf '%s\n' "$key"
 }
@@ -204,8 +204,8 @@ if [ "$profile" = "hermetic" ]; then
     mkdir -p "$cd_dir"
   fi
 elif [ "$profile" = "custom" ]; then
-  if [ -z "$home" ]; then echo "codex-run: --profile custom requires --home DIR" >&2; exit 2; fi
-  if [ ! -d "$home" ]; then echo "codex-run: --home not a directory: $home" >&2; exit 2; fi
+  if [ -z "$home" ]; then echo "codex-run: ADAPTER_ARGUMENT_INVALID --profile custom requires --home DIR" >&2; exit 2; fi
+  if [ ! -d "$home" ]; then echo "codex-run: ADAPTER_ARGUMENT_INVALID --home not a directory: $home" >&2; exit 2; fi
   run_home="$home"
 fi
 
@@ -295,7 +295,7 @@ if [ -n "$capture_dir" ]; then
   done
   helper="$(cd "$(dirname "$self")" && pwd)/codex_frame_filter.py"
   if [ ! -f "$helper" ]; then
-    echo "codex-run: capture helper missing beside the adapter: $helper" >&2; exit 3
+    echo "codex-run: CAPTURE_HELPER_MISSING capture helper missing beside the adapter: $helper" >&2; exit 3
   fi
   # A named Codex configuration profile layers settings and instructions the rendering below
   # cannot reproduce, so a capture refuses one rather than record evidence of another call.
@@ -311,11 +311,11 @@ if [ -n "$capture_dir" ]; then
   fi
   call_id="${REVIEW_CALL_ID:-${DISTILL_CALL_ID:-}}"
   if [ -z "$call_id" ]; then
-    echo "codex-run: capture needs REVIEW_CALL_ID, the call this capture belongs to" >&2; exit 2
+    echo "codex-run: CALL_ID_MISSING a capture needs REVIEW_CALL_ID, the call this capture belongs to" >&2; exit 2
   fi
   mkdir -p "$capture_dir"
   if [ -n "$(ls -A "$capture_dir")" ]; then
-    echo "codex-run: capture directory is not empty (one capture per call): $capture_dir" >&2; exit 2
+    echo "codex-run: CAPTURE_DIR_NOT_EMPTY the capture directory holds files already (one capture per call): $capture_dir" >&2; exit 2
   fi
   case ",${RUST_LOG:-}," in
     *,tungstenite::protocol=trace,*) ;;
@@ -326,7 +326,7 @@ if [ -n "$capture_dir" ]; then
   # at the version the caller pins (CODEX_RUN_VERSION), checked before anything is sent.
   codex_bin="${CODEX_RUN_BIN:-$(command -v codex 2>/dev/null || true)}"
   if [ -z "$codex_bin" ] || [ ! -x "$codex_bin" ]; then
-    echo "codex-run: capture needs a codex executable: set CODEX_RUN_BIN or put codex on PATH" >&2; exit 2
+    echo "codex-run: HOST_BINARY_UNPINNED a capture needs the pinned codex executable: CODEX_RUN_BIN names none that exists (${CODEX_RUN_BIN:-unset}), and PATH has none" >&2; exit 2
   fi
   while [ -L "$codex_bin" ]; do
     link="$(readlink "$codex_bin")"
@@ -334,7 +334,7 @@ if [ -n "$capture_dir" ]; then
   done
   codex_bin="$(cd -P "$(dirname "$codex_bin")" && pwd)/$(basename "$codex_bin")"
   if [ -z "${CODEX_RUN_VERSION:-}" ]; then
-    echo "codex-run: capture needs CODEX_RUN_VERSION, the codex-cli version the call is pinned to" >&2; exit 2
+    echo "codex-run: HOST_VERSION_UNPINNED a capture needs CODEX_RUN_VERSION, the codex-cli version the call is pinned to" >&2; exit 2
   fi
   codex_version="$(env CODEX_HOME="$run_home" HOME="$child_home" DISABLE_AUTOUPDATER=1 "$codex_bin" --version 2>/dev/null || true)"
   if [ "$codex_version" != "codex-cli $CODEX_RUN_VERSION" ]; then
@@ -359,7 +359,7 @@ if [ -n "$capture_dir" ]; then
   env ${run_env[@]+"${run_env[@]}"} DISABLE_AUTOUPDATER=1 python3 "$helper" context --codex "$codex_bin" \
     --version "$CODEX_RUN_VERSION" --codex-home "$run_home" --child-home "$child_home" \
     --cwd "$cd_dir" --capture "$capture_dir" --work "$work" "${render_c[@]}" \
-    || { echo "codex-run: effective-context evidence failed; refusing to dispatch" >&2; exit 3; }
+    || { echo "codex-run: CONTEXT_EVIDENCE_MISSING the effective-context evidence failed, so nothing is dispatched" >&2; exit 3; }
   t0="$(python3 -c 'import time; print(int(time.time() * 1000))')"
   set +e
   # codex's stdout (the --json events) goes to fd 9, its stderr through the filter, which
