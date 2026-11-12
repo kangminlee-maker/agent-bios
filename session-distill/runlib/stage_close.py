@@ -53,7 +53,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
-from runlib import (census, coverage, ledger, records, stage_apply, stage_approvals,  # noqa: E402
+from runlib import (census, coverage, ledger, records, stage_apply, stage_approvals, stagelock,  # noqa: E402
                     stage_confirm, targets)
 from runlib.records import Refused  # noqa: E402
 
@@ -247,7 +247,8 @@ def window_row(declaration, run_id, accounted=None, fully_read=None):
             "kind": declaration["kind"], "commit": None, "accounted": accounted, "fully_read": fully_read}
 
 
-def closed_ledger(base, items, candidates, declaration, run_id, confirmation_id, adjudications, ids=None):
+def closed_ledger(base, items, candidates, declaration, run_id, confirmation_id, adjudications, ids=None,
+                  flags=(None, None)):
     """`(ledger, rows, allocated, problems)`: `base` with every decided item recorded and the window
     appended. `rows` says what each item became; `problems` names every item the ledger refused, and
     with any the result is not to be written."""
@@ -284,7 +285,7 @@ def closed_ledger(base, items, candidates, declaration, run_id, confirmation_id,
                              "recorded": "new entry"})
         except (ledger.LedgerError, Refused) as exc:
             problems.append(f"CLOSE_ITEM_REFUSED {item['item_id']}: {exc}")
-    held["windows"] = list(held.get("windows") or []) + [window_row(declaration, run_id)]
+    held["windows"] = list(held.get("windows") or []) + [window_row(declaration, run_id, *flags)]
     made = [r["entry"] for r in rows if r["recorded"] == "new entry"]
     return held, rows, made, problems
 
@@ -361,6 +362,19 @@ def coverage_after(run_dir, declaration):
     return state, None
 
 
+def window_flags(run_dir, declaration):
+    """`(accounted, fully_read)` of this run's window, as S3's results fold against the state S1 pinned - the two
+    answers `census.reconcile` gives S3 itself - or `(None, None)` for a run S3 did not read (the ledger's schema
+    takes null there: nobody measured it)."""
+    run_dir = pathlib.Path(run_dir)
+    if not (run_dir / READ_RESULTS).is_file():
+        return None, None
+    results = records.read_json(run_dir / READ_RESULTS)["results"]
+    _census, _state, flags = census.reconcile(census.load(run_dir), coverage.load(run_dir / "coverage.json")[0],
+                                              results, declaration["kind"])
+    return flags["accounted"], flags["fully_read"]
+
+
 def commands_of(checkout, paths):
     root = "'" + str(checkout).replace("'", "'\\''") + "'"
     quoted = " ".join("'" + p.replace("'", "'\\''") + "'" for p in paths)
@@ -430,6 +444,13 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
         except (UnicodeDecodeError, ValueError) as exc:
             raise Refused(f"LEDGER_UNREADABLE {ledger_rel}: the file the close would replace is not a ledger "
                           f"({type(exc).__name__})") from exc
+        # read AS A LEDGER before anything is read out of it - its windows among them: a file holding only this
+        # run's window marker was taken for a finished close, and a list or a null died on `.get` (round 2)
+        unsound = (ledger.validate_ledger(base) if isinstance(base, dict)
+                   else [f"it holds {type(base).__name__}, not an object"])
+        if unsound:
+            raise Refused(f"LEDGER_UNREADABLE {ledger_rel}: the file the close would replace is not a ledger: "
+                          + "; ".join(unsound[:3]))
         ledger_done = any(w.get("run_id") == run_id for w in base.get("windows") or [])
         rows, made = [], []
         if ledger_done:
@@ -437,6 +458,16 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
             # computed or written again, and the allocation it froze says which entries it made
             frozen_doc = records.read_json(run_dir / ALLOCATION) if (run_dir / ALLOCATION).is_file() else {}
             made, rows = frozen_doc.get("ids") or [], frozen_doc.get("items") or []
+            # the window marker alone is not the close: every entry this run's allocation froze is there, and
+            # every item it recorded on an entry has this run's decision on it
+            by_id = {e["id"]: e for e in base["entries"]}
+            lost = [r["entry"] for r in rows if r.get("entry") and not any(
+                d.get("run") == run_id for d in (by_id.get(r["entry"]) or {}).get("decisions") or [])]
+            lost += [i for i in made if i not in by_id]
+            if not frozen_doc or lost:
+                raise Refused(f"CLOSE_INCOMPLETE {ledger_rel}: it carries this run's window and not its decisions "
+                              f"({sorted(set(lost)) or 'no allocation was frozen'}); the ledger was changed after "
+                              f"the close wrote it")
         else:
             if on_disk != pinned["ledger"]:
                 raise Refused(f"LEDGER_BASE_STALE {ledger_rel}: it hashes {on_disk[:12]}, and the run pinned "
@@ -444,7 +475,8 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
                               f"against a ledger it did not read")
             frozen = records.read_json(run_dir / ALLOCATION)["ids"] if (run_dir / ALLOCATION).is_file() else None
             closed, rows, made, problems = closed_ledger(base, items, candidates, declaration, run_id,
-                                                         confirmation["confirmation_id"], adjudications, frozen)
+                                                         confirmation["confirmation_id"], adjudications, frozen,
+                                                         window_flags(run_dir, declaration))
             if problems:
                 raise Refused("\n".join(problems))
             # frozen WITH what each item became: a re-run after the ledger is written computes nothing again,
@@ -456,24 +488,32 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
             raise Refused("COVERAGE_UNNAMED S12: a periodic run promotes its coverage, and no reference was named for "
                           "the coverage state inside the declaration's checkout (--checkout-coverage)")
         coverage_written = False
-        with stage_apply.Checkout(checkout) as tree:
-            if not ledger_done:
-                write_ledger(tree, ledger_rel, base, closed, made, on_disk)
-            if state is not None:
-                coverage_written = promote_coverage(tree, coverage_rel, state, pinned["coverage"])
-            ledger_sha = tree.state(ledger_rel)
+        # The declaration this stage was admitted under, held for both writes: admission releases the declaration's
+        # lock, and an amendment that moved `destinations.checkout` after it had this stage write the old one.
+        admitted = (declaration["declaration_seq"], stage.record["run_json_sha256"])
+        with stagelock.hold(run_dir, "declaration", wait_s=stage_apply.DECLARATION_WAIT_S):
+            stage_apply._held_declaration(run_dir, admitted, STAGE)
+            with stage_apply.Checkout(checkout) as tree:
+                if not ledger_done:
+                    write_ledger(tree, ledger_rel, base, closed, made, on_disk)
+                if state is not None:
+                    coverage_written = promote_coverage(tree, coverage_rel, state, pinned["coverage"])
+                ledger_sha = tree.state(ledger_rel)
         paths = list(apply_doc.get("paths") or []) + [ledger_rel] + ([coverage_rel] if coverage_written else [])
         doc = {"stage": STAGE, "run_id": run_id, "confirmation_id": confirmation["confirmation_id"],
                "checkout": str(checkout),
                "ledger": {"path": ledger_rel, "sha256": ledger_sha, "allocated": made,
-                          "window": window_row(declaration, run_id), "written_by_this_call": not ledger_done},
+                          "window": window_row(declaration, run_id, *window_flags(run_dir, declaration)),
+                          "written_by_this_call": not ledger_done},
                "coverage": ({"path": coverage_rel, "promoted": True} if coverage_written
                             else {"path": coverage_rel, "promoted": False, "why": why_not}),
                "items": rows, "counts": {"items": len(items), "new_entries": len(made),
                                          "applied": sum(1 for i in items if i["operations"]),
                                          "ledger_only": sum(1 for i in items if not i["operations"])},
                "paths": paths, "owner_commands": commands_of(checkout, paths), "not_done": NOT_DONE}
-        records.write_json(run_dir, run_dir / OUTPUT, doc)
+        with stagelock.hold(run_dir, "declaration", wait_s=stage_apply.DECLARATION_WAIT_S):
+            stage_apply._held_declaration(run_dir, admitted, STAGE)     # once more before the stage says complete
+            records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return doc
 
@@ -803,6 +843,46 @@ def _self_test_body(failures, ran, reporting):
                     ["READ_RESULTS_ABSENT", True])
         section('a periodic run with no read results (section)', scenario_4)
 
+        def scenario_4b():
+            root, run_dir, checkout = applied("amended")
+            stage_apply.run(run_dir)
+            held_bytes = (checkout / LEDGER_AT).read_bytes()
+            real_gathered, done = stage_confirm.gathered, []
+
+            def amend_after_admission(directory):
+                if not done:
+                    done.append(declare.amend(run_dir, [("budget.per_stage.S8", 10_000)],
+                                              "an amendment after S12 was admitted", scope=["S8"]))
+                return real_gathered(directory)
+            stage_confirm.gathered = amend_after_admission
+            try:
+                answer = code(lambda: close_run(run_dir))
+            finally:
+                stage_confirm.gathered = real_gathered
+            control("an amendment that landed after the close was admitted stops it before either file is written",
+                    [answer, (checkout / LEDGER_AT).read_bytes() == held_bytes, (run_dir / OUTPUT).exists()],
+                    ["DECLARATION_MOVED", True, False])
+        section('an amendment after the close was admitted (section)', scenario_4b)
+
+        def scenario_4c():
+            root, run_dir, checkout = applied("marker")
+            stage_apply.run(run_dir)
+            start = (checkout / LEDGER_AT).read_bytes()
+            answers = []
+            for planted in (b"[]", b"null", json.dumps({"windows": [{"run_id": run_dir.name}]}).encode()):
+                (checkout / LEDGER_AT).write_bytes(planted)
+                answers.append(code(lambda: close_run(run_dir)))
+            control("a file that is not a ledger - a list, a null, an object holding only this run's window - is "
+                    "refused by name before anything is read out of it",
+                    answers, ["LEDGER_UNREADABLE"] * 3)
+            marked = json.loads(start)
+            marked["windows"] = list(marked.get("windows") or []) + [window_row(
+                records.declaration_state(run_dir, who="S12 self-test")[0], run_dir.name)]
+            (checkout / LEDGER_AT).write_text(ledger.render(marked), encoding="utf-8")
+            control("a ledger that carries this run's window and none of its decisions is not a finished close",
+                    [code(lambda: close_run(run_dir)), (run_dir / OUTPUT).exists()], ["CLOSE_INCOMPLETE", False])
+        section('a file that is not a ledger, and a window with no decisions (section)', scenario_4c)
+
         def scenario_5():
             # the coverage a periodic run leaves, over a run carried through S3 by S3's own fixture
             from runlib import stage_form
@@ -815,6 +895,18 @@ def _self_test_body(failures, ran, reporting):
                     "credits this window",
                     [why, coverage.check_state(state), s3_declaration["kind"],
                      state != coverage.load(s3_run / "coverage.json")[0]], [None, [], "periodic", True])
+            control("the window row's two answers are S3's own: what its results fold to against the state S1 pinned, "
+                    "and null for a run S3 did not read",
+                    [window_flags(s3_run, s3_declaration) == tuple(
+                        census.reconcile(census.load(s3_run), coverage.load(s3_run / "coverage.json")[0],
+                                         records.read_json(s3_run / READ_RESULTS)["results"], "periodic")[2][k]
+                        for k in ("accounted", "fully_read")),
+                     all(isinstance(v, bool) for v in window_flags(s3_run, s3_declaration)),
+                     window_flags(s3_root / "no-such-run", s3_declaration),
+                     closed_ledger(ledger.sample_ledger(ledger.sample_entry("L-1", "incubating")), [], {},
+                                   {"window": {"start": "2026-11-01", "end": "2026-11-08"}, "kind": "periodic"},
+                                   "run-f", "C-f", {}, None, (True, False))[0]["windows"][-1]["fully_read"]],
+                    [True, True, (None, None), False])
             control("and a targeted run promotes nothing, with the reason",
                     [coverage_after(s3_run, {**s3_declaration, "kind": "targeted"})[0],
                      "targeted" in coverage_after(s3_run, {**s3_declaration, "kind": "targeted"})[1]], [None, True])

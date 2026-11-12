@@ -1490,9 +1490,10 @@ def self_test():
                 json.dumps(held_order["done"]["commit"]), '"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"')
         # compared as a LIST, here, and only the verdict handed to `control` (which looks for a substring):
         # joined with commas, `planned,done` was found inside `planned,done,planned,done` (the S11 review)
-        control("so the journal reads plan then done, in that order, and nothing else",
-                "exactly" if [row["kind"] for row in read(order_path)["records"]] == ["planned", "done"]
-                else json.dumps([row["kind"] for row in read(order_path)["records"]]), "exactly")
+        ran.append("so the journal reads plan then done, in that order, and nothing else")
+        if [row["kind"] for row in read(order_path)["records"]] != ["planned", "done"]:     # equality, not a substring
+            failures.append(("so the journal reads plan then done, in that order, and nothing else",
+                             f"got {[row['kind'] for row in read(order_path)['records']]!r}"))
         control("and the target was changed exactly once", target_file.read_text(encoding="utf-8"),
                 "after")
 

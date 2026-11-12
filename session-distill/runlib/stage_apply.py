@@ -48,11 +48,15 @@ record:
   that same file, the directories are synced, and the after-state is read back before the done
   record.
 
-One interval cannot be closed: between that last check and the rename there is no compare-and-
-rename on POSIX. A writer that changes the target inside it is overwritten, and one that swaps the
-temporary's name inside it is installed; the second is detected after the fact and reported
-(`APPLY_AFTER_MISMATCH`), never hidden, and the first is why nothing else should be writing the
-checkout while S11 runs.
+What stays open, stated as it is: POSIX has no compare-and-rename, and no check is one instant.
+The target's bytes, its name's identity, and the staged file's bytes, metadata and name are each
+read by a separate call, and the rename is one more. A writer acting between two of those calls can
+still have the target overwritten, or bytes installed that the plan did not hold; what the checks
+bound is that such a writer must act inside that sequence of calls, after the target was read whole
+and the staged file was read back standing still. An installed file that is not the plan's is
+detected and reported (`APPLY_AFTER_MISMATCH`), never hidden. This stage is safe against accident
+and against a second run of itself; it is not a defence against a concurrent adversary writing the
+checkout, and nothing else should be writing the checkout while it runs.
 
 What this stage trusts: the run directory against accident and against a second caller, not against
 a writer who can rewrite the run's own records, approvals and confirmation together - that writer
@@ -252,16 +256,23 @@ class Checkout:
         difference."""
         path, data = effect["path"], effect["data"]
         pieces = self._pieces(path)
-        fds, leaf, _made = self.confined.walk(pieces, create=data is not None)
+        # directories are made only for a file that is not there yet: replacing one never needs a new directory,
+        # and a refused replacement must not leave one behind (the S12 review, round 2)
+        fds, leaf, _made = self.confined.walk(pieces, create=data is not None and effect["before"] == ABSENT)
         try:
             parent = fds[-1]
             self._spelled(fds, pieces, path)
 
             def held_to_before():
-                now, mode, _where = self._state(parent, leaf, path)
+                now, mode, where = self._state(parent, leaf, path)
                 if now != effect["before"]:
                     raise Refused(f"APPLY_BEFORE_MISMATCH {path}: it is {now[:12]} at the write, and the plan "
                                   f"holds {effect['before'][:12]}")
+                # ... and the NAME still holds the file that was read: a file put under the name while the old
+                # one was being read is not the one the plan's before-state describes
+                if self._named(parent, leaf) != where:
+                    raise Refused(f"APPLY_BEFORE_MISMATCH {path}: the name was given to another file while the "
+                                  f"one the plan holds was being read")
                 return mode
 
             if data is None:
@@ -291,7 +302,10 @@ class Checkout:
                                 break
                             there.update(chunk)
                             offset += len(chunk)
-                        if (not stat.S_ISREG(staged.st_mode) or staged.st_nlink != 1
+                        after_scan = os.fstat(handle)       # the scan itself must have read a file standing still
+                        still = (staged.st_size, staged.st_mtime_ns, staged.st_ctime_ns) == (
+                            after_scan.st_size, after_scan.st_mtime_ns, after_scan.st_ctime_ns)
+                        if (not stat.S_ISREG(staged.st_mode) or staged.st_nlink != 1 or not still
                                 or there.hexdigest() != effect["after"]
                                 or self._named(parent, temp) != (staged.st_dev, staged.st_ino)):
                             raise Refused(f"APPLY_STAGING_MOVED {path}: the temporary no longer holds the planned "
@@ -434,28 +448,26 @@ def journal_problems(held, effects):
     if held.get("torn") or held.get("unterminated"):
         problems.append(f"APPLY_JOURNAL_CORRUPT {JOURNAL}: its last record is torn or unterminated")
     planned = {e["operation_id"]: e for e in effects}
-    order = [e["operation_id"] for e in effects]
-    state = {}
-    for row in held.get("records") or []:
-        ident, kind = row.get("operation_id"), row.get("kind")
-        effect = planned.get(ident)
+    rows = list(held.get("records") or [])
+    for row in rows:
+        effect = planned.get(row.get("operation_id"))
         if effect is None or (row.get("target"), row.get("before_sha256"), row.get("after_sha256"),
                               row.get("item_id"), row.get("approval_id")) != (
                 effect["path"], effect["before"], effect["after"], effect["item_id"], effect["approval_id"]):
-            problems.append(f"APPLY_JOURNAL_FOREIGN {JOURNAL}: it holds a {kind} record for "
+            problems.append(f"APPLY_JOURNAL_FOREIGN {JOURNAL}: it holds a {row.get('kind')} record for "
                             f"{row.get('target')} that the plan does not")
-            continue
-        # The history of one operation is `planned` then `done`, once each: a done record with no plan before
-        # it would have an effect skipped that was never taken, and any other kind says nothing this stage reads.
-        if (state.get(ident), kind) not in ((None, "planned"), ("planned", "done")):
-            problems.append(f"APPLY_JOURNAL_CORRUPT {JOURNAL}: a {kind!r} record for {row.get('target')} follows "
-                            f"{state.get(ident) or 'nothing'}; an operation's history is planned, then done")
-            continue
-        state[ident] = kind
-    # ... and the effects are taken in the plan's order, so what the journal holds is a prefix of it
-    reached = [ident for ident in order if ident in state]
-    if reached != order[:len(reached)]:
-        problems.append(f"APPLY_JOURNAL_CORRUPT {JOURNAL}: it holds a later effect of the plan and not an earlier one")
+    if problems:
+        return problems
+    # The stream itself, in ITS order, is the plan's: planned then done for each effect in the plan's order - a
+    # completed prefix, and at most one planned record after it. Read against the expected order instead of in its
+    # own, two completed pairs swapped and two effects interleaved both passed (the S12 review, round 2).
+    expected = [(e["operation_id"], kind) for e in effects for kind in ("planned", "done")]
+    got = [(row.get("operation_id"), row.get("kind")) for row in rows]
+    if got != expected[:len(got)]:
+        at = next(i for i, pair in enumerate(got) if i >= len(expected) or pair != expected[i])
+        problems.append(f"APPLY_JOURNAL_CORRUPT {JOURNAL}: record {at + 1} is a {got[at][1]!r} record where the "
+                        f"plan's history has {'nothing' if at >= len(expected) else repr(expected[at][1])}; an "
+                        f"operation's history is planned then done, in the plan's order")
     return problems
 
 
@@ -478,6 +490,7 @@ def _bound(run_dir, declaration, confirmation, version):
     return stored, gathered, checkout
 
 
+COMMITMENT = "apply/plan-commitment.json"
 APPLY_LOCK = "S11-apply"
 DECLARATION_WAIT_S = 5      # how long a write waits for an amendment in progress before it is refused
 
@@ -526,13 +539,13 @@ def run(run_dir):
         return _run(pathlib.Path(run_dir))
 
 
-def _held_declaration(run_dir, admitted):
+def _held_declaration(run_dir, admitted, who=STAGE):
     """Refused unless the declaration is the one this part was admitted under. Called with the declaration's lock
     held, so an amendment (`declare.amend` takes that lock) cannot land between this answer and what follows it."""
-    now_run, now_digest, _amendments = records.declaration_state(run_dir, who=STAGE)
+    now_run, now_digest, _amendments = records.declaration_state(run_dir, who=who)
     if (now_run["declaration_seq"], now_digest) != admitted:
-        raise Refused(f"DECLARATION_MOVED S11: the declaration is at sequence {now_run['declaration_seq']} and this "
-                      f"apply was admitted at {admitted[0]}; no further file is written")
+        raise Refused(f"DECLARATION_MOVED {who}: the declaration is at sequence {now_run['declaration_seq']} and "
+                      f"this stage was admitted at {admitted[0]}; no further file is written")
 
 
 def _run(run_dir):
@@ -542,9 +555,11 @@ def _run(run_dir):
     version = confirmation["confirm_version"]
     if _part(run_dir, PLAN_PART).get("status") != "complete" or not (run_dir / PLAN).is_file():
         _plan(run_dir)
-    # the plan an earlier call of this part took its effects from, read before this call replaces the record
-    earlier_plan = next((i.get("sha256") for i in _part(run_dir, EFFECTS_PART).get("inputs") or []
-                         if i.get("artifact") == PLAN), None)
+    # The plan the effects are taken from is committed ONCE, before the first effect, in a file no attempt
+    # replaces. The effects record's own pinned input is replaced by every attempt - a refused one too - so
+    # reading the commitment from it let a refused retry authorize the plan it had just refused (round 2).
+    earlier_plan = (records.read_json(run_dir / COMMITMENT).get("plan_sha256")
+                    if (run_dir / COMMITMENT).is_file() else None)
     specs = inputs_of(run_dir, version) + [{"artifact": PLAN, "producer_stage": STAGE}]
     with records.run_stage(run_dir, STAGE, specs, part=EFFECTS_PART) as stage:
         declaration = stage.declaration
@@ -569,9 +584,9 @@ def _run(run_dir):
         # Before any effect that is asked directly: the confirmed set planned again over the files as they are
         # must be this plan, byte for byte. Once effects were taken the files have moved, so the plan must be
         # the very one those effects were taken from.
-        if held["records"]:
+        if held["records"] or earlier_plan is not None:
             if earlier_plan != plan_sha:
-                raise Refused(f"PLAN_CHANGED {PLAN}: the journal's effects were taken from another plan "
+                raise Refused(f"PLAN_CHANGED {PLAN}: the effects of this run are committed to another plan "
                               f"({str(earlier_plan)[:12]}), and this one is {plan_sha[:12]}")
         else:
             with Checkout(checkout) as tree:
@@ -582,6 +597,10 @@ def _run(run_dir):
                 raise Refused(f"PLAN_NOT_THE_CONFIRMED_SET {PLAN}: the confirmed operations, planned over the files "
                               f"as they are, give {len(again)} effects that are not this plan's "
                               f"{len(held_plan.get('effects') or [])} in order and bytes")
+            records.write_json(run_dir, run_dir / COMMITMENT,
+                               {"stage": STAGE, "confirmation_id": confirmation["confirmation_id"],
+                                "plan_sha256": plan_sha})
+        stage.output(COMMITMENT)
         done = {r["operation_id"] for r in held["records"] if r.get("kind") == "done"}
         pending = {r["operation_id"] for r in held["records"] if r.get("kind") == "planned"} - done
         admitted = (declaration["declaration_seq"], stage.record["run_json_sha256"])
@@ -862,7 +881,7 @@ def _self_test_body(failures, ran, reporting):
                      {name: sorted(o["artifact"] for o in part.get("outputs") or [])
                       for name, part in (rec.get("parts") or {}).items()},
                      PLAN in [i["artifact"] for i in ((rec.get("parts") or {}).get(EFFECTS_PART) or {}).get("inputs") or []]],
-                    ["complete", {PLAN_PART: [PLAN], EFFECTS_PART: sorted([JOURNAL, OUTPUT])}, True])
+                    ["complete", {PLAN_PART: [PLAN], EFFECTS_PART: sorted([JOURNAL, OUTPUT, COMMITMENT])}, True])
             again = refusal(lambda: kept.append(run(run_dir)))
             control("a second apply writes nothing: every write is the journal's already",
                     [again, (kept[-1]["counts"] if kept else None), tree_of(checkout)],
@@ -926,6 +945,52 @@ def _self_test_body(failures, ran, reporting):
                     [first, second.split(":")[0], "its before-state" in second, (checkout / "claude/guides/k.md").exists()],
                     ["FIXTURE_CUT", "APPLY_UNRECONCILED claude/guides/k.md", True, True])
         section('a write that did not end (section)', scenario_6)
+
+        def scenario_6b():
+            # a completed prefix, then the REMAINING effect changed with its record made to agree: refused, and
+            # refused again - the refusal itself must not become the next attempt's authority
+            base, run_dir, checkout = confirmed("prefix")
+            real_take, calls = Checkout.take, []
+
+            def stop_after_first(self, effect):
+                calls.append(effect["path"])
+                if len(calls) == 2:
+                    raise Refused("FIXTURE_STOP before the second effect")
+                return real_take(self, effect)
+            Checkout.take = stop_after_first
+            try:
+                first = code(lambda: run(run_dir))
+            finally:
+                Checkout.take = real_take
+            # the second effect was planned and not done, so the journal's last record is taken back as a real
+            # stop before it would have left it: a completed prefix and nothing after
+            lines = (run_dir / JOURNAL).read_bytes().split(b"\n")
+            (run_dir / JOURNAL).write_bytes(b"\n".join(lines[:2]) + b"\n")
+            held = records.read_json(run_dir / PLAN)
+            original = (run_dir / PLAN).read_bytes()
+            changed = dict(held["effects"][1])
+            changed.update(type=held["effects"][1]["type"], data_b64=base64.b64encode(b"UNAPPROVED").decode("ascii"),
+                           after=sha_of(b"UNAPPROVED"))
+            changed["operation_id"] = operation_id(held["confirmation_id"], changed, 1)
+            (run_dir / PLAN).write_text(json.dumps({**held, "effects": [held["effects"][0], changed]}),
+                                        encoding="utf-8")
+            record_file = records.record_path(run_dir, STAGE)
+            doc = json.loads(record_file.read_bytes())
+            for output in doc["parts"][PLAN_PART]["outputs"]:
+                if output["artifact"] == PLAN:
+                    output["sha256"] = records.sha256_file(run_dir / PLAN)
+            record_file.write_text(json.dumps(doc), encoding="utf-8")
+            before_tree = {str(p.relative_to(checkout)): p.read_bytes() for p in checkout.rglob("*") if p.is_file()}
+            answers = [code(lambda: run(run_dir)), code(lambda: run(run_dir)), code(lambda: run(run_dir))]
+            control("after a completed prefix, a changed remainder is refused on every retry: a refused attempt does "
+                    "not become the next one's authority, and nothing more is written",
+                    [first, [a in ("PLAN_CHANGED", "PLAN_EFFECT_UNCONFIRMED", "APPLY_JOURNAL_FOREIGN") for a in answers],
+                     len(set(answers)),
+                     {str(p.relative_to(checkout)): p.read_bytes() for p in checkout.rglob("*") if p.is_file()}
+                     == before_tree, records.read_json(run_dir / COMMITMENT)["plan_sha256"]
+                     == hashlib.sha256(original).hexdigest()],
+                    ["FIXTURE_STOP", [True, True, True], 1, True, True])
+        section('a changed remainder after a completed prefix (section)', scenario_6b)
 
         def scenario_7():
             base, run_dir, checkout = confirmed("planted")
@@ -1026,8 +1091,17 @@ def _self_test_body(failures, ran, reporting):
                      ["PLAN_CHANGED"], ["PLAN_CHANGED", "PLAN_CHANGED"], ["PLAN_CHANGED"]])
             planned_rows = _effects_in(good)
             row = journal.planned(planned_rows[0]["operation_id"], "a.md", ABSENT, sha_of(b"one\n"), "i1", "P-1")
+            second_row = journal.planned(planned_rows[1]["operation_id"], "a.md", sha_of(b"one\n"), sha_of(b"two\n"),
+                                         "i1", "P-1")
             control("a journal is this plan's only when every record it holds is one of the plan's effects",
                     [journal_problems({"records": [row]}, planned_rows),
+                     [p.split()[0] for p in journal_problems({"records": [second_row, {**second_row, "kind": "done"},
+                                                                          row, {**row, "kind": "done"}]},
+                                                             planned_rows)],     # two completed pairs, swapped
+                     [p.split()[0] for p in journal_problems({"records": [row, second_row, {**second_row, "kind": "done"},
+                                                                          {**row, "kind": "done"}]},
+                                                             planned_rows)],     # two effects interleaved
+                     journal_problems({"records": [row, {**row, "kind": "done"}, second_row]}, planned_rows),
                      [p.split()[0] for p in journal_problems({"records": [{**row, "target": "b.md"}]}, planned_rows)],
                      [p.split()[0] for p in journal_problems({"records": [{**row, "operation_id": "A-x"}]}, planned_rows)],
                      [p.split()[0] for p in journal_problems({"records": [{**row, "kind": "done"}]}, planned_rows)],
@@ -1039,7 +1113,8 @@ def _self_test_body(failures, ran, reporting):
                      journal_problems({"records": [row, {**row, "kind": "done"}]}, planned_rows),
                      [p.split()[0] for p in journal_problems({"records": [], "torn": [1]}, planned_rows)],
                      [p.split()[0] for p in journal_problems({"records": [], "problems": ["line 3"]}, planned_rows)]],
-                    [[], ["APPLY_JOURNAL_FOREIGN"], ["APPLY_JOURNAL_FOREIGN"],
+                    [[], ["APPLY_JOURNAL_CORRUPT"], ["APPLY_JOURNAL_CORRUPT"], [],
+                     ["APPLY_JOURNAL_FOREIGN"], ["APPLY_JOURNAL_FOREIGN"],
                      ["APPLY_JOURNAL_CORRUPT"],      # a done record with no plan before it
                      ["APPLY_JOURNAL_CORRUPT"],      # a kind this stage does not read
                      ["APPLY_JOURNAL_CORRUPT"],      # a plan record twice
@@ -1154,6 +1229,53 @@ def _self_test_body(failures, ran, reporting):
                     "through the descriptor that wrote them",
                     [in_place, (checkout / "a.md").read_bytes(), sorted(p.name for p in checkout.iterdir())],
                     ["APPLY_STAGING_MOVED", b"planned from\n", ["a.md"]])
+
+            (checkout / "a.md").write_bytes(b"planned from\n")
+            seen.clear()
+
+            def name_given_to_a_rival(self, parent, leaf, path):
+                seen.append(leaf)
+                held_state = real_state(self, parent, leaf, path)      # the OLD file's bytes, read to the end
+                if len(seen) == 2:
+                    (checkout / "rival.md").write_bytes(b"RIVAL\n")
+                    os.replace(checkout / "rival.md", checkout / "a.md")
+                return held_state
+            Checkout._state = name_given_to_a_rival
+            try:
+                with Checkout(checkout) as tree:
+                    rival = code(lambda: tree.take(effect))
+            finally:
+                Checkout._state = real_state
+            control("a rival file put under the target's name while the old one was being read is not overwritten",
+                    [rival, (checkout / "a.md").read_bytes(), sorted(p.name for p in checkout.iterdir())],
+                    ["APPLY_BEFORE_MISMATCH", b"RIVAL\n", ["a.md"]])
+            (checkout / "a.md").write_bytes(b"planned from\n")
+            real_pread, reads = os.pread, []
+
+            def changed_during_the_scan(fd, length, offset):
+                out = real_pread(fd, length, offset)
+                if not reads:
+                    reads.append(True)
+                    for held_temp in checkout.glob(".a.md.s11-*.tmp"):
+                        with open(held_temp, "r+b") as handle:
+                            handle.write(b"XXXXXXX\n")
+                return out
+            os.pread = changed_during_the_scan
+            try:
+                with Checkout(checkout) as tree:
+                    during = code(lambda: tree.take(effect))
+            finally:
+                os.pread = real_pread
+            control("a staged file changed WHILE it was being read back is not installed: the scan must have read "
+                    "a file standing still",
+                    [during, (checkout / "a.md").read_bytes(), sorted(p.name for p in checkout.iterdir())],
+                    ["APPLY_STAGING_MOVED", b"planned from\n", ["a.md"]])
+            with Checkout(checkout) as tree:
+                absent_parent = code(lambda: tree.take({"path": "nodir/x.md", "data": b"x\n",
+                                                        "before": sha_of(b"was there\n"), "after": sha_of(b"x\n")}))
+            control("a refused replacement leaves no directory behind: directories are made only for a file that "
+                    "is not there yet",
+                    [bool(absent_parent), sorted(p.name for p in checkout.iterdir())], [True, ["a.md"]])
 
             def swapped(parent, name):
                 if name.endswith(".tmp"):

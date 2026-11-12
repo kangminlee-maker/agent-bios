@@ -76,6 +76,31 @@ def _directory(piece, parent, destination):
                       f"({exc.strerror}); a link put there after the path was confined is not followed") from exc
 
 
+# The run directories a stage is running in, by the path the stage was GIVEN: `{absolute path: [(device, inode),
+# holders]}`. `beneath` resolves its run directory anew on every write, so a run directory replaced by a link
+# after a stage was admitted resolved into whatever the link named, and the stage's later records - its failure
+# record among them - were written there (the S12 review, round 2). While a stage holds the pin, the directory a
+# write is anchored in must be the one the stage was admitted in.
+PINNED = {}
+
+
+@contextlib.contextmanager
+def pinned(run_dir):
+    """Hold `run_dir`'s identity for as long as the caller runs; `beneath` refuses a root that is another one."""
+    key = os.path.abspath(run_dir)
+    root = pathlib.Path(run_dir).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    held = os.stat(root)
+    entry = PINNED.setdefault(key, [(held.st_dev, held.st_ino), 0])
+    entry[1] += 1
+    try:
+        yield
+    finally:
+        entry[1] -= 1
+        if entry[1] <= 0:
+            PINNED.pop(key, None)
+
+
 @contextlib.contextmanager
 def beneath(run_dir, destination):
     """`(parent descriptor, leaf name)` of `destination`, reached from the run directory's own descriptor.
@@ -97,6 +122,11 @@ def beneath(run_dir, destination):
         raise Escaped(f"RUN_PATH_ESCAPE {destination}: the run directory {root} is not a directory to open "
                       f"({exc.strerror}); a link put there after it was resolved is not followed") from exc
     try:
+        admitted = PINNED.get(os.path.abspath(run_dir))
+        anchor = os.fstat(fds[0])
+        if admitted is not None and (anchor.st_dev, anchor.st_ino) != admitted[0]:
+            raise Escaped(f"RUN_PATH_ESCAPE {destination}: the run directory is not the one this stage was admitted "
+                          f"in; it was replaced while the stage ran, and nothing is written in its place")
         for piece in pieces[:-1]:
             fds.append(_directory(piece, fds[-1], destination))
         yield fds[-1], pieces[-1]
@@ -200,6 +230,27 @@ def self_test():
                 globals()["confine"] = real
             if list(outside.iterdir()):
                 failures.append(f"a lock file was made outside the run: {sorted(p.name for p in outside.iterdir())}")
+            # the run directory replaced by a link WHILE a stage holds it: resolved anew, the link's target would
+            # be the new root, so the root is held to the one the stage was admitted in
+            moved = pathlib.Path(td).resolve() / "moved-run"
+            moved.mkdir()
+            elsewhere = pathlib.Path(tempfile.mkdtemp())
+            try:
+                with pinned(moved):
+                    os.rename(moved, str(moved) + ".was")
+                    os.symlink(elsewhere, moved)
+                    try:
+                        with beneath(moved, moved / "stages" / "record.json") as (_parent, _leaf):
+                            failures.append("a run directory replaced while its stage ran was written in")
+                    except Escaped as exc:
+                        if "not the one this stage was admitted in" not in str(exc):
+                            failures.append(f"the replaced run directory was refused for another reason: {exc}")
+                if list(elsewhere.iterdir()):
+                    failures.append(f"a record was made where the link pointed: {sorted(p.name for p in elsewhere.iterdir())}")
+                if PINNED:
+                    failures.append(f"a pin outlived its holder: {sorted(PINNED)}")
+            finally:
+                shutil.rmtree(elsewhere, ignore_errors=True)
             # the run directory ITSELF swapped for a link after it was resolved
             anchor = pathlib.Path(td).resolve() / "anchor"
             os.symlink(outside, anchor)

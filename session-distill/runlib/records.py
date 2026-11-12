@@ -601,7 +601,9 @@ def run_stage(run_dir, stage, inputs=(), part=None):
         # the producers happened to run in (GC#9).
         raise Refused(f"STAGE_PART_REQUIRED {stage}: it has the parts {list(STAGE_PARTS[stage])}, so a "
                       f"writer names the part it produces")
-    with stagelock.hold(run_dir, f"stage-{stage}"):
+    with stagelock.pinned(run_dir), stagelock.hold(run_dir, f"stage-{stage}"):
+        # (the pin: every record this stage writes, its failure record among them, is anchored in the run
+        # directory it was admitted in - `stagelock.PINNED`)
         # the declaration lock makes "read the declaration, check, pin it" one step: `declare`
         # cannot edit or amend between the check and the record
         with stagelock.hold(run_dir, "declaration"):
