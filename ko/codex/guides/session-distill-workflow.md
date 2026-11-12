@@ -85,8 +85,12 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 한 run, 한 run 디렉터리, stage마다 subcommand 하나. 여기 있던 v1 pipeline — 세션별 digest,
 batch, provider별 screener 둘, union, consolidation, bundle — 은 WP-22 cutover에서 삭제됐고
 드라이버가 그 자리를 대신한다. 모든 stage는 `<run root>/<run-id>/` 아래에 쓴다. run root는
-`--out`이고, 주지 않으면 드라이버가 XDG state 디렉터리로 해석한다. checkout에서는
-`--out session-distill/out/<run-id-root>`를 명시적으로 넘긴다.
+`--out`이고, 주지 않으면 드라이버가 XDG state 디렉터리로 해석한다. **이 checkout 안을 run
+root로 주면 거부된다** — `inventory`는 checkout을 무조건 보호하고, 아무것도 쓰기 전에
+`PROTECTED_OVERLAP`으로 끝낸다. 그것이 보호가 작동하는 모습이다: run은 소유자의 세션 기록
+복사본을 쓰고, 저장소는 그것을 둘 자리가 아니다. 그래서 `--out`을 주지 않고 드라이버가 XDG
+state 디렉터리를 해석하게 두거나, 보호된 어떤 root(checkout, 소유자 state root, `~/.claude`,
+`~/.codex`)에도 들지 않는 디렉터리를 준다.
 
 **모든 stage가 아직 실행되는 것은 아니며, 실행되지 않는 stage는 대충 비슷한 일을 하는 대신
 이름을 대고 거부한다.** stderr에 `STAGE_NOT_IMPLEMENTED <command> (<stage>)`, 종료 코드 2.
@@ -99,12 +103,12 @@ batch, provider별 screener 둘, union, consolidation, bundle — 은 WP-22 cuto
 | S2 | `distill.py views --run-id ID` | 실행된다: 불변 복사본, redaction projection, window, 검색 index, evidence store |
 | S2 | `distill.py inventory --run-id ID --ledger design/session-distill/ledger.json` | 실행된다: reference point별 unit. ledger 경로는 부르는 쪽이 이름을 댄다 |
 | S3 | `distill.py read --run-id ID` | **거부된다.** stage의 모듈(`runlib/stage_read.py`)은 들어왔고 자기 `--fixture-driver`로 실행되지만, subcommand가 그 모듈에 연결돼 있지 않다 |
-| S4 | `distill.py form --run-id ID --dry [--checkout-ledger design/session-distill/ledger.json]` | 실행된다: barrier, lifecycle intake, bound까지 묶인 packet. record는 partial로 남는다 |
-| S4 | `distill.py form --run-id ID --cells DIR [--golden-plan PLAN.json]` | 실행된다: formation 호출 하나. live(token은 `CLAUDE_RUN_TOKEN_FILE`로만) 또는 plan과 함께 golden |
+| S4 | `distill.py form --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | 실행된다: barrier, lifecycle intake, bound까지 묶인 packet. record는 partial로 남는다 |
+| S4 | `distill.py form --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--golden-plan PLAN.json]` | 실행된다: formation 호출 하나. live(token은 `CLAUDE_RUN_TOKEN_FILE`로만) 또는 plan과 함께 golden |
 | S5 | `distill.py retrieve` | 거부된다; WP-10이 가져온다 |
 | S6 | `distill.py judge` | 거부된다; WP-11이 가져온다 |
 | S7, S7b | `distill.py propose`, `review-proposals` | 거부된다; WP-12가 둘 다 가져온다 |
-| S8 | `distill.py test` | 거부되고, **release 1에서는 계속 거부된다: S8은 이름을 걸고 release 2로 미뤄졌다(D-20261111-818391).** 적용된 변경이 도움이 됐는지는 어떤 run도 시험하지 않는다. 시험 결과가 들어갈 자리에는 빈칸이 아니라 `untested: s8_deferred`라는 이름 붙은 상태가 들어간다 |
+| S8 | `distill.py test` | 거부되고, **release 1에서는 계속 거부된다: S8은 이름을 걸고 release 2로 미뤄졌다(D-20261111-818391).** 적용된 변경이 도움이 됐는지는 어떤 run도 시험하지 않는다. 시험 결과를 싣는 package에 **요구되는 것**은 그 자리에 빈칸이 아니라 `untested: s8_deferred`라는 이름 붙은 상태를 싣는 것이다. 이 checkout에는 그것을 쓰는 드라이버 writer도 schema도 아직 없고, 이 표는 오늘 실행되는 것을 적는다 |
 | S9, S9b, S10, S10b | `distill.py render`, `review-korean`, `parse-decisions`, `adjudicate`, `confirm` | 거부된다; WP-20이 가져온다. S8이 없으면 §7.5의 순서는 judge들과 S7b로 물러나고, header가 그 대체를 이름으로 적는다 |
 | S11, S12 | `distill.py apply`, `close` | 거부된다; WP-21이 가져오고, 전달 검증은 설치 receipt를 읽는다 |
 
@@ -114,9 +118,14 @@ stage)와 모듈 suite `python3 session-distill/runlib/<name>.py --self-test`다
 패키지 사용자의 것이 아니라 checkout의 도구다.
 
 드라이버의 stage는 아니지만 여전히 실행되는 저자측 window 도구: `census.py`(v1 window
-census), `plain-asks.py`, `merge-ledger.py --window-end <date>`(dry-run이고 `--apply`가 쓴다),
-`update-state.py --window-end <date>`(launcher의 nudge baseline). `migrate-ledger.py`는 ledger의
-schema 1 → 2 이행이며, 한 번 수행하고 그 뒤로는 멱등이다.
+census), `plain-asks.py`, `update-state.py --window-end <date>`(launcher의 nudge baseline).
+`migrate-ledger.py`는 ledger의 schema 1 → 2 이행이며, 한 번 수행하고 그 뒤로는 멱등이다.
+
+`merge-ledger.py`는 v1 window 흐름에 속하고 **이 workflow의 일부가 아니다.** 그것은 schema 1의
+필드 — 최상위 `window`, 항목별 `strength`와 `supporting_sessions` — 를 쓰는데 schema 2에는 그런
+필드가 없다. 그래서 이행된 ledger에 돌리면 schema가 더는 설명하지 않는 문서를 남긴다. 지금은
+schema 1이 아닌 ledger를 이름을 대고 거부한다(`LEDGER_SCHEMA_UNSUPPORTED`), 읽기도 쓰기도 전에.
+이행 뒤의 window는 lifecycle intake가 접어 넣는다.
 
 ## Stage 2 — Review with the user
 

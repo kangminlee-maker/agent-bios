@@ -40,7 +40,8 @@ An S3 result, which `reconcile` takes, is `{transcript, status, readings, pendin
 `readings` a list of `{version, sha, read, processed}` over the versions it read (`processed` is keyed by
 window id); `coverage.apply_results` says what each field must satisfy.
 
-The legacy `session-distill/census.py` is untouched until the cutover (WP-22); this is `distill.py census`.
+The legacy `session-distill/census.py` survives the cutover as an author-side window tool (the v1 window
+census), not as part of this pipeline; this module is `distill.py census`.
 Failures are named by their first word: SET_MISMATCH, ORIGINATOR_TABLE_INVALID, ORIGINATOR_TABLE_UNDECLARED,
 ORIGINATOR_TABLE_CHANGED, COVERAGE_BASE_STALE, CENSUS_INVALID, RUN_PATH_ESCAPE (the snapshot directory leaves the run).
 

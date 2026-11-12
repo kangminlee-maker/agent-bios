@@ -3702,6 +3702,76 @@ def author_only_preset_is_withheld_without_a_checkout():
         if module.preset_withheld(ordinary, packaged):
             mark_fail("a preset with no audience declaration was withheld; only an author-only "
                       "preset is")
+        # ---- the three ROUTES, not only the predicate ------------------------------------------
+        #
+        # The controls above call `preset_withheld` and nothing else, while this function's own
+        # docstring claimed to hold the menu, the mode branch and `build_plan`. Removing the guard
+        # at all three call sites left every assertion green (the WP-22a review), which is a control
+        # that cannot fire about the thing it names.
+        #
+        # `build_plan` is EXECUTED here. The other two sit inside `pick_mode_and_preset`, which is
+        # the interactive loop and needs a terminal, so they are asserted structurally: the call
+        # exists, in that function, and its consequence is withholding. That is weaker than running
+        # them and it is decidable, which is the trade this file makes elsewhere too — and it is
+        # exactly what the review's own mutation removed.
+        held_source = pathlib.Path(launcher).read_text(encoding="utf-8")
+        tree = ast.parse(held_source)
+        sites = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Call) and getattr(inner.func, "id", "") == "preset_withheld":
+                    sites.setdefault(node.name, []).append(inner.lineno)
+        if sorted(sites) != ["build_plan", "pick_mode_and_preset"]:
+            mark_fail(f"the author-only verdict is reached from {sorted(sites)}, not from "
+                      f"`build_plan` and `pick_mode_and_preset`; a route was added or removed and "
+                      f"these controls judge the ones they name")
+        if len(sites.get("pick_mode_and_preset") or []) != 2:
+            mark_fail(f"`pick_mode_and_preset` reaches the verdict "
+                      f"{len(sites.get('pick_mode_and_preset') or [])} time(s), not twice: the menu "
+                      f"removes the option and the mode branch refuses by name, and one of those "
+                      f"two is gone")
+        if len(sites.get("build_plan") or []) != 1:
+            mark_fail("`build_plan` no longer reaches the verdict, so a preset named by a flag, a "
+                      "resume or a saved mode would be built in a packaged install")
+        # The menu route's own consequence, from the source: the option is REMOVED rather than
+        # shown. A greyed-out route still reads as a route.
+        if "o.value != DISTILL_MODE" not in held_source:
+            mark_fail("the menu no longer removes the distill option when the preset is withheld")
+        # And `build_plan` RUN FOR REAL, against the two trees. `preset_withheld`'s own default
+        # root is the launcher file's grandparent, so the tree a run is judged against is decided
+        # by WHERE THE LAUNCHER IS — which is why each fixture gets its own copy of it and is
+        # imported from there. Passing a root to `build_plan` is not possible: it takes
+        # (config, host, preset_name) and the verdict inside it is rootless by design.
+        def plan_in(tree):
+            """`build_plan` for the distill preset, from a launcher living in `tree`."""
+            (tree / "launch").mkdir(parents=True, exist_ok=True)
+            held_copy = tree / "launch" / launcher.name
+            held_copy.write_bytes(pathlib.Path(launcher).read_bytes())
+            spec = importlib.util.spec_from_file_location(
+                f"agent_launch_in_{tree.name}", held_copy)
+            held_module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = held_module
+            try:
+                spec.loader.exec_module(held_module)
+                held_module.build_plan(profile, "claude", held_module.DISTILL_PRESET)
+            except Exception as exc:  # noqa: BLE001 - the refusal IS the answer
+                return f"{type(exc).__name__}: {exc}"
+            finally:
+                sys.modules.pop(spec.name, None)
+            return ""
+
+        said = plan_in(packaged)
+        if "PRESET_AUTHOR_ONLY" not in said:
+            mark_fail(f"`build_plan` did not refuse the author-only preset in a tree without "
+                      f"gates/: {said!r}. A preset named by a flag, a resume or a stale saved mode "
+                      f"would be built in a packaged install")
+        in_checkout = plan_in(checkout)
+        if "PRESET_AUTHOR_ONLY" in in_checkout:
+            mark_fail(f"`build_plan` refused the author-only preset in a CHECKOUT, which is the one "
+                      f"tree that can run it: {in_checkout!r}")
+
     # The marker itself: a path the payload may never carry, so its presence means "checkout".
     files = json.loads(pathlib.Path("package.json").read_text(encoding="utf-8")).get("files", [])
     if any(entry.rstrip("/").split("/")[0] == module.AUTHOR_TREE_MARKER for entry in files):
