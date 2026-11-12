@@ -278,6 +278,14 @@ def chain_problems(f):
                                     f"operation's after-hash {str(after)[:12]}…")
             last[target] = {"after": operation.get("after_state_sha256"),
                             "item": item.get("item_id")}
+            # A merge REMOVES its units, and a removed file's state is `absent` for whatever comes
+            # next. The chain read the target alone, so an edit expecting the removed file's old
+            # hash followed the merge that deleted it and nothing said so (the round-6 review).
+            if operation.get("type") == "merge":
+                for unit in operation.get("units") or ():
+                    for held in target_problems(unit):
+                        problems.append(f"{held.split()[0]} {item.get('item_id')}: {held}")
+                    last[target_identity(unit)] = {"after": "absent", "item": item.get("item_id")}
     return problems
 
 
@@ -786,6 +794,21 @@ def self_test():
     clean("and one whose units lie in compared layers raises no layer problem",
           [held for held in operation_problems([merge_in], fx_declaration())
            if held.startswith("OPERATION_LAYER")])
+    removed_then_edited = [
+        {"item_id": "i-merge", "operations": [
+            {"type": "merge", "target": "claude/guides/g.md", "units": ["claude/guides/h.md"],
+             "before_state_sha256": A, "after_state_sha256": B}]},
+        {"item_id": "i-edit", "operations": [
+            {"type": "edit", "target": "claude/guides/h.md", "before_state_sha256": C}]}]
+    control("an edit of a file an earlier merge REMOVED is held to that removal: its before-state "
+            "is no longer the hash it was approved against",
+            [held.split(":")[0] for held in chain_problems(removed_then_edited)],
+            "['TARGET_MISMATCH i-edit claude/guides/h.md']")
+    clean("and a create of that same path after the merge chains, since the file is absent",
+          chain_problems([removed_then_edited[0],
+                          {"item_id": "i-new", "operations": [
+                              {"type": "create", "target": "claude/guides/h.md",
+                               "before_state_sha256": "absent"}]}]))
     control("and so is one over drift",
             refusal(lambda: document({"global": C, "guides": B}, fx_declaration(), [fx_item()])),
             "DRIFT_UNTARGETED")

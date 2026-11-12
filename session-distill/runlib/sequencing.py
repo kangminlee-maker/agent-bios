@@ -92,9 +92,19 @@ def _path(value):
     return targets.identity(value) or value
 
 
+def _route_key(key):
+    """A base tree's route entry with BOTH of its paths as identities.
+
+    The entry is `route:<entry>-><destination>`, the shape `apply_to` writes. Left as written, a
+    base holding `guides/é.md` and a route to its other spelling was read as a route to nothing, and
+    an unrelated edit over that base was refused (the round-6 review)."""
+    entry, arrow, named = str(key)[len("route:"):].partition("->")
+    return f"route:{_path(entry)}->{_path(named)}" if arrow else str(key)
+
+
 def canonical_tree(tree):
-    """`tree` with every file keyed by its identity; a route entry keeps its own key."""
-    return {(key if str(key).startswith("route:") else _path(key)): value
+    """`tree` with every file keyed by its identity, a route entry's two paths included."""
+    return {(_route_key(key) if str(key).startswith("route:") else _path(key)): value
             for key, value in (tree or {}).items()}
 
 
@@ -595,15 +605,20 @@ def _self_test_body(failures, ran):
         {"type": "route", "target": "router.md", "names": names}]}
     merge_of = lambda unit: {"item_id": "m", "operations": [  # noqa: E731
         {"type": "merge", "target": "guides/kept.md", "units": [unit]}]}
+    # The verdict is asked for by IDENTITY: `control` matches a substring, and a verdict that came
+    # back as the string 'false' — truthy to every caller — passed it (the round-6 review).
     control("a merge that removes a routed file under its OTHER spelling still breaks the route",
-            json.dumps(order_answer([route_to(nfc), merge_of(nfd)], ["r", "m"],
-                                    base={nfc: "present"}).get("sequenced")), "false")
+            str(order_answer([route_to(nfc), merge_of(nfd)], ["r", "m"],
+                             base={nfc: "present"}).get("sequenced") is False), "True")
     control("a route spelled the other way reaches the carrier the base holds",
-            json.dumps(subset_answer([route_to(nfd)], base={nfc: "present"}).get("sequenced")),
-            "true")
+            str(subset_answer([route_to(nfd)], base={nfc: "present"}).get("sequenced") is True), "True")
     control("and a base spelled the other way is the same tree",
-            json.dumps(subset_answer([route_to(nfc)], base={nfd: "present"}).get("sequenced")),
-            "true")
+            str(subset_answer([route_to(nfc)], base={nfd: "present"}).get("sequenced") is True), "True")
+    unrelated = {"item_id": "u", "operations": [{"type": "edit", "target": "guides/other.md"}]}
+    control("a route ALREADY in the base, spelled the other way from its carrier, is a route to that "
+            "carrier: an unrelated edit over it sequences",
+            str(subset_answer([unrelated], base={nfc: "present", f"route:router.md->{nfd}": "present"})
+                .get("sequenced") is True), "True")
     # A base tree the carrier is already in: the route alone then sequences, which is the case where
     # the subset is approved AFTER its carrier has landed in an earlier run.
     clean("a route alone sequences where the tree already holds its carrier",

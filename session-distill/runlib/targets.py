@@ -65,11 +65,28 @@ def identity(target):
     return unicodedata.normalize("NFC", posixpath.normpath(target))
 
 
+CONTROL_CATEGORIES = ("Cc", "Cf", "Zl", "Zp")
+
+
+def control_characters(text):
+    """The control, format and line/paragraph-separator characters in `text`, as `U+XXXX`, sorted."""
+    return sorted({f"U+{ord(ch):04X}" for ch in str(text)
+                   if unicodedata.category(ch) in CONTROL_CATEGORIES})
+
+
 def lexical_problems(target):
     """Why this target's SPELLING may not be applied, by name. Empty means it is canonical."""
     if not isinstance(target, str) or not target:
         return [f"TARGET_ABSENT {target!r}: an operation names a path"]
     problems = []
+    held_controls = control_characters(target)
+    if held_controls:
+        # Before any other rule and before any filesystem call: a NUL reached `os.open` and came
+        # back as a ValueError rather than a named problem, and a newline in a target is a second
+        # line in every record that carries it (the round-6 review). The journal holds its records
+        # to this same function.
+        return [f"TARGET_CONTROL_CHARACTER {target!r}: it carries {', '.join(held_controls)}, and "
+                f"a path is written into records a line at a time"]
     if target.startswith("/") or target.startswith("~"):
         problems.append(f"TARGET_ABSOLUTE {target!r}: a target is a path inside the checkout")
     parts = target.split("/")
@@ -431,6 +448,16 @@ def _self_test_body(failures, ran):
         except BaseException as exc:  # noqa: BLE001 - the exception is the answer here
             return f"RAISED {type(exc).__name__}: {exc}"
 
+    for label, spelled in (("a newline", "claude/guides/g.md\nowner approved"),
+                           ("a NUL", "claude/guides/g\x00.md"),
+                           ("a zero-width joiner", "claude/guides/g\u200d.md")):
+        control(f"{label} in a target is one named problem, before any other rule",
+                [p.split()[0] for p in lexical_problems(spelled)], "['TARGET_CONTROL_CHARACTER']")
+    control("and a NUL never reaches the filesystem walk as an exception",
+            [p.split()[0] for p in guarded(lambda: filesystem_problems("claude/g\x00.md", "/tmp")) or ["<none>"]]
+            if isinstance(guarded(lambda: filesystem_problems("claude/g\x00.md", "/tmp")), list)
+            else guarded(lambda: filesystem_problems("claude/g\x00.md", "/tmp")),
+            "['TARGET_CONTROL_CHARACTER']")
     # ---- the identity ----------------------------------------------------------------------------
     control("one file has one identity however it was spelled",
             identity("claude/guides//g.md"), "claude/guides/g.md")

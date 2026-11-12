@@ -613,7 +613,7 @@ def record_problems(record):
         # this repo still use — would have split the record at it. The framing itself now carries
         # any payload (that is `read`'s job); what a legal RECORD may hold is this rule's.
         held_bad = sorted({repr(ch) for ch in value
-                           if unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp")})
+                           if unicodedata.category(ch) in targets.CONTROL_CATEGORIES})
         if held_bad:
             problems.append(f"JOURNAL_CONTROL_CHARACTER {kind}.{field}: {', '.join(held_bad)} is "
                             f"not admissible in a value this journal carries on one line")

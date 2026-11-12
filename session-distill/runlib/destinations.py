@@ -1614,8 +1614,16 @@ def effect_audit(source):
     # direction for a name it cannot see is to scan it.
     def definition_time(node, where, nested=False):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # Annotations are evaluated at definition time too (unless postponed, which this audit
+            # does not try to prove): `def never(self, x: open('/outside', 'w'))` ran the call (the
+            # round-6 review).
+            held_args = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
+                         *([node.args.vararg] if node.args.vararg else []),
+                         *([node.args.kwarg] if node.args.kwarg else [])]
             for held in [*node.decorator_list, *node.args.defaults,
-                         *[d for d in node.args.kw_defaults if d is not None]]:
+                         *[d for d in node.args.kw_defaults if d is not None],
+                         *[a.annotation for a in held_args if a.annotation is not None],
+                         *([node.returns] if node.returns is not None else [])]:
                 yield f"{where} definition", held
             if nested:
                 for held in node.body:
@@ -2975,6 +2983,14 @@ def _self_test_body(failures, ran):
            json.dumps(effects_in("class Held:\n    def never_called(self, x=open('/outside', 'w')):\n"
                                  "        return x\n")),
            json.dumps(["open(mode='w') (in Held.never_called definition)"]))
+    equals("a parameter annotation runs when the method is defined",
+           json.dumps(effects_in("class Held:\n    def never(self, x: open('/outside', 'w')):\n"
+                                 "        return x\n")),
+           json.dumps(["open(mode='w') (in Held.never definition)"]))
+    equals("and so does a return annotation",
+           json.dumps(effects_in("class Held:\n    def never(self) -> open('/outside', 'w'):\n"
+                                 "        return 1\n")),
+           json.dumps(["open(mode='w') (in Held.never definition)"]))
     equals("so does a decorator on a top-level function nobody calls from the suite alone",
            json.dumps(effects_in("import os\n@os.system('x')\ndef self_test():\n    pass\n")),
            json.dumps(["os.system (in self_test definition)"]))

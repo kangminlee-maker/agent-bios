@@ -515,6 +515,55 @@ JPLANT5E
   case_is "a rule reached only through a METHOD the suite alone calls is not a runtime reader" \
           "never calls it outside its own suite"
 
+  # Round 6: a constructor is reached by calling its class, and a call under the flag is the suite's.
+  fresh
+  python3 - "$W" <<'JPLANT5F'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+mark = "def _self_test_body(failures, ran):\n"
+if mark not in held:
+    sys.exit("self-test mutation is stale: destinations.py has no _self_test_body to call from")
+held = held.replace(mark,
+                    "class PlantedBuilt:\n    def __init__(self):\n"
+                    "        self.held = author_rows_absent(None)\n\n\n" + mark
+                    + "    PlantedBuilt()\n", 1)
+if "class PlantedBuilt:" not in held or "    PlantedBuilt()\n" not in held:
+    sys.exit("self-test mutation is stale: the planted constructor or its call did not survive")
+p.write_text(held, encoding="utf-8")
+JPLANT5F
+  case_is "a rule reached only through a CONSTRUCTOR the suite alone calls is not a runtime reader" \
+          "never calls it outside its own suite"
+
+  fresh
+  python3 - "$W" <<'JPLANT5G'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+mark = "def main(argv):\n"
+if held.count(mark) != 1:
+    sys.exit("self-test mutation is stale: destinations.py has no single main(argv) to plant in")
+held = held.replace(mark,
+                    "def planted_flag_helper():\n    return author_rows_absent(None)\n\n\n" + mark
+                    + "    if '--self-test' in argv:\n        planted_flag_helper()\n", 1)
+if "def planted_flag_helper():" not in held or "        planted_flag_helper()\n" not in held:
+    sys.exit("self-test mutation is stale: the planted helper or its guarded call did not survive")
+p.write_text(held, encoding="utf-8")
+JPLANT5G
+  case_is "a rule reached only under the self-test flag in a production function is not a runtime "\
+"reader" \
+          "never calls it outside its own suite"
+
   # The exemption is keyed to the ROW. The same path written in a second row is a reference nothing
   # has excused, and keyed by (file, path) alone it was excused anyway.
   fresh
@@ -1313,14 +1362,24 @@ def rule_reader(rel, name):
     # level with every class body. The suite is entered by name and never walked into from
     # production: `main` calling `self_test()` under the flag does not make the suite's calls
     # runtime calls. A production root is the top level, or a unit nothing but itself calls.
-    units, top = {}, []
+    # Two more shapes (the round-6 review). A CONSTRUCTOR is reached by calling the class, which
+    # names no `__init__`: left without that edge it had no caller and so read as a production
+    # root, and a rule called only from a fixture's `__init__` counted as read. And a call under
+    # `if '--self-test' in argv:` inside a production function is the suite's dispatch, not a
+    # production call. So `Class(...)` is an edge to that class's `__init__`, and a branch the exact
+    # flag guards on the argument vector is not walked from production code — the same two
+    # predicates, and no others, that the effect audit takes.
+    units, top, constructors = {}, [], {}
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             units.setdefault(node.name, []).append(node)
         elif isinstance(node, ast.ClassDef):
             for held in node.body:
                 if isinstance(held, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    units.setdefault(held.name, []).append(held)
+                    key = f"{node.name}.__init__" if held.name == "__init__" else held.name
+                    units.setdefault(key, []).append(held)
+                    if held.name == "__init__":
+                        constructors[node.name] = key
                 else:
                     top.append(held)
         else:
@@ -1329,9 +1388,38 @@ def rule_reader(rel, name):
     def is_suite(unit):
         return unit == "self_test" or unit.startswith("_self_test") or unit.startswith("self_test")
 
+    def suite_half(node):
+        """`"body"` or `"orelse"`: the half of an `if` that runs only under the flag, else None."""
+        test = node.test
+        if isinstance(test, ast.Compare) and len(test.ops) == 1 \
+                and isinstance(test.left, ast.Constant) and test.left.value == "--self-test" \
+                and ast.unparse(test.comparators[0]) in ("sys.argv", "argv", "sys.argv[1:]", "argv[1:]"):
+            if isinstance(test.ops[0], ast.In):
+                return "body"
+            if isinstance(test.ops[0], ast.NotIn):
+                return "orelse"
+        return None
+
     def calls_of(nodes):
-        return {ast.unparse(node.func).split(".")[-1] for held in nodes for node in ast.walk(held)
-                if isinstance(node, ast.Call)}
+        held = set()
+
+        def walk(node):
+            if isinstance(node, ast.Call):
+                called_name = ast.unparse(node.func).split(".")[-1]
+                held.add(constructors.get(called_name, called_name))
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, ast.If):
+                    half = suite_half(child)
+                    if half:
+                        walk(child.test)
+                        for part in (child.orelse if half == "body" else child.body):
+                            walk(part)
+                        continue
+                walk(child)
+
+        for node in nodes:
+            walk(node)
+        return held
 
     calls = {unit: calls_of(nodes) for unit, nodes in units.items()}
     callers = {unit: set() for unit in units}
@@ -1342,8 +1430,21 @@ def rule_reader(rel, name):
     top_calls = calls_of(top)
     for reached in top_calls & set(units):
         callers[reached].add("<module>")
+    # A unit some SUITE-only branch calls is not thereby uncalled: its callers are counted over the
+    # whole body, so a helper reached only under the flag has a caller and is no root.
+    def all_calls(nodes):
+        return {constructors.get(n, n) for n in
+                (ast.unparse(node.func).split(".")[-1] for held in nodes for node in ast.walk(held)
+                 if isinstance(node, ast.Call))}
+    any_caller = {unit: set() for unit in units}
+    for unit, nodes in units.items():
+        for reached in all_calls(nodes) & set(units):
+            if reached != unit:
+                any_caller[reached].add(unit)
+    for reached in all_calls(top) & set(units):
+        any_caller[reached].add("<module>")
     frontier = {unit for unit in units if not is_suite(unit)
-                and (not callers[unit] or "<module>" in callers[unit])}
+                and (not any_caller[unit] or "<module>" in callers[unit])}
     production = set()
     while frontier:
         unit = frontier.pop()
