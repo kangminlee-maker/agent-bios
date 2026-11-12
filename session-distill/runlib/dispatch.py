@@ -5145,8 +5145,15 @@ def self_test(scratch=None):
         "S3": ["claude:claude-sonnet-5-5/high"], "S4": ["claude:claude-opus-5-5/high"],
         "S6": ["claude:claude-opus-5-5/high", "codex:gpt-6-astra/xhigh", "claude:claude-sonnet-5-5/medium", "codex:gpt-6-luna/medium"],
         "S7": ["claude:claude-opus-5-5/high"], "S7b": ["codex:gpt-6-astra/xhigh"], "S9b": ["codex:gpt-6-astra/high"]}
+    # the owner's departures from that table, each named with its date: approving the C3 run (2026-11-12) the owner
+    # seated gpt-6.1-sol as S6's Judge B in place of gpt-6-astra. A seat that differs from §4 and is not listed here fails.
+    owner_departures = {("S6", 1): "codex:gpt-6.1-sol/xhigh"}
+    expected_seats = {stage: [owner_departures.get((stage, n), seat) for n, seat in enumerate(row)] for stage, row in design_4.items()}
     pinned = {k: v for k, v in gate.seats().get("stage_seats", {}).items() if not k.startswith("$")}
-    control("stage-seats-are-design-section-4", pinned == design_4, f"{pinned}")
+    control("stage-seats-are-design-section-4", pinned == expected_seats, f"{pinned}")
+    control("and-an-owner-departure-replaces-a-seat-the-design-names",
+            all(design_4[stage][n] != seat for (stage, n), seat in owner_departures.items()) and expected_seats != design_4,
+            f"{owner_departures}")
     # a slot is unmeasured (no number) or measured (a positive count and the measurement it came from);
     # the negative rows build their own slots, so the control keeps testing when every live slot is measured
     def allowance_slot_problem(slot):
