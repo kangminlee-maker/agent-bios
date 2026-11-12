@@ -120,14 +120,14 @@
         ]
       },
       "requires": [
-        "installer_digest"
+        "installer_digest",
+        "applied_sha256"
       ],
       "shown_when": "installer_digest == applied_sha256 and begun_by_installer_digest in (None, applied_sha256)",
-      "unknown_when": "installer_digest is None or (begun_by_installer_digest is not None and begun_by_installer_digest != applied_sha256)",
+      "unknown_when": "installer_digest is None or installer_digest != applied_sha256 or (begun_by_installer_digest is not None and begun_by_installer_digest != applied_sha256)",
       "design": "for the installer, the installation receipt bound to the session's snapshot (§6.3) names the applied installer digest as `installer_digest` and, where the transaction was recovered, as `begun_by_installer_digest` too — a transaction begun or finished by another installer version, or an unbound one, is `exposure_unknown`; this is the single installer-exposure predicate",
-      "$comment": "The one rule §11 writes the unknown case into itself. A receipt with no digest is an unbound transaction; a recovery whose two digests disagree is a transaction two versions touched. `compose/instructions_install.py::_receipt_body` is what writes both fields.",
+      "$comment": "The one rule §11 writes the unknown case into itself. A receipt with no digest is an unbound transaction; a recovery whose two digests disagree is a transaction two versions touched. `compose/instructions_install.py::_receipt_body` is what writes both fields. Two round-3 corrections. `applied_sha256` was OPTIONAL while both conditions compare against it, so an absent one made `shown_when` false and `unknown_when` false and the answer came back `not_exposed` — a negative answer from a fact nobody recorded; it is required now. And a receipt whose digest is not the applied one is a transaction FINISHED by another version, which §11's own sentence calls `exposure_unknown`; the condition said so only for the recovery field. So this rule answers `eligible` or `exposure_unknown` and never `not_exposed`: for an installer transaction there is no state in which the installation is known not to have been exposed.",
       "optional_facts": [
-        "applied_sha256",
         "begun_by_installer_digest"
       ],
       "$comment_reads": "the applied digest is the item's; `begun_by_installer_digest` is optional because its absence means no second version began the transaction, which is what §11's unknown case turns on."

@@ -409,6 +409,34 @@ JPLANT5
   case_is "and a comment naming the rule does not stand in for the rule" \
           "no longer DEFINES author_rows_absent"
 
+  # A call from the SUITE is not a runtime reader, whatever the suite's function is called. The
+  # exclusion was the single name `self_test`, and the day that suite gained a dying-control wrapper
+  # its body moved to `_self_test_body` — so the call this gate counted came from the suite again
+  # (the round-3 review). The plant moves the only runtime call into the suite's body and leaves it
+  # called there, so the name, the definition and a call all survive.
+  fresh
+  python3 - "$W" <<'JPLANT5B'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+held = t.replace("def author_rows_absent(", "def KEEP_THE_DEFINITION(")
+held = re.sub(r"\bauthor_rows_absent\s*\(", "author_rows_never_called(", held)
+held = held.replace("def KEEP_THE_DEFINITION(", "def author_rows_absent(")
+if held == t:
+    sys.exit("self-test mutation is stale: destinations.py no longer calls author_rows_absent")
+# ...and now call it from the SUITE's own body, which is where the hole was.
+mark = "def _self_test_body(failures, ran):\n"
+if mark not in held:
+    sys.exit("self-test mutation is stale: destinations.py has no _self_test_body to call from")
+held = held.replace(mark, mark + "    author_rows_absent(None)\n", 1)
+if not re.search(r"\bauthor_rows_absent\s*\(", held.replace("def author_rows_absent(", "", 1)):
+    sys.exit("self-test mutation is stale: the planted call did not survive, so the case would "
+             "pass for the wrong reason")
+p.write_text(held, encoding="utf-8")
+JPLANT5B
+  case_is "a rule the SUITE alone calls is not a runtime reader, whatever the suite is named" \
+          "never calls it outside its own suite"
+
   # The exemption is keyed to the ROW. The same path written in a second row is a reference nothing
   # has excused, and keyed by (file, path) alone it was excused anyway.
   fresh
@@ -1191,9 +1219,19 @@ def rule_reader(rel, name):
         return False, False
     defined = any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name
                   for node in ast.walk(tree))
+    # The SUITE, whatever it is called. Excluding the one name `self_test` stopped working the day
+    # the suite gained a dying-control wrapper and its body moved to `_self_test_body`: the call
+    # the gate was counting then came from the suite again (the round-3 review). Any top-level
+    # function whose name begins `self_test` or `_self_test` is the suite, and so is a function the
+    # suite alone calls — but one hop is what this gate needs, because the rule it asks about is
+    # invoked from the manifest's own entry point or from nowhere.
+    suite = {node.name for node in tree.body
+             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+             and (node.name == "self_test" or node.name.startswith("_self_test")
+                  or node.name.startswith("self_test"))}
     runtime = ast.Module(body=[node for node in tree.body
                                if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                       and node.name == "self_test")],
+                                       and node.name in suite)],
                          type_ignores=[])
     called = any(isinstance(node, ast.Call)
                  and ast.unparse(node.func).split(".")[-1] == name

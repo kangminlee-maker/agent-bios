@@ -170,7 +170,7 @@ def rule_for(occasion):
     return best[1]
 
 
-def ordering_problems(occasion):
+def ordering_problems(occasion, required=()):
     """Facts offered as exposure that were observed at or after the decision, by name.
 
     §11: exposure must be shown BEFORE the decision or action the occasion concerns. A fact observed
@@ -184,6 +184,15 @@ def ordering_problems(occasion):
     problems = []
     for name, held in sorted((occasion.get("facts") or {}).items()):
         if not isinstance(held, dict) or "at_record" not in held:
+            # A fact the ANSWER rests on must say where it was observed. An unpositioned one used to
+            # be skipped, so an occasion could be certified eligible with no evidence at all that
+            # its facts precede the decision — the ordering rule simply had nothing to read (the
+            # round-3 review). A fact the rule does not require is not part of the answer, and is
+            # not held to it.
+            if name in (required or ()):
+                problems.append(f"FACT_UNPOSITIONED {occasion.get('locator')} {name}: the answer "
+                                f"rests on this fact and it records no position, so whether it was "
+                                f"observed before the decision cannot be shown")
             continue
         if held["at_record"] >= at:
             problems.append(f"FACT_AFTER_DECISION {occasion.get('locator')} {name}: observed at "
@@ -299,7 +308,7 @@ def verdict(occasion):
     if row is None:
         raise Refused(f"EXPOSURE_RULE_ABSENT {occasion.get('locator')}: no §11 branch answers for "
                       f"operation={occasion.get('operation')!r} role={occasion.get('role')!r}")
-    held = ordering_problems(occasion)
+    held = ordering_problems(occasion, required_facts(row, occasion))
     if held:
         return {"verdict": UNKNOWN, "rule": row["id"], "why": "; ".join(held)}
     facts = _facts_of(occasion)
@@ -460,11 +469,24 @@ def fixture_cases():
         applies = row.get("applies_to") or {}
         operation = (applies.get("operation") or [None])[0]
         role = (applies.get("role") or [None])[0]
-        for label, facts, want in (("shown", shown, ELIGIBLE), ("absent", absent, NOT_EXPOSED),
+        # The 'absent' case is NOT_EXPOSED only where the rule HAS such an answer. The installer
+        # branch does not: §11 says a transaction whose receipt names another version is unknown, so
+        # for that rule every state is eligible or unknown, and a generator that assumed three
+        # verdicts was asserting an answer the design does not have (the round-3 review). Read from
+        # the row's own unknown condition over the case's own facts.
+        held_absent = (UNKNOWN if row.get("unknown_when")
+                       and _eval(row["unknown_when"], absent, f"{name}.unknown_when")
+                       else NOT_EXPOSED)
+        for label, facts, want in (("shown", shown, ELIGIBLE), ("absent", absent, held_absent),
                                    ("unanswerable", unknown, UNKNOWN)):
+            # Every fact is POSITIONED before the decision, because that is what the answer now
+            # requires: a fact the rule rests on says where it was observed, and a generated
+            # fixture that left it bare would be asking for an answer §11 does not allow.
             cases.append({"id": f"F-EXP-{name}-{label}", "rule": name, "expect": want,
                           "occasion": {"locator": f"{name}/{label}", "operation": operation,
-                                       "role": role, "at_record": 10, "facts": facts}})
+                                       "role": role, "at_record": 10,
+                                       "facts": {held: {"value": value, "at_record": 5}
+                                                 for held, value in facts.items()}}})
     return cases
 
 
@@ -699,25 +721,31 @@ def _self_test_body(failures, ran):
     # ---- the three verdicts ----------------------------------------------------------------------
     def occasion(**over):
         held = {"locator": "o-1", "operation": "create", "at_record": 10,
-                "facts": {"delivered_version": APPLIED, "applied_version": APPLIED}}
+                "facts": {"delivered_version": {"value": APPLIED, "at_record": 9}, "applied_version": {"value": APPLIED, "at_record": 9}}}
         held.update(over)
+        # POSITIONED before the decision unless the caller said otherwise: a fact the answer rests
+        # on records where it was observed, and a fixture that leaves it bare is asking for an
+        # answer §11 does not allow. A caller that positions a fact itself — which is how the
+        # after-the-decision cases are built — keeps its own value.
+        held_at = held.get("at_record")
+        held["facts"] = {name: (value if isinstance(value, dict) and "at_record" in value
+                                or held_at is None
+                                else {"value": value, "at_record": held_at - 5})
+                         for name, value in (held.get("facts") or {}).items()}
         return held
 
     control("a merge whose merged unit the pin does NOT hold is not exposure, even though the "
             "removal succeeded: the branch has two halves and one generated negative covers only one",
             verdict({"locator": "m-1", "operation": "merge", "at_record": 5,
-                     "facts": {"pin_units": ["u-kept"], "removed_unit": "u-gone",
-                               "merged_unit": "u-merged"}})["verdict"], NOT_EXPOSED)
+                     "facts": {"pin_units": {"value": ["u-kept"], "at_record": 4}, "removed_unit": {"value": "u-gone", "at_record": 4}, "merged_unit": {"value": "u-merged", "at_record": 4}}})["verdict"], NOT_EXPOSED)
     control("and the why says which half failed",
             verdict({"locator": "m-1", "operation": "merge", "at_record": 5,
-                     "facts": {"pin_units": ["u-kept"], "removed_unit": "u-gone",
-                               "merged_unit": "u-merged"}})["why"],
+                     "facts": {"pin_units": {"value": ["u-kept"], "at_record": 4}, "removed_unit": {"value": "u-gone", "at_record": 4}, "merged_unit": {"value": "u-merged", "at_record": 4}}})["why"],
             "does not hold the merged one")
     control("an invocation at the applied PATH but the old HASH is not exposure, for the same "
             "reason: §6.3's levels exist to catch exactly that",
             verdict({"locator": "i-1", "role": "tool", "at_record": 5,
-                     "facts": {"invocation_path": "bin/w", "invocation_sha256": OTHER,
-                               "applied_path": "bin/w", "applied_sha256": APPLIED}})["verdict"],
+                     "facts": {"invocation_path": {"value": "bin/w", "at_record": 4}, "invocation_sha256": {"value": OTHER, "at_record": 4}, "applied_path": {"value": "bin/w", "at_record": 4}, "applied_sha256": {"value": APPLIED, "at_record": 4}}})["verdict"],
             NOT_EXPOSED)
     control("exposure shown makes the occasion eligible", verdict(occasion())["verdict"], ELIGIBLE)
     # Round 2: the table's predicate is EXECUTED. With `shown_when` set to a constant, the answer
@@ -746,21 +774,21 @@ def _self_test_body(failures, ran):
     control("a merge carrying only an empty pin is unanswerable, not exposed: without the unit that "
             "was removed, 'the pin does not hold it' is true of every pin",
             verdict({"locator": "m-2", "operation": "merge", "at_record": 5,
-                     "facts": {"pin_units": []}})["verdict"], UNKNOWN)
+                     "facts": {"pin_units": {"value": [], "at_record": 4}}})["verdict"], UNKNOWN)
     control("and it names both identities it lacks",
             verdict({"locator": "m-2", "operation": "merge", "at_record": 5,
-                     "facts": {"pin_units": []}})["why"], "removed_unit, merged_unit")
+                     "facts": {"pin_units": {"value": [], "at_record": 4}}})["why"], "removed_unit, merged_unit")
     control("while a plain DELETE needs only the removed unit, since no merge was asked for",
             verdict({"locator": "d-2", "operation": "delete", "at_record": 5,
-                     "facts": {"pin_units": [], "removed_unit": "u-gone"}})["verdict"], ELIGIBLE)
+                     "facts": {"pin_units": {"value": [], "at_record": 4}, "removed_unit": {"value": "u-gone", "at_record": 4}}})["verdict"], ELIGIBLE)
     control("a deleted wrapper carrying only its own resolution is unanswerable: 'neither the "
             "removed artifact nor an older carrier' needs both of those digests",
             verdict({"locator": "x-2", "operation": "delete", "role": "wrapper", "at_record": 5,
-                     "facts": {"resolved_path": "bin/w", "resolved_sha256": APPLIED}})["verdict"],
+                     "facts": {"resolved_path": {"value": "bin/w", "at_record": 4}, "resolved_sha256": {"value": APPLIED, "at_record": 4}}})["verdict"],
             UNKNOWN)
     control("and names them",
             verdict({"locator": "x-2", "operation": "delete", "role": "wrapper", "at_record": 5,
-                     "facts": {"resolved_path": "bin/w", "resolved_sha256": APPLIED}})["why"],
+                     "facts": {"resolved_path": {"value": "bin/w", "at_record": 4}, "resolved_sha256": {"value": APPLIED, "at_record": 4}}})["why"],
             "removed_sha256, fallback_sha256")
     control("an operation-conditional requirement must belong to a row that claims the operation",
             str(with_table(
@@ -809,19 +837,18 @@ def _self_test_body(failures, ran):
         except Exception as exc:  # noqa: BLE001 - the exception IS the answer here
             return f"RAISED {type(exc).__name__}: {exc}"
 
-    control("O9: an installer change with the OLD installer on the receipt is shown not exposed",
+    control("O9: an installer change whose receipt names ANOTHER installer version is "
+            "exposure_unknown, not not_exposed — §11 calls a transaction finished by another "
+            "version unknown, and the condition said so only for the recovery field",
             said({"locator": "o9-a", "role": "installer", "at_record": 5,
-                     "facts": {"installer_digest": OTHER, "applied_sha256": APPLIED,
-                               "begun_by_installer_digest": None}}), NOT_EXPOSED)
+                     "facts": {"installer_digest": {"value": OTHER, "at_record": 4}, "applied_sha256": {"value": APPLIED, "at_record": 4}, "begun_by_installer_digest": {"value": None, "at_record": 4}}}), UNKNOWN)
     control("O9: a recovery BEGUN by the old installer is exposure_unknown, not not_exposed — §11 "
             "writes that case into the branch itself",
             said({"locator": "o9-b", "role": "installer", "at_record": 5,
-                     "facts": {"installer_digest": APPLIED, "applied_sha256": APPLIED,
-                               "begun_by_installer_digest": OTHER}}), UNKNOWN)
+                     "facts": {"installer_digest": {"value": APPLIED, "at_record": 4}, "applied_sha256": {"value": APPLIED, "at_record": 4}, "begun_by_installer_digest": {"value": OTHER, "at_record": 4}}}), UNKNOWN)
     control("and the why says why nobody knows",
             said({"locator": "o9-b", "role": "installer", "at_record": 5,
-                     "facts": {"installer_digest": APPLIED, "applied_sha256": APPLIED,
-                               "begun_by_installer_digest": OTHER}}, "why"),
+                     "facts": {"installer_digest": {"value": APPLIED, "at_record": 4}, "applied_sha256": {"value": APPLIED, "at_record": 4}, "begun_by_installer_digest": {"value": OTHER, "at_record": 4}}}, "why"),
             "finished by another version")
     control("a table whose unknown condition this module does not read is refused, so the field "
             "cannot sit there with no reader",
@@ -834,23 +861,80 @@ def _self_test_body(failures, ran):
             "RULE_UNKNOWN_UNREAD unread")
     control("O9: a pre-receipt transaction, with no installer digest at all, is exposure_unknown",
             said({"locator": "o9-c", "role": "installer", "at_record": 5,
-                     "facts": {"applied_sha256": APPLIED}}), UNKNOWN)
+                     "facts": {"applied_sha256": {"value": APPLIED, "at_record": 4}}}), UNKNOWN)
     control("O9: a removed wrapper resolving to an OLDER carrier is shown not exposed",
             said({"locator": "o9-d", "operation": "delete", "role": "wrapper", "at_record": 5,
-                     "facts": {"resolved_path": "bin/old", "resolved_sha256": "fa" + "l" * 62,
-                               "removed_sha256": OTHER, "fallback_sha256": "fa" + "l" * 62,
-                               "required_replacement": APPLIED}}), NOT_EXPOSED)
+                     "facts": {"resolved_path": {"value": "bin/old", "at_record": 4}, "resolved_sha256": {"value": "fa" + "l" * 62, "at_record": 4}, "removed_sha256": {"value": OTHER, "at_record": 4}, "fallback_sha256": {"value": "fa" + "l" * 62, "at_record": 4}, "required_replacement": {"value": APPLIED, "at_record": 4}}}), NOT_EXPOSED)
     control("O9: one with no resolution recorded is exposure_unknown",
             said({"locator": "o9-e", "operation": "delete", "role": "wrapper", "at_record": 5,
-                     "facts": {"removed_sha256": OTHER}}), UNKNOWN)
+                     "facts": {"removed_sha256": {"value": OTHER, "at_record": 4}}}), UNKNOWN)
     control("O9: a compiler change with the OLD compiler digest is shown not exposed",
             said({"locator": "o9-f", "role": "catalog_compiler", "at_record": 5,
-                     "facts": {"compiler_digest": OTHER, "applied_sha256": APPLIED}}),
+                     "facts": {"compiler_digest": {"value": OTHER, "at_record": 4}, "applied_sha256": {"value": APPLIED, "at_record": 4}}}),
             NOT_EXPOSED)
     control("O9: a personal change with no loading record is exposure_unknown",
             said({"locator": "o9-g", "operation": "personal", "at_record": 5,
-                     "facts": {"layer_sha256": APPLIED, "applied_sha256": APPLIED}}),
+                     "facts": {"layer_sha256": {"value": APPLIED, "at_record": 4}, "applied_sha256": {"value": APPLIED, "at_record": 4}}}),
             UNKNOWN)
+
+    # ---- a fact the answer rests on says where it was observed --------------------------------
+    #
+    # `ordering_problems` skipped any fact without an `at_record`, so an occasion could be certified
+    # ELIGIBLE with no evidence at all that its facts precede the decision: the rule had nothing to
+    # read (the round-3 review). A fact the answering rule does not require is not part of the
+    # answer and is not held to it.
+    control("an occasion whose required fact records no position is exposure_unknown, not eligible",
+            said({"locator": "p-1", "operation": "create", "at_record": 10,
+                  "facts": {"delivered_version": APPLIED,
+                            "applied_version": {"value": APPLIED, "at_record": 5}}}), UNKNOWN)
+    control("and the why names the fact and says what cannot be shown",
+            said({"locator": "p-1", "operation": "create", "at_record": 10,
+                  "facts": {"delivered_version": APPLIED,
+                            "applied_version": {"value": APPLIED, "at_record": 5}}}, "why"),
+            "FACT_UNPOSITIONED p-1 delivered_version")
+    control("the same occasion with both facts positioned before the decision is eligible, so the "
+            "refusal is the missing position and not the fact",
+            said(occasion(locator="p-2")), ELIGIBLE)
+    clean("a fact the rule does NOT require may be unpositioned: it is not part of the answer",
+          [said({"locator": "p-3", "operation": "create", "at_record": 10,
+                 "facts": {"delivered_version": {"value": APPLIED, "at_record": 5},
+                           "applied_version": {"value": APPLIED, "at_record": 5},
+                           "a_note_nobody_requires": "x"}})] and
+          [] if said({"locator": "p-3", "operation": "create", "at_record": 10,
+                      "facts": {"delivered_version": {"value": APPLIED, "at_record": 5},
+                                "applied_version": {"value": APPLIED, "at_record": 5},
+                                "a_note_nobody_requires": "x"}}) == ELIGIBLE
+          else ["an unrequired unpositioned fact changed the answer"])
+
+    # ---- the installer branch answers eligible or unknown, never not_exposed -------------------
+    control("a receipt whose digest is the applied one and whose recovery agrees is eligible",
+            said({"locator": "i-1", "role": "installer", "at_record": 5,
+                  "facts": {"installer_digest": {"value": APPLIED, "at_record": 4},
+                            "applied_sha256": {"value": APPLIED, "at_record": 4},
+                            "begun_by_installer_digest": {"value": None, "at_record": 4}}}),
+            ELIGIBLE)
+    control("an absent applied_sha256 is exposure_unknown: it was OPTIONAL while both conditions "
+            "compare against it, so an absent one produced a negative answer from a fact nobody "
+            "recorded",
+            said({"locator": "i-2", "role": "installer", "at_record": 5,
+                  "facts": {"installer_digest": {"value": APPLIED, "at_record": 4}}}), UNKNOWN)
+    control("and the refusal names the absent fact rather than answering not_exposed",
+            said({"locator": "i-2", "role": "installer", "at_record": 5,
+                  "facts": {"installer_digest": {"value": APPLIED, "at_record": 4}}}, "why"),
+            "EXPOSURE_FACT_ABSENT applied_sha256")
+    control("the branch has no not_exposed state at all, which is what §11's sentence says: for an "
+            "installer transaction nobody can know the installation was NOT exposed",
+            json.dumps(sorted({said({"locator": f"i-{held}", "role": "installer", "at_record": 5,
+                                     "facts": {"installer_digest": {"value": digest,
+                                                                    "at_record": 4},
+                                               "applied_sha256": {"value": APPLIED,
+                                                                  "at_record": 4},
+                                               "begun_by_installer_digest": {"value": begun,
+                                                                             "at_record": 4}}})
+                              for held, (digest, begun) in enumerate(
+                                  [(APPLIED, None), (OTHER, None), (APPLIED, OTHER),
+                                   (OTHER, OTHER)])})),
+            '["eligible", "exposure_unknown"]')
 
     # ---- the generated fixtures ------------------------------------------------------------------
     clean("every generated case answers with the verdict its construction implies", fixture_problems())

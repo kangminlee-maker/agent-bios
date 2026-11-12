@@ -1337,6 +1337,23 @@ EFFECT_DYNAMIC = ("__import__", "exec", "eval", "compile", "importlib.import_mod
 EFFECT_WRITE_MODES = set("wax+")
 
 
+def _self_test_branch(node):
+    """`"body"`, `"orelse"` or None: which half of an `if` the `--self-test` flag guards.
+
+    The skip followed `orelse` for any test mentioning the flag, which is exactly inverted for
+    `if "--self-test" not in sys.argv:` — there the BODY is the runtime path, and the audit skipped
+    it (the round-3 review). Decided from the test's own shape: a `not in` comparison or a `not`
+    puts the runtime code in the body, anything else in the orelse.
+    """
+    rendered = ast.unparse(node.test)
+    if "--self-test" not in rendered:
+        return None
+    negated = isinstance(node.test, ast.UnaryOp) and isinstance(node.test.op, ast.Not)
+    if isinstance(node.test, ast.Compare):
+        negated = negated or any(isinstance(op, (ast.NotIn, ast.NotEq)) for op in node.test.ops)
+    return "body" if negated else "orelse"
+
+
 def _effect_reachable(tree):
     """The top-level function names a runtime entry point can reach.
 
@@ -1346,6 +1363,18 @@ def _effect_reachable(tree):
     """
     functions = {node.name: node for node in tree.body
                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    # A class's METHODS are code too. The scope was top-level functions only, so
+    # `main()` calling `Writer().go()` reached nothing and an effect inside `go` was invisible (the
+    # round-3 review). Methods are registered as `Class.method`, and reaching the CLASS reaches
+    # them: whether a particular method is called needs an analysis this does not have, and for an
+    # effect audit the over-approximation is the safe direction.
+    methods = {}
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            for held in node.body:
+                if isinstance(held, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    methods[f"{node.name}.{held.name}"] = held
+                    functions[f"{node.name}.{held.name}"] = held
 
     def called_in(node):
         held = set()
@@ -1358,9 +1387,10 @@ def _effect_reachable(tree):
                 held.add(rendered)
                 held.add(rendered.split(".")[0].split("(")[0])
             for child in ast.iter_child_nodes(parent):
-                if isinstance(child, ast.If) and "--self-test" in ast.unparse(child.test):
-                    for part in child.orelse:   # the unguarded half still counts
-                        walk(part)
+                held_half = isinstance(child, ast.If) and _self_test_branch(child)
+                if held_half:
+                    for part in (child.body if held_half == "body" else child.orelse):
+                        walk(part)                # the unguarded half still counts
                     continue
                 walk(child)
 
@@ -1392,17 +1422,23 @@ def _effect_reachable(tree):
             elif name != "self_test" and callers[name] and not held_callers:
                 test_only.add(name)
                 moved = True
-    frontier = {name for name in functions if name not in test_only}
+    frontier = {name for name in functions if name not in test_only and name not in methods}
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            frontier |= called_in(node) & set(functions)
+            held_reached = called_in(node)
+            frontier |= held_reached & set(functions)
+            frontier |= {name for name in methods if name.split(".")[0] in held_reached}
     held = set()
     while frontier:
         name = frontier.pop()
         if name in held or name not in functions:
             continue
         held.add(name)
-        frontier |= called_in(functions[name]) & set(functions)
+        reached = called_in(functions[name])
+        frontier |= reached & set(functions)
+        for held_name in methods:
+            if held_name.split(".")[0] in reached:
+                frontier.add(held_name)
     return held
 
 
@@ -1438,6 +1474,13 @@ def effect_audit(source):
     scope += [(node.name, node) for node in tree.body
               if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
               and node.name in reachable]
+    # And the METHODS the reachability found. Walking only top-level functions left them out of the
+    # scan even once they were reached, which is the half of the finding that mattered: the effect
+    # sits in the method body.
+    scope += [(f"{held.name}.{node.name}", node) for held in tree.body
+              if isinstance(held, ast.ClassDef) for node in held.body
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+              and f"{held.name}.{node.name}" in reachable]
 
     held = set()
 
@@ -1465,8 +1508,9 @@ def effect_audit(source):
             # of its own statement — which is how the alias control came back empty.
             look(parent)
             for child in ast.iter_child_nodes(parent):
-                if isinstance(child, ast.If) and "--self-test" in ast.unparse(child.test):
-                    for part in child.orelse:
+                held_half = isinstance(child, ast.If) and _self_test_branch(child)
+                if held_half:
+                    for part in (child.body if held_half == "body" else child.orelse):
                         walk(part)
                     continue
                 walk(child)
@@ -2461,6 +2505,37 @@ def _self_test_body(failures, ran):
     clean("and a read is not a write",
           effects_in("def f():\n    return open('a').read()\n"))
     # An audit that scanned nothing reports nothing: the scope is asserted, not assumed.
+    # A class's methods are code, and a branch whose test is NEGATED is the runtime half.
+    control("an effect in a class METHOD the reachable code names is reported, with the method",
+            "; ".join(effects_in("import os\nclass Writer:\n    def go(self):\n"
+                                 "        os.symlink('a', 'b')\n"
+                                 "def main():\n    return Writer().go()\n")),
+            "os.symlink (in Writer.go)")
+    clean("while a class nothing reachable names is out of scope, so the rule is reachability and "
+          "not 'every method everywhere'",
+          effects_in("import os\nclass Writer:\n    def go(self):\n"
+                     "        os.symlink('a', 'b')\n"
+                     "def main():\n    return 1\n"))
+    control("and the method is in the scanned scope rather than merely reachable, which is the half "
+            "that mattered: the effect sits in the body",
+            json.dumps(effect_scope("import os\nclass Writer:\n    def go(self):\n"
+                                    "        os.symlink('a', 'b')\n"
+                                    "def main():\n    return Writer().go()\n")),
+            '"Writer.go"')
+    control("an effect behind `if \'--self-test\' NOT in argv` is reported: that branch is the "
+            "runtime half, and the skip followed the wrong one",
+            "; ".join(effects_in("import os, sys\ndef run():\n"
+                                 "    if '--self-test' not in sys.argv:\n"
+                                 "        os.symlink('a', 'b')\n")),
+            "os.symlink (in run)")
+    clean("while the flag's own branch is still fixtures, which is what the skip is for",
+          effects_in("import os, sys\ndef run():\n    if '--self-test' in sys.argv:\n"
+                     "        os.symlink('a', 'b')\n"))
+    control("and the half NOT guarded by the flag is scanned either way round",
+            "; ".join(effects_in("import os, sys\ndef run():\n"
+                                 "    if '--self-test' in sys.argv:\n        pass\n"
+                                 "    else:\n        os.symlink('a', 'b')\n")),
+            "os.symlink (in run)")
     control("the audit scanned this module's own entry point",
             json.dumps(effect_scope(own_source)), '"main"')
     control("and its top level", json.dumps(effect_scope(own_source)), '"<module>"')
