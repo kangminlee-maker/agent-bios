@@ -493,8 +493,43 @@
         "package_id": {"type": ["string", "null"]},
         "form": {"type": "string", "enum": ["markdown", "python", "json", "toml", "plain"]},
         "length": {"type": "integer", "minimum": 0},
-        "split": {"type": "string", "enum": ["split", "malformed", "unsupported"]},
-        "unit_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/unit_ref"}}
+        "split": {"type": "string", "enum": ["split", "malformed", "unsupported", "withheld"]},
+        "unit_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/unit_ref"}},
+        "withheld": {"$ref": "#/$defs/withheld_counts"}
+      }
+    },
+    "withheld_counts": {
+      "$comment": "A withheld version's would-be units (WP-11b X r1 (i)): how many there were, how many match a unit the store publishes by text sha, and how many match none. The text is the owner's and never enters a run.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units", "matched", "unmatched"],
+      "properties": {
+        "units": {"type": "integer", "minimum": 0},
+        "matched": {"type": "integer", "minimum": 0},
+        "unmatched": {"type": "integer", "minimum": 0}
+      }
+    },
+    "withheld": {
+      "$comment": "A layer row whose units are not published because its text is the owner's (D-20261111-d05b16; WP-11b X r1 (i)): the reason, the would-be units, how many match a unit the same document publishes by text sha and how many match none (units this reference point cannot judge), the unmatched by class, and the same counts per carrier version.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "units", "matched", "unmatched", "unmatched_by_class", "carriers"],
+      "properties": {
+        "reason": {"type": "string", "enum": ["owner_text_never_enters_a_run"]},
+        "units": {"type": "integer", "minimum": 0},
+        "matched": {"type": "integer", "minimum": 0},
+        "unmatched": {"type": "integer", "minimum": 0},
+        "unmatched_by_class": {"type": "object", "additionalProperties": false,
+                               "properties": {"operative": {"type": "integer", "minimum": 0},
+                                              "reference": {"type": "integer", "minimum": 0}}},
+        "carriers": {"type": "array", "minItems": 1, "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["carrier_id", "version_sha256", "units", "matched", "unmatched"],
+          "properties": {"carrier_id": {"type": "string"},
+                         "version_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                         "units": {"type": "integer", "minimum": 0},
+                         "matched": {"type": "integer", "minimum": 0},
+                         "unmatched": {"type": "integer", "minimum": 0}}}}
       }
     },
     "carrier_unit": {
@@ -829,7 +864,8 @@
         "status": {"type": "string", "enum": ["complete", "incomplete", "unsupported", "unknown"]},
         "reasons": {"type": "array", "items": {"type": "string"}},
         "units": {"type": "integer", "minimum": 0},
-        "empty": {"type": "boolean"}
+        "empty": {"type": "boolean"},
+        "withheld": {"$ref": "#/$defs/withheld"}
       }
     }
   }

@@ -316,11 +316,20 @@ def current_point(current):
             "layers": {row["layer"]: row["status"] for row in current.get("layers") or []}}
 
 
+def withheld_of(current):
+    """The current reference point's withheld would-be units, summed over its layer rows (S2 publishes them per row,
+    WP-11b X r1 (i)): how many there were, how many match a unit the point publishes, and how many match none — the
+    units this reference point cannot judge. Disclosed beside the completeness, never a threshold (lead)."""
+    rows = [row.get("withheld") or {} for row in current.get("layers") or [] if isinstance(row, dict)]
+    return {key: sum(int(row.get(key) or 0) for row in rows) for key in ("units", "matched", "unmatched")}
+
+
 def absence_of(current):
     """`(checks.json's absence, the reason a candidate is withheld or None)`."""
     complete, read = derive.absence(current_point(current))
     layers = read.get("unknown_layers") or []
-    doc = {"reference": "current", "policy": read["policy"], "complete": complete, "unknown_layers": layers}
+    doc = {"reference": "current", "policy": read["policy"], "complete": complete, "unknown_layers": layers,
+           "withheld": withheld_of(current)}
     if complete:
         return doc, None
     what = (f"completeness of the {', '.join(layers)} layer{'s' if len(layers) > 1 else ''} unknown" if layers
@@ -448,6 +457,10 @@ def report_lines(summary):
              f"sessions: {summary['session_failed']} candidates with a session problem",
              f"recurrence: {rec['lineages']} counted lineages over {rec['sessions']} sessions; excluded "
              + ", ".join(f"{k} {v}" for k, v in rec["excluded"].items())]
+    held = (summary.get("absence") or {}).get("withheld") or {}
+    lines.append(f"compiled text: {held.get('units', 0)} would-be units withheld at the current reference point, "
+                 f"{held.get('matched', 0)} matching a unit it publishes, {held.get('unmatched', 0)} matching none "
+                 f"(units this reference point cannot judge)")
     line = withheld_line(summary)
     lines.append(f"absence: {line}" if line else "absence: the current reference point is complete; none withheld")
     c = summary["controls"]
@@ -630,6 +643,17 @@ def self_test():
     control("control: at a complete point nothing is withheld", why_ok is None and doc_ok["complete"] is True, f"{doc_ok}")
     control("a point that records no completeness is incomplete, and says so",
             absence_of({"units": []})[1] == "the current reference point records no completeness", f"{absence_of({'units': []})}")
+    # WP-11b X r1 (i): the withheld would-be units S2 counts per row reach checks.json as one total, disclosed, and
+    # the driver's report says them; a point with no withheld row says zero rather than nothing
+    held_current = fx_current([], complete=True, statuses={"catalog": "complete"})
+    held_current["layers"].append({"layer": "session_injection", "status": "complete", "units": 0, "empty": False,
+                                   "withheld": {"reason": "owner_text_never_enters_a_run", "units": 5, "matched": 2,
+                                                "unmatched": 3}})
+    control("(i) the withheld would-be units are summed into the absence block, and a point holding none says zero",
+            absence_of(held_current)[0].get("withheld") == {"units": 5, "matched": 2, "unmatched": 3}
+            and absence_of(fx_current([], complete=True, statuses={"catalog": "complete"}))[0].get("withheld")
+            == {"units": 0, "matched": 0, "unmatched": 0},
+            f"{absence_of(held_current)[0].get('withheld')}")
 
     # ---- the stage over a golden run through S4 --------------------------------------------------------------------
     root = pathlib.Path(tempfile.mkdtemp(prefix="s5-"))
@@ -733,6 +757,8 @@ def self_test():
                                 "native_settings layer unknown", f"{said[-2:]}")
             control("golden: the report carries the controls apart from the natural counts",
                     said[-1].startswith("controls (apart from the counts above): 6 planted; S5 checked 4"), f"{said[-1:]}")
+            control("(i) golden: the report says the compiled text's withheld would-be units, before the absence line",
+                    said[-3].startswith("compiled text: ") and "would-be units withheld" in said[-3], f"{said[-3:]}")
             # a planted S5 control that S5 lets through stops the run before S6 reads anything
             slipped = copy_of("slipped")
             held_alter = controls.alter

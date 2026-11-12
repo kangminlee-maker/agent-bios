@@ -1036,6 +1036,8 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
     sizes, basis = sweeps_of(declaration)
     section = {"reference": "current", "policy": absence.get("policy"), "complete": absence.get("complete") is True,
                "unknown_layers": absence.get("unknown_layers") or [], "sizes": sizes, "sizes_basis": basis,
+               # the compiled text's would-be units S2 withheld and S5 summed (WP-11b X r1 (i)), carried to the report
+               "withheld": absence.get("withheld"),
                "absent": [], "not_judged_by_both": [], "groups": [], "calls": []}
     absent, not_both = absent_candidates(judged, judgments, sources)
     statuses = current_point(records.read_json(run_dir / "inventory" / "current.json"))["layers"]
@@ -2255,6 +2257,9 @@ def report_lines(summary):
                      + "; current point " + ("complete" if (cl.get("reference") or {}).get("complete") else "incomplete")
                      + f" under the {(cl.get('reference') or {}).get('policy')} policy, layers "
                      + ", ".join(f"{k}={v}" for k, v in ((cl.get("reference") or {}).get("layers") or {}).items()))
+        held = sw.get("withheld") or {}
+        lines.append(f"compiled text at the current point: {held.get('units', 0)} would-be units withheld, "
+                     f"{held.get('unmatched', 0)} matching no published unit, so not judgeable here")
         if not sw["complete"]:
             lines.append(f"sweeps: none - {sw['why']}")
         else:
@@ -2972,6 +2977,10 @@ def self_test():
             lines = guarded(lambda: report_lines(second), [])
             control("golden (J2): the report says what the calls did, in counts and codes",
                     any(l.startswith("calls (calibration tranche): accepted") for l in lines), f"{lines}")
+            control("(i) golden (J2): the report says the compiled text's withheld would-be units the current point holds",
+                    any(l.startswith("compiled text at the current point: ") and "would-be units withheld" in l
+                        for l in lines) and (second.get("sweeps") or {}).get("withheld") is not None,
+                    f"{[l for l in lines if l.startswith('compiled text')]} {(second.get('sweeps') or {}).get('withheld')}")
             # the receipts, planted on copies of the accepted calls' own
             held = []
             for cid in judged_ids[:2]:

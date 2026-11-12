@@ -1589,6 +1589,8 @@ def universe_context(members, inventories, place):
         items.setdefault((item["carrier_id"], item["version_sha256"]), item)
     units, carriers = [], set(items)
     for key in sorted(items):
+        if items[key]["layer"] in WITHHELD_LAYERS:
+            continue  # a version whose units are withheld has none here either, as in the store (WP-11b X r1 (i))
         try:
             units += _as_universe_units(units_of([items[key]]))
         except (Malformed, Unsupported):
@@ -1742,6 +1744,25 @@ PRODUCED_BY_TABLE = table_of({
 # R3: the layer/producer table. `reasons` are diagnostics this module composed, exception messages
 # among them, and an exception message is a path often enough — so every one passes the floor. Two
 # of the sites that build them did not (found during S1, `layer_rows`'s `units_of` handlers).
+# The layers whose text is the owner's and never enters a run (D-20261111-d05b16; WP-11b X r1 (i), lead's (가) and
+# (가)): a session's compiled instruction text, from its snapshot or as a transcript recorded it. Its carriers keep
+# their identity (id, version, length, and an occurrence's place and manner), so events and occurrences still bind to
+# them, but no unit of them is published: a layer row and a store version say how many would-be units there were,
+# how many match a unit the same document publishes by text sha, and how many match none — units this reference
+# point cannot judge. One rule for one text, whichever road it came by.
+WITHHELD_LAYERS = ("session_injection",)
+WITHHELD_REASON = "owner_text_never_enters_a_run"
+WITHHELD_COUNTS_TABLE = table_of({
+    "units": as_scalar(), "matched": as_scalar(), "unmatched": as_scalar(),
+}, schema="withheld_counts")
+WITHHELD_TABLE = table_of({
+    "reason": as_enum((WITHHELD_REASON,)),
+    "units": as_scalar(), "matched": as_scalar(), "unmatched": as_scalar(),
+    "unmatched_by_class": map_of(as_enum(lambda: schema_enum("unit_class") or ("operative", "reference")),
+                                 as_scalar()),
+    "carriers": list_of(table_of({"carrier_id": as_opaque("carrier_id"), "version_sha256": as_opaque("sha256"),
+                                  "units": as_scalar(), "matched": as_scalar(), "unmatched": as_scalar()})),
+}, schema="withheld")
 LAYER_ROW_TABLE = table_of({
     "layer": as_enum(layer_names),
     "producer": as_metadata(nullable=True),
@@ -1749,7 +1770,8 @@ LAYER_ROW_TABLE = table_of({
     "units": as_scalar(),
     "empty": as_scalar(),
     "reasons": list_of(as_metadata()),
-}, optional=("empty",), schema="layer_row")
+    "withheld": WITHHELD_TABLE,
+}, optional=("empty", "withheld"), schema="layer_row")
 
 # R5: a rename, in its two shapes. A row names carriers by their opaque ids and projects the two
 # paths it reports, because a delivered path is the owner's disk often enough.
@@ -1960,7 +1982,47 @@ UNIVERSE_TABLE = table_of({"host": as_enum(PROVENANCE_HOSTS), **{key: as_scalar(
 # context-free units. A unit of a reference document resolves here by its `unit_ref`, a version by
 # `carrier_id` and `version_sha256`. Nothing here says when or from whom a version came: that is each
 # occurrence's own record, and a version delivered three times is still one row.
-SPLIT_OUTCOMES = ("split", "malformed", "unsupported")
+SPLIT_OUTCOMES = ("split", "malformed", "unsupported", "withheld")
+
+
+def withheld_of(produced, published):
+    """The `withheld` block of a row whose units are not published: its would-be units, how many match a unit the same
+    document publishes by text sha (`published`, the shas of the units it does publish) and how many match none, in
+    total, by class for the unmatched, and per carrier version. Counts only, computed while the text is still in hand."""
+    per = {}
+    for unit in produced:
+        row = per.setdefault((unit["carrier_id"], unit["version_sha256"]), {"units": 0, "matched": 0, "unmatched": 0})
+        row["units"] += 1
+        row["matched" if unit["sha"] in published else "unmatched"] += 1
+    unmatched = [unit for unit in produced if unit["sha"] not in published]
+    return {"reason": WITHHELD_REASON, "units": len(produced), "matched": len(produced) - len(unmatched),
+            "unmatched": len(unmatched),
+            "unmatched_by_class": dict(sorted(collections.Counter(unit["class"] for unit in unmatched).items())),
+            "carriers": [{"carrier_id": carrier_id, "version_sha256": version, **counts}
+                         for (carrier_id, version), counts in sorted(per.items())]}
+
+
+def withheld_problems(layers, where="$"):
+    """What a document's layer rows get wrong about withholding: a withheld row publishes no unit, says why by the
+    declared reason, and its counts add up, in total and over its carriers (WITHHELD_INCONSISTENT); and no complete row
+    reads as complete-and-empty, no unit and not empty, without a `withheld` block naming why (WITHHELD_UNNAMED)."""
+    out = []
+    for n, row in enumerate(layers or []):
+        at = f"{where}.layers[{n}] {row.get('layer')}"
+        held = row.get("withheld")
+        if held is None:
+            if row.get("status") == "complete" and row.get("units") == 0 and row.get("empty") is False:
+                out.append(f"WITHHELD_UNNAMED {at}: complete, no unit and not empty, and no withheld block says why")
+            continue
+        carriers = held.get("carriers") or []
+        if (row.get("layer") not in WITHHELD_LAYERS or held.get("reason") != WITHHELD_REASON or row.get("units") != 0
+                or row.get("empty") is not False or held.get("units") != held.get("matched", 0) + held.get("unmatched", 0)
+                or held.get("unmatched") != sum((held.get("unmatched_by_class") or {}).values())
+                or not carriers or any(sum(c.get(key, 0) for c in carriers) != held.get(key)
+                                       for key in ("units", "matched", "unmatched"))):
+            out.append(f"WITHHELD_INCONSISTENT {at}: a withheld row publishes no unit, is a withheld layer, names the "
+                       f"declared reason, is not empty, and its counts add up in total and over its carriers")
+    return out
 SPAN_UNIT = "code_point"  # every [start, end) the store publishes counts Unicode code points of the raw text
 CARRIER_VERSION_TABLE = table_of({
     "layer": as_enum(layer_names),
@@ -1971,7 +2033,8 @@ CARRIER_VERSION_TABLE = table_of({
     "length": as_scalar(),
     "split": as_enum(SPLIT_OUTCOMES),
     "unit_refs": list_of(as_opaque("unit_ref")),
-}, schema="carrier_version")
+    "withheld": WITHHELD_COUNTS_TABLE,
+}, optional=("withheld",), schema="carrier_version")
 # A unit as the store carries it: no context and no provenance, its span in the RAW version's code
 # points, and `sha` the raw fragment's digest, so a projected `text` still binds to the bytes it came
 # from. `unit_id` is not here: it is the fragment's id within one reference document's split (see
@@ -2287,7 +2350,7 @@ def store_document(ctx):
     by_version = {}
     for item in store_carriers(ctx):
         by_version.setdefault((item["carrier_id"], item["version_sha256"]), item)
-    versions, units = {}, {}
+    versions, units, held_back = {}, {}, []
     for (carrier_id, version), item in sorted(by_version.items()):
         try:
             split, produced = "split", units_of([item])
@@ -2295,6 +2358,10 @@ def store_document(ctx):
             split, produced = "malformed", []
         except Unsupported:
             split, produced = "unsupported", []
+        if split == "split" and item["layer"] in WITHHELD_LAYERS:
+            # listed by its identity and length, its counts filled once every other version is split; no unit
+            held_back.append((carrier_id, version, item, produced))
+            split, produced = "withheld", []
         where = f"versions[{carrier_id}][{version}]"
         _emit_value(as_opaque("carrier_id"), carrier_id, place, f"{where}<key>")
         versions.setdefault(carrier_id, {})[version] = emit_row(where, CARRIER_VERSION_TABLE, {
@@ -2310,6 +2377,12 @@ def store_document(ctx):
                 "class": unit["class"], "block": unit["block"], "redaction_version": unit["redaction_version"],
                 "carrier_text": unit["carrier_text"], "span": unit["span"],
                 "heading_spans": unit["heading_spans"]}, place)
+    published = {unit["sha"] for unit in units.values()}
+    for carrier_id, version, _item, produced in held_back:
+        counts = withheld_of(produced, published)
+        versions[carrier_id][version]["withheld"] = emit_row(
+            f"versions[{carrier_id}][{version}].withheld", WITHHELD_COUNTS_TABLE,
+            {key: counts[key] for key in ("units", "matched", "unmatched")}, place)
     return {"document": STORE, "span_unit": SPAN_UNIT, "closure_rule": CLOSURE_RULE,
             "produced_by": emit_row("produced_by", SESSIONS_PRODUCED_BY_TABLE, {
                 "module": "session-distill/runlib/inventory.py", "design": DESIGN,
@@ -5371,7 +5444,7 @@ def produce(rows):
     * a row whose every carrier is empty text is a valid empty set: `complete` and empty, each version
       still in the store;
     * a row with content that still produced no unit is `incomplete`, never clean."""
-    units = []
+    units, held_back = [], []
     for row in rows:
         row["empty"] = False
         if row["status"] != "complete" and not row["carriers"]:
@@ -5396,6 +5469,8 @@ def produce(rows):
                 continue
             seen = trial
         row["units"] = len(produced)
+        if row["layer"] in WITHHELD_LAYERS:
+            row["units"] = 0
         if failed:
             row.update(status="incomplete" if whole else row["status"], reasons=row["reasons"] + failed)
         elif not produced and whole and all(item["text"] == "" for item in row["carriers"]):
@@ -5404,7 +5479,15 @@ def produce(rows):
             row.update(status="incomplete", reasons=row["reasons"] + [
                 f"{row['layer']}: {row['producer']} read {len(row['carriers'])} carrier(s) and produced no unit, "
                 f"and a layer is never silently empty"])
+        if row["layer"] in WITHHELD_LAYERS:
+            if produced:
+                held_back.append((row, produced))
+            continue
         units += produced
+    # counted against what the document DOES publish, which is every other row's units
+    published = {unit["sha"] for unit in units}
+    for row, produced in held_back:
+        row["withheld"] = withheld_of(produced, published)
     for row in rows:
         row.pop("carriers", None)
     return units
@@ -5793,7 +5876,7 @@ def emitted_document(reference, rows, ctx):
             "notes": ctx["notes"]}, place),
         "layers": [emit_row("layer_row", LAYER_ROW_TABLE,
                             {key: row[key] for key in ("layer", "producer", "status", "units",
-                                                       "empty", "reasons")}, place)
+                                                       "empty", "reasons", "withheld") if key in row}, place)
                    for row in rows],
         "units": shed([{**unit, "edges": unit_edges(unit)} for unit in listed] if reference == "current" else listed,
                       ctx.get("home")),
@@ -6052,7 +6135,8 @@ def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None, snaps
         "document": SHARED, "closure_rule": CLOSURE_RULE, "inventory_id": identity, "kind": kind, "ref": ref,
         "complete": not (reasons or unmapped), "incomplete_reasons": reasons + unmapped,
         "produced_by": {"module": "session-distill/runlib/inventory.py", "design": DESIGN, "commit": ctx.get("commit")},
-        "layers": [{key: row[key] for key in ("layer", "producer", "status", "units", "empty", "reasons")} for row in rows],
+        "layers": [{key: row[key] for key in ("layer", "producer", "status", "units", "empty", "reasons", "withheld")
+                    if key in row} for row in rows],
         "carriers": [{"carrier_id": carrier_id, "version_sha256": version}
                      for carrier_id, version in sorted({(item["carrier_id"], item["version_sha256"]) for item in carriers})],
         "unit_refs": sorted({unit["unit_ref"] for unit in units}),
@@ -6905,7 +6989,9 @@ def release_cross_problems(index, sessions, shared, store):
                     named += [(occurrence.get("carrier_id"), occurrence.get("version_sha256"))
                               for occurrence in (recorded.get(ref) or {} for ref in source.get("occurrence_refs") or [])
                               if occurrence.get("method") != "unmapped"]
-                    if any(((versions.get(carrier_id) or {}).get(version) or {}).get("split") not in (None, "split")
+                    # a withheld version WAS split: its units are counted and not published (WP-11b X r1 (i))
+                    if any(((versions.get(carrier_id) or {}).get(version) or {}).get("split") not in (None, "split",
+                                                                                                     "withheld")
                            for carrier_id, version in named):
                         problems.append(f"RELEASE_SPLIT_DIFFERS {where} {layer}: complete, and it names a version the "
                                         f"store did not split")
@@ -7183,7 +7269,10 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 + release_cross_problems(index, sessions_doc, shared, store_doc) \
                 + closure_cross_problems({reference: produced[reference][0] for reference in UNIT_REFERENCES}, shared,
                                          sessions_doc) \
-                + context_cross_problems(sessions_doc, index, shared, store_doc)
+                + context_cross_problems(sessions_doc, index, shared, store_doc) \
+                + [line for reference in UNIT_REFERENCES
+                   for line in withheld_problems(produced[reference][0]["layers"], reference)] \
+                + [line for path, document in shared for line in withheld_problems(document["layers"], path)]
             if crossed:
                 raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
             based = next((document for _path, document in shared if document["inventory_id"] == base_ref), None)
@@ -10776,8 +10865,12 @@ def self_test():
                   == [("/attachment/systemPrompt/1", crlf_start, crlf_end, "normalised", sha256_text(crlf_recorded),
                        sha256_text(crlf_recorded))]
                   and sha256_text(crlf_recorded) != sha256_text(delivered_body)
-                  and crlf_version.get("length") == len(crlf_recorded) and bool(crlf_version.get("unit_refs")),
-                  f"rows={[(row['method'], row['start'], row['end']) for row in crlf_rows]} in_store={bool(crlf_version)}")
+                  # listed by its length, withheld with its counts (WP-11b X r1 (i)): the recorded bytes are the
+                  # owner's compiled text as the transcript holds it, and the store carries no unit of it
+                  and crlf_version.get("length") == len(crlf_recorded) and crlf_version.get("split") == "withheld"
+                  and crlf_version.get("unit_refs") == [] and (crlf_version.get("withheld") or {}).get("units", 0) > 0,
+                  f"rows={[(row['method'], row['start'], row['end']) for row in crlf_rows]} in_store={bool(crlf_version)} "
+                  f"split={crlf_version.get('split')} withheld={crlf_version.get('withheld')}")
             shape_rows = occurrences_of(delivered_sessions, event_of(delivered_sessions, "claude:s-shape",
                                                                      "session_injection").get("event_id"))
             check("a request shape's body is an occurrence at its own indexed pointer",
@@ -10847,11 +10940,13 @@ def self_test():
             recorded_units = [(recorded_run.get("store") or {}).get("units", {}).get(ref) or {}
                               for row in recorded_versions.values() for ref in row["unit_refs"]]
             check("a RECORDED session injection holding a credential and a home path is in the written store under its "
-                  "own version, masked, and neither string is in the written store or sessions.json",
+                  "own version, withheld with its counts and no unit (WP-11b X r1 (i)), and neither string is in the "
+                  "written store or sessions.json",
                   "refused" not in recorded_run and all(recorded_bytes.values())
                   and [row["method"] for row in recorded_rows] == ["normalised"]
-                  and len(recorded_versions) == 1 and bool(recorded_units)
-                  and any("<REDACTED>" in unit.get("text", "") or "<HOME>" in unit.get("text", "") for unit in recorded_units)
+                  and len(recorded_versions) == 1 and not recorded_units
+                  and all(row.get("split") == "withheld" and (row.get("withheld") or {}).get("units", 0) > 0
+                          for row in recorded_versions.values())
                   and not any(recorded_secret in text or recorded_home in text for text in recorded_bytes.values()),
                   f"refused={recorded_run.get('refused')} methods={[row['method'] for row in recorded_rows]} "
                   f"versions={len(recorded_versions)} raw={[name for name, text in recorded_bytes.items() if recorded_secret in text or recorded_home in text]}")
@@ -12315,7 +12410,10 @@ def self_test():
                 "native_memory": "---\nname: one\n---\n\n- a fact\n" + tainted,
             }
             store = store_module(REPO)
-            injected = f"# Session\n\n- a compiled rule naming {private}, with apiKeyHelper: {secret}\n"
+            # a sentinel no floor masks, so only withholding keeps it out of the artifacts (WP-11b X r1 (i))
+            sentinel = "withheld-sentinel-" + "7c" * 8
+            injected = (f"# Session\n\n- a compiled rule naming {private}, with apiKeyHelper: {secret}\n\n"
+                        f"- a compiled rule marked {sentinel}\n")
             snapshot_inputs = {"baseline_ref": "ref1", "host": "claude", "selection": ["@fixture/core:item-1"]}
             content_ref = store._digest(snapshot_inputs)
             snapshot_dir = state / "sessions" / "snapshots" / content_ref
@@ -12357,6 +12455,25 @@ def self_test():
             # ...judged over artifacts that exist: a run that wrote nothing carries nothing, and says nothing
             check("no artifact carries the planted credential or the owner's home path",
                   not leaking and len(artifacts) >= len(REFERENCES), f"{leaking} artifacts={len(artifacts)}")
+            # WP-11b X r1 (i), the sentinel: no S2 output carries a byte sequence of the compiled text that no floor
+            # masks — the store and the reference documents by name, then every other file the run wrote. The views
+            # are excluded by name: they are the session's own record, where the text lives (lead) — and the sentinel
+            # IS in that record here, so the exclusion hides no empty subject.
+            sentinel_excluded = {"views": "the session's own record, where the compiled text lives (lead, WP-11b X r1)"}
+            sentinel_named = [planted_out / "inventory" / name for name in ("current.json", "selection.json",
+                                                                            "sessions.json", STORE_REL)] \
+                + sorted((planted_out / "inventory" / "shared").glob("selection-*.json"))
+            sentinel_scanned = sorted(set(sentinel_named) | {path for path in artifacts
+                                                            if not set(path.relative_to(planted_out).parts)
+                                                            & set(sentinel_excluded)})
+            sentinel_found = sorted(path.relative_to(planted_out).as_posix() for path in sentinel_scanned
+                                    if path.is_file() and sentinel.encode("utf-8") in path.read_bytes())
+            check("(i) no S2 output carries the compiled text's sentinel: the store, the reference documents and the "
+                  "selection inventories by name, and every other file the run wrote but the views",
+                  all(path.is_file() for path in sentinel_named) and len(sentinel_named) > 4 and not sentinel_found,
+                  f"found in {sentinel_found}; missing {[p.name for p in sentinel_named if not p.is_file()]}")
+            check("(i) and the views' record holds it, so the exclusion is not hiding an empty subject",
+                  sentinel.encode("utf-8") in pathlib.Path(planted_path).read_bytes(), "the planted transcript lacks it")
             emitted = {}
             # the documents that publish units (P2.5, R9: the release index has none; its inventories' units are the
             # store's, read next)
@@ -12383,21 +12500,35 @@ def self_test():
                       f"{layer} produced no masked unit")
                 check(f"the {layer} carrier still names the floor that masked it",
                       all(unit.get("redaction_version") == projection.CURRENT for unit in carried), "no redaction_version")
+            # WP-11b X r1 (i): the session's compiled text is read (its row counts would-be units) and none of its
+            # units is published, in a reference document or in the store
             session_units = [unit for units_for in emitted.values() for unit in units_for
                              if unit["layer"] == "session_injection"]
-            check("the session's compiled text was read at all", bool(session_units),
-                  f"the pin produced no session_injection unit: "
-                  f"{[(r, manifest['references'][r]['layers'].get('session_injection')) for r in UNIT_REFERENCES]}")
-            check("the session's compiled text is masked too",
-                  all(secret not in unit["text"] and private not in unit["text"] for unit in session_units)
-                  and any("<REDACTED>" in unit["text"] or "<HOME>" in unit["text"] for unit in session_units),
-                  "the session's units carry the planted credential or home path")
+            session_rows = {reference: next((row for row in written_json(planted_out / "inventory" / f"{reference}.json")
+                                             .get("layers") or [] if row.get("layer") == "session_injection"), {})
+                            for reference in UNIT_REFERENCES}
+            check("the session's compiled text was read at all: each reference point's session_injection row counts its "
+                  "would-be units under the declared reason, publishes none, and does not read as empty",
+                  all((row.get("withheld") or {}).get("units", 0) > 0 and row.get("units") == 0
+                      and row.get("empty") is False and (row.get("withheld") or {}).get("reason") == WITHHELD_REASON
+                      for row in session_rows.values()),
+                  f"{ {reference: (row.get('status'), row.get('units'), row.get('withheld')) for reference, row in session_rows.items()} }")
+            check("and no unit of the session's compiled text is published, in the documents or the store",
+                  not session_units, f"{len(session_units)} session_injection unit(s) published")
             planted_store_path = planted_out / "inventory" / STORE_REL
             planted_bytes = planted_store_path.read_text(encoding="utf-8") if planted_store_path.is_file() else ""
             planted_store_doc = json.loads(planted_bytes) if planted_bytes else {"versions": {}, "units": {}}
             planted_by_version = {version: [planted_store_doc["units"].get(ref) or {} for ref in row["unit_refs"]]
                                   for rows in planted_store_doc["versions"].values() for version, row in rows.items()}
-            planted_raw = [sha256_text(text) for text in planted_in.values()] + [sha256_text(injected)]
+            planted_raw = [sha256_text(text) for text in planted_in.values()]
+            planted_injection = [row for rows in planted_store_doc["versions"].values() for version, row in rows.items()
+                                 if version == sha256_text(injected)]
+            check("the store lists the compiled text's version by its identity and length, withheld, with its counts "
+                  "and no unit",
+                  bool(planted_injection)
+                  and all(row["split"] == "withheld" and row["unit_refs"] == [] and row["length"] == len(injected)
+                          and (row.get("withheld") or {}).get("units", 0) > 0 for row in planted_injection),
+                  f"{[(row.get('split'), row.get('unit_refs'), row.get('withheld')) for row in planted_injection]}")
             check("the planted run's store, read back from its written file, holds every planted carrier under its raw "
                   "version, masked, and its bytes carry neither the credential nor the home path",
                   bool(planted_bytes) and secret not in planted_bytes and private not in planted_bytes
@@ -12769,11 +12900,17 @@ def self_test():
                   else ["the run wrote no store or no reference document"])
             injection_id = canonical("c", "session_injection", "claude", content_ref)
             injection_units = [unit for unit in both_documents["current"]["units"] if unit["layer"] == "session_injection"]
+            injection_row = next((row for row in both_documents["current"].get("layers") or []
+                                  if row.get("layer") == "session_injection"), {})
             check("a session injection's carrier is its host and the snapshot it was compiled into, in the document "
-                  "and in the store",
-                  bool(injection_units) and {unit["carrier_id"] for unit in injection_units} == {injection_id}
-                  and injection_id in both_store["versions"],
-                  f"units={len(injection_units)} in_store={injection_id in both_store['versions']}")
+                  "(its withheld row's carriers, no unit published: WP-11b X r1 (i)) and in the store",
+                  not injection_units
+                  and {row.get("carrier_id") for row in (injection_row.get("withheld") or {}).get("carriers") or []}
+                  == {injection_id}
+                  and injection_id in both_store["versions"]
+                  and all(row.get("split") == "withheld" for row in both_store["versions"][injection_id].values()),
+                  f"units={len(injection_units)} withheld={injection_row.get('withheld')} "
+                  f"in_store={injection_id in both_store['versions']}")
             both_sessions_doc = written_json(both_out / "inventory" / f"{SESSIONS}.json")
             clean("every occurrence of the run's sessions.json resolves against its store",
                   occurring(both_sessions_doc, both_store) if both_sessions_doc and both_store_path.is_file()
@@ -16253,18 +16390,23 @@ def self_test():
                     return f"published_closures refused: {str(exc)[:300]}", occurrence
                 rules = [ref for ref in injected_units if store_here["units"][ref]["class"] == "operative"]
                 reaching = [ref for ref in rules if set(closures.get(ref) or []) & set(native_units)]
+                withheld = (((store_here["versions"].get(occurrence["carrier_id"]) or {})
+                             .get(occurrence["version_sha256"]) or {}).get("withheld") or {}).get("units")
                 return (f"method={occurrence['method']} held={held} units={len(injected_units)} "
                         f"in_closures={len(set(injected_units) & set(closures))} rules={len(rules)} "
-                        f"reaching_native={len(reaching)}"), occurrence
+                        f"reaching_native={len(reaching)} withheld={withheld}"), occurrence
 
             r10_exact, _r10_occurrence = r10_case("s-r10e", r10_body)
-            control("R1#0: an injected body's own units are in its segment's context set, with its mention of a native "
-                    "carrier reached", [r10_exact],
-                    "method=exact held=True units=2 in_closures=2 rules=1 reaching_native=1")
+            # WP-11b X r1 (i) (lead's (가)): the body is the owner's compiled text, so its version is in the universe by
+            # its identity and its units are withheld, counted in the store and in no context set; its mentions
+            # resolve through the catalogue units its matched units duplicate, which the pointed inventories hold
+            control("R1#0: an injected body's version is in its segment's universe, and its units are withheld: "
+                    "counted in the store, none in the context set", [r10_exact],
+                    "method=exact held=True units=0 in_closures=0 rules=0 reaching_native=0 withheld=2")
             r10_normalised, r10_occurrence = r10_case("s-r10n", r10_body.replace("\n", "\r\n"))
             control("R1#0: and a normalised recorded version is the one in the universe",
                     [f"{r10_normalised} recorded_is_selected={r10_occurrence.get('version_sha256') == sha256_text(r10_body)}"],
-                    "method=normalised held=True units=2 in_closures=2 rules=1 reaching_native=1",
+                    "method=normalised held=True units=0 in_closures=0 rules=0 reaching_native=0 withheld=2",
                     "recorded_is_selected=False")
 
             # K17's same-session claim under the R1 #0 rule (lead): two non-empty segments of ONE session whose
@@ -16359,7 +16501,9 @@ def self_test():
                     globals()["LAYERS"] = kept_layers
                 current_row = next((row for row in current_here["layers"] if row["layer"] == "session_injection"), {})
                 selection_row = next((row for row in selection_here["layers"] if row["layer"] == "session_injection"), {})
-                texts = [unit["text"].strip() for unit in current_here["units"] if unit["layer"] == "session_injection"]
+                # its would-be units, withheld, and the ones published, which is none (WP-11b X r1 (i))
+                texts = [(current_row.get("withheld") or {}).get("units"),
+                         [unit["text"].strip() for unit in current_here["units"] if unit["layer"] == "session_injection"]]
                 own = (ctx_here.get("session_pins") or {}).get(session_ref(host, ident)) or {}
                 return current_row, texts, selection_row, own
 
@@ -16381,7 +16525,7 @@ def self_test():
                   "rollout, and its pin evidence is kept",
                   r11_codex.get("status") == "unknown"
                   and r11_codex.get("reasons") == [f"session_injection: {UNKNOWN_REASONS['rollout_unresolved']}"]
-                  and r11_codex_texts == []
+                  and r11_codex_texts == [None, []]  # no would-be unit counted, none published
                   and r11_codex_selection.get("status") == "complete" and r11_codex_selection.get("reasons") == []
                   and (r11_codex_own.get("status"), r11_codex_own.get("reason")) == ("unpinned", "unpinned"),
                   f"current={[r11_codex.get(key) for key in ('refused', 'status', 'reasons')]} units={r11_codex_texts} "
@@ -16403,7 +16547,7 @@ def self_test():
                   "snapshot, like a Claude pin -- the positive branch of the F-22 fix, under the pin's own id while "
                   "the transcript is the rollout's (X r1 DW6)",
                   r11_joined.get("status") == "complete" and r11_joined.get("reasons") == []
-                  and r11_joined_texts == ["# R1 1", "- a pin's compiled body"]
+                  and r11_joined_texts == [2, []]
                   and r11_joined_selection.get("status") == "complete"
                   and (r11_joined_own.get("status"), r11_joined_own.get("pin_id")) == ("read", "c-joined"),
                   f"current={[r11_joined.get(key) for key in ('refused', 'status', 'reasons')]} "
@@ -16428,7 +16572,7 @@ def self_test():
                 {"pin": {"content_ref": r11_ref}})
             check("R1#1: and a Claude --pin's current session_injection is still complete from its snapshot",
                   r11_claude.get("status") == "complete" and r11_claude.get("reasons") == []
-                  and r11_claude_texts == ["# R1 1", "- a pin's compiled body"]
+                  and r11_claude_texts == [2, []]
                   and r11_claude_selection.get("status") == "complete",
                   f"current={[r11_claude.get(key) for key in ('refused', 'status', 'reasons')]} units={r11_claude_texts} "
                   f"selection={[r11_claude_selection.get(key) for key in ('status', 'reasons')]}")
@@ -17428,6 +17572,62 @@ def self_test():
                       "release", "w11b-release", p26_rows(w11b_items), {"home": p26_home, "commit": None},
                       expected=None)[1],
                   f"{w11b_whole['items']}")
+
+        with section("(i): the compiled text's would-be units are counted against what the document publishes, never published"):
+            # ---- WP-11b X r1 (i), lead's (가): the session_injection layer publishes no unit; its row says how many there
+            # would have been, how many match a unit the same document publishes by text sha and how many none, and it
+            # cannot read as complete-and-empty. Planted rows of their own, so the controls outlive any real catalogue.
+            i_rules = [carrier("catalog", "claude/CLAUDE.md", "- Rule one.\n", "claude:i-one"),
+                       carrier("catalog", "claude/CLAUDE.md", "- Rule two.\n", "claude:i-two")]
+            # the shape the compiler writes: its two headings, then the always rules' bodies one after another
+            i_text = ("# Activated private instructions\n\n## Always in this environment\n\n- Rule one.\n- Rule two.\n"
+                      "- A rule only the compiled text holds.\n")
+            i_injection = carrier("session_injection", "snapshot:i/output.json#instruction_text", i_text, form="markdown",
+                                  carrier_id=injection_carrier_id("claude", "i" * 64))
+            i_would = units_of([i_injection])
+            i_bytes, i_doc, i_units = p26_reference(i_rules + [i_injection]) or (b"", {}, [])
+            i_row = next((row for row in (i_doc or {}).get("layers") or [] if row.get("layer") == "session_injection"), {})
+            i_held = i_row.get("withheld") or {}
+            check("(i) the session_injection row publishes no unit, is not empty, and counts its would-be units: the "
+                  "two rules the catalogue publishes match, the two headings and the compiled-only rule do not",
+                  len(i_would) == 5 and i_row.get("units") == 0 and i_row.get("empty") is False
+                  and (i_held.get("units"), i_held.get("matched"), i_held.get("unmatched")) == (5, 2, 3)
+                  and i_held.get("unmatched_by_class") == {"operative": 1, "reference": 2}
+                  and i_held.get("reason") == WITHHELD_REASON
+                  and [(c.get("units"), c.get("matched"), c.get("unmatched")) for c in i_held.get("carriers") or []]
+                  == [(5, 2, 3)],
+                  f"would={len(i_would)} row={i_row}")
+            check("(i) and no unit of it is published, nor any line of its text that the catalogue does not hold",
+                  not [unit for unit in (i_doc or {}).get("units") or [] if unit.get("layer") == "session_injection"]
+                  and b"A rule only the compiled text holds" not in i_bytes and bool(i_bytes), f"{len(i_bytes)} bytes")
+            check("(i) the written document's withheld rows are consistent", withheld_problems(i_doc.get("layers")) == []
+                  and bool(i_doc.get("layers")), f"{withheld_problems(i_doc.get('layers'))}")
+            i_bare = [{**row, "withheld": None} if row.get("layer") == "session_injection" else row
+                      for row in i_doc.get("layers") or []]
+            for row in i_bare:
+                if row.get("withheld", 1) is None:
+                    row.pop("withheld")
+            control("control: a complete row with no unit, not empty and no withheld block reads as complete-and-empty",
+                    withheld_problems(i_bare), "WITHHELD_UNNAMED")
+            for i_label, i_bend in (("counts do not add up", lambda held: held.update(matched=held["matched"] + 1)),
+                                    ("reason is not the declared one", lambda held: held.update(reason="other")),
+                                    ("carriers are none", lambda held: held.update(carriers=[]))):
+                i_bent = json.loads(json.dumps(i_doc.get("layers") or []))
+                for row in i_bent:
+                    if row.get("withheld"):
+                        i_bend(row["withheld"])
+                control(f"control: a withheld row whose {i_label} is inconsistent", withheld_problems(i_bent),
+                        "WITHHELD_INCONSISTENT")
+            i_store = store_document({"home": p26_home, "commit": None, "carriers_named": i_rules + [i_injection],
+                                      "events": [], "occurrences": []})
+            i_version = (i_store["versions"].get(i_injection["carrier_id"]) or {}).get(i_injection["version_sha256"]) or {}
+            check("(i) the store lists the compiled text's version by identity and length, withheld, with the same "
+                  "counts against the units the store publishes, and holds no unit of it",
+                  i_version.get("split") == "withheld" and i_version.get("unit_refs") == []
+                  and i_version.get("length") == len(i_text) and i_version.get("withheld") == {"units": 5, "matched": 2,
+                                                                                               "unmatched": 3}
+                  and not [ref for ref, unit in i_store["units"].items() if unit.get("carrier_id") == i_injection["carrier_id"]],
+                  f"{i_version}")
 
         with section("H1: a heading's parent is the nearest shallower heading still open (K6's finding, P2.6)"):
             # ---- H1 (lead's K6 rulings): `units_of` nested headings by the slot their level number names

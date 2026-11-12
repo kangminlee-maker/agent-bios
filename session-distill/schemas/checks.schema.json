@@ -100,7 +100,12 @@
         "reference": {"const": "current"},
         "policy": {"type": "string", "minLength": 1},
         "complete": {"type": "boolean"},
-        "unknown_layers": {"$ref": "#/$defs/ids"}
+        "unknown_layers": {"$ref": "#/$defs/ids"},
+        "withheld": {
+          "$comment": "the current reference point's withheld would-be units, summed over S2's layer rows (WP-11b X r1 (i)): the compiled instruction text is the owner's and is counted, never published; unmatched are the units this reference point cannot judge. Disclosure only",
+          "type": "object", "additionalProperties": false, "required": ["units", "matched", "unmatched"],
+          "properties": {"units": {"type": "integer", "minimum": 0}, "matched": {"type": "integer", "minimum": 0},
+                         "unmatched": {"type": "integer", "minimum": 0}}}
       }
     },
     "excluded": {
