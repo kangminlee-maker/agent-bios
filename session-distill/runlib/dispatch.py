@@ -71,7 +71,7 @@ Refused by name: RESERVATION_MISSING, CAP_MISSING, PROVIDER_DEFERRED, PACKET_REF
 linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED, BUDGET_EXHAUSTED
 (the item recorded not_done), INPUT_BOUND_EXCEEDED, CLAIM_EXCEEDED and RUN_STOPPED, DRIVER_PART_UNCOUNTED,
 DRIVER_PART_LENGTH_CONFLICT, APPENDED_PROMPT_PATH_FORM, APPENDED_PROMPT_UNDELIVERABLE,
-CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS,
+CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS, SCHEMA_UNPROJECTABLE,
 USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
 WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED, RESUME_HOST_UNVERIFIED,
 EPISODE_CAP_ZERO (a per-episode token cap below 1, refused before anything is reserved: of the per-episode caps only
@@ -1061,12 +1061,13 @@ def stop_detail(offered):
             + ("" if offered.get("kept", True) else "; an earlier stop stands in the run ledger"))
 
 
-def reconcile_codex(call_dir, ledger, clock=time.time):
+def reconcile_codex(call_dir, ledger, clock=time.time, rejected=0):
     """A Codex call's live ledger against the gate's strict join over its final capture (design
     §3.2, §13.3): what the live ledger measured from otel alone gives way — a row otel opened is
     dropped, a sent request otel measured before its frame arrived returns to what it was —; a
     completion no frame response joins is spent (frames_blind: unknown kind, usage from otel);
-    every interrupted attempt, a failed post the retry warnings show among them, keeps a row.
+    every interrupted attempt, a failed post the retry warnings show among them, keeps a row, except the `rejected`
+    sends the provider refused before answering (`rejected_sends`), whose attempts ended at zero and are measured.
     Returns whether everything reconciled — never while any thread's attempt coverage is unknown."""
     c = gate.Call(call_dir)
     unjoined, ambiguous, _leftover = gate.join_completions(c, gate.codex_responses(c))
@@ -1083,12 +1084,44 @@ def reconcile_codex(call_dir, ledger, clock=time.time):
         row = ledger.open(f"otel-{comp.get('ts')}", "unknown", comp.get("conversation.id"), clock())
         ledger.measure(row, monitors.codex_tokens(monitors.otel_usage(comp)))
     attempts = gate.codex_attempts(c)
-    interrupted = sum(t["interrupted"] for t in attempts.values())
+    interrupted = max(0, sum(t["interrupted"] for t in attempts.values()) - rejected)
     unmeasured = sum(1 for r in ledger.requests if r["state"] != "measured")
     for n in range(max(0, interrupted - unmeasured)):
         ledger.open(f"interrupted-{n + 1}", "unknown", None, clock())
     return bool(ledger.requests) and all(r["state"] == "measured" for r in ledger.requests) \
         and not unjoined and not ambiguous and interrupted == 0 and all(t["coverage"] == "complete" for t in attempts.values())
+
+
+def rejected_sends(frames, ledger):
+    """The live ledger's rows of the sends a Codex provider refused before answering them (breaker.REQUEST_REJECTIONS,
+    D7), each measured at zero: in the capture's frames, an error frame with status 400 and a rejection code, when
+    exactly one send is then waiting for any response frame; that send's row is the one unmeasured row of the same
+    thread and key with no response. A rejection while two sends wait names neither, and nothing is measured for it."""
+    waiting, rows = [], []
+    for r in frames or []:
+        if r.get("dir") == "send" and r.get("type") == "response.create":
+            waiting.append((r.get("thread_id"), r.get("prompt_cache_key"), r.get("previous_response_id")))
+        elif r.get("dir") == "recv" and isinstance(r.get("response"), dict):
+            key = (r["response"].get("prompt_cache_key"), r["response"].get("previous_response_id"))
+            match = next((w for w in waiting if w[1:] == key), None)
+            if match is not None:
+                waiting.remove(match)
+        elif r.get("dir") == "recv" and r.get("type") == "error":
+            detail = r.get("detail") or {}
+            code = (detail.get("error") or {}).get("code")
+            if breakers.status_of(detail.get("status")) != 400 or code not in breakers.REQUEST_REJECTIONS:
+                continue
+            if len(waiting) != 1:
+                return []
+            thread, cache_key, previous = waiting.pop()
+            row = [x for x in ledger.requests if x.get("send_seen") and x["state"] != "measured" and not x.get("response_id")
+                   and not x.get("interrupted") and x.get("agent") == thread and x.get("key") == (cache_key, previous)]
+            if len(row) != 1:
+                return []
+            rows.append(row[0])
+    for row in rows:
+        ledger.measure(row, {key: 0 for key in usages.TOKEN_KEYS})
+    return rows
 
 
 def zero_tokens(caps):
@@ -1610,6 +1643,12 @@ class Supervisor:
             self._stopped(call_id)
             if problems:
                 raise Refused(f"PACKET_REFUSED {call_id}: " + "; ".join(problems))
+            # what the host is handed beside schema.json in its provider's dialect (packets.provider_schema_bytes, D7):
+            # a schema the dialect cannot hold is refused here, never sent for the provider to refuse
+            try:
+                host_schema = packets.provider_schema_bytes(schema_bytes, host) if schema_bytes is not None else None
+            except packets.validate.SchemaPolicyError as exc:
+                raise Refused(f"SCHEMA_UNPROJECTABLE {call_id}: {str(exc).partition(' ')[2]}") from None
             admitted = self._admit_seat(stage, seat, call_id, host, host_version, profile, view_window, packet,
                                         schema_bytes, manifest, max_output_tokens, runner_profile)
             if context_capacity is not None and not view_window:
@@ -1676,12 +1715,18 @@ class Supervisor:
                                       "sha256": snapshot["sha256"], "bytes": snapshot["bytes"]})
                 if schema_bytes is not None:
                     (call_dir / "schema.json").write_bytes(schema_bytes)
+                if host_schema is not None:
+                    (call_dir / gate.HOST_SCHEMA).write_bytes(host_schema)
                 if contract is not None:
                     records.write_json(self.run_dir, call_dir / "contract.json", contract)
                 call = {"schema": "DistillCall/v1", "call_id": call_id, "stage": stage, "item": held["item"],
                         "attempt": int(call_id.rpartition("-a")[2]), "host": host, "host_version": host_version,
                         "seat": seat, "child_seat": child_seat, "profile": profile, "manifest": manifest,
                         "schema_sha256": packets.sha256_bytes(schema_bytes) if schema_bytes is not None else None,
+                        # the bytes the host itself was handed: schema.json's own for a host that reads it, the
+                        # projection's for one whose provider takes a dialect of it (gate.host_schema_problems)
+                        "host_schema_sha256": packets.sha256_bytes(host_schema if host_schema is not None else schema_bytes)
+                        if schema_bytes is not None else None,
                         "view_window": bool(view_window), "realization": self.realization, "exit_status": None,
                         # what the boundary decided for this call, so the gate judges the bound from the
                         # call directory alone rather than reaching for the run (the seam record 2026-10-22)
@@ -1699,7 +1744,8 @@ class Supervisor:
                 spec = {"call_id": call_id, "stage": stage, "seat": seat, "model": provider_model, "effort": effort,
                         "host_version": host_version, "profile": runner_profile, "call_profile": profile,
                         "host_bin": os.path.expanduser(pinned["path"]), "workdir": manifest["workdir_path"],
-                        "schema_path": str(call_dir / "schema.json") if schema_bytes is not None else None,
+                        "schema_path": str(call_dir / (gate.HOST_SCHEMA if host_schema is not None else "schema.json"))
+                        if schema_bytes is not None else None,
                         "cell": str(cell), "capture": str(capture), "caps": caps, "use": use,
                         "read_root": manifest["workdir_path"] if use == "producing" else None, "max_output_tokens": max_output_tokens,
                         "view_window": bool(view_window), "appended_prompts": delivered,
@@ -2101,7 +2147,10 @@ class Supervisor:
                 reconciled = settled and all(v >= 0 for v in residual.values()) \
                     and all(r["state"] == "measured" for r in ledger.requests)
         else:
-            reconciled = reconcile_codex(call_dir, ledger, self.clock) and ended
+            # a send the provider refused before answering spent nothing (D7): measured at zero, and the host's
+            # nonzero exit is that refusal's, so the call reconciles when everything else does
+            rejected = rejected_sends(gate.Call(call_dir).frames, ledger) if not stopped else []
+            reconciled = reconcile_codex(call_dir, ledger, self.clock, len(rejected)) and (ended or bool(rejected))
         return reconciled
 
     def _usage(self, call_dir, call, mon, reconciled, wall_ms):
@@ -2204,9 +2253,14 @@ class Supervisor:
             if call["runner_refused"]:  # the adapter refused before sending: a retry meets the same host
                 return {"item": item, "outcome": "failed", "why": call["runner_refused"],
                         "codes": [call["runner_refused"].split()[0]], "attempts": [str(d) for d in dirs]}
-            if call["provider_signals"]:  # recorded deferred by call(), never retried here; a stop's boundary travels too
+            rejected = [line for line in call["provider_signals"] if line.split(" ", 1)[0] in breakers.REJECTION_CODES]
+            if len(rejected) < len(call["provider_signals"]):  # recorded deferred by call(), never retried here; a
+                # stop's boundary travels too
                 return {"item": item, "outcome": "deferred", "why": "; ".join(call["provider_signals"]),
                         "boundary": (call["stopped"] or {}).get("boundary"), "attempts": [str(d) for d in dirs]}
+            if rejected:  # the provider refused this request itself (D7): a retry sends it again, so the item fails
+                return {"item": item, "outcome": "failed", "why": "; ".join(rejected),
+                        "codes": sorted({line.split(" ", 1)[0] for line in rejected}), "attempts": [str(d) for d in dirs]}
             if call["stopped"]:  # the boundary verdict travels with the outcome (design §8.7's re-run reads it, WP-18)
                 return {"item": item, "outcome": "budget_stopped" if call["stopped"]["outcome"] == "budget_stopped" else "failed",
                         "why": call["stopped"]["why"], "boundary": call["stopped"]["boundary"],
@@ -3515,6 +3569,9 @@ else:
             {"dir": "warn", "type": "responses_retry", "ts": iso(time.time())},
             {"dir": "recv", "type": "response.refusal.done", "ts": iso(time.time())})))
     deflate, prev = zlib.compressobj(wbits=-15), None
+    # a provider taking only the strict subset refuses a schema that holds what the subset leaves out (D7)
+    handed_text = pathlib.Path(spec["schema_path"]).read_text() if spec.get("schema_path") else ""
+    beyond_strict = any(word in handed_text for word in ('"minLength"', '"$comment"', '"uniqueItems"', '"title"', "(?!"))
     def failed():
         events.write(json.dumps({"type": "turn.failed", "error": {"message": "usage limit"}}) + "\n")
         record({"session_id": root})
@@ -3559,6 +3616,10 @@ else:
         if mode == "ws-limit" and kind == "turn":
             received({"type": "error", "status": 429, "error": {"type": "usage_limit_reached", "code": "usage_limit_reached"}})
             failed()
+        if kind == "turn" and (mode == "schema-rejected" or (mode == "strict-provider" and beyond_strict)):
+            received({"type": "error", "status": 400, "error": {"type": "invalid_request_error", "code": "invalid_json_schema",
+                                                               "message": "BODY-CANARY-schema-message"}})
+            failed()
         resp = {"id": "resp_%d" % n, "model": model, "previous_response_id": prev, "prompt_cache_key": root,
                 "reasoning": {"effort": effort}, "usage": None}
         received({"type": "response.created", "response": {**resp, "status": "in_progress"}})
@@ -3597,7 +3658,7 @@ else:
             line(text)
     events.write(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 0, "output_tokens": 0}}) + "\n")
     record({"session_id": root})
-    sys.stdout.write("OK")
+    sys.stdout.write(json.dumps(spec["answer"]) if spec.get("answer") is not None else "OK")
 '''
 
 
@@ -6189,6 +6250,73 @@ def self_test(scratch=None):
     control("another-adapters-code-is-no-refusal", "CONTEXT_EVIDENCE_MISSING" not in out.get("codes", [])
             and records.read_json(pathlib.Path(out["attempts"][0]) / "call.json")["runner_refused"] is None, f"{out}")
 
+    # D7: a Codex call's host is handed the provider's projection of schema.json, recorded by its own hash, and a
+    # provider that refuses what the strict subset leaves out answers it; the gate still judges schema.json
+    strict_like = {"type": "object", "additionalProperties": False, "required": ["verdict", "why", "ids"], "$comment": "c",
+                   "properties": {"verdict": {"type": "string", "enum": ["PRESENT", "ABSENT"]},
+                                  "why": {"type": "string", "minLength": 1},
+                                  "ids": {"type": "array", "uniqueItems": True,
+                                          "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}}}}
+    strict_answer = {"verdict": "ABSENT", "why": "no section names it", "ids": ["q1"]}
+
+    def handed_of(out):
+        where = pathlib.Path(out["attempts"][-1]) if out.get("attempts") else None
+        if where is None or not (where / "call.json").is_file():
+            return None, {}, None, None
+        held = where / gate.HOST_SCHEMA
+        return where, records.read_json(where / "call.json"), held.read_bytes() if held.is_file() else None, \
+            (where / "schema.json").read_bytes() if (where / "schema.json").is_file() else None
+    dsp = run_dir("run-strict-provider", {"S6": 400_000})
+    ssp = supervisor(dsp, "strict-provider", answer=strict_answer)
+    ssp.seed_from(calibrated)
+    took = ssp.item("S6", "projected", luna, "Reply.\n", strict_like, case_type="judge", caps=caps, view_window=False)
+    _w, took_call, took_host, took_schema = handed_of(took)
+    control("a-strict-provider-is-handed-the-projection-and-answers", took["outcome"] == "accepted" and took_host is not None
+            and took_schema is not None and took_host == packets.provider_schema_bytes(took_schema, "codex")
+            and took_call.get("host_schema_sha256") == packets.sha256_bytes(took_host)
+            and took_call.get("schema_sha256") == packets.sha256_bytes(took_schema) and b"minLength" in took_schema,
+            f"{took.get('outcome')} {took.get('codes')}")
+    claude_took = ssp.item("S6", "claude-reads-it", judge, "Is the rule present?\n", verdict_schema, case_type="judge",
+                           caps=caps, view_window=False)
+    _w, claude_call, claude_host, claude_schema = handed_of(claude_took)
+    control("a-claude-call-is-handed-schema-json-itself", claude_took["outcome"] == "accepted" and claude_host is None
+            and claude_schema is not None and claude_call.get("host_schema_sha256") == claude_call.get("schema_sha256")
+            == packets.sha256_bytes(claude_schema), f"{claude_took.get('outcome')} {claude_call.get('host_schema_sha256')}")
+    # a schema the strict subset cannot hold is refused before anything is sent, and nothing is spent on it
+    loose = {"type": "object", "additionalProperties": False, "required": ["verdict"],
+             "properties": {"verdict": {"type": "string"}, "why": {"type": "string"}}}
+    launched = len(list((dsp / "calls").glob("*"))) if (dsp / "calls").is_dir() else 0
+    unsent = refusal(ssp.item, "S6", "unprojectable", luna, "Reply.\n", loose, case_type="judge", caps=caps,
+                     view_window=False) or ""
+    control("an-unprojectable-schema-is-refused-before-anything-is-sent",
+            unsent.startswith("SCHEMA_UNPROJECTABLE") and "STRICT_OPTIONAL_PROPERTY at #" in unsent
+            and len(list((dsp / "calls").glob("*"))) == launched, f"{unsent[:200]}")
+    # the provider refusing the request itself: the item fails once by that name, the send is settled at zero, the
+    # provider stays open for its other work, and the error's message is never kept
+    dsr = run_dir("run-schema-rejected", {"S6": 400_000})
+    ssr = supervisor(dsr, "schema-rejected", answer=strict_answer)
+    ssr.seed_from(calibrated)
+    refused_out = ssr.item("S6", "rejected", luna, "Reply.\n", strict_like, case_type="judge", caps=caps, view_window=False)
+    where, refused_call, _h, _s = handed_of(refused_out)
+    refused_usage = records.read_json(where / "usage.json") if where is not None and (where / "usage.json").is_file() else {}
+    ssr.mode = "strict-provider"
+    next_out = ssr.item("S6", "next", luna, "Reply.\n", strict_like, case_type="judge", caps=caps, view_window=False)
+    control("a-schema-rejection-fails-its-item-once-and-stops-nothing", refused_out["outcome"] == "failed"
+            and refused_out.get("codes") == ["SCHEMA_REJECTED_BY_PROVIDER"] and len(refused_out["attempts"]) == 1
+            and not ssr.breaker.is_open("codex", 10 ** 12) and next_out["outcome"] == "accepted"
+            and [line.split(" ", 1)[0] for line in refused_call.get("provider_signals") or []] == ["SCHEMA_REJECTED_BY_PROVIDER"],
+            f"{refused_out.get('outcome')} {refused_out.get('codes')} {next_out.get('outcome')}")
+    spent_rej = [r.get("spent") or {} for cid, r in ssr.ledger()["stages"].get("S6", {}).get("reservations", {}).items()
+                 if refused_call and cid == refused_call.get("call_id")]
+    control("a-rejected-send-is-settled-at-zero", refused_usage.get("reconciled") is True
+            and [(r["role"], r["state"]) for r in refused_usage.get("requests") or []] == [("warmup", "measured"), ("main", "measured")]
+            and all((refused_usage["requests"][1].get(k) or 0) == 0 for k in usages.TOKEN_KEYS)
+            and [s_.get("complete") for s_ in spent_rej] == [True],
+            f"{refused_usage.get('reconciled')} {[(r['role'], r['state']) for r in refused_usage.get('requests') or []]} {spent_rej}")
+    kept_canary = [str(f) for f in (where.rglob("*") if where is not None else []) if f.is_file()
+                   and b"BODY-CANARY-schema-message" in f.read_bytes()]
+    control("a-provider-error-message-is-not-kept", where is not None and not kept_canary, f"{kept_canary}")
+
     # a refusal frame read from the raw trace reaches the gate through the dispatcher's own capture:
     # the clean call is accepted, the refusing one rejected by its completion code and retried once
     dg_ = run_dir("run-refusal-frame", {"S6": 400_000})
@@ -7619,7 +7747,9 @@ def self_test(scratch=None):
         "EPISODE_CAP_ZERO",
         # WP-09 (W review r2, F1): a stage's own admitted capacity, recorded for a call without a view window, is a
         # positive integer, or the host's reported window would be compared with nothing
-        "CAPACITY_INVALID"}
+        "CAPACITY_INVALID",
+        # D7 (2026-11-12): a schema the host's provider dialect cannot hold is refused before anything is sent
+        "SCHEMA_UNPROJECTABLE"}
     # design §3.2 (accepted, failed with every attempt kept) and §13.2 (deferred, not done, budget_stopped)
     outcomes = {"accepted", "failed", "deferred", "not_done", "budget_stopped"}
     source = pathlib.Path(__file__).read_text(encoding="utf-8")

@@ -16,7 +16,11 @@ never on message text:
           /models are excluded, design §3.2); a codex.rate_limits frame with limit_reached true
 
 Both hosts retry other failures themselves, so a final 5xx (or 529) is a known transient
-failure: the call failed, the provider stays open for dispatch. An error the breaker recognises
+failure: the call failed, the provider stays open for dispatch. A request the provider refused as
+malformed before generating anything is the request's own failure, not the provider's (the lead's
+D7 decision of 2026-11-12): a Codex error frame with status 400 and a code REQUEST_REJECTIONS
+names is `rejected`, reported by that code, and nothing stops - a retry would send the same
+request and meet the same refusal, so dispatch fails the item instead of retrying or deferring it. An error the breaker recognises
 as neither — any other status, an error frame without one, or a host-reported failure that
 carries no structured field at all (its text may say "usage limit"; text is not read to find a
 limit) — also
@@ -39,8 +43,8 @@ follows that launch.
 CONTRACT names the predicates and the sections they implement; the self-test derives the
 implemented branch set from the source and holds it against its own copy of §13.2's list.
 
-Reported by name: PROVIDER_LIMIT, PROVIDER_ERROR_UNRECOGNISED; dispatch to an open provider is
-refused PROVIDER_DEFERRED.
+Reported by name: PROVIDER_LIMIT, PROVIDER_ERROR_UNRECOGNISED, SCHEMA_REJECTED_BY_PROVIDER; dispatch to
+an open provider is refused PROVIDER_DEFERRED.
 
   breaker.py --self-test
 """
@@ -59,6 +63,9 @@ CONTRACT = {"$comment": "design §13.2: the structured limit signals per host (c
                         "plan WP-02: the state fields per provider (closed)",
             "predicates": {"claude": "claude_signals", "codex": "codex_signals"}, "state": "closed"}
 TRANSIENT = frozenset({500, 502, 503, 504, 529})
+# A provider's refusal of the request itself, by its error code, and the name it is reported by (status 400 only)
+REQUEST_REJECTIONS = {"invalid_json_schema": "SCHEMA_REJECTED_BY_PROVIDER"}
+REJECTION_CODES = frozenset(REQUEST_REJECTIONS.values())
 KNOWN_RATE_STATUS = ("allowed", "allowed_warning")
 # the secondary bounds of design §13.2 (--max-turns, --max-budget-usd) end a call as these
 # subtypes; they are the host's own stops, not provider errors (probe 9 recorded both)
@@ -130,6 +137,8 @@ def codex_signals(frames, events=()):
                 out.append({"kind": "limit", "source": "error frame", "resets_at": None, "detail": code})
             elif status in TRANSIENT:
                 out.append({"kind": "transient", "source": "error frame", "resets_at": None, "detail": status})
+            elif status == 400 and code in REQUEST_REJECTIONS:
+                out.append({"kind": "rejected", "source": "error frame", "resets_at": None, "detail": code})
             else:
                 out.append({"kind": "unrecognised", "source": "error frame", "resets_at": None,
                             "detail": f"status {detail.get('status')!r} code {code!r}"})
@@ -159,6 +168,9 @@ def report(provider, signals):
             problems.append(f"PROVIDER_LIMIT {provider} {s['source']}: {s['detail']} (resets at {s['resets_at']})")
         elif s["kind"] == "unrecognised":
             problems.append(f"PROVIDER_ERROR_UNRECOGNISED {provider} {s['source']}: {s['detail']}; dispatch to it stops until reset")
+        elif s["kind"] == "rejected":
+            problems.append(f"{REQUEST_REJECTIONS[s['detail']]} {provider} {s['source']}: status 400 code {s['detail']!r}; "
+                            "the provider refused this request before generating, and stays open")
     return problems
 
 
@@ -413,7 +425,24 @@ def self_test():
     source = pathlib.Path(__file__).read_text(encoding="utf-8")
     control("contract-cites-design-13-2", CONTRACT["$comment"].startswith("design §13.2"), True)
     control("limit-branches-are-design-13-2", branch_set(source)[0], design_13_2)
-    control("signal-kinds-are-design-13-2", branch_set(source)[1], {"limit", "transient", "unrecognised"})
+    # the three kinds §13.2 names, and `rejected`: the request's own failure (the lead's D7 decision, 2026-11-12)
+    control("signal-kinds-are-design-13-2-and-the-request-rejection", branch_set(source)[1],
+            {"limit", "transient", "unrecognised", "rejected"})
+    # D7: a 400 the provider gives a malformed request is reported by its code, and opens nothing; the same status
+    # with a code no rejection names stays unrecognised and stops the provider
+    with tempfile.TemporaryDirectory() as td:
+        bd = Breaker(pathlib.Path(td))
+        schema_400 = [{"dir": "recv", "type": "error", "detail": {"status": 400, "error": {"code": "invalid_json_schema",
+                                                                                          "type": "invalid_request_error"}}}]
+        other_400 = [{"dir": "recv", "type": "error", "detail": {"status": 400, "error": {"code": "something_else"}}}]
+        rejected = codex_signals(schema_400, [{"type": "turn.failed"}])
+        control("a-schema-rejection-is-the-requests-own", ([s["kind"] for s in rejected], bd.observe("codex", rejected, 1),
+                                                           bd.is_open("codex", 2), report("codex", rejected)[0].split(" ")[0]),
+                (["rejected"], None, False, "SCHEMA_REJECTED_BY_PROVIDER"))
+        control("another-400-still-stops-its-provider", [s["kind"] for s in codex_signals(other_400)], ["unrecognised"])
+        control("a-rejection-at-another-status-is-not-one", [s["kind"] for s in codex_signals(
+            [{"dir": "recv", "type": "error", "detail": {"status": 422, "error": {"code": "invalid_json_schema"}}}])],
+                ["unrecognised"])
     anchor = '        elif r.get("dir") == "recv" and r.get("type") == "codex.rate_limits"'
     added = source.replace(anchor, '        elif r.get("type") == "planted":\n'
                                    '            out.append({"kind": "limit", "source": "planted frame", "resets_at": None, "detail": None})\n'
