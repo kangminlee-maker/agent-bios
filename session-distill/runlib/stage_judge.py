@@ -1212,7 +1212,7 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
     sweeps' marks and reasons; the review judges each unit once (`cross_problems`) and is kept under
     cross_review/<item>.json, held to what the sweep results give (`cross_review_problems`). A claim whose sweeps did not
     all finish is not reviewed, and is named. Returns the summary's `cross_review` section and the calls' receipts."""
-    section = {"seat": None, "reviewed": [], "not_reviewed": [], "calls": [], "negatives": NEGATIVES}
+    section = {"seat": None, "reviewed": [], "exhausted": [], "not_reviewed": [], "calls": [], "negatives": NEGATIVES}
     if not swept.get("complete") or not swept.get("absent"):
         section["why"] = "no absence claim was swept" if swept.get("complete") else swept.get("why")
         return section, []
@@ -1239,8 +1239,11 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
                 section["not_reviewed"].append({"candidate_id": cid, "why": "a sweep of its group did not finish"})
                 continue
             flags, negatives = flags_of(mine), negatives_of(mine, run_id, cid)
-            if not flags and not negatives:
-                section["not_reviewed"].append({"candidate_id": cid, "why": "no remaining unit to review"})
+            if not mine:
+                # nothing remained to sweep: S5 retrieved every unit the policy reads for this claim, so the judges' own
+                # judgments are the exhaustive check, and there is nothing to review or reconsider (Codex WP-11 r1 #4:
+                # such a claim was named not_reviewed, never reconsidered, and so never derived)
+                section["exhausted"].append(cid)
                 continue
             labels = CrossLabels(context["by_id"][cid], mine, flags, negatives, context["units"], context["entries"])
             todo.append((cid, flags, negatives, labels, cross_payload(labels)))
@@ -1390,6 +1393,10 @@ def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, 
     limits = {}
     sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
     receipts = []
+    for cid in crossed.get("exhausted") or []:   # nothing remained to sweep, so nothing returns: its gap stands as judged
+        diagnosis, row_id = reconsidered_diagnosis(judgments[cid], {}, lifecycle_of(sources[cid]))
+        section["reconsidered"].append({"candidate_id": cid, "returned": 0, "diagnosis": diagnosis, "row": row_id,
+                                        "exhausted": True})
     for cid in crossed.get("reviewed") or []:
         item = item_of(cid)
         returned = returned_of(records.read_json(run_dir / cross_rel(item)))
@@ -2108,7 +2115,8 @@ def report_lines(summary):
                          + f"; {c['reused']} answered by an earlier accepted attempt; {len(sw['not_judged_by_both'])} "
                            "candidates not swept because a judge did not judge them")
             cr = summary["cross_review"]
-            lines.append(f"cross-review by Judge B: {len(cr['reviewed'])} absence claims reviewed, {len(cr['not_reviewed'])} "
+            lines.append(f"cross-review by Judge B: {len(cr['reviewed'])} absence claims reviewed, "
+                         f"{len(cr.get('exhausted') or [])} with nothing left to sweep, {len(cr['not_reviewed'])} "
                          f"not; calls " + ", ".join(f"{o} {cr['counts'][o]}" for o in OUTCOMES))
             dv = summary["derivations"]["counts"]
             lines.append(f"derivations: {dv['derived']} candidates derived, {dv['not_derived']} not; admission "
@@ -3268,6 +3276,31 @@ def self_test():
                         and all(kw.get("context_capacity") == 150_000
                                 and any(x.startswith("CROSS_OVER_CAPACITY B") for x in kw.get("packet_check", lambda m: [])(huge))
                                 for _i, _s, kw in asked_c), f"{said_c[:200]} {len(asked_c)}")
+                # Codex WP-11 r1 #4: a claim S5 retrieved every remaining unit for has nothing to sweep (shard_plan gives it
+                # no shard); it completes with no cross-review or reconsideration call and is derived from the judges'
+                # own judgments, as a gap
+                c_ex = claims_known[0] if claims_known else ""
+                swept_ex = {**swept_w, "absent": [c_ex], "groups": shard_plan({c_ex: []}, 5, 100), "calls": []}
+                summary_w = guarded(lambda: records.read_json(capped / SUMMARY), {})
+                sup_ex = Asked(None)
+                with records.run_stage(capped, STAGE, INPUTS) as stg:
+                    crossed_ex = guarded(lambda: cross_stage(capped, stg, sup_ex, stg.declaration, swept_ex, item_of, {},
+                                                             "calibration")[0], {})
+                    again_ex = guarded(lambda: reconsider_stage(capped, stg, sup_ex, stg.declaration, summary_w,
+                                                                whole_packets, judgments_w, crossed_ex, {},
+                                                                "calibration")[0], {})
+                    stg.record["status"] = "partial"
+                derived_ex = guarded(lambda: derive_stage(capped, summary_w, judgments_w, swept_ex, again_ex), {})
+                current_ex = (((derived_ex.get("verdicts") or {}).get(c_ex) or {}).get("outcome") or {}).get(
+                    "candidate_diagnosis", {}).get("current", {}).get("diagnosis")
+                control("Codex WP-11 r1 #4: an absence claim with nothing left to sweep is complete with no cross-review or "
+                        "reconsideration call, and is derived from the judges' judgments as a gap",
+                        bool(c_ex) and crossed_ex.get("exhausted") == [c_ex] and not crossed_ex.get("not_reviewed")
+                        and sup_ex.items == [] and [r["candidate_id"] for r in again_ex.get("reconsidered", [])] == [c_ex]
+                        and current_ex == "gap"
+                        and c_ex not in [r["candidate_id"] for r in derived_ex.get("not_derived", [])],
+                        f"{crossed_ex.get('exhausted')} {crossed_ex.get('not_reviewed')} {len(sup_ex.items)} "
+                        f"{again_ex.get('reconsidered')} {current_ex} {derived_ex.get('not_derived')}")
                 sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
                                 lambda e: {"problem": repr(e)})
                 sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
