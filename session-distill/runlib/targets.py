@@ -94,6 +94,12 @@ def folds_case(root):
     key = str(base)
     if key in _FOLDS_CASE:
         return _FOLDS_CASE[key]
+    # Three answers, not two: True folds, False does not, and None means THIS PROBE COULD NOT TELL.
+    # An `OSError` from the flipped stat used to be read as False — "case-sensitive" — so a
+    # directory the run may list but not stat answered "sensitive" and `CASE_ALIAS` stopped being
+    # reported. Only ENOENT answers the question (the flipped name is absent, so names are
+    # distinct); every other error is an unanswered probe, and an unanswered probe refuses rather
+    # than assumes (the round-3 review).
     answer = None
     try:
         with os.scandir(base) as entries:
@@ -104,8 +110,10 @@ def folds_case(root):
                 try:
                     answer = os.stat(base / flipped, follow_symlinks=False).st_ino == \
                         os.stat(base / entry.name, follow_symlinks=False).st_ino
+                except FileNotFoundError:
+                    answer = False                 # the flipped name is not there: distinct names
                 except OSError:
-                    answer = False
+                    answer = None                  # cannot tell, which is not "sensitive"
                 break
     except OSError:
         answer = None
@@ -168,8 +176,11 @@ def filesystem_problems(target, checkout):
                                     f"({exc.strerror}), so containment cannot be established")
                 break
             open_fds.append(held_fd)
-            if last:
-                problems += _spelling_on_disk(parts, open_fds[-2], target)
+            # EVERY component that exists, each through its own parent descriptor. Comparing only
+            # the last one let `CLAUDE/CLAUDE.md` pass on a case-folding filesystem: the directory
+            # opened happily under a spelling nobody approved, and the leaf matched (the round-3
+            # review). The spelling of a directory is as much a name as the file's.
+            problems += _spelling_on_disk(parts[:index + 1], open_fds[-2], target)
     finally:
         for held_fd in open_fds:
             try:
@@ -190,8 +201,12 @@ def _spelling_on_disk(parts, parent_fd, target):
     name = parts[-1]
     try:
         held = os.listdir(parent_fd)
-    except OSError:
-        return []
+    except OSError as exc:
+        # An unreadable parent is not an approved spelling. It used to return `[]`, which reads as
+        # "the name on disk is the name the owner approved" from a directory nobody could list.
+        return [f"TARGET_SPELLING_UNREADABLE {target!r}: {'/'.join(parts)}'s parent could not be "
+                f"listed ({exc.strerror}), so whether the name on disk is the approved one cannot "
+                f"be established"]
     if name in held:
         return []
     folded = [entry for entry in held if entry.casefold() == name.casefold()]
@@ -212,12 +227,12 @@ def collision_problems(targets, checkout=None):
     """
     held = [identity(target) for target in targets or () if identity(target)]
     problems = []
-    seen = {}
-    for one in held:
-        if one in seen:
-            problems.append(f"TARGET_REPEATED {one!r}: two operations of one set name this file, so "
-                            f"the second writes over a state the first did not record")
-        seen[one] = True
+    # A REPEATED identity is not a collision. §10.5 sequences a chain through one file — `a` creates
+    # it, `b` deletes it, `c` routes to it — and each operation carries the before-state hash of
+    # what the previous one left, which is exactly how the chain governs the repeat. Refusing it
+    # rejected valid approved sets (the round-3 review: z-first a->b, a-second b->c). What IS a
+    # collision is two DISTINCT SPELLINGS that name one file, because then neither operation's
+    # before-hash describes the state the other overwrote, and nothing orders them.
     folds = folds_case(checkout) if checkout else None
     groups = {}
     for one in held:
@@ -276,6 +291,12 @@ def self_test():
 
 
 def _self_test_body(failures, ran):
+    # Imported here, before anything uses them: a later import inside this function makes the name
+    # a local for the WHOLE function. The module itself touches no filesystem of its own.
+    import json
+    import shutil
+    import tempfile
+
     import shutil
     import tempfile
 
@@ -357,9 +378,17 @@ def _self_test_body(failures, ran):
                 "answered" if folds in (True, False) else f"unknown ({folds})", "answered")
         clean("two files that differ by more than case are two files",
               collision_problems(["claude/guides/g.md", "claude/guides/h.md"], root))
-        control("an exact repeat in one set is refused whatever the filesystem does",
-                "; ".join(collision_problems(["claude/guides/g.md", "claude/guides//g.md"], root)),
-                "TARGET_REPEATED")
+        # A repeat is a CHAIN, not a collision: §10.5 sequences several operations through one file
+        # and each carries the before-state hash of what the previous one left. Refusing it rejected
+        # valid approved sets, so the set is clean and the hash chain governs the order.
+        clean("two spellings of ONE identity in a set are a chain, not a collision: the hash chain "
+              "is what orders them",
+              collision_problems(["claude/guides/g.md", "claude/guides//g.md"], root))
+        control("while two DISTINCT spellings of one file stay a collision, because then neither "
+                "operation's before-hash describes what the other overwrote",
+                "; ".join(collision_problems(["claude/guides/G.md", "claude/guides/g.md"], root))
+                or "no collision reported",
+                "TARGET_CASE" if folds_case(root) is not False else "no collision reported")
         held_case = collision_problems(["claude/guides/G.md", "claude/guides/g.md"], root)
         if folds:
             control("on a case-folding filesystem two cases of one name are refused as one file",
@@ -380,6 +409,83 @@ def _self_test_body(failures, ran):
                 "; ".join(collision_problems(["claude/guides/G.md", "claude/guides/g.md"], root)),
                 "TARGET_CASE_UNDECIDED")
         del _FOLDS_CASE[str(root)]
+        # The PROBE itself, over trees this control builds. Its three answers are not two: an
+        # OSError from the flipped stat used to read as "case-sensitive", so a directory the run may
+        # list and not stat answered the question with a guess, and CASE_ALIAS stopped being
+        # reported for every pair under it.
+        probe_root = pathlib.Path(tempfile.mkdtemp(prefix="targets-probe-", dir="/tmp"))
+        try:
+            (probe_root / "letters").mkdir()
+            (probe_root / "letters" / "Aa.md").write_text("x", encoding="utf-8")
+            _FOLDS_CASE.pop(str(probe_root / "letters"), None)
+            held_answer = folds_case(probe_root / "letters")
+            control("the probe answers from the filesystem it is given, True or False, never from "
+                    "a guess", json.dumps(held_answer in (True, False)), "true")
+            _FOLDS_CASE.pop(str(probe_root / "letters"), None)
+            unreadable = probe_root / "closed"
+            unreadable.mkdir()
+            (unreadable / "Bb.md").write_text("x", encoding="utf-8")
+            held_listing = os.listdir(unreadable)
+            control("and the directory this control closed is readable before it is closed, so the "
+                    "next answer is about the closing and not about an empty directory",
+                    json.dumps(held_listing), '["Bb.md"]')
+            os.chmod(unreadable, 0o000)
+            try:
+                _FOLDS_CASE.pop(str(unreadable), None)
+                control("a probe that cannot read the directory answers None — cannot tell — and "
+                        "not False, which would have meant case-sensitive",
+                        json.dumps(folds_case(unreadable)), "null")
+                _FOLDS_CASE.pop(str(unreadable), None)
+                control("and a set judged against that checkout is REFUSED by name rather than "
+                        "applied",
+                        "; ".join(collision_problems(["claude/guides/G.md", "claude/guides/g.md"],
+                                                     unreadable)),
+                        "TARGET_CASE_UNDECIDED")
+            finally:
+                os.chmod(unreadable, 0o700)
+                _FOLDS_CASE.pop(str(unreadable), None)
+            # Only ENOENT answers "distinct names": the flipped name is absent, so the two names are
+            # not one file. Asked of the probe over a tree with exactly one entry.
+            (probe_root / "single").mkdir()
+            (probe_root / "single" / "Zz.md").write_text("x", encoding="utf-8")
+            _FOLDS_CASE.pop(str(probe_root / "single"), None)
+            control("an absent flipped name is the one error that answers the question",
+                    json.dumps(folds_case(probe_root / "single") in (True, False)), "true")
+            # EVERY existing component's spelling, not the leaf's alone: a directory opened under a
+            # spelling nobody approved is as wrong as a file, and on this machine the open succeeds.
+            (probe_root / "CLAUDE" / "guides").mkdir(parents=True)
+            (probe_root / "CLAUDE" / "guides" / "g.md").write_text("x", encoding="utf-8")
+            control("a target whose DIRECTORY is spelled otherwise on disk is refused, which "
+                    "comparing the leaf alone could not see",
+                    "; ".join(filesystem_problems("claude/guides/g.md", str(probe_root))),
+                    "TARGET_CASE_ON_DISK")
+            control("and the refusal names the spelling the disk carries",
+                    "; ".join(filesystem_problems("claude/guides/g.md", str(probe_root))),
+                    "spelled 'CLAUDE' on disk")
+            clean("while the spelling the disk carries passes",
+                  filesystem_problems("CLAUDE/guides/g.md", str(probe_root)))
+            # An unreadable parent is not an approved spelling.
+            # An unreadable parent is not an approved spelling. The realistic cause is a
+            # permission, and macOS checks that at OPEN: a descriptor taken while the directory was
+            # readable keeps listing after the mode drops, so the branch is reached here through the
+            # other error that gets to it — a descriptor that is not a directory at all. What is
+            # being held is that the function REPORTS instead of returning "the spelling is fine"
+            # from a listing it never read.
+            held_file_fd = os.open(probe_root / "CLAUDE" / "guides" / "g.md", os.O_RDONLY)
+            try:
+                control("a parent that cannot be listed is reported rather than read as approval",
+                        "; ".join(_spelling_on_disk(["CLAUDE", "guides", "g.md"], held_file_fd,
+                                                    "CLAUDE/guides/g.md")),
+                        "TARGET_SPELLING_UNREADABLE")
+                control("and the refusal says the question could not be answered, not that the "
+                        "name matched",
+                        "; ".join(_spelling_on_disk(["CLAUDE", "guides", "g.md"], held_file_fd,
+                                                    "CLAUDE/guides/g.md")),
+                        "cannot be established")
+            finally:
+                os.close(held_file_fd)
+        finally:
+            shutil.rmtree(probe_root, ignore_errors=True)
         # The on-disk spelling, which a case-folding filesystem would otherwise hide.
         held_spelling = _spelling_on_disk(["claude", "guides", "G.md"],
                                           os.open(root / "claude" / "guides", os.O_RDONLY),
@@ -393,8 +499,8 @@ def _self_test_body(failures, ran):
         held_set = set_problems(["claude/guides/g.md", "claude/guides/to-root/CLAUDE.md",
                                  "claude/guides/g.md"], root)
         control("a set is judged target by target", "; ".join(held_set), "TARGET_SYMLINK")
-        control("and for the collisions between its targets", "; ".join(held_set),
-                "TARGET_REPEATED")
+        clean("and a target it names twice is not reported as a collision",
+              [p for p in held_set if "TARGET_REPEATED" in p])
         clean("with no checkout the answer is the spelling alone, and a real path passes it",
               problems("claude/guides/g.md"))
     finally:

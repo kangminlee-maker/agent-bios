@@ -724,6 +724,21 @@ def self_test():
                     [fx_item("i-1", target="claude/guides/g.md"),
                      fx_item("i-2", target="claude/guides/G.md")], bound)),
                 "TARGET_CASE")
+        # A CHAIN through one file is valid work, and the identity contract used to refuse it.
+        # §10.5's own example: one item creates the file, the next deletes it, a third routes to it,
+        # and each operation carries the before-state hash of what the previous one left — which is
+        # what orders them. The round-3 review found a valid approved set rejected this way.
+        clean("several operations of one set through ONE file are a chain, not a collision",
+              operation_problems(
+                  [fx_item("i-1", target="claude/guides/g.md"),
+                   fx_item("i-2", target="claude/guides/g.md"),
+                   fx_item("i-3", target="claude/guides/g.md")], bound))
+        control("while two spellings that are one file on this filesystem stay refused, so the "
+                "change narrows the rule to distinct spellings and not past it",
+                "; ".join(operation_problems(
+                    [fx_item("i-1", target="claude/guides/g.md"),
+                     fx_item("i-2", target="claude/guides/G.md")], bound)),
+                "TARGET_CASE")
         clean("with no checkout declared, the spelling is still judged and the walk is not claimed",
               operation_problems([fx_item()], fx_declaration()))
         control("and a declaration naming a checkout that is not there does not make the walk "

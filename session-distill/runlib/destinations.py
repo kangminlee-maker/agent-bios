@@ -1108,10 +1108,27 @@ def resolved_rows(declaration, environ, root=None):
             # `held_root`, not `root`: the parameter names the INSTALLATION being inspected, and
             # this loop used to rebind it to a class root — so anything later in the function that
             # needed the installation root got a destination instead.
-            held_root, value = roots.get(cls), environ.get(override)
+            # The certificate is resolved from the environment the run PRODUCES for this writer,
+            # never from the caller's separate dict. The two could disagree — `environment_for`
+            # sets HOME from the declaration, and every override's value is its class's declared
+            # root — so a row certified from `environ` certified a value the writer would not be
+            # handed. `environ` is now read as the caller's CLAIM about what it will run with, and
+            # a claim that differs from what the run produces is refused rather than preferred
+            # (the round-3 review).
+            held_root, value = roots.get(cls), given.get(override)
+            claimed = (environ or {}).get(override)
             if not value:
                 rows.append({"class": cls, "writer": f"{row['writer']} [{override}]", "path": None,
-                             "root": held_root, "inside": False, "unset": [override]})
+                             "root": held_root, "inside": False, "unset": [override],
+                             "certification": None})
+                continue
+            if claimed is not None and claimed != value:
+                rows.append({"class": cls, "writer": f"{row['writer']} [{override}]",
+                             "path": value, "root": held_root, "inside": None,
+                             "certification": "withheld",
+                             "why": f"the caller says it will run with {override}={claimed!r} and "
+                                    f"the run produces {value!r} for it, so which path this "
+                                    f"certificate speaks for cannot be established"})
                 continue
             rows.append({"class": cls, "writer": f"{row['writer']} [{override}]", "path": value,
                          "root": held_root,
@@ -1722,10 +1739,13 @@ def _self_test_body(failures, ran):
                 + len([e for e in next(r for r in writers() if r["writer"] == "install.sh")
                        .get("fixed_roots") or []])))
 
-    # OVERRIDE_MISSING: the case that writes into a real home through a fallback.
-    unset = resolution_problems(resolved_rows(fx_declaration(),
-                                              {k: v for k, v in fx_env().items()
-                                               if k != "AGENT_BIOS_SESSION_DISTILL_STATE"}))
+    # OVERRIDE_MISSING: the case that writes into a real home through a fallback. After the
+    # inversion the run BUILDS the environment, so an override is unset when the declaration names
+    # no root for that name's class — the caller can no longer forget one, which is the point.
+    unset = resolution_problems(resolved_rows(
+        {**fx_declaration(), "destinations": {k: v for k, v
+                                              in fx_declaration()["destinations"].items()
+                                              if k != "nudge"}}, fx_env()))
     control("an unset override is refused before anything else, naming the writer and the variable",
             "; ".join(unset), "OVERRIDE_MISSING session-distill/update-state.py "
                               "[AGENT_BIOS_SESSION_DISTILL_STATE] AGENT_BIOS_SESSION_DISTILL_STATE")
@@ -1735,39 +1755,51 @@ def _self_test_body(failures, ran):
           "the one the writer would use",
           [p for p in unset if "DESTINATION_OUTSIDE_ROOT" in p
            and "update-state" in p])
-    control("the unset override is reported before any escape in the same resolution",
+    control("the unset override is reported before any other refusal in the same resolution, "
+            "because a path nobody will write to is not worth judging",
             "|".join(p.split()[0] for p in resolution_problems(resolved_rows(
-                fx_declaration(),
-                {**{k: v for k, v in fx_env().items() if k != "ZDOTDIR"},
-                 "CODEX_HOME": f"{root}-other/codex"}))),
+                {**fx_declaration(), "destinations": {k: v for k, v
+                                                      in fx_declaration()["destinations"].items()
+                                                      if k != "nudge"}},
+                fx_env(CODEX_HOME=f"{root}-other/codex")))),
             "OVERRIDE_MISSING")
 
     # DESTINATION_OUTSIDE_ROOT: an actual escape, under a second fixture root.
     escaped = resolution_problems(resolved_rows(
         fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{root}-other/nudge/state.json")))
-    control("a destination under a second root is refused by name with both paths",
-            "; ".join(escaped), f"DESTINATION_OUTSIDE_ROOT session-distill/update-state.py "
-                                f"[AGENT_BIOS_SESSION_DISTILL_STATE]: {root}-other/nudge/state.json")
+    # The inversion changes WHERE an escape can come from, and these controls follow it. A
+    # per-override certificate is now the declared root of that name's class, so an override row
+    # cannot escape its own root by construction — testing that it can would be testing a state the
+    # code no longer has. What CAN escape is a fixed root computed from the given home (controlled
+    # above, with the declaration narrowed), and what can disagree is the caller's claim about the
+    # environment it will run with.
+    control("a caller that says it will run with another value is refused by name, naming both the "
+            "value it claims and the value the run produces",
+            "; ".join(escaped),
+            "DESTINATION_UNCERTIFIED session-distill/update-state.py "
+            "[AGENT_BIOS_SESSION_DISTILL_STATE]")
+    control("and the refusal says which path the certificate would have spoken for",
+            "; ".join(escaped), "and the run produces")
     nudge_root = fx_declaration()["destinations"]["nudge"]
-    control("and the refusal names the root it is not inside", "; ".join(escaped),
-            f"not inside {nudge_root}")
-    clean("a path that IS the root is inside it, not an escape",
+    clean("a caller whose claim MATCHES what the run produces is no disagreement",
           resolution_problems(resolved_rows(
               fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=nudge_root))))
-    control("a sibling directory whose name merely starts with the root's is an escape, not a child",
-            "; ".join(resolution_problems(resolved_rows(
-                fx_declaration(),
-                fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{nudge_root}-other/s.json")))),
-            "DESTINATION_OUTSIDE_ROOT")
-    control("a traversal that climbs out of the root is an escape even though its text begins inside",
-            "; ".join(resolution_problems(resolved_rows(
-                fx_declaration(),
-                fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{root}/destinations/nudge/../../out.json")))),
-            "DESTINATION_OUTSIDE_ROOT")
-    clean("and one that climbs and comes back is inside, because the question is what the writer opens",
-          resolution_problems(resolved_rows(
-              fx_declaration(),
-              fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{nudge_root}/d/../s.json"))))
+    clean("every override row's path IS its class root, which is why it cannot escape: the row "
+          "carries no value the run did not produce",
+          [r["writer"] for r in resolved_rows(fx_declaration(), {})
+           if "[" in r["writer"] and "[fixed:" not in r["writer"]
+           and r.get("path") and r["path"] != r["root"]])
+    # The lexical rule the FIXED roots are judged by, asked of `inside` directly — the question is
+    # the rule's, and the rows that used to carry it could only reach it through a value the run no
+    # longer takes from the caller.
+    control("a path that IS the root is inside it, not an escape",
+            json.dumps(inside(nudge_root, nudge_root)), "true")
+    control("a sibling whose name merely starts with the root's is an escape, not a child",
+            json.dumps(inside(f"{nudge_root}-other/s.json", nudge_root)), "false")
+    control("a traversal that climbs out of the root is an escape even though its text begins "
+            "inside", json.dumps(inside(f"{nudge_root}/../../out.json", nudge_root)), "false")
+    control("and one that climbs and comes back is inside, because the question is what the writer "
+            "opens", json.dumps(inside(f"{nudge_root}/d/../s.json", nudge_root)), "true")
     control("a run that declares no root for a class is refused rather than defaulting to one",
             "; ".join(resolution_problems(resolved_rows(
                 {"destinations": {k: v for k, v in fx_declaration()["destinations"].items()
@@ -2319,10 +2351,11 @@ def _self_test_body(failures, ran):
             json.dumps(sorted({str(r.get("certification") or r.get("not_installed"))
                                for r in doc["resolved"] if r["inside"] is None})),
             '["forward"]')
-    control("a document over an escaping environment is refused instead of written",
+    control("a document over an environment the caller claims and the run does not produce is "
+            "refused instead of written",
             refusal(lambda: document(fx_declaration(),
                                      fx_env(CODEX_HOME=f"{root}-other/codex"))),
-            "DESTINATION_OUTSIDE_ROOT")
+            "DESTINATION_UNCERTIFIED")
     control("and so is one over a mutated table, so the manifest cannot be written from a broken "
             "inventory",
             with_table(lambda t: t.__setitem__("writers", []),
@@ -2354,7 +2387,7 @@ def _self_test_body(failures, ran):
         other = held_root / "r2"
         declare.create(other, fx_declaration())
         said = refusal(lambda: write(other, declaration, fx_env(CODEX_HOME=f"{root}-other/codex")))
-        control("a refused resolution writes nothing", said, "DESTINATION_OUTSIDE_ROOT")
+        control("a refused resolution writes nothing", said, "DESTINATION_UNCERTIFIED")
         clean("not even an empty manifest, and no stage record either",
               [name for name in (OUTPUT, "records") if (other / name).exists() and name == OUTPUT]
               + ([f"an S11 record exists"] if records.record_path(other, "S11").exists() else []))
