@@ -270,6 +270,91 @@ def set_problems(targets, checkout=None):
     return held + collision_problems(targets, checkout)
 
 
+SPELLING_TESTS = (
+    ('".." in', "a traversal test"),
+    ('startswith("/")', "an absolute-path test"),
+    ("startswith('/')", "an absolute-path test"),
+    ('startswith("~")', "a home-prefix test"),
+    ("posixpath.normpath(", "a canonicalisation"),
+    ("os.path.normpath(", "a canonicalisation"),
+)
+SPELLING_SUBJECTS = ("target", "carrier")
+# Keyed to the CODE, not to a line number, so it lapses when that code changes rather than when the
+# file moves. Each entry says why its subject is not an approved target's spelling.
+SPELLING_EXEMPT = {
+    ("inventory.py", "target = pathlib.Path(os.path.normpath(str(base / label)))"):
+        "S2's copy-label containment (`inventory.confined`): the subject is a label out of the "
+        "owner's state being joined to a fixture base, and the question is whether the result stays "
+        "under that base — containment, not whether an approved target is spelled canonically. The "
+        "line itself is the second layer behind a string test and is unguarded-accepted "
+        "(ruled 2026-10-24).",
+}
+
+
+def second_validator_problems(root=None):
+    """Any module of `runlib` other than this one that tests a TARGET's spelling itself.
+
+    The contract has one owner, and the way that stops being true is quiet: `placement` had its own
+    carrier rules and accepted `./claude/CLAUDE.md` and `claude//CLAUDE.md` while this module
+    refused them, so one spelling was approved in the review and refused at the apply (the round-3
+    review). Decidable by source: a spelling TEST applied to a value named like a target or a
+    carrier, in any runlib module but this one.
+
+    Containment is NOT this contract — `destinations._inside` asks whether a path lies under a root,
+    which is a different question about a value that is already a valid path — so the scan is scoped
+    to the subject names, not to the predicates alone.
+    """
+    base = pathlib.Path(root or pathlib.Path(__file__).resolve().parent)
+    problems, scanned = [], 0
+    for held in sorted(base.glob("*.py")):
+        if held.name == pathlib.Path(__file__).name:
+            continue
+        scanned += 1
+        for number, line in enumerate(held.read_text(encoding="utf-8",
+                                                     errors="replace").splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith(("#", '"', "'")):
+                continue
+            lowered = line.lower()
+            if not any(subject in lowered for subject in SPELLING_SUBJECTS):
+                continue
+            if (held.name, stripped) in SPELLING_EXEMPT:
+                continue
+            for mark, why in SPELLING_TESTS:
+                if mark in line:
+                    problems.append(f"SECOND_TARGET_VALIDATOR {held.name}:{number}: {why} on a "
+                                    f"target or carrier ({stripped[:70]!r}) — the spelling contract "
+                                    f"has one owner, and a second one disagrees with it in some "
+                                    f"case nobody has found yet")
+                    break
+    if not scanned:
+        problems.append("SECOND_TARGET_VALIDATOR_NO_MODULES: no runlib module was read, so the "
+                        "scan would pass over an empty set")
+    # The exemptions are declared about THIS runlib's files, so their staleness is asked only when
+    # that is what is being scanned; a control scanning its own planted tree is not evidence that
+    # the licence here has lapsed.
+    own = base == pathlib.Path(__file__).resolve().parent
+    for (name, code), reason in sorted(SPELLING_EXEMPT.items()) if own else ():
+        held_file = base / name
+        if not held_file.is_file() or code not in held_file.read_text(encoding="utf-8",
+                                                                      errors="replace"):
+            problems.append(f"SECOND_TARGET_VALIDATOR_EXEMPTION_STALE {name}: the exemption names "
+                            f"code this file no longer carries ({code[:50]!r}), so it excuses "
+                            f"nothing and the reason it carried is no longer about anything")
+    return problems
+
+
+def _with_exemption(key, reason, call):
+    """Run `call` with one more entry in SPELLING_EXEMPT, restoring it however the call ends."""
+    held = dict(SPELLING_EXEMPT)
+    try:
+        SPELLING_EXEMPT[key] = reason
+        return call()
+    finally:
+        SPELLING_EXEMPT.clear()
+        SPELLING_EXEMPT.update(held)
+
+
 def self_test():
     """One identity contract, each rule with a planted violation and its clean counterpart.
 
@@ -494,6 +579,48 @@ def _self_test_body(failures, ran):
                 "; ".join(held_spelling), "TARGET_CASE_ON_DISK")
         control("and the refusal carries the spelling that is really there",
                 "; ".join(held_spelling), "'g.md'")
+
+        # ---- ONE owner for the spelling, held by source ------------------------------------------
+        #
+        # The contract stops having one owner quietly: `placement` carried its own carrier rules and
+        # accepted `./claude/CLAUDE.md` and `claude//CLAUDE.md` while this module refused them, so a
+        # spelling was approved in the review and refused at the apply. The lead asked for this
+        # control by source, with its negative.
+        clean("no runlib module but this one tests a target's or a carrier's spelling itself",
+              second_validator_problems())
+        planted_root = pathlib.Path(tempfile.mkdtemp(prefix="targets-second-", dir="/tmp"))
+        try:
+            for held_name in ("alpha.py", "beta.py"):
+                (planted_root / held_name).write_text("x = 1\n", encoding="utf-8")
+            clean("and the scan is clean over a tree that has none",
+                  second_validator_problems(planted_root))
+            (planted_root / "beta.py").write_text(
+                'def check(target):\n    return target.startswith("/")\n', encoding="utf-8")
+            control("a second absolute-path test on a target is reported, with the file and the "
+                    "line", "; ".join(second_validator_problems(planted_root)),
+                    "SECOND_TARGET_VALIDATOR beta.py:2")
+            (planted_root / "beta.py").write_text(
+                'def check(carrier):\n    return ".." in carrier.split("/")\n', encoding="utf-8")
+            control("and so is a traversal test on a carrier",
+                    "; ".join(second_validator_problems(planted_root)),
+                    "SECOND_TARGET_VALIDATOR beta.py:2")
+            (planted_root / "beta.py").write_text(
+                'def check(root, path):\n    return path.startswith("/") and root\n',
+                encoding="utf-8")
+            clean("while the same test on a value that is not a target or a carrier is not this "
+                  "contract's: containment asks a different question about a path that is already "
+                  "valid", second_validator_problems(planted_root))
+            control("a scan that reads no module at all says so rather than passing",
+                    "; ".join(second_validator_problems(
+                        pathlib.Path(tempfile.mkdtemp(prefix="targets-empty-", dir="/tmp")))),
+                    "SECOND_TARGET_VALIDATOR_NO_MODULES")
+        finally:
+            shutil.rmtree(planted_root, ignore_errors=True)
+        control("an exemption that names code its file no longer carries is reported, so the one "
+                "licence here cannot outlive its reason",
+                "; ".join(_with_exemption(("inventory.py", "code nobody wrote"), "planted",
+                                         second_validator_problems)),
+                "SECOND_TARGET_VALIDATOR_EXEMPTION_STALE inventory.py")
 
         # ---- the set ----------------------------------------------------------------------------
         held_set = set_problems(["claude/guides/g.md", "claude/guides/to-root/CLAUDE.md",

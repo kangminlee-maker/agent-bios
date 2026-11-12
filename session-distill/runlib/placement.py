@@ -22,6 +22,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib import targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -440,13 +441,22 @@ CARRIER_RULES = (
 
 
 def _carrier_problem(carrier):
-    """Which carrier rule a carrier breaks, by code, or None."""
+    """Which carrier rule a carrier breaks, by code, or None.
+
+    The control character is this module's own rule, because it is about the RENDERED review a
+    carrier reaches, not about a path's identity. Everything else about the spelling — absolute,
+    traversal, non-canonical, `./x` and `a//b` — is `runlib/targets`', and is asked of it rather
+    than implemented again: this function used to accept `./claude/CLAUDE.md` and
+    `claude//CLAUDE.md`, which the identity contract refuses, so one spelling was approved here and
+    refused there (the round-3 review).
+    """
     if any(ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F for ch in carrier):
         return CARRIER_RULES[0]
-    if ".." in pathlib.PurePosixPath(carrier).parts:
-        return CARRIER_RULES[1]
-    if carrier.startswith("/") or carrier.startswith("~"):
-        return CARRIER_RULES[2]
+    for held in targets.lexical_problems(carrier):
+        code = held.split(" ", 1)[0]
+        if code == "TARGET_ABSENT":
+            continue                       # an empty carrier is the shape rule's, not the path's
+        return (f"DESTINATION_CARRIER_{code[len('TARGET_'):]}", held.partition(": ")[2])
     return None
 
 

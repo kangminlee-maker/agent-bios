@@ -29,6 +29,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib import targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -88,7 +89,14 @@ def apply_to(tree, item):
     why a route can precede its carrier and leave a tree that no gate should pass."""
     held = dict(tree)
     for op in item.get("operations") or []:
-        kind, target = op.get("type"), op.get("target")
+        kind = op.get("type")
+        # The IDENTITY, not the string the operation carries: `claude/g.md`, `./claude/g.md` and
+        # `claude//g.md` are one file, and keying the tree by the raw string made them three — a
+        # create under one spelling and a delete under another left the file present, and the order
+        # this module computed was an order over a tree that does not exist (the round-3 review).
+        # `targets.identity` is the one owner of that question; an unspellable target keeps its own
+        # string so the order is still computed and the spelling contract reports it by name.
+        target = targets.identity(op.get("target")) or op.get("target")
         if kind in ("create", "edit"):
             held[target] = "present"
         elif kind == "delete":
@@ -469,6 +477,42 @@ def _self_test_body(failures, ran):
     control("a set brute force rejects is refused by the search too",
             str(subset_answer(unorderable).get("refusal")), "SEQUENCE_NONE")
     clean("and brute force agrees there is none", exhaustive(unorderable))
+
+    # ---- the tree is keyed by IDENTITY, not by the string an operation carries --------------------
+    #
+    # `claude/g.md`, `./claude/g.md` and `claude//g.md` are one file. Keyed by the raw string they
+    # were three, so a create under one spelling and a delete under another left the file present
+    # and every order computed here was an order over a tree that does not exist.
+    control("a delete spelled otherwise removes what a create put there, because both name one file",
+            json.dumps(apply_to(
+                apply_to({}, {"item_id": "i-1",
+                              "operations": [{"type": "create", "target": "claude/g.md"}]}),
+                {"item_id": "i-2",
+                 "operations": [{"type": "delete", "target": "./claude/g.md"}]})),
+            "{}")
+    control("and a second spelling of a create is the same key, not a second file",
+            json.dumps(sorted(apply_to(
+                apply_to({}, {"item_id": "i-1",
+                              "operations": [{"type": "create", "target": "claude/g.md"}]}),
+                {"item_id": "i-2",
+                 "operations": [{"type": "create", "target": "claude//g.md"}]}))),
+            '["claude/g.md"]')
+    # A route's entry names the path it points AT (`names`), and the carrier it is written into is
+    # the target — so the identity that matters here is the one in the entry's key.
+    control("a route written under a second spelling of its carrier is one entry, not two",
+            json.dumps(sorted(apply_to(
+                apply_to({}, {"item_id": "i-1",
+                              "operations": [{"type": "route", "target": "claude/g.md",
+                                              "names": "claude/h.md"}]}),
+                {"item_id": "i-2", "operations": [{"type": "route", "target": "./claude/g.md",
+                                                   "names": "claude/h.md"}]}))),
+            '["route:claude/g.md->claude/h.md"]')
+    control("an unspellable target keeps its own string, so the order is still computed and the "
+            "spelling contract is what reports it",
+            json.dumps(sorted(apply_to({}, {"item_id": "i-1",
+                                            "operations": [{"type": "create",
+                                                            "target": "/etc/passwd"}]}))),
+            '["/etc/passwd"]')
 
     # ---- the set identity binds every field the stand-in reads -----------------------------------
     #

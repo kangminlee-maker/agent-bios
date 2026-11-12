@@ -482,10 +482,17 @@ class LosingStorage(Storage):
             self.unsynced_files.append(pathlib.Path(label))
 
     def _sync_directory(self, held_fd, label):
-        """Recorded always; performed only while flushing, and not at all under `lose_names`."""
+        """Recorded always; performed only while flushing, and not at all under `lose_names`.
+
+        A directory that really was synced leaves the loss list. Without that the fake lost entries
+        a real device would have kept, so every control built on it was watching the fake's own
+        bookkeeping rather than the durability rule (the round-3 review).
+        """
         self.synced.append(str(label))
         if self._flushing and not self.lose_names:
             Storage._sync_directory(self, held_fd, label)
+            held_path = pathlib.Path(label)
+            self.unsynced_directories = [p for p in self.unsynced_directories if p != held_path]
 
     def append(self, confined, pieces, data):
         self.roots.add(str(confined.root))
@@ -775,6 +782,14 @@ def journalled(path, record, root, effect, storage=None):
             # recognised by its DIGEST, not by its id — an older plan under the same id used to
             # satisfy this check for a new one.
             after = _parse(_read_bytes(confined, pieces, storage))
+            # The WHOLE parse, before anything irreversible: the pre-append validation cannot see a
+            # journal this very append damaged, and `after` was searched for one record while its
+            # own problems went unread. A journal that does not parse is not a journal an effect may
+            # stand on.
+            if after["problems"]:
+                raise Refused(f"JOURNAL_CORRUPT {path}: {'; '.join(after['problems'])} — the "
+                              f"journal does not parse after the append, so the effect is not "
+                              f"taken and tail repair does not touch it")
             if not any(row.get("kind") == "planned" and plan_digest(row) == plan_digest(record)
                        for row in after["records"]):
                 raise Refused(f"JOURNAL_PLAN_NOT_DURABLE {path}: the plan for "
@@ -868,9 +883,17 @@ def _records_of(blob):
             # cannot tell a finished append from one that stopped before its newline.
             torn.append({"line": number, "text": (line or repr(raw))[:120],
                          "why": "no trailing newline" if held is not None else "unframed"})
+            # An append is interrupted BEFORE its newline, so the only line a tear can explain is a
+            # last line with no newline. Any other unframed line is corruption, and the final one
+            # was the hole: a complete last line that framed nowhere went into `torn` with no
+            # problem at all, so `append` and `journalled` ran over it (the round-3 review).
             if not last:
                 problems.append(f"JOURNAL_TORN_MIDDLE line {number}: a line with lines after it "
                                 f"cannot have been torn by an append, so this is corruption")
+            elif not unterminated:
+                problems.append(f"JOURNAL_CORRUPT_LINE line {number}: the last line carries its "
+                                f"newline and frames nowhere, so no interrupted append explains it "
+                                f"— this is corruption, and tail repair does not touch it")
             continue
         records.append(held)
     return {"records": records, "torn": torn, "problems": problems,
@@ -1291,7 +1314,11 @@ def self_test():
                 json.dumps(sorted(set(counting.synced))))
         control("and the record is readable afterwards",
                 str(len(read(deep_path)["records"])), "1")
-        losing_dirs = LosingStorage()
+        # The entry a device never got. `lose_names=True` is the storage whose directory sync did
+        # NOT happen, which is the only state in which an entry can be lost — a directory that was
+        # synced is durable, and the fake used to lose it anyway, so this control was watching the
+        # fake's bookkeeping instead of the rule (the round-3 review).
+        losing_dirs = LosingStorage(lose_names=True)
         lost_deep = root / "state" / "x" / "y" / "lost-deep.jsonl"
         append(lost_deep, fx_plan(), root=str(root), storage=losing_dirs)
         held_lost = losing_dirs.lose_unsynced()
@@ -1302,6 +1329,16 @@ def self_test():
                 '{"directories": true}')
         clean("losing the entry takes the journal under it, because nothing can reach what has no "
               "name", [] if not lost_deep.exists() else ["the journal survived its own directory"])
+        # And the same chain with the sync PERFORMED keeps both: the entry is not in the loss list
+        # at all, so the two cases differ by the sync and not by the control's wording.
+        kept_dirs = LosingStorage()
+        kept_deep = root / "state" / "kept" / "deep" / "kept.jsonl"
+        append(kept_deep, fx_plan(operation_id="OP-kept"), root=str(root), storage=kept_dirs)
+        held_kept = kept_dirs.lose_unsynced()
+        control("a chain whose directories were synced loses no entry, and the journal is still "
+                "there",
+                json.dumps({"directories": held_kept["directories"], "exists": kept_deep.exists()}),
+                '{"directories": 0, "exists": true}')
 
         # ---- the framing, on the protocol's own delimiter ------------------------------------------
         #
@@ -1656,6 +1693,65 @@ def self_test():
               [] if reconcile_tail(corrupt_path, str(root))["dropped"] is None
               else ["a complete line was cut"])
 
+        # ---- a COMPLETE line that frames nowhere -------------------------------------------------
+        #
+        # An append is interrupted before its newline, so the only line a tear explains is a LAST
+        # line with no newline. A complete last line that framed nowhere went into `torn` with no
+        # problem at all, so append and journalled ran over it: the journal said "a tear, nothing to
+        # report" about bytes no append could have produced (the round-3 review).
+        final_path = root / "state" / "final.jsonl"
+        append(final_path, fx_plan(operation_id="OP-final"), root=str(root))
+        with open(final_path, "ab") as handle:
+            handle.write(b"9999 " + b"0" * 64 + b' {"kind": "planned"}\n')
+        held_final = read(final_path)
+        control("a complete last line whose frame does not verify is corruption, and `read` names "
+                "it", "; ".join(held_final["problems"]), "JOURNAL_CORRUPT_LINE line 2")
+        control("and the refusal says no interrupted append explains it",
+                "; ".join(held_final["problems"]), "no interrupted append explains it")
+        control("an append over it is refused rather than added to",
+                refusal(lambda: append(final_path, fx_plan(operation_id="OP-f2"), root=str(root))),
+                "JOURNAL_CORRUPT")
+        over_final = []
+        control("and so is an effect",
+                refusal(lambda: journalled(final_path, fx_plan(operation_id="OP-f3"), str(root),
+                                           lambda: over_final.append("ran") or "x")),
+                "JOURNAL_CORRUPT")
+        clean("which did not run", over_final)
+        clean("and tail repair leaves it alone, because its newline is there",
+              [] if reconcile_tail(final_path, str(root))["dropped"] is None
+              else ["a complete line was cut"])
+        # While an UNTERMINATED last line is still a tear, which is the case the rule must keep:
+        # the two differ by the newline and by nothing else.
+        tear_path = root / "state" / "tear.jsonl"
+        append(tear_path, fx_plan(operation_id="OP-tear"), root=str(root))
+        with open(tear_path, "ab") as handle:
+            handle.write(b"an interrupted append")
+        clean("an unterminated last line is a tear and carries no corruption problem",
+              read(tear_path)["problems"])
+        control("and tail repair removes exactly it", reconcile_tail(tear_path, str(root))["dropped"],
+                "an interrupted append")
+
+        # The WHOLE post-append parse, before the effect. `journalled` searched the post-append
+        # parse for its own plan and never read that parse's problems, so a journal this very
+        # append left unparseable still carried an effect.
+        class CorruptingStorage(Storage):
+            """A storage whose append also writes a complete line that frames nowhere."""
+
+            def append(self, confined, pieces, data):
+                Storage.append(self, confined, pieces, data)
+                Storage.append(self, confined, pieces,
+                               b"9999 " + b"0" * 64 + b' {"kind": "planned"}\n')
+
+        after_effect = []
+        control("an append that leaves the journal unparseable is refused BEFORE the effect, not "
+                "after it",
+                refusal(lambda: journalled(root / "state" / "after.jsonl",
+                                           fx_plan(operation_id="OP-after"), str(root),
+                                           lambda: after_effect.append("ran") or "x",
+                                           storage=CorruptingStorage())),
+                "the journal does not parse after the append")
+        clean("and the effect did not run", after_effect)
+
         # ---- a new journal's own NAME ------------------------------------------------------------
         #
         # The fake modelled contents and created directories, never the journal file's own entry, so
@@ -1672,10 +1768,21 @@ def self_test():
                                             "exists": named_path.exists()}),
                 '{"files": 1, "exists": false}')
         survivor = root / "state" / "existing" / "survivor.jsonl"
-        append(survivor, fx_plan(operation_id="OP-survive"), root=str(root),
-               storage=LosingStorage())
-        control("while the same append with the directory synced survives the same loss",
-                json.dumps({"records": len(read(survivor)["records"])}), '{"records": 1}')
+        surviving = LosingStorage()
+        append(survivor, fx_plan(operation_id="OP-survive"), root=str(root), storage=surviving)
+        # The loss is ACTUALLY TAKEN here. The control used to read the journal without calling
+        # `lose_unsynced`, so it asserted that a file written a moment ago is readable — true of any
+        # write at all, and nothing about durability (the round-3 review).
+        held_loss = surviving.lose_unsynced()
+        control("while the same append with the directory synced survives the loss, which this "
+                "control now actually takes",
+                json.dumps({"records": len(read(survivor)["records"]),
+                            "lost": sorted((k, v) for k, v in held_loss.items()
+                                           if k != "contents")}),
+                '{"records": 1, "lost": [["directories", 0], ["files", 0]]}')
+        control("and the directory that was synced is not in what the fake would lose, so the fake "
+                "models the device rather than its own bookkeeping",
+                json.dumps([str(p) for p in surviving.unsynced_directories]), "[]")
 
         # ---- failing closed on what the platform will not give -----------------------------------
         class NoDirSync(Storage):
