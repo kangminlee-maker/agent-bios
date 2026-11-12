@@ -610,14 +610,13 @@
       "writer": "git",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "One commit per applied item. The destination is the working tree the run was given, which has no environment override: the confinement is that the tree is the fixture clone named by the `checkout` class, never a worktree sharing the owner's .git.",
+      "$comment": "One commit per applied item — in RELEASE 2. Release 1 does not run this writer at all: the four review rounds on certifying that commit each produced new blocking defects, and the fifth of round 4's was the repository's own hook writing under /tmp and provisioning under HOME, which certifying the commit would have had to cover. The row stays so the writer is declared and named rather than forgotten.",
       "destinations": [],
       "writes_without_override": "checkout",
       "root_from": "argument",
       "$comment_root_from": "the working tree the run was given, as an argument to every git call; there is no environment override for it, and the confinement is that the tree is the clone the `checkout` class names",
-      "release_1_invoked": true,
-      "isolation": "git",
-      "$comment_isolation": "git reads configuration no variable names — the system file, the user's global file, and the repository's own config. The run hands it the isolation that closes the first two and judges the third before any effect; `destinations.GIT_ENVIRONMENT` is the one owner of those names, so this row says WHICH isolation applies and not what it is."
+      "release_1_invoked": false,
+      "$comment_release_1": "not invoked by release-1 S11: the apply writes the approved changes into files of the declared checkout and executes NO git; it names the commit command for the owner to run, and the owner commits as usual so the repository's hooks run in the owner's own environment (D-20261113-f22b7d, narrowing D-20261112-2cf1c4)"
     },
     {
       "writer": "session-distill/runlib/stage_close.py",
@@ -635,7 +634,7 @@
       "writer": "session-distill/runlib/stage_apply.py",
       "fallbacks": [],
       "fallback_source": null,
-      "$comment": "Two destinations, and release 1 invokes one of them. The file edits land in the declared checkout, whose root the stage is passed. A personal-layer patch is applied under the owner's own layer root; HOME is required with no fallback declared, because a personal layer resolved from the password database is the one case where a missing override writes outside every root the run named — and that destination is NOT invoked in release 1 (D-20261112-2cf1c4), so its row is named rather than certified. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
+      "$comment": "Two destinations, and release 1 invokes one of them. The file edits land in the declared checkout, whose root the stage is passed — and in release 1 that is the stage's whole effect: it writes files and executes no git (D-20261113-f22b7d). A personal-layer patch is applied under the owner's own layer root; HOME is required with no fallback declared, because a personal layer resolved from the password database is the one case where a missing override writes outside every root the run named — and that destination is NOT invoked in release 1 (D-20261112-2cf1c4), so its row is named rather than certified. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
       "destinations": [
         {
           "override": "HOME",
