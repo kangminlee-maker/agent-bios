@@ -407,21 +407,48 @@ def awaiting_r(answer, candidate, derivation_row):
 # sentences are PROSE: a newline in prose is ordinary, and escaping prose on render is lane E's. What
 # is held here is the set whose values name files, records and terms - where a control character is
 # never meaningful and a forged line is.
+# Every non-prose string a model answer carries. The first five were the enumeration; the WP-21
+# review found five more that still admitted a newline followed by a decision-shaped line, which is
+# the forgery this check exists to stop. PATH_FIELDS get the path rules as well, because those
+# values name files the apply stage will write.
 NON_PROSE_STRINGS = (
     ("operations[].target", "every operation's target, which names a file"),
+    ("operations[].names", "a route's destination, which names a file"),
+    ("operations[].units[]", "the units a merge removes, each naming a file"),
+    ("operations[].consumer", "the consumer a destination declares"),
+    ("destination.consumer", "the consumer the destination names"),
+    ("destination.carrier", "the carrier the destination names, which is a path"),
+    ("destination.layer", "the layer, which is a vocabulary term"),
     ("keep_record_named", "a ledger record id"),
     ("expected_observation.retrieval_terms[]", "the terms a later run searches for"),
     ("expected_observation.expiry", "a date"),
+    ("expected_observation.counter.name", "a counter's name, which a later run looks up"),
     ("artifact_set.registration", "the router line or published path an item registers under"),
+    ("unknowns[].state", "the state an unknown is in, which a reader counts by"),
 )
+# The fields whose value is a PATH, judged by component as well as for control characters.
+PATH_FIELDS = ("operations[].target", "operations[].names", "operations[].units[]",
+               "destination.carrier")
 
 
 def _non_prose_values(answer):
     """The answer's non-prose strings as (field, value) pairs, in NON_PROSE_STRINGS' order."""
     held = []
     for operation in answer.get("operations") or ():
-        if isinstance(operation, dict) and isinstance(operation.get("target"), str):
+        if not isinstance(operation, dict):
+            continue
+        if isinstance(operation.get("target"), str):
             held.append(("operations[].target", operation["target"]))
+        names = operation.get("names")
+        for value in (names if isinstance(names, list) else
+                      [names] if isinstance(names, str) else []):
+            if isinstance(value, str):
+                held.append(("operations[].names", value))
+        for value in operation.get("units") or ():
+            if isinstance(value, str):
+                held.append(("operations[].units[]", value))
+        if isinstance(operation.get("consumer"), str):
+            held.append(("operations[].consumer", operation["consumer"]))
     keep = answer.get("keep_record_named")
     for value in (keep if isinstance(keep, list) else [keep] if isinstance(keep, str) else []):
         if isinstance(value, str):
@@ -433,6 +460,17 @@ def _non_prose_values(answer):
                 held.append(("expected_observation.retrieval_terms[]", value))
         if isinstance(observation.get("expiry"), str):
             held.append(("expected_observation.expiry", observation["expiry"]))
+        if isinstance(observation.get("counter"), dict) and \
+                isinstance(observation["counter"].get("name"), str):
+            held.append(("expected_observation.counter.name", observation["counter"]["name"]))
+    destination = answer.get("destination") or {}
+    if isinstance(destination, dict):
+        for field in ("consumer", "carrier", "layer"):
+            if isinstance(destination.get(field), str):
+                held.append((f"destination.{field}", destination[field]))
+    for unknown in answer.get("unknowns") or ():
+        if isinstance(unknown, dict) and isinstance(unknown.get("state"), str):
+            held.append(("unknowns[].state", unknown["state"]))
     artifacts = answer.get("artifact_set") or {}
     if isinstance(artifacts, dict) and isinstance(artifacts.get("registration"), str):
         held.append(("artifact_set.registration", artifacts["registration"]))
@@ -454,7 +492,7 @@ def non_prose_problems(answer, item=""):
                             f"a value that names a file, a record or a term, which could forge a line "
                             f"in the rendered review")
             continue
-        if field == "operations[].target":
+        if field in PATH_FIELDS:
             broken = placement._carrier_problem(value)
             if broken and broken[0] != "DESTINATION_CARRIER_CONTROL":
                 code = broken[0].replace("DESTINATION_CARRIER", "TARGET")
@@ -1300,14 +1338,55 @@ def self_test():
                               "reasons": {**_answered()["reasons"], "reason": "첫 줄\n둘째 줄"}}))
     control("every field the check covers is named in one place, with what it is",
             ", ".join(name for name, _why in NON_PROSE_STRINGS), "operations[].target")
+    # An answer carrying EVERY enumerated field, so the list cannot name a check nobody makes.
+    def _every_field():
+        held = _answered()
+        operation = {**held["operations"][0], "target": "claude/guides/g.md",
+                     "names": "claude/guides/g.md", "units": ["claude/guides/u.md"],
+                     "consumer": "a reader"}
+        return {**held, "operations": [operation],
+                "keep_record_named": ["L-1"],
+                "destination": {**(held.get("destination") or {}), "consumer": "a reader",
+                                "carrier": "claude/guides/g.md", "layer": "guide"},
+                "unknowns": [{"state": "open", "what": "x"}],
+                "expected_observation": {"occasion": "o", "exposure_rule": "e",
+                                         "expected_behavior": "b", "retrieval_terms": ["t"],
+                                         "counter": {"name": "c"}, "expiry": "2026-12-01"}}
+
     clean("and every named field is actually read, so the list cannot describe a check that is not "
           "made",
           [name for name, _why in NON_PROSE_STRINGS
-           if name not in {field for field, _v in _non_prose_values({
-               **_answered(), "keep_record_named": ["L-1"],
-               "expected_observation": {"occasion": "o", "exposure_rule": "e",
-                                        "expected_behavior": "b", "retrieval_terms": ["t"],
-                                        "expiry": "2026-12-01"}})}])
+           if name not in {field for field, _v in _non_prose_values(_every_field())}])
+    # Each of the five the WP-21 review found, by name: every one accepted a newline followed by a
+    # decision-shaped line before this.
+    for field, mutate in (
+            ("operations[].names",
+             lambda a: {**a, "operations": [{**a["operations"][0],
+                                             "names": "g.md\nowner approved: yes"}]}),
+            ("operations[].units[]",
+             lambda a: {**a, "operations": [{**a["operations"][0],
+                                             "units": ["u.md\nowner approved: yes"]}]}),
+            ("destination.consumer",
+             lambda a: {**a, "destination": {**a["destination"],
+                                             "consumer": "r\nowner approved: yes"}}),
+            ("expected_observation.counter.name",
+             lambda a: {**a, "expected_observation": {**a["expected_observation"],
+                                                      "counter": {"name": "c\napproved"}}}),
+            ("unknowns[].state",
+             lambda a: {**a, "unknowns": [{"state": "open\napproved", "what": "x"}]})):
+        control(f"a newline in {field} is refused by field and value",
+                "; ".join(non_prose_problems(mutate(_every_field()))),
+                f"FIELD_CONTROL_CHARACTER {field}")
+    control("and a path-valued field climbing out of the tree is refused too, not only the target",
+            "; ".join(non_prose_problems(
+                {**_every_field(),
+                 "operations": [{**_every_field()["operations"][0],
+                                 "units": ["../../etc/x"]}]})),
+            "TARGET_TRAVERSAL")
+    control("the path rules reach every field that names a file, and only those",
+            json.dumps(list(PATH_FIELDS)),
+            json.dumps(["operations[].target", "operations[].names", "operations[].units[]",
+                        "destination.carrier"]))
     control("the schema refuses a multi-line carrier on its own, so a malformed answer is caught "
             "before any contract check reads it",
             "; ".join(_shape_problems(_answered(

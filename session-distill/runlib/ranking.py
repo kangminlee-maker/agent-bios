@@ -475,11 +475,20 @@ def self_test():
                  row(candidate_id="z-owner", owner_resolves=True),
                  row(candidate_id="m-agreed", owner_resolves=False)])),
             "z-owner,a-no-review,m-agreed")
+    # The ids put the ABSENT row first, so ranking absent LAST reverses this answer. With the
+    # absent row named `z-none` the expectation was `a-agreed,z-none` — which is also the id order
+    # and also the result when absent moves from position 1 to 2, so the control passed either way
+    # (the WP-21 review). This is the second time a key control here coincided with the id order.
     control("a row with no S7b record is NEUTRAL: it ranks where S7's own keys put it, so the key "
             "cannot reorder a run that has no reviews",
             ",".join(r["candidate_id"] for r in ranked(
-                [row(candidate_id="z-none"), row(candidate_id="a-agreed", owner_resolves=False)])),
-            "a-agreed,z-none")
+                [row(candidate_id="a-none"), row(candidate_id="z-agreed", owner_resolves=False)])),
+            "a-none,z-agreed")
+    control("and ranking an absent record LAST would reverse that, which is what makes the "
+            "expectation above a test rather than a restatement of the id order",
+            ",".join(sorted(["a-none", "z-agreed"],
+                            key=lambda held: (2 if held == "a-none" else 1, held))),
+            "z-agreed,a-none")
     def with_key_removed(call):
         """Run `call` with the S7b key gone from the table, restoring it however the call ends."""
         held = table()

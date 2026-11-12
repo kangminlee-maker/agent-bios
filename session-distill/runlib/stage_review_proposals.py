@@ -17,6 +17,7 @@ import collections
 import json
 import pathlib
 import sys
+import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
@@ -528,16 +529,28 @@ def self_test():
                      disposition_review={"holds": False, "reason": "r"}), misfire)
            if "DESTINATION" in p or "LAYER_UNKNOWN" in p])
 
-    control("`run` refuses a subset by name: the stage's output is one file, so a subset run would "
-            "replace the whole review with those rows",
-            refused(lambda: run("/nonexistent-run", reviews_two, only=["k2"])), "SUBSET_IN_RUN S7b")
-    control("and the refusal is S7's sentence, so one rule has one wording",
-            next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
-                 if "SUBSET_IN_RUN" in line and "raise" in line),
-            "stage_propose.SUBSET_IN_RUN")
-    control("the refusal comes before the run directory is touched, so a bad call cannot half-open "
-            "a stage", refused(lambda: run("/nonexistent-run", reviews_two, only=["k2"])),
-            "SUBSET_IN_RUN")
+    # The absent run lives UNDER a temporary directory this control owns, and is removed whichever
+    # way the call goes. `/nonexistent-run` was the path: with the subset guard reverted,
+    # `records.run_stage` reaches `stagelock.hold`, which creates the locks directory before reading
+    # the declaration — so a revert trial of this very control tried to write `/nonexistent-run/locks`
+    # at the filesystem root. The WP-21 review found it, and this repo has paid for a control writing
+    # outside its fixture before.
+    with tempfile.TemporaryDirectory(prefix="s7b-absent-") as absent_root:
+        absent_run = str(pathlib.Path(absent_root) / "no-such-run")
+        control("`run` refuses a subset by name: the stage's output is one file, so a subset run "
+                "would replace the whole review with those rows",
+                refused(lambda: run(absent_run, reviews_two, only=["k2"])), "SUBSET_IN_RUN S7b")
+        clean("and nothing was created for it, not even a lock directory",
+              [] if not pathlib.Path(absent_run).exists()
+              else [f"{absent_run} exists after a refused call"])
+        control("and the refusal is S7's sentence, so one rule has one wording",
+                next(line.strip() for line in
+                     pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                     if "SUBSET_IN_RUN" in line and "raise" in line),
+                "stage_propose.SUBSET_IN_RUN")
+        control("the refusal comes before the run directory is touched, so a bad call cannot "
+                "half-open a stage",
+                refused(lambda: run(absent_run, reviews_two, only=["k2"])), "SUBSET_IN_RUN")
 
     control("the question is S7's, asked once: this file calls S7's own check",
             next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
