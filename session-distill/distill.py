@@ -491,18 +491,25 @@ def cmd_retrieve(args):
 
 
 def cmd_review_korean(args):
-    """S9b (runlib/stage_review_korean.py): the current review version's Korean, over the reviews, regenerations and
-    second reviews the caller supplies; the supervised call has not landed, as S7's and S7b's have not."""
+    """S9b (runlib/stage_review_korean.py): the current review version's Korean, by its supervised calls or over the
+    reviews, regenerations and second reviews the caller supplies."""
     run_dir = run_dir_of(args)
-    if not args.reviews:
-        say("CALL_NOT_WIRED review-korean: the supervised call has not landed; give --reviews PATH (and "
-            "--regenerations, --second for the rows that failed) to run the stage over answers already in hand",
-            sys.stderr)
-        return 2
     load = lambda path: records.read_json(pathlib.Path(path)) if path else None  # noqa: E731
-    out = stage_review_korean.run(run_dir, load(args.reviews), load(args.regenerations), load(args.second))
+    if args.reviews:
+        if args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID review-korean --reviews: reviews in hand make no call, so they take no "
+                          "--cells or --golden-plan")
+        out = stage_review_korean.run(run_dir, load(args.reviews), load(args.regenerations), load(args.second))
+    else:
+        if not args.cells:
+            raise Refused("INPUT_INVALID review-korean --cells: the review calls run in cells under a cell root; give "
+                          "--cells DIR, or --reviews PATH (and --regenerations, --second) for answers in hand")
+        out = stage_review_korean.run(
+            run_dir, supervisor=stage_review_korean.supervisor(run_dir, args.cells, args.golden_plan))
     say(f"S9b review-korean: version {out['version']}: {out['reviewed']} reviewed, {out['regenerated']} regenerated, "
-        f"{out['marked']} marked, {out['unreviewed']} unreviewed, {out['returned']} returned")
+        f"{out['marked']} marked, {out['unreviewed']} unreviewed, {out['returned']} returned"
+        + (f"; calls: {', '.join(f'{k} {v}' for k, v in out['calls'].items()) or 'none'} over {out['asked']} rows asked"
+           if "calls" in out else ""))
     return 0
 
 
@@ -764,6 +771,8 @@ def build_parser():
             sub.add_argument("--reviews", help="a JSON object of S9b reviews by item id, the first pass")
             sub.add_argument("--regenerations", help="a JSON object of S7's regenerated answers by item id")
             sub.add_argument("--second", help="a JSON object of S9b's second reviews by item id")
+            sub.add_argument("--cells", help="the cell root the review and regeneration calls run under (made mode 700)")
+            sub.add_argument("--golden-plan", help="a golden host's plan: the calls are answered from it and start no model")
         sub.set_defaults(handler=HANDLERS.get(name, cmd_stage))
     return parser
 

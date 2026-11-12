@@ -323,6 +323,17 @@ def regeneration_packet(answer, candidate, derivation, derivation_row, failing, 
     return built + original.encode("utf-8") + payload_note.encode("utf-8")
 
 
+def regeneration_payload(answer, candidate, derivation, derivation_row, failing, units=()):
+    """The same request as a PAYLOAD, for a supervised call that builds its own packet around it:
+    S7's payload for the candidate, then the proposal to rewrite and the note, in the words
+    `regeneration_packet` appends (it is this text that the golden path's packet ends with)."""
+    built = regeneration_packet(answer, candidate, derivation, derivation_row, failing, units,
+                                call_id="c1")
+    base = packet_for(candidate, derivation, derivation_row, units=units, call_id="c1",
+                      seat="regenerate")
+    return payload_for(candidate, derivation, derivation_row, units) + built[len(base):].decode("utf-8")
+
+
 def regenerated_problems(before, after):
     """What moved between a proposal and its regeneration, by name. Empty when only Korean moved.
 

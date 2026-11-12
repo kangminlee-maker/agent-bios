@@ -79,15 +79,19 @@ def payload_sha256_of(row, answer):
 def packet_for(row, answer=None, call_id="c1"):
     """One review's packet: the row's ids and hashes, its English payload and the Korean fields of `answer` (the row's
     own proposal unless a regenerated one is given). The English payload is the row's, whichever Korean is judged."""
+    return packet.build(call_id, STAGE, SEAT, payload_for(row, answer), schema=schema_bytes(), repo=HERE.parent)
+
+
+def payload_for(row, answer=None):
+    """The review packet's payload alone: what a supervised call is handed."""
     answer = answer or row["proposal"]
-    payload = packet.render(TEMPLATE, {
+    return packet.render(TEMPLATE, {
         "row": json.dumps({"item_id": row["item_id"], "item_sha": row["item_sha"],
                            "payload_sha256": row["payload_sha256"]}, ensure_ascii=False, indent=1),
         "english_payload": json.dumps(stage_render.english_of(row), ensure_ascii=False, indent=1, sort_keys=True),
         "korean_fields": json.dumps(korean_of(answer), ensure_ascii=False, indent=1),
         "returns": "Return one JSON object in the schema of this call.",
     }, template_dir=HERE / "packets")
-    return packet.build(call_id, STAGE, SEAT, payload, schema=schema_bytes(), repo=HERE.parent)
 
 
 def packets_of(rows_doc):
@@ -191,6 +195,8 @@ def failure_after_retry(row, proposal_row, candidate, derivations, derivation_ro
     try:
         new = stage_propose.regenerate_reasons(answer, regeneration, candidate or {}, derivations, derivation_row,
                                                legacy_incubating=bool(row.get("legacy_incubating")))
+    except records.RunStopped:
+        raise
     except Refused as exc:
         return {"regeneration": {"state": "refused", "codes": [code_of(x) for x in str(exc).split("; ")]},
                 "mark": True}
@@ -233,9 +239,145 @@ def latest_version(run_dir):
     return max(held)
 
 
-def run(run_dir, reviews, regenerations=None, second=None):
+# ---- the supervised calls (release 1) ---------------------------------------------------------------------------
+# Three kinds, in the order design §9 gives them: the first review of each row S9b has not judged before (its seat),
+# one regeneration of a row that failed (S7's seat, declared for this stage as `seats["S9b.regenerate"]`, since the
+# dispatcher admits a seat only for the stage that declares it), and the second review of a regenerated row. Each is
+# an item of its own through the dispatcher; what they return is handed to `document` exactly as the golden path
+# hands it answers, so the rules a row is held to have one owner.
+SEAT_KEY = "S9b"
+REGENERATE_SEAT_KEY = "S9b.regenerate"
+REVIEW_CASE, REGENERATE_CASE = "review", "regenerate"
+OUTPUT_CAP = 20_000
+
+
+def calls_rel(version):
+    return f"review-korean/calls.v{version}.json"
+
+
+def item_of(item_id):
+    """A row's item name in its calls: opaque, since a call directory's name must not be the id."""
+    import hashlib
+    return "r" + hashlib.sha256(item_id.encode("utf-8")).hexdigest()[:12]
+
+
+def supervisor(run_dir, cells, plan=None, seats_path=None):
+    """The supervisor S9b's calls go through, their cells under `cells` (made mode 700). With `plan`, S6's golden
+    host answers from it and starts no model (a Codex seat is answered from a plan by that host alone)."""
+    from runlib import dispatch, stage_judge
+    if plan is not None:
+        return stage_judge.supervisor(run_dir, cells, plan, seats_path)
+    cells = pathlib.Path(cells)
+    cells.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return dispatch.Supervisor(run_dir, cell_root=cells, realization="live", seats_path=seats_path)
+
+
+def collect(run_dir, declaration, supervisor, rows_doc, proposals, candidates, derivations, previous, tranche):
+    """`(reviews, regenerations, second, calls)`: what the supervised calls returned for the rows S9b judges now.
+
+    A row carried from an earlier version is not asked about (`document` carries it). A first review that fails names
+    its failing fields; the regeneration is asked with them and its answer is held, as the stage's check of that call,
+    to `stage_propose.regenerate_reasons` and to the row's English payload not moving — the two rules `document`
+    applies — so its one retry is told why. A call that ends other than accepted leaves its answer out, and
+    `document` then says what the row becomes: unreviewed, or marked."""
+    from runlib import gate, stage_judge, stage_read
+    seats = (declaration or {}).get("seats") or {}
+    seat, regen_seat = seats.get(SEAT_KEY), seats.get(REGENERATE_SEAT_KEY)
+    if not seat:
+        raise Refused(f"SEAT_UNDECLARED {SEAT_KEY}: S9b's seat is named by run.json's seats")
+    by_id = {r["item_id"]: r for r in reviewable(rows_doc)}
+    before = {e["item_id"]: e for e in (previous or {}).get("rows") or []}
+    asked = [i for i, row in by_id.items()
+             if (before.get(i) or {}).get("payload_sha256") != row["payload_sha256"]]
+    answers = {p["candidate_id"]: p for p in (proposals or {}).get("proposals") or []}
+    cands = {c["candidate_id"]: c for c in (candidates or {}).get("candidates") or []}
+    verdicts = (derivations or {}).get("verdicts") or {}
+    episode = declaration["budget"]["per_episode"]
+    caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
+    review_schema = json.loads(schema_bytes().decode("utf-8"))
+    limits = stage_judge.limits_of(seat, run_dir, declaration, supervisor.seats_path, case=REVIEW_CASE,
+                                   output_cap=OUTPUT_CAP, stage=STAGE)
+
+    def capacity_held(call_dir, capacity):
+        held = ((records.read_json(pathlib.Path(call_dir) / "call.json").get("bound")) or {}).get("context_capacity")
+        if held != capacity:
+            raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record carries the capacity "
+                          f"{held!r}, and S9b was admitted against {capacity!r}")
+
+    def review_check(call_dir):
+        capacity_held(call_dir, limits["capacity"])
+        return verdict_problems(stage_read.answer_of(call_dir))
+
+    def one(item, held_seat, text, schema, case, held_limits, check, held_schema_bytes):
+        out = supervisor.item(STAGE, item, held_seat, text, schema, case_type=case, caps=caps, view_window=False,
+                              tranche=tranche, max_output_tokens=OUTPUT_CAP, resume=True,
+                              context_capacity=held_limits["capacity"], stage_check=check,
+                              packet_check=lambda built: stage_judge.attempt_problems(
+                                  built, held_limits, held_schema_bytes, SEAT_KEY, code="S9B_OVER_CAPACITY"))
+        answer = gate.accepted(pathlib.Path(out["accepted"]), judged=True) if out["outcome"] == "accepted" else None
+        return answer, {"item": item, "case": case, **stage_judge.call_row(out)}
+
+    reviews, regenerations, second, calls = {}, {}, {}, []
+    for ident in asked:
+        row, item = by_id[ident], item_of(ident)
+        first, held = one(f"{item}-1", seat, payload_for(row), review_schema, REVIEW_CASE, limits, review_check,
+                          schema_bytes())
+        calls.append({"item_id": ident, **held})
+        if first is None:
+            continue
+        reviews[ident] = first
+        if first["verdict"] != "fail":
+            continue
+        if not regen_seat:
+            raise Refused(f"SEAT_UNDECLARED {REGENERATE_SEAT_KEY}: a failing row is regenerated by S7's seat, which "
+                          f"run.json declares for this stage under that key")
+        original = (answers.get(ident) or {}).get("proposal") or row["proposal"]
+        legacy = bool(row.get("legacy_incubating"))
+        regen_limits = stage_judge.limits_of(regen_seat, run_dir, declaration, supervisor.seats_path,
+                                             case=REGENERATE_CASE, output_cap=OUTPUT_CAP, stage=STAGE)
+
+        def regeneration_check(call_dir, row=row, original=original, ident=ident, legacy=legacy,
+                               capacity=regen_limits["capacity"]):
+            capacity_held(call_dir, capacity)
+            try:
+                new = stage_propose.regenerate_reasons(original, stage_read.answer_of(call_dir), cands.get(ident) or {},
+                                                       derivations, verdicts.get(ident), legacy_incubating=legacy)
+            except records.RunStopped:
+                raise
+            except Refused as exc:
+                return str(exc).split("; ")
+            return [] if payload_sha256_of(row, new) == row["payload_sha256"] else \
+                ["PAYLOAD_MOVED: the regeneration changed the row's English payload"]
+
+        text = stage_propose.regeneration_payload(original, cands.get(ident) or {"candidate_id": ident}, derivations,
+                                                  verdicts.get(ident), failing_of(first))
+        again, held = one(f"{item}-g", regen_seat, text, json.loads(stage_propose.schema_bytes().decode("utf-8")),
+                          REGENERATE_CASE, regen_limits, regeneration_check, stage_propose.schema_bytes())
+        calls.append({"item_id": ident, **held})
+        if again is None:
+            continue
+        regenerations[ident] = again
+        new = stage_propose.regenerate_reasons(original, again, cands.get(ident) or {}, derivations,
+                                               verdicts.get(ident), legacy_incubating=legacy)
+        two, held = one(f"{item}-2", seat, payload_for(row, new), review_schema, REVIEW_CASE, limits, review_check,
+                        schema_bytes())
+        calls.append({"item_id": ident, **held})
+        if two is not None:
+            second[ident] = two
+    return reviews, regenerations, second, {"seat": seat, "regenerate_seat": regen_seat, "asked": len(asked),
+                                           "carried": len(by_id) - len(asked), "calls": calls}
+
+
+def run(run_dir, reviews=None, regenerations=None, second=None, *, supervisor=None, tranche="calibration"):
     """S9b over the current review version, through the shared mechanism: nothing is written on refusal, and a
-    version's review is written once (S9B_VERSION_REVIEWED)."""
+    version's review is written once (S9B_VERSION_REVIEWED). With `supervisor`, the reviews, regenerations and second
+    reviews are what its calls return (`collect`) and `review-korean/calls.v<n>.json` says what each call did; without
+    one they are the caller's."""
+    if supervisor is not None and any(x is not None for x in (reviews, regenerations, second)):
+        raise Refused("INPUT_INVALID S9b: answers in hand and a supervisor are two sources for one review")
+    if supervisor is None and reviews is None:
+        raise Refused("REVIEW_UNSUPERVISED S9b: a review call goes through a supervisor; without one, give the "
+                      "reviews in hand")
     run_dir = pathlib.Path(run_dir)
     version = latest_version(run_dir)
     review_rel, regen_rel = outputs_of(version)
@@ -253,6 +395,12 @@ def run(run_dir, reviews, regenerations=None, second=None):
             stage_adjudicate.read_inputs(run_dir, adjudicated_specs))
         if laid:
             raise Refused("\n".join(laid))
+        held_calls = None
+        if supervisor is not None:
+            supervisor.interrupted(STAGE)
+            reviews, regenerations, second, held_calls = collect(
+                run_dir, stage.declaration, supervisor, read(f"review.v{version}.json"), proposals,
+                read("checked-candidates.json"), derivations, previous, tranche)
         review_doc, regen_doc, problems = document(read(f"review.v{version}.json"), proposals,
                                                    read("checked-candidates.json"), derivations,
                                                    reviews, regenerations, second, previous, previous_regenerated)
@@ -264,7 +412,13 @@ def run(run_dir, reviews, regenerations=None, second=None):
         records.write_json(run_dir, run_dir / review_rel, review_doc)
         for rel in (regen_rel, review_rel):
             stage.output(rel)
-        return {"version": version, **review_doc["counts"]}
+        if held_calls is not None:
+            outcomes = [c["outcome"] for c in held_calls["calls"]]
+            held_calls["counts"] = {o: outcomes.count(o) for o in sorted(set(outcomes))}
+            records.write_json(run_dir, run_dir / calls_rel(version), {"stage": STAGE, "version": version, **held_calls})
+            stage.output(calls_rel(version))
+        return {"version": version, **review_doc["counts"],
+                **({"calls": held_calls["counts"], "asked": held_calls["asked"]} if held_calls is not None else {})}
 
 
 # ---- self-test ----------------------------------------------------------------------------------------------------
@@ -498,14 +652,107 @@ def self_test():
                 f"rc={done.returncode} {done.stdout}{done.stderr[-400:]}", "rc=0 S9b review-korean: version 1")
         bare = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "review-korean", "--run-id",
                                run_dir.name, "--out", str(cli_out)], capture_output=True, text=True, timeout=600)
-        control("and without reviews says the call is not wired", f"rc={bare.returncode} {bare.stderr[-400:]}",
-                "rc=2 CALL_NOT_WIRED review-korean")
+        control("and with neither reviews nor a cell root is refused by name", f"rc={bare.returncode} {bare.stderr[-400:]}",
+                "rc=1 INPUT_INVALID review-korean --cells")
     except SectionStopped:
         pass
     except Exception as exc:  # a later break fails this section by name, never the whole suite
         failures.append(("the golden run's section ran to its end", f"{type(exc).__name__}: {exc}"[:600]))
     finally:
         shutil.rmtree(root, ignore_errors=True)
+
+    # ---- the supervised calls (release 1): a golden run whose S7 PROPOSED, so there are rows to review ----
+    live_root = pathlib.Path(tempfile.mkdtemp(prefix="s9b-live-"))
+    try:
+        from runlib import declare, stage_judge, stage_retrieve, stage_review_proposals
+        live_run = stage_retrieve.fx_gold(live_root / "base", stage_retrieve.fx_current(stage_judge.fx_library()))
+        declare.amend(live_run, [("budget.per_stage.S6", 20_000_000)], "S9b self-test: the golden run through S9")
+        stage_retrieve.run(live_run, "aa" * 8)
+        planner = live_root / "planner"
+        shutil.copytree(live_run.parent, planner)
+        judge_plan, _p = stage_judge.fx_judge_plan(planner / live_run.name, live_root / "judge-plan.json")
+        stage_judge.run(live_run, stage_judge.supervisor(live_run, live_root / "judge-cells", judge_plan))
+        live_deriv = records.read_json(live_run / "judgments" / "derivations.json")
+        ledger_only = stage_propose._answered(disposition="none", operations=[],
+                                              destination={"layer": "incubator", "carrier": None},
+                                              unknowns=stage_propose._carry(live_deriv))
+        stage_propose.run(live_run, {c["candidate_id"]: ledger_only for c in
+                                     records.read_json(live_run / "checked-candidates.json")["candidates"]})
+        stage_review_proposals.run(live_run, {})
+        stage_render.run(live_run)
+        live_rows = reviewable(records.read_json(live_run / "review.v1.json"))
+        equal("the golden run through S9 holds rows to review, more than two", len(live_rows) > 2, True)
+        try:
+            run(live_run)
+            bare_said = "ran"
+        except Refused as exc:
+            bare_said = str(exc)
+        control("S9b with neither answers nor a supervisor is refused by name", bare_said, "REVIEW_UNSUPERVISED S9b")
+        try:
+            run(live_run, supervisor=supervisor(live_run, live_root / "cells-0", live_root / "judge-plan.json"))
+            unseated = "ran"
+        except Refused as exc:
+            unseated = str(exc)
+        control("a run that seats no S9b is refused before any call", unseated, "SEAT_UNDECLARED S9b")
+        failing_id, marked_id, unanswered_id = (r["item_id"] for r in live_rows[:3])
+        rewritten = copy.deepcopy(live_rows[0]["proposal"])
+        rewritten["reasons"]["proposal"] = "다시 쓴 제안"
+        moved = copy.deepcopy(live_rows[1]["proposal"])
+        moved["disposition"] = "keep"              # a regeneration that moves more than the Korean
+        named = lambda ident: '"item_id": ' + json.dumps(ident)  # noqa: E731 - the review packet's own row line
+        plan_rows = [
+            {"match": [named(failing_id), "다시 쓴 제안"], "answer": verdict()},
+            {"match": ["faithfulness check (proposal)"], "answer": rewritten},
+            {"match": [named(failing_id)], "answer": verdict(("proposal",))},
+            {"match": ["faithfulness check (reason)"], "answer": moved},
+            {"match": [named(marked_id)], "answer": verdict(("reason",))},
+            {"match": [named(unanswered_id)], "answer": {"verdict": "pass"}},   # not the schema's shape
+        ] + [{"match": [named(r["item_id"])], "answer": verdict()} for r in live_rows[3:]]
+        plan_path = live_root / "s9b-plan.json"
+        plan_path.write_text(json.dumps(plan_rows, ensure_ascii=False), encoding="utf-8")
+        current_seats = records.declaration_state(live_run, who="S9b self-test")[0]["seats"]
+        declare.amend(live_run, [("seats", {**current_seats, SEAT_KEY: "codex:gpt-6-astra/high",
+                                            REGENERATE_SEAT_KEY: "claude:claude-opus-5-5/high"}),
+                                 ("budget.per_stage.S9b", 5_000_000)], "S9b's golden seats and budget")
+        out = run(live_run, supervisor=supervisor(live_run, live_root / "cells", plan_path))
+        held_calls = records.read_json(live_run / calls_rel(1))
+        by_item = collections.defaultdict(list)
+        for call in held_calls["calls"]:
+            by_item[call["item_id"]].append((call["case"], call["outcome"]))
+        equal("a row that fails is three calls - its review, S7's regeneration, its second review - and one that "
+              "passes is one",
+              [by_item[failing_id], sorted(set(len(v) for k, v in by_item.items()
+                                               if k not in (failing_id, marked_id, unanswered_id)))],
+              [[("review", "accepted"), ("regenerate", "accepted"), ("review", "accepted")], [1]])
+        equal("a regeneration that moves more than the Korean fails its call by the rule's own name, and no second "
+              "review is asked",
+              [by_item[marked_id], "REGENERATION_CHANGED" in json.dumps(next(
+                  c["attempts"] for c in held_calls["calls"]
+                  if c["item_id"] == marked_id and c["case"] == "regenerate"))],
+              [[("review", "accepted"), ("regenerate", "failed")], True])
+        review_doc = records.read_json(live_run / "review-s9b.v1.json")
+        row_of = {r["item_id"]: r for r in review_doc["rows"]}
+        equal("the regenerated row is unmarked after a passing second review; the one whose regeneration never came "
+              "is marked",
+              [(row_of[failing_id]["regenerated"], row_of[failing_id]["mark"], row_of[failing_id]["second"]["verdict"]),
+               (row_of[marked_id]["regenerated"], row_of[marked_id]["mark"], row_of[marked_id]["regeneration"])],
+              [(True, False, "pass"), (False, True, {"state": "absent"})])
+        equal("a row whose review call was refused twice is unreviewed, not guessed",
+              [[u["item_id"] for u in review_doc["unreviewed"]], unanswered_id in row_of], [[unanswered_id], False])
+        equal("the regenerated proposal is the one the stage keeps, and only its Korean moved",
+              [records.read_json(live_run / "regenerated-reasons.v1.json")["proposals"][failing_id]["reasons"]["proposal"],
+               list(records.read_json(live_run / "regenerated-reasons.v1.json")["proposals"])],
+              ["다시 쓴 제안", [failing_id]])
+        equal("the summary counts the calls and the rows asked", [out["asked"], out["calls"].get("accepted", 0) > 0],
+              [len(live_rows), True])
+        rec = records.stage_records(live_run).get(STAGE) or {}
+        equal("and the calls' record is one of the stage's outputs",
+              calls_rel(1) in [o["artifact"] for o in rec.get("outputs") or []], True)
+    except Exception as exc:  # a break here fails this section by name, never the whole suite
+        mark_ran("the supervised calls' section ran to its end")
+        failures.append(("the supervised calls' section ran to its end", f"{type(exc).__name__}: {exc}"[:700]))
+    finally:
+        shutil.rmtree(live_root, ignore_errors=True)
 
     reporting.append(True)
     if failures:
