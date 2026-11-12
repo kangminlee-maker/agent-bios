@@ -1820,27 +1820,58 @@ def over_capacity(run_id, built, limits, schema_bytes, code, advice):
                       f"correction ({'; '.join(over[:3])}); {advice}")
 
 
-# the frame gate.correction puts around the failure lines of the one corrective retry, read from the gate itself
-CORRECTION_HEAD, CORRECTION_TAIL = (lambda t: (t[:t.index("- X\n")], t[t.index("- X\n") + 3:]))(
-    gate.correction({"failures": ["X"]}))
+ATTEMPT = re.compile(r"(?P<item>.+-a)(?P<n>[1-9][0-9]*)")
+
+
+def due_correction(call_dir):
+    """The exact correction dispatch sent with the attempt in `call_dir` when it was the one corrective retry, or None.
+
+    Supervisor.item retries a failed attempt once, sending the payload, a newline and `gate.correction` of what the
+    failed attempt was told: the stage's check when the gate accepted it (its `gate.STAGE_CHECK` record), the gate's
+    own verdict otherwise. So the predecessor is the latest earlier attempt of the same item with a call directory
+    (a reservation that was released keeps its number, so the numbers can skip), it must have been sent the payload
+    alone and not been accepted, and the correction is rebuilt from its own records here, byte for byte. Codex WP-11 r2
+    #1: a frame alone admitted an invented diagnostic, two corrections, and a correction on a first attempt."""
+    call_dir = pathlib.Path(call_dir)
+    held = gate.Call(call_dir)
+    found = ATTEMPT.fullmatch(str(held.call.get("call_id") or ""))
+    if found is None or found["item"] + found["n"] != call_dir.name:
+        return None
+    earlier = sorted((int(d.name[len(found["item"]):]), d) for d in call_dir.parent.glob(f"{found['item']}*")
+                     if d.name[len(found["item"]):].isdigit() and int(d.name[len(found["item"]):]) < int(found["n"])
+                     and (d / "call.json").is_file())
+    if not earlier:
+        return None
+    before = earlier[-1][1]
+    prior = gate.Call(before)
+    if prior.call.get("payload_sha256") != held.call.get("payload_sha256") or prior.packet is None \
+            or packet.sha256_bytes(packet.split(prior.packet)[1] or b"") != held.call.get("payload_sha256"):
+        return None
+    verdict = gate.accept(before)
+    if verdict["ok"]:
+        checked = before / gate.STAGE_CHECK
+        failures = (records.read_json(checked).get("failures") or []) if checked.is_file() else []
+        if not failures:
+            return None   # the predecessor was accepted, so nothing was retried after it
+        verdict = {"failures": failures}
+    return gate.correction(verdict)
 
 
 def corrected_sha256(call_dir, text):
     """The payload hash the receipt of the attempt in `call_dir` is due to carry when that attempt was the one corrective
-    retry of `text`: dispatch sends the payload, a newline and `gate.correction` (Supervisor.item), and records the
-    payload's own hash as the call's (`call.json` `payload_sha256`). The sent payload's hash when it is exactly that and
-    the call says it was made for `text`; None otherwise, so a receipt is then held to the payload S6 built and nothing
-    else. Codex WP-11 r1 #1: a successful retry carried its correction's hash and was refused PACKET_DIVERGENCE."""
+    retry of `text`: the hash of `text`, a newline and `due_correction(call_dir)`, when that whole payload is exactly
+    what the attempt was sent and the call says it was made for `text`; None otherwise, so a receipt is then held to the
+    payload S6 built and nothing else (Codex WP-11 r1 #1, r2 #1)."""
     held = gate.Call(call_dir)
-    sent = packet.split(held.packet)[1]
+    sent = packet.split(held.packet)[1] if held.packet is not None else None
     base = text.encode("utf-8")
-    if sent is None or held.call.get("payload_sha256") != packet.sha256_bytes(base) \
-            or not sent.startswith(base + b"\n"):
+    if sent is None or held.call.get("payload_sha256") != packet.sha256_bytes(base):
         return None
-    rest = sent[len(base) + 1:].decode("utf-8", "replace")
-    framed = rest.startswith(CORRECTION_HEAD) and rest.endswith(CORRECTION_TAIL) \
-        and len(rest) > len(CORRECTION_HEAD) + len(CORRECTION_TAIL)
-    return packet.sha256_bytes(sent) if framed else None
+    correction = due_correction(call_dir)
+    if correction is None:
+        return None
+    expected = base + b"\n" + correction.encode("utf-8")
+    return packet.sha256_bytes(sent) if sent == expected else None
 
 
 def stage_receipts(calls):
@@ -2795,23 +2826,6 @@ def self_test():
                                  held[3][4])]
             control("control: a receipt whose payload hash is not the payload S6 built is PACKET_DIVERGENCE",
                     sum(p.startswith("PACKET_DIVERGENCE") for p in stage_receipts(moved)) == 2, f"{stage_receipts(moved)}")
-            # a retry's due hash, over call directories made here: only the payload S6 built, a newline and the gate's own
-            # correction frame give one (Codex WP-11 r1 #1)
-            def sent_as(name, body, made_for="base payload"):
-                d = root / "sent" / name
-                d.mkdir(parents=True, exist_ok=True)
-                (d / "packet.md").write_bytes(packet.build("c-a2", STAGE, "s", body))
-                (d / "call.json").write_text(json.dumps({"payload_sha256": packet.sha256_bytes(made_for.encode("utf-8"))}),
-                                             encoding="utf-8")
-                return guarded(lambda: corrected_sha256(d, "base payload"), "RAISED")
-            fixed = "base payload\n" + gate.correction({"failures": ["UNIT_UNJUDGED u1"]})
-            control("Codex WP-11 r1 #1: a retry's due hash is given for the payload and the gate's correction, and not for "
-                    "the payload with anything else after it, nor for a call made for another payload",
-                    sent_as("framed", fixed) == packet.sha256_bytes(fixed.encode("utf-8"))
-                    and sent_as("other-tail", "base payload\nsomething else entirely\n") is None
-                    and sent_as("head-only", "base payload\n" + CORRECTION_HEAD) is None
-                    and sent_as("other-base", fixed, made_for="another payload") is None
-                    and sent_as("first", "base payload") is None)
             # ---- design §3.2's gate controls (J4b, D5) ---------------------------------------------------------------
             gated = guarded(lambda: records.read_json(called / GATE_VERDICTS), {})
             gv = gated.get("gate_verdicts", {})
@@ -3194,6 +3208,63 @@ def self_test():
                         and guarded(lambda: corrected_sha256(retry_dir, text_one.replace("\n", " \n", 1)), "RAISED") is None
                         and guarded(lambda: corrected_sha256(pathlib.Path(str(retry_dir)[:-1] + "1"), text_one), "RAISED")
                         is None, f"{due} {(receipt_one.get('evidence') or {}).get('payload_sha256')}")
+                # Codex WP-11 r2 #1, in each of the four call kinds: a retry's due hash is its receipt's only when the attempt
+                # was sent the first attempt's payload, a newline and the exact correction the gate rebuilds from that first
+                # attempt's own records. Each tampering is made on a copy of the item's two call directories; an untouched
+                # copy is accepted, so a refusal is the tampering's and not the copy's.
+                def tampered(kind, edit):
+                    second_name = (attempts_of.get(kind) or [""])[0]
+                    first_name = second_name[:-1] + "1"
+                    where = root / "retry-tamper" / f"{kind}-{edit}"
+                    for name in (first_name, second_name):
+                        if (retried / "calls" / name).is_dir() and not (where / name).exists():
+                            shutil.copytree(retried / "calls" / name, where / name)
+                    first_dir, second_dir = where / first_name, where / second_name
+                    base = guarded(lambda: packet.split((first_dir / "packet.md").read_bytes())[1].decode("utf-8"), "")
+                    correction = guarded(lambda: due_correction(second_dir), None) or ""
+
+                    def resend(target, payload):
+                        held_packet = (target / "packet.md").read_bytes()
+                        envelope = held_packet[:held_packet.index(("\n" + packet.PAYLOAD_MARKER + "\n").encode("utf-8"))]
+                        (target / "packet.md").chmod(0o600)
+                        (target / "packet.md").write_bytes(envelope + ("\n" + packet.PAYLOAD_MARKER + "\n" + payload)
+                                                           .encode("utf-8"))
+                    other = next((t for c, (_l, t) in sorted(whole_packets.items()) if t != base), "")
+                    try:
+                        if edit == "invented":
+                            resend(second_dir, base + "\n" + gate.correction({"failures": ["INVENTED a diagnostic"]}))
+                        elif edit == "double":
+                            resend(second_dir, base + "\n" + correction + "\n" + correction)
+                        elif edit == "first":
+                            resend(first_dir, base + "\n" + correction)
+                            return guarded(lambda: corrected_sha256(first_dir, base), "RAISED")
+                        elif edit == "wrong-predecessor":
+                            # the predecessor accepted after all (its stage check had nothing to say), or, where the gate
+                            # refused it, sent something other than the payload alone
+                            if (first_dir / gate.STAGE_CHECK).is_file():
+                                (first_dir / gate.STAGE_CHECK).chmod(0o600)
+                                (first_dir / gate.STAGE_CHECK).write_text(json.dumps({"failures": []}), encoding="utf-8")
+                            else:
+                                resend(first_dir, base + " ")
+                        elif edit == "other-payload":
+                            return guarded(lambda: corrected_sha256(second_dir, other), "RAISED")
+                    except (OSError, ValueError) as exc:
+                        return f"RAISED {exc!r}"
+                    return guarded(lambda: corrected_sha256(second_dir, base), "RAISED")
+                receipt_hash = {kind: (guarded(lambda kind=kind: records.read_json(
+                    retried / "calls" / attempts_of[kind][0] / "receipt.json"), {}).get("evidence") or {}).get("payload_sha256")
+                    for kind in planted_first if attempts_of.get(kind)}
+                kept = {kind: tampered(kind, "untouched") for kind in planted_first}
+                control("Codex WP-11 r2 #1: in each call kind, the retried attempt's due hash, rebuilt from its first attempt's "
+                        "records, is its receipt's", len(receipt_hash) == 4
+                        and all(kept[k] is not None and kept[k] == receipt_hash.get(k) for k in planted_first),
+                        f"{kept} {receipt_hash}")
+                refused_kinds = {(kind, edit): tampered(kind, edit) for kind in planted_first
+                                 for edit in ("invented", "double", "first", "wrong-predecessor", "other-payload")}
+                control("Codex WP-11 r2 #1: in each call kind, an invented diagnostic, a doubled correction, a correction on "
+                        "a first attempt, a wrong predecessor, and another candidate's payload get no due hash",
+                        len(refused_kinds) == 20 and all(v is None for v in refused_kinds.values()),
+                        f"{[k for k, v in refused_kinds.items() if v is not None]}")
                 # Codex WP-11 r1 #2: what derive reads of S6's files is what the summary says this invocation accepted, on
                 # a copy of the run whose files are then made stale
                 stale_root = root / "stale-copy"
