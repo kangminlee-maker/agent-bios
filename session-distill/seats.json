@@ -1,5 +1,5 @@
 {
-  "$comment": "The hosts distill dispatches to, pinned per host version: the versioned binary (plan P2: the file itself, never a symlink an update moves), the flag set of each runner profile (its sha256 is what a receipt and a capture must carry; `wrappers/claude-run.sh` sends `hermetic` for `--use judge|authoring` and `hermetic-producing` for `--use producing`, whose manifest directory is hashed as `<manifest>`), and `context`, what the host loads by itself under a profile, which dispatch.py declares in every call's manifest (codex-cli 0.163.0's four built-in skills, as codex-run's capture records them by name: wrappers/codex_frame_filter.py, WP-04), and the auxiliary roles a host runs beside the declared seat (design §3.2 step 2, plan S-7). Read by runlib/gate.py (flag-set hash, auxiliary roles) and runlib/dispatch.py (pinned paths). An auxiliary role is accepted only in a call's closing aggregate, never as a main or child response, and for a live call only once `measured` is true (gate.auxiliary_models); a provisional entry serves replayed and golden captures. The request kind an auxiliary role serves is added by preflight (WP-23) together with the check that reads it. `stage_seats` pins each model stage's seats from design §4's stage table (the defaults a run may use without declaring them; run.json seats add to them), read by dispatch.py, which refuses a seat neither names for the call's stage. `host_allowance` is the host's own share of a view-window request, per host version and runner profile (input-bound amendment record 2026-10-21T0026--cc0498f--input-bound-amendment.md): preflight (WP-23) measures it; a slot preflight has not measured is unmeasured, and dispatch.py refuses a view-window call that needs it; the Claude hermetic slot was measured live in WP-03v.",
+  "$comment": "The hosts distill dispatches to, pinned per host version: the versioned binary (plan P2: the file itself, never a symlink an update moves), the flag set of each runner profile (its sha256 is what a receipt and a capture must carry; `wrappers/claude-run.sh` sends `hermetic` for `--use judge|authoring` and `hermetic-producing` for `--use producing`, whose manifest directory is hashed as `<manifest>`), and `context`, what the host loads by itself under a profile, which dispatch.py declares in every call's manifest (codex-cli's built-in skills, as codex-run's capture records them by name: wrappers/codex_frame_filter.py, WP-04), and the auxiliary roles a host runs beside the declared seat (design §3.2 step 2, plan S-7). Read by runlib/gate.py (flag-set hash, auxiliary roles) and runlib/dispatch.py (pinned paths). An auxiliary role is accepted only in a call's closing aggregate, never as a main or child response, and for a live call only once `measured` is true (gate.auxiliary_models); a provisional entry serves replayed and golden captures. The request kind an auxiliary role serves is added by preflight (WP-23) together with the check that reads it. `stage_seats` pins each model stage's seats from design §4's stage table (the defaults a run may use without declaring them; run.json seats add to them), read by dispatch.py, which refuses a seat neither names for the call's stage. `host_allowance` is the host's own share of a view-window request, per host version and runner profile (the input-bound amendment of 2026-10-21): preflight (WP-23) measures it; a slot preflight has not measured is unmeasured, and dispatch.py refuses a view-window call that needs it; the Claude hermetic slot was measured live in WP-03v. Everything measured or observed for a host is valid at the version it was established at, and says which: a measured host allowance its `measured_version`, a profile's `context` its `observed_version` (or `carried`, with the basis for carrying it to the pinned version until a capture observes it), a seat capacity its `host_version`. A version move takes each of them with it: re-measure it, mark it unmeasured, or declare it carried. gate.seats_problems holds the file to that, and to a pinned path that names its version.",
   "schema": "DistillSeats/v1",
   "hosts": {
     "claude": {
@@ -33,20 +33,21 @@
         {
           "model": "claude-haiku-4-5",
           "measured": false,
-          "basis": "the author-side benchmark harness's retired auxiliary model list, which WP-17 retires in favour of this entry; preflight (WP-23) measures the roles per host version and replaces it"
+          "basis": "provisional: the auxiliary model this host was seen to run beside a declared seat before this file declared it; preflight (WP-23) measures the roles per host version and replaces this entry"
         }
       ],
       "host_allowance": {
         "hermetic": {
           "allowance_tokens": 3795,
           "measured": true,
+          "measured_version": "2.1.317",
           "basis": "A-1 re-pin 2026-11-04 (WP-08 commit 6): observed main-request input tokens, max over 5 hermetic judge calls through dispatch (claude 2.1.317, claude-sonnet-5-5/high, stage S3, structured output; 3795, 3784, 3784, 3784, 3794); includes the packet, so it overstates the host's share. WP-03v measured 3886 the same way on 2.1.304 at /medium"
         }
       }
     },
     "codex": {
-      "version": "0.163.0",
-      "path": "/opt/homebrew/Caskroom/codex/0.163.0/bin/codex",
+      "version": "0.167.0",
+      "path": "/opt/homebrew/Caskroom/codex/0.167.0/bin/codex",
       "profiles": {
         "hermetic": [
           "--ignore-user-config",
@@ -60,6 +61,7 @@
         "hermetic": {
           "allowance_tokens": null,
           "measured": false,
+          "measured_version": null,
           "basis": "unmeasured: preflight (WP-23) measures it per host version and flag set"
         }
       },
@@ -70,7 +72,10 @@
             "openai-docs",
             "skill-creator",
             "skill-installer"
-          ]
+          ],
+          "observed_version": "0.163.0",
+          "carried": true,
+          "basis": "the four built-in skills codex-cli 0.163.0 loaded under this profile, as its capture named them (WP-04); carried to 0.167.0 unobserved at the re-pin of 2026-11-12, since no 0.167.0 call has been captured yet. A 0.167.0 call that loads other skills is refused by the gate's effective-context check by name, and this entry is then observed again from that capture"
         }
       }
     }

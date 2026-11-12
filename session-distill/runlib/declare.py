@@ -401,7 +401,7 @@ def amend(run_dir, assignments, reason, scope=(), invalidates=(), repo=REPO):
 
 def fixture():
     """A valid declaration (golden): its seats are the ones the prompting guides cover today. Its S3 seat and
-    its Claude host are the ones seats.json pins, read from it, so a re-pin moves every suite built on this
+    its Claude and Codex hosts are the ones seats.json pins, read from it, so a re-pin moves every suite built on this
     declaration with it instead of leaving them on a host version the checkout no longer pins."""
     digest = lambda name: records.sha256_bytes(name.encode())  # noqa: E731
     pinned = gate.seats()
@@ -431,7 +431,7 @@ def fixture():
         "starting_hashes": {"ledger": digest("ledger"), "coverage": digest("coverage"),
                             "layers": {"global": digest("global")}},
         "account": {"extra_usage": "off", "declared_on": "2026-10-21"},
-        "hosts": {"claude": claude, "codex": "0.163.0"},
+        "hosts": {"claude": claude, "codex": pinned["hosts"]["codex"]["version"]},
         "declaration_seq": 0,
         "host_allowance": {sonnet: {"allowance_tokens": 3200, "host_version": claude,
                                     "flag_set_sha256": digest("flags")}},

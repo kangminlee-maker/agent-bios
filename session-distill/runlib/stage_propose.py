@@ -1906,16 +1906,22 @@ def _self_test_body(failures, ran):
                                                          eligible=False)[1]},
                      "not_derived": [], **ANSWERED}
     legacy_doc = document(legacy_derivs, legacy_cands, {}, None, {"k-legacy": legacy_entry})
-    # The default is APPLIED: the entry is no longer ANSWER_ABSENT, and what it meets now is the
-    # placement rule. That second half is the WP-12 review's placement finding (the promotion guard
-    # refuses the owner's `none` precisely for a legacy entry below the bar, which every one of the
-    # 142 is) and it is fixed in `placement.py` with the C2 work, not here. This control states
-    # exactly where the chain stops today, so it becomes a clean row the moment that lands rather
-    # than passing on an expectation nobody re-reads.
-    control("a legacy entry with no answer and no classification block reaches the CONTRACT from "
-            "the owner's default instead of being returned for want of an answer",
-            json.dumps([row["problems"] for row in legacy_doc["returned"]]),
-            "PAIR_DISALLOWED none k-legacy")
+    # The default is APPLIED and it now PASSES: the entry is no longer ANSWER_ABSENT and no longer
+    # PAIR_DISALLOWED either. This control was written as the second half's placeholder — the
+    # promotion guard refused the owner's `none` for a legacy entry below the bar, which every one
+    # of the 142 is — and said it would become a clean row the moment that landed. It landed in
+    # lane E's `placement.BELOW_BAR`, which is the §6.4 table's `below_bar` row and now carries
+    # `none`, so here is the clean row. The assertion on `BELOW_BAR` is what makes a reversal say
+    # so: without it, this row would go back to a refusal nobody expected.
+    clean("a legacy entry with no answer and no classification block reaches the contract from the "
+          "owner's default and PASSES it, which is the row this control was written to become",
+          [row for row in legacy_doc["returned"]
+           if any("PAIR_DISALLOWED" in problem for problem in row["problems"])])
+    control("and it passes because the §6.4 table's own below-bar row admits `none`, not because "
+            "the default is privileged: every other disposition that row forbids is still refused",
+            json.dumps(sorted(placement.BELOW_BAR)), '["drop", "incubate", "keep", "none"]')
+    control("so the entry reaches the document as a proposal rather than a returned row",
+            json.dumps([row["candidate_id"] for row in legacy_doc["proposals"]]), "k-legacy")
     clean("so the default is no longer reported as a missing answer, which is what hid it",
           [row for row in legacy_doc["returned"]
            if any("ANSWER_ABSENT" in problem for problem in row["problems"])])

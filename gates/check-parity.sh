@@ -537,6 +537,36 @@ if [ -f session-distill/runlib/ranking.py ]; then
   leg -q "FAIL: session-distill ranking self-test (session-distill/runlib/ranking.py)" \
     python3 session-distill/runlib/ranking.py --self-test
 fi
+# The grammar of the lines the owner writes into a review's decision copy and a confirmation file (WP-20 K1).
+if [ -f session-distill/grammar/owner_lines.py ]; then
+  leg -q "FAIL: session-distill owner-line grammar self-test (session-distill/grammar/owner_lines.py)" \
+    python3 session-distill/grammar/owner_lines.py --self-test
+fi
+# S9 render: the review of S4's population, its owner copy, its frozen proposals and its rows (WP-20 K2).
+if [ -f session-distill/runlib/stage_render.py ]; then
+  leg -q "FAIL: session-distill S9 render self-test (session-distill/runlib/stage_render.py)" \
+    python3 session-distill/runlib/stage_render.py --self-test
+fi
+# S9b: a review version's Korean against its English payload, one regeneration, the mark (WP-20 K4).
+if [ -f session-distill/runlib/stage_review_korean.py ]; then
+  leg -q "FAIL: session-distill S9b review-korean self-test (session-distill/runlib/stage_review_korean.py)" \
+    python3 session-distill/runlib/stage_review_korean.py --self-test
+fi
+# S10 adjudicate: the owner's adjudications recomputed, the newly admitted through S7 and S7b again (WP-20 K5).
+if [ -f session-distill/runlib/stage_adjudicate.py ]; then
+  leg -q "FAIL: session-distill S10 adjudicate self-test (session-distill/runlib/stage_adjudicate.py)" \
+    python3 session-distill/runlib/stage_adjudicate.py --self-test
+fi
+# S10b confirm: the final set S10's approvals leave, and the owner's confirmation bound to it (WP-20 K6).
+if [ -f session-distill/runlib/stage_confirm.py ]; then
+  leg -q "FAIL: session-distill S10b confirm self-test (session-distill/runlib/stage_confirm.py)" \
+    python3 session-distill/runlib/stage_confirm.py --self-test
+fi
+# S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
+if [ -f session-distill/runlib/stage_approvals.py ]; then
+  leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \
+    python3 session-distill/runlib/stage_approvals.py --self-test
+fi
 # The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
 # belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
 # by the pre-commit hook and a leg that ran the hook would recurse.

@@ -106,7 +106,9 @@ STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
-        stage_propose, stage_retrieve, stage_review_proposals, stagelock, views
+        stage_adjudicate, stage_approvals, stage_confirm, stage_propose, stage_render, stage_retrieve, \
+        stage_review_korean, stage_review_proposals, \
+        stagelock, views
     from runlib import ledger as ledger_lib
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
@@ -486,6 +488,74 @@ def cmd_retrieve(args):
     return 0
 
 
+def cmd_review_korean(args):
+    """S9b (runlib/stage_review_korean.py): the current review version's Korean, over the reviews, regenerations and
+    second reviews the caller supplies; the supervised call has not landed, as S7's and S7b's have not."""
+    run_dir = run_dir_of(args)
+    if not args.reviews:
+        say("CALL_NOT_WIRED review-korean: the supervised call has not landed; give --reviews PATH (and "
+            "--regenerations, --second for the rows that failed) to run the stage over answers already in hand",
+            sys.stderr)
+        return 2
+    load = lambda path: records.read_json(pathlib.Path(path)) if path else None  # noqa: E731
+    out = stage_review_korean.run(run_dir, load(args.reviews), load(args.regenerations), load(args.second))
+    say(f"S9b review-korean: version {out['version']}: {out['reviewed']} reviewed, {out['regenerated']} regenerated, "
+        f"{out['marked']} marked, {out['unreviewed']} unreviewed, {out['returned']} returned")
+    return 0
+
+
+def cmd_adjudicate(args):
+    """S10's adjudicate part (runlib/stage_adjudicate.py): a committed parse's adjudications recomputed with the
+    owner's values, and the candidates they newly admit through S7 and S7b again, over the answers the caller supplies;
+    the supervised calls have not landed, as S7's and S7b's have not."""
+    load = lambda path: records.read_json(pathlib.Path(path)) if path else None  # noqa: E731
+    try:
+        out = stage_adjudicate.run(run_dir_of(args), args.version, load(args.answers), load(args.reviews))
+    except Refused as exc:
+        if str(exc).startswith("CALL_NOT_WIRED"):
+            say(str(exc), sys.stderr)
+            return 2
+        raise
+    say(f"S10 adjudicate: version {out['version']}: {out['adjudicated']} adjudicated, {out['admitted']} newly admitted, "
+        f"{out['rejected']} rejected, {out['still_disputed']} still disputed"
+        + ("; resumed a run cut short" if out["resumed"] else ""))
+    return 0
+
+
+def cmd_parse_decisions(args):
+    """S10's parse (runlib/stage_approvals.py): the owner's copy of a review version, held to the current rows, into
+    approvals.jsonl and adjudications.jsonl; a version is parsed once."""
+    out = stage_approvals.run(run_dir_of(args), args.version, args.copy)
+    say(f"S10 parse-decisions: version {out['version']} (current {out['current_version']}): {out['decided']} decided, "
+        f"{out['undecided']} undecided, {out['stale']} stale; {out['approval_rows']} approval rows, "
+        f"{out['adjudications']} adjudications" + ("; resumed a parse cut short" if out["resumed"] else ""))
+
+
+def cmd_confirm(args):
+    """S10b (runlib/stage_confirm.py): without --decide, the final set S10's approvals leave, built as the next
+    confirmation version for the owner to read and decide; with it, the owner's 확인 line in that version's copy, which
+    confirms the set (confirmation.json) or returns it."""
+    run_dir = run_dir_of(args)
+    if not args.decide:
+        out = stage_confirm.build(run_dir)
+        say(f"S10b confirm: version {out['version']} built, {out['F']} in F, {out['ledger_only']} ledger-only, "
+            f"{out['apart']} apart; " + (f"the owner decides it in {out['copy']}" if out["confirmable"]
+                                         else "nothing in it can be confirmed"))
+        return 0
+    out = stage_confirm.confirm(run_dir, args.version, args.copy)
+    say(f"S10b confirm: version {out['version']} " + ("confirmed" if out["decision"] == "confirm" else "returned")
+        + f", {out['approvals']} approvals")
+    return 0
+
+
+def cmd_render(args):
+    """S9 (runlib/stage_render.py): the review of S4's population through S7, its owner copy and its rows, written once
+    as the next version. It reads the pinned ledger S4 read, for the legacy groups."""
+    name_checkout_ledger(args)
+    out = stage_render.run(run_dir_of(args))
+    say(f"S9 render: version {out['version']}, {out['rows']} rows; {out['render']}, the owner's copy {out['copy']}")
+
+
 def cmd_judge(args):
     """S6 (runlib/stage_judge.py): dry, up to the calls; otherwise both judges' calls through a supervisor made before
     the stage is entered, so a live run without its token is refused before anything is recorded."""
@@ -582,7 +652,12 @@ def build_parser():
         helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
                  "form": f"{stage}: candidate formation and the lifecycle intake",
                  "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
-                 "judge": f"{stage}: the judges A and B"}
+                 "judge": f"{stage}: the judges A and B",
+                 "render": f"{stage}: the review, the owner's decision copy and the rows",
+                 "parse-decisions": f"{stage}: the owner's decision copy into approvals and adjudications",
+                 "review-korean": f"{stage}: the review's Korean against its English payload, one regeneration",
+                 "adjudicate": f"{stage}: the owner's adjudications recomputed, the newly admitted through S7 and S7b",
+                 "confirm": f"{stage}: the final set built for the owner's confirmation, or (--decide) the owner's 확인"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -606,7 +681,7 @@ def build_parser():
             sub.add_argument("--dry", action="store_true", help="stop before the calls: every judgment packet's measure")
             sub.add_argument("--cells", help="the cell root the judgment calls run under (made mode 700)")
             sub.add_argument("--golden-plan", help="a golden hosts' plan: the calls are answered from it and start no model")
-        if name in ("retrieve", "judge"):
+        if name in ("retrieve", "judge", "render"):
             # S5 and S6 read the pinned ledger through `lifecycle_intake.ledger_of`, which refuses
             # LEDGER_UNNAMED rather than guessing a checkout's layout. Without this flag neither
             # command could run from a checkout at all — the refusal came from the merge of the
@@ -616,6 +691,9 @@ def build_parser():
                                                        "destination, which the caller names because the layout of a "
                                                        "checkout is not this driver's to assume; without it the "
                                                        "stage is refused LEDGER_UNNAMED rather than reading a guess")
+        if name == "parse-decisions":
+            sub.add_argument("--version", type=int, help="the review version whose copy to parse (default: the current one)")
+            sub.add_argument("--copy", help="the owner's edited copy (default: decisions.ko.v<n>.md in the run)")
         if name == "form":
             sub.add_argument("--dry", action="store_true", help="stop before the call: the intake and the packet's measure")
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
@@ -630,10 +708,26 @@ def build_parser():
             sub.add_argument("--answers", help="a JSON object of answers by candidate id, for a golden run")
         if name == "review-proposals":
             sub.add_argument("--reviews", help="a JSON object of reviews by item id, for a golden run")
+        if name == "adjudicate":
+            sub.add_argument("--version", type=int, help="the parsed version whose adjudications to recompute "
+                                                         "(default: the latest parse holding any)")
+            sub.add_argument("--answers", help="a JSON object of S7's second-pass answers by candidate id")
+            sub.add_argument("--reviews", help="a JSON object of S7b's second-pass reviews by item id")
+        if name == "confirm":
+            sub.add_argument("--decide", action="store_true", help="read the owner's 확인 line in the latest version's copy")
+            sub.add_argument("--version", type=int, help="with --decide: the confirmation version (default: the latest)")
+            sub.add_argument("--copy", help="with --decide: the owner's copy (default: confirm-decision.ko.v<k>.md in the run)")
+        if name == "review-korean":
+            sub.add_argument("--reviews", help="a JSON object of S9b reviews by item id, the first pass")
+            sub.add_argument("--regenerations", help="a JSON object of S7's regenerated answers by item id")
+            sub.add_argument("--second", help="a JSON object of S9b's second reviews by item id")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
                                   "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge,
+                                  "render": cmd_render, "parse-decisions": cmd_parse_decisions,
                                   "propose": cmd_propose,
-                                  "review-proposals": cmd_review_proposals}.get(name, cmd_stage))
+                                  "review-proposals": cmd_review_proposals,
+                                  "review-korean": cmd_review_korean,
+                                  "adjudicate": cmd_adjudicate, "confirm": cmd_confirm}.get(name, cmd_stage))
     return parser
 
 
@@ -736,7 +830,7 @@ def self_test():
             A stage with parts (`records.STAGE_PARTS`) is written as one of them: these controls are
             about declarations and inputs, and a part-less write there is refused by name."""
             where = at or run_dir
-            part = "views" if name in records.STAGE_PARTS else None
+            part = records.STAGE_PARTS[name][0] if name in records.STAGE_PARTS else None
             with records.run_stage(where, name, inputs, part=part) as run:
                 (pathlib.Path(where) / f"{name}.out").write_text(f"{name}\n", encoding="utf-8")
                 run.output(f"{name}.out")
@@ -892,7 +986,7 @@ def self_test():
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
         implemented = ("census", "views", "inventory", "form", "retrieve", "judge", "propose",
-                       "review-proposals")
+                       "review-proposals", "render", "parse-decisions", "review-korean", "adjudicate", "confirm")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue

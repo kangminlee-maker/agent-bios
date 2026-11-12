@@ -391,6 +391,10 @@ BLOCKS = {"candidate": "candidate", "claims": "claims", "units": "units", "conte
 # what the candidate block leaves out of a candidate's record: its ids (shown as labels elsewhere or not at all) and the
 # lifecycle record, which it shows without the candidate's own id and source
 CANDIDATE_HIDDEN = ("candidate_id", "label", "event_ids", "sessions", "lifecycle")
+# what a lifecycle candidate carries for the stages after S6 and never shows a model: the decision a due decision
+# resolves, `<entry id>@<run>` (design §7.1), which names a stored entry and run and is the hidden candidate id's own
+# tail (Codex WP-11 r2 #3); the judges are shown the entry it is about (its label), its status and its expiry
+LIFECYCLE_INTERNAL = ("resolves",)
 CLUSTER_PREFIX = "g_cluster:"  # a placed cluster's id (lifecycle_intake): the prefix and the unit its entries share
 
 
@@ -489,7 +493,8 @@ class JudgeLabels:
         k = self.candidate
         view = {key: k[key] for key in sorted(k) if key not in CANDIDATE_HIDDEN}
         life = k.get("lifecycle")
-        view["lifecycle"] = {key: v for key, v in sorted(life.items()) if key not in ("candidate_id", "source")} \
+        view["lifecycle"] = {key: v for key, v in sorted(life.items())
+                             if key not in ("candidate_id", "source") + LIFECYCLE_INTERNAL} \
             if isinstance(life, dict) else None
         view["sessions"] = list(k.get("sessions") or [])
         view["quotes"] = [{"evidence_id": q, **stage_form.quote_row({"record": self.evidence[q].get("line"),
@@ -862,7 +867,8 @@ def sweep_view(candidate, entries, units):
     life = candidate.get("lifecycle") or {}
     named_entries = stage_retrieve.as_list(life.get("target_entry")) + stage_retrieve.as_list(life.get("entries"))
     named_units = stage_retrieve.as_list(life.get("target_unit")) + stage_retrieve.as_list(life.get("target_units"))
-    return {"source": candidate["source"], **{k: v for k, v in sorted(life.items()) if k not in LIFECYCLE_NAMED},
+    return {"source": candidate["source"],
+            **{k: v for k, v in sorted(life.items()) if k not in LIFECYCLE_NAMED + LIFECYCLE_INTERNAL},
             "entry_texts": [lifecycle_intake.entry_text(entries[i]) for i in named_entries if i in entries],
             "unit_texts": [units[u]["text"] for u in named_units if u in units],
             "names_not_held": sum(1 for i in named_entries if i not in entries) + sum(1 for u in named_units if u not in units)}
@@ -1001,18 +1007,39 @@ def upper_bound(run_dir, declaration, judged, seats_path=None):
             "density": J0_DENSITY, "density_basis": J0_DENSITY_BASIS, "output_tokens_at_most": calls * sizes["output_cap"]}
 
 
+def absence_claims(judged, absent, not_both, sources, absence, layers):
+    """The judges' absence claims, counted whether or not they are swept: the candidates both judges judged whose agreed
+    unit diagnoses touch no covering row (`absent_candidates`), by name and per candidate kind beside the number of that
+    kind judged by both, with the reference point's state and every layer's status. Under the literal policy no
+    reference point is complete while a layer has no producer, so nothing is swept, and this count is the measured share
+    the lead's D-20261111-eaa2a8 names as the condition for reopening the scoped policy; it costs no call."""
+    both = [cid for cid in judged if cid not in set(not_both)]
+    kinds = sorted({sources[cid] for cid in judged})
+    return {"count": len(absent), "candidates": sorted(absent), "judged_by_both": len(both),
+            "by_kind": {kind: {"claims": sum(1 for cid in absent if sources[cid] == kind),
+                               "judged_by_both": sum(1 for cid in both if sources[cid] == kind)} for kind in kinds},
+            "not_judged_by_both": sorted(not_both), "swept": absence.get("complete") is True,
+            "reference": {"point": "current", "policy": absence.get("policy"),
+                          "complete": absence.get("complete") is True, "layers": dict(sorted(layers.items()))}}
+
+
 def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sources, caps, tranche):
-    """The absence sweeps over S6's judgments (plan WP-11 J3a, done-when 6): at a reference point the absence policy
-    reads as incomplete, every absence is `unknown` and nothing is swept; otherwise each absence claim's remaining units
-    are cut into shards (`shard_plan`, held to `shard_problems`), and each shard is sent to both sweeps with one payload
-    bound to the inventory hash, each answer checked (`sweep_problems`) and kept under sweeps/<group>/<shard>/<a|b>.json.
-    Returns the summary's `sweeps` section and the sweeps' receipts."""
+    """The absence sweeps over S6's judgments (plan WP-11 J3a, done-when 6): the judges' absence claims are counted
+    first (`absence_claims`), at every reference point; at one the absence policy reads as incomplete, every absence is
+    `unknown` and nothing is swept; otherwise each absence claim's remaining units are cut into shards (`shard_plan`,
+    held to `shard_problems`), and each shard is sent to both sweeps with one payload bound to the inventory hash, each
+    answer checked (`sweep_problems`) and kept under sweeps/<group>/<shard>/<a|b>.json. Returns the summary's `sweeps`
+    section and the sweeps' receipts. `absent` names the claims a sweep stands behind, so it stays empty where none
+    runs: a derivation waits for the sweeps of every candidate it lists."""
     checks = records.read_json(run_dir / "checks.json")
     absence = checks.get("absence") or {}
     sizes, basis = sweeps_of(declaration)
     section = {"reference": "current", "policy": absence.get("policy"), "complete": absence.get("complete") is True,
                "unknown_layers": absence.get("unknown_layers") or [], "sizes": sizes, "sizes_basis": basis,
                "absent": [], "not_judged_by_both": [], "groups": [], "calls": []}
+    absent, not_both = absent_candidates(judged, judgments, sources)
+    statuses = current_point(records.read_json(run_dir / "inventory" / "current.json"))["layers"]
+    section["claims"] = absence_claims(judged, absent, not_both, sources, absence, statuses)
     if not section["complete"]:
         section["why"] = ("absence unknown: the reference point is incomplete under the " + str(absence.get("policy"))
                           + " policy, so no absence claim stands and nothing is swept")
@@ -1020,7 +1047,6 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
     seats = sweep_seats(declaration)
     context = sweep_context(run_dir, declaration)
     layers = sweep_layers(absence)
-    absent, not_both = absent_candidates(judged, judgments, sources)
     remaining = {cid: remaining_of(context["index"], [r["unit_id"] for r in context["rows"][cid]["retrieved_units"]],
                                    layers) for cid in absent}
     groups = shard_plan(remaining, sizes["candidates_per_shard"], sizes["shard_units"])
@@ -1029,19 +1055,29 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
         raise Refused("\n".join(problems))
     inventory = packet.sha256_bytes((run_dir / "inventory" / "current.json").read_bytes())
     held_schema = sweep_schema()
+    schema_bytes = packet.schema_bytes(held_schema)
     receipts = []
     section.update(absent=absent, not_judged_by_both=not_both, layers=layers, inventory_sha256=inventory,
                    groups=[{"group": g["group"], "candidates": g["candidates"],
                             "shards": [{"shard": sh["shard"], "units": len(sh["units"]),
                                         "pairs": sum(len(us) for us in sh["pairs"].values())} for sh in g["shards"]]}
                            for g in groups])
-    for group, shard, labels, text in sweep_packets(context, groups, inventory):
+    limits = {side: limits_of(seat, run_dir, declaration, supervisor.seats_path, case=SWEEP_CASE,
+                              output_cap=sizes["output_cap"]) for side, seat in seats.items()}
+    built = sweep_packets(context, groups, inventory)
+    over_capacity(run_dir.resolve().name, [(f"sweep-{group}-{shard}-{side}", side, seat, text)
+                                           for group, shard, _labels, text in built for side, seat in seats.items()],
+                  limits, schema_bytes, "SWEEP_OVER_CAPACITY", "the run declares a smaller sweeps.shard_units")
+    for group, shard, labels, text in built:
         payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
         row = {"group": group, "shard": shard, "seats": {}}
         for side, seat in seats.items():
             out = supervisor.item(STAGE, f"sweep-{group}-{shard}-{side}", seat, text, held_schema, case_type=SWEEP_CASE,
                                   caps=caps, view_window=False, tranche=tranche, max_output_tokens=sizes["output_cap"],
-                                  stage_check=sweep_check(labels), resume=True)
+                                  stage_check=sweep_check(labels), resume=True,
+                                  context_capacity=limits[side]["capacity"],
+                                  packet_check=lambda made, bounds=limits[side], side=side: attempt_problems(
+                                      made, bounds, schema_bytes, f"sweep {side}", "SWEEP_OVER_CAPACITY"))
             held = call_row(out)
             if out["outcome"] == "accepted":
                 call_dir = pathlib.Path(out["accepted"])
@@ -1054,7 +1090,8 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
                     "packet_sha256": receipt.get("packet_sha256"),
                     "pairs": labels.resolve(gate.accepted(call_dir, judged=True))})
                 stage.output(rel)
-                receipts.append((f"sweep/{group}/{shard}", seat, call_id, receipt, payload_sha256))
+                receipts.append((f"sweep/{group}/{shard}", seat, call_id, receipt, payload_sha256,
+                                 corrected_sha256(call_dir, text)))
                 held.update(call_id=call_id, result=rel)
             row["seats"][side] = held
         section["calls"].append(row)
@@ -1181,7 +1218,7 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
     sweeps' marks and reasons; the review judges each unit once (`cross_problems`) and is kept under
     cross_review/<item>.json, held to what the sweep results give (`cross_review_problems`). A claim whose sweeps did not
     all finish is not reviewed, and is named. Returns the summary's `cross_review` section and the calls' receipts."""
-    section = {"seat": None, "reviewed": [], "not_reviewed": [], "calls": [], "negatives": NEGATIVES}
+    section = {"seat": None, "reviewed": [], "exhausted": [], "not_reviewed": [], "calls": [], "negatives": NEGATIVES}
     if not swept.get("complete") or not swept.get("absent"):
         section["why"] = "no absence claim was swept" if swept.get("complete") else swept.get("why")
         return section, []
@@ -1198,6 +1235,7 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
     run_id = run_dir.resolve().name
     held_schema = cross_schema()
     receipts = []
+    todo = []
     for g in swept["groups"]:
         for cid in g["candidates"]:
             mine = marks.get(cid) or {}
@@ -1207,35 +1245,47 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
                 section["not_reviewed"].append({"candidate_id": cid, "why": "a sweep of its group did not finish"})
                 continue
             flags, negatives = flags_of(mine), negatives_of(mine, run_id, cid)
-            if not flags and not negatives:
-                section["not_reviewed"].append({"candidate_id": cid, "why": "no remaining unit to review"})
+            if not mine:
+                # nothing remained to sweep: S5 retrieved every unit the policy reads for this claim, so the judges' own
+                # judgments are the exhaustive check, and there is nothing to review or reconsider (Codex WP-11 r1 #4:
+                # such a claim was named not_reviewed, never reconsidered, and so never derived)
+                section["exhausted"].append(cid)
                 continue
             labels = CrossLabels(context["by_id"][cid], mine, flags, negatives, context["units"], context["entries"])
-            text = cross_payload(labels)
-            payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
-            item = f"{item_of_cid(cid)}-X"
-            out = supervisor.item(STAGE, item, seat, text, held_schema, case_type=CROSS_CASE, caps=caps,
-                                  view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
-                                  stage_check=cross_check(labels), resume=True)
-            held = call_row(out)
-            if out["outcome"] == "accepted":
-                call_dir = pathlib.Path(out["accepted"])
-                call_id = records.read_json(call_dir / "call.json")["call_id"]
-                receipt = records.read_json(call_dir / "receipt.json")
-                rel = cross_rel(item_of_cid(cid))
-                record = {"candidate_id": cid, "seat": seat, "call_id": call_id, "inventory_sha256": inventory,
-                          "seed": run_id, "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
-                          "partial_flags": flags, "seeded_negatives": negatives,
-                          "verdicts": labels.resolve(gate.accepted(call_dir, judged=True))}
-                problems = cross_review_problems(record, flags, negatives, payload_sha256)
-                if problems:
-                    raise Refused("\n".join(problems))
-                records.write_json(run_dir, run_dir / rel, record)
-                stage.output(rel)
-                receipts.append((f"cross/{cid}", seat, call_id, receipt, payload_sha256))
-                held.update(call_id=call_id, result=rel)
-                section["reviewed"].append(cid)
-            section["calls"].append({"candidate_id": cid, "flags": len(flags), "negatives": len(negatives), **held})
+            todo.append((cid, flags, negatives, labels, cross_payload(labels)))
+    # every cross-review packet is held to Judge B's capacity before the first is sent (Codex WP-11 r1 #3)
+    schema_bytes = packet.schema_bytes(held_schema)
+    limits = limits_of(seat, run_dir, declaration, supervisor.seats_path, case=CROSS_CASE)
+    over_capacity(run_id, [(f"{item_of_cid(cid)}-X", "B", seat, text) for cid, _f, _n, _l, text in todo], {"B": limits},
+                  schema_bytes, "CROSS_OVER_CAPACITY", "a claim with this many flagged units is reviewed by a seat with "
+                                                      "more context")
+    for cid, flags, negatives, labels, text in todo:
+        payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
+        item = f"{item_of_cid(cid)}-X"
+        out = supervisor.item(STAGE, item, seat, text, held_schema, case_type=CROSS_CASE, caps=caps,
+                              view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
+                              stage_check=cross_check(labels), resume=True, context_capacity=limits["capacity"],
+                              packet_check=lambda made: attempt_problems(made, limits, schema_bytes, "B",
+                                                                         "CROSS_OVER_CAPACITY"))
+        held = call_row(out)
+        if out["outcome"] == "accepted":
+            call_dir = pathlib.Path(out["accepted"])
+            call_id = records.read_json(call_dir / "call.json")["call_id"]
+            receipt = records.read_json(call_dir / "receipt.json")
+            rel = cross_rel(item_of_cid(cid))
+            record = {"candidate_id": cid, "seat": seat, "call_id": call_id, "inventory_sha256": inventory,
+                      "seed": run_id, "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
+                      "partial_flags": flags, "seeded_negatives": negatives,
+                      "verdicts": labels.resolve(gate.accepted(call_dir, judged=True))}
+            problems = cross_review_problems(record, flags, negatives, payload_sha256)
+            if problems:
+                raise Refused("\n".join(problems))
+            records.write_json(run_dir, run_dir / rel, record)
+            stage.output(rel)
+            receipts.append((f"cross/{cid}", seat, call_id, receipt, payload_sha256, corrected_sha256(call_dir, text)))
+            held.update(call_id=call_id, result=rel)
+            section["reviewed"].append(cid)
+        section["calls"].append({"candidate_id": cid, "flags": len(flags), "negatives": len(negatives), **held})
     return section, receipts
 
 
@@ -1302,9 +1352,28 @@ def returned_of(record):
 def returned_labels(labels, unit_ids):
     """The judgment packet's labels for a reconsideration: the same candidate, claims and quotes, the returned units in
     place of the retrieved ones, and no ledger entry, since the candidate's first judgment related every one S5
-    retrieved."""
-    return JudgeLabels(labels.candidate, {"retrieved_units": [{"unit_id": u} for u in unit_ids], "ledger_entries": []},
+    retrieved. A unit or ledger entry the candidate's own fields name (a lifecycle candidate's entries and targets, a
+    type G tension's cluster) that this packet does not show is labelled o1, ...: a reference, never judged here, and
+    never shown by its stored id (Codex WP-11 r1 #5: dropping the entries and the retrieved units left those ids raw)."""
+    held = JudgeLabels(labels.candidate, {"retrieved_units": [{"unit_id": u} for u in unit_ids], "ledger_entries": []},
                        labels.unit_store, labels.entry_store, labels.subject_of, labels.evidence_store)
+    named = []
+
+    def walk(value):
+        if isinstance(value, dict):
+            for v in value.values():
+                walk(v)
+        elif isinstance(value, list):
+            for v in value:
+                walk(v)
+        elif isinstance(value, str):
+            target = value[len(CLUSTER_PREFIX):] if value.startswith(CLUSTER_PREFIX) else value
+            if (target in held.unit_store or target in held.entry_store) and target not in held.label_of:
+                named.append(target)
+    walk({key: v for key, v in held.candidate.items() if key not in ("candidate_id", "label", "event_ids", "sessions")})
+    held.references = {f"o{n}": stored for n, stored in enumerate(dict.fromkeys(named), 1)}
+    held.label_of.update({stored: label for label, stored in held.references.items()})
+    return held
 
 
 def reconsideration_problems(cid, returned, held):
@@ -1342,13 +1411,19 @@ def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, 
     under reconsiderations/<item>/<A|B>.json, and the claim is diagnosed again
     (`reconsidered_diagnosis`). A claim nothing returned keeps its gap without a call; one missing a judge's
     reconsideration is named (`reconsideration_problems`) and not diagnosed. Returns the summary's `reconsiderations`
-    section and the calls' receipts."""
+    section, the calls' receipts, and `{candidate id: {A, B}}` of the reconsiderations it accepted, which derive_stage
+    reads in place of their files."""
     section = {"reconsidered": [], "not_reconsidered": [], "missing": [], "calls": []}
+    accepted = {}   # the judgments of every claim reconsidered here, which derive_stage reads in place of the files
     held_schema = reconsider_schema()
     schema_bytes = packet.schema_bytes(held_schema)
     limits = {}
     sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
     receipts = []
+    for cid in crossed.get("exhausted") or []:   # nothing remained to sweep, so nothing returns: its gap stands as judged
+        diagnosis, row_id = reconsidered_diagnosis(judgments[cid], {}, lifecycle_of(sources[cid]))
+        section["reconsidered"].append({"candidate_id": cid, "returned": 0, "diagnosis": diagnosis, "row": row_id,
+                                        "exhausted": True})
     for cid in crossed.get("reviewed") or []:
         item = item_of(cid)
         returned = returned_of(records.read_json(run_dir / cross_rel(item)))
@@ -1383,7 +1458,8 @@ def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, 
                     "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
                     "returned": returned, "judgment": held[who]})
                 stage.output(rel)
-                receipts.append((f"reconsider/{cid}", seat, call_id, receipt, payload_sha256))
+                receipts.append((f"reconsider/{cid}", seat, call_id, receipt, payload_sha256,
+                                 corrected_sha256(call_dir, text)))
                 call.update(call_id=call_id, reconsideration=rel)
             row["seats"][who] = call
         section["calls"].append(row)
@@ -1395,7 +1471,8 @@ def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, 
         diagnosis, row_id = reconsidered_diagnosis(judgments[cid], held, lifecycle)
         section["reconsidered"].append({"candidate_id": cid, "returned": len(returned), "diagnosis": diagnosis,
                                         "row": row_id})
-    return section, receipts
+        accepted[cid] = held
+    return section, receipts, accepted
 
 
 # ---- the derivations (plan WP-11 J4a, design §4's S6 row, §6.4) -------------------------------------------------
@@ -1456,7 +1533,168 @@ def derivation_input(candidate, source, row, first, again, point):
             "arc_confirmed": False}   # undetermined, not false: ARC_UNDETERMINED
 
 
-def derive_stage(run_dir, summary, judgments, swept, again):
+def derivation_given(candidate, source, check_row, first, point, again):
+    """`derive.unit_outcome`'s input for one candidate both judges judged: `derivation_input` over their first
+    judgments and their reconsiderations of it (`{A, B}`, or {} when none was accepted). The one place it is assembled:
+    S6's `derive_stage` passes what this invocation accepted, held in memory, and S10's adjudication passes what
+    `given_from_run` read from disk and verified, so a recomputation with the owner's values reads exactly what S6 read
+    (Codex WP-11 r2 #2: the live derivation read the files too, and trusted any file whose call id matched)."""
+    return derivation_input(candidate, source, check_row, first, again, point)
+
+
+def produced(run_dir):
+    """`read(rel)`: one of S6's outputs read only when S6's own stage record registered it with exactly these bytes;
+    OUTPUT_UNRECORDED otherwise. A summary or a judgment edited after S6 wrote it - or edited to agree with another - is
+    not what S6 produced (Codex WP-11 r2 #2)."""
+    run_dir = pathlib.Path(run_dir)
+    record = records.read_json(records.record_path(run_dir, STAGE))
+    held = {o["artifact"]: o["sha256"] for o in record.get("outputs") or []}
+
+    def read(rel):
+        path = run_dir / rel
+        if rel not in held or not path.is_file() or records.sha256_file(path) != held[rel]:
+            raise Refused(f"OUTPUT_UNRECORDED S6 {rel}: S6's stage record registers "
+                          f"{'no such output' if rel not in held else 'other bytes'} for it")
+        return records.read_json(path)
+    return read
+
+
+def identity_problems(code, record, want):
+    """`code` lines for every field of `record` that is not `want`'s (candidate, judge, item, seat, call, returned)."""
+    return [f"{code} {want['candidate_id']} {want['judge']}: its {field} is {str(record.get(field))[:60]!r}, and the call "
+            f"S6 accepted gives {str(value)[:60]!r}" for field, value in want.items() if record.get(field) != value]
+
+
+def call_problems(code, run_dir, candidate_id, who, record, item):
+    """The call a kept record names, held to that call's own records: a call of this run for `item` (its id is
+    `<run>-S6-<item>-a<n>`), whose call.json names that id and item and the record's seat and payload, whose receipt
+    names the record's packet, which the gate accepts and no stage check refused."""
+    run_dir = pathlib.Path(run_dir)
+    call_id = str(record.get("call_id") or "")
+    prefix = f"{run_dir.resolve().name}-{STAGE}-{item}-a"
+    if not (call_id.startswith(prefix) and call_id[len(prefix):].isdigit()):
+        return [f"{code} {candidate_id} {who}: the call {call_id[:60]!r} is not one of this run's for {item}"]
+    call_dir = run_dir / "calls" / call_id
+    if not (call_dir / "call.json").is_file():
+        return [f"{code} {candidate_id} {who}: the call {call_id} has no call record"]
+    call = records.read_json(call_dir / "call.json")
+    receipt = records.read_json(call_dir / "receipt.json") if (call_dir / "receipt.json").is_file() else {}
+    out = [f"{code} {candidate_id} {who}: the call record of {call_id} gives {field} {str(got)[:40]!r}"
+           for field, got, want in (("call_id", call.get("call_id"), call_id), ("item", call.get("item"), item),
+                                    ("seat", call.get("seat"), record.get("seat")),
+                                    ("payload_sha256", call.get("payload_sha256"), record.get("payload_sha256")),
+                                    ("packet_sha256", receipt.get("packet_sha256"), record.get("packet_sha256")))
+           if got != want]
+    checked = call_dir / gate.STAGE_CHECK
+    if not gate.accept(call_dir)["ok"] or (checked.is_file() and records.read_json(checked).get("failures")):
+        out.append(f"{code} {candidate_id} {who}: the call {call_id} is not one the gate and the stage check accepted")
+    return out
+
+
+def judgments_from_disk(run_dir, candidate_id, read, summary):
+    """Both judges' first judgments of `candidate_id` as S6 wrote and registered them, each held to the call S6's summary
+    accepted for that judge: its candidate, judge, item, seat, call id and the payload S6 built for the candidate, and
+    that call's own records (`call_problems`) - JUDGMENT_STALE otherwise."""
+    run_dir, item = pathlib.Path(run_dir), item_of(candidate_id)
+    calls = next((r for r in summary.get("calls") or [] if r["candidate_id"] == candidate_id), {})
+    built = next((r.get("payload_sha256") for r in summary.get("packets") or [] if r["candidate_id"] == candidate_id),
+                 None)
+    first, problems = {}, []
+    for who in SEAT_KEYS:
+        record = read(judgment_rel(item, who))
+        accepted = ((calls.get("seats") or {}).get(who) or {}).get("call_id")
+        found = identity_problems("JUDGMENT_STALE", record, {
+            "candidate_id": candidate_id, "judge": who, "item": item, "seat": summary["seats"][who],
+            "call_id": accepted, "payload_sha256": built})
+        problems += found or call_problems("JUDGMENT_STALE", run_dir, candidate_id, who, record, f"{item}-{who}")
+        first[who] = record.get("judgment")
+    if problems:
+        raise Refused("\n".join(problems))
+    return first
+
+
+def returned_from_disk(run_dir, candidate_id, read, summary):
+    """The units `candidate_id`'s cross-review returned, read from the cross-review S6 wrote and registered, held to the
+    call S6's summary accepted for it and that call's records (RECONSIDERATION_STALE); [] when it was not reviewed."""
+    run_dir, item = pathlib.Path(run_dir), item_of(candidate_id)
+    crossed = summary.get("cross_review") or {}
+    if candidate_id not in (crossed.get("reviewed") or []):
+        return []
+    record = read(cross_rel(item))
+    accepted = next((r.get("call_id") for r in crossed.get("calls") or [] if r["candidate_id"] == candidate_id), None)
+    found = identity_problems("RECONSIDERATION_STALE", {**record, "judge": "X"}, {
+        "candidate_id": candidate_id, "judge": "X", "seat": crossed.get("seat"), "call_id": accepted})
+    found = found or call_problems("RECONSIDERATION_STALE", run_dir, candidate_id, "X", record, f"{item}-X")
+    if found:
+        raise Refused("\n".join(found))
+    return returned_of(record)
+
+
+def reconsiderations_from_disk(run_dir, candidate_id, read, summary):
+    """Both judges' reconsiderations of `candidate_id` as S6 wrote and registered them, `{A, B}`; {} when its
+    cross-review returned nothing. What was returned is read from the cross-review (`returned_from_disk`), not from a
+    count; the summary must say the candidate was reconsidered with that many, and each file must carry that candidate,
+    judge, item, seat, returned set and the call the summary accepted, and agree with that call's records
+    (RECONSIDERATION_STALE)."""
+    run_dir, item = pathlib.Path(run_dir), item_of(candidate_id)
+    returned = returned_from_disk(run_dir, candidate_id, read, summary)
+    if not returned:
+        return {}
+    again = summary.get("reconsiderations") or {}
+    done = next((r for r in again.get("reconsidered") or [] if r["candidate_id"] == candidate_id), None)
+    if done is None or done.get("returned") != len(returned):
+        raise Refused(f"RECONSIDERATION_STALE {candidate_id}: its cross-review returned {len(returned)} units, and S6's "
+                      f"summary records {'no reconsideration' if done is None else done.get('returned')}")
+    row = next((r for r in again.get("calls") or [] if r["candidate_id"] == candidate_id), {})
+    held, problems = {}, []
+    for who in SEAT_KEYS:
+        record = read(reconsideration_rel(item, who))
+        accepted = ((row.get("seats") or {}).get(who) or {}).get("call_id")
+        found = identity_problems("RECONSIDERATION_STALE", record, {
+            "candidate_id": candidate_id, "judge": who, "item": item, "seat": summary["seats"][who],
+            "call_id": accepted, "returned": returned})
+        problems += found or call_problems("RECONSIDERATION_STALE", run_dir, candidate_id, who, record,
+                                           f"{item}-{RECONSIDER}{who}")
+        held[who] = record.get("judgment")
+    if problems:
+        raise Refused("\n".join(problems))
+    return held
+
+
+def given_artifacts(run_dir, candidate_id):
+    """The per-candidate S6 outputs `given_from_run` reads: both judges' judgments, their cross-review when it has one,
+    and their reconsiderations when it returned units. A caller declares them as inputs so the shared record checks
+    hold them to S6's record too."""
+    item = item_of(candidate_id)
+    read = produced(run_dir)
+    summary = read(SUMMARY)
+    crossed = candidate_id in ((summary.get("cross_review") or {}).get("reviewed") or [])
+    returned = returned_from_disk(run_dir, candidate_id, read, summary)
+    return ([judgment_rel(item, who) for who in SEAT_KEYS] + ([cross_rel(item)] if crossed else [])
+            + ([reconsideration_rel(item, who) for who in SEAT_KEYS] if returned else []))
+
+
+GIVEN_INPUTS = ("checked-candidates.json", "checks.json", "inventory/current.json")   # with SUMMARY and DERIVATIONS
+
+
+def given_from_run(run_dir, candidate_id):
+    """`derivation_given` for one candidate from what S6 left on disk, read only as S6's stage record registered it
+    (`produced`): the candidate (S5's checked-candidates.json), its S5 row (checks.json), its source (S6's summary), the
+    current point (S2's inventory/current.json), both judges' first judgments (`judgments_from_disk`) and their
+    reconsiderations (`reconsiderations_from_disk`)."""
+    run_dir = pathlib.Path(run_dir)
+    read = produced(run_dir)
+    summary = read(SUMMARY)
+    population = {k["candidate_id"]: k for k in records.read_json(run_dir / "checked-candidates.json")["candidates"]}
+    rows = {r["candidate_id"]: r for r in records.read_json(run_dir / "checks.json")["candidates"]}
+    sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
+    point = current_point(records.read_json(run_dir / "inventory" / "current.json"))
+    first = judgments_from_disk(run_dir, candidate_id, read, summary)
+    again = reconsiderations_from_disk(run_dir, candidate_id, read, summary)
+    return derivation_given(population[candidate_id], sources[candidate_id], rows[candidate_id], first, point, again)
+
+
+def derive_stage(run_dir, summary, judgments, swept, again, reconsidered=None):
     """The derivations of every candidate both judges judged (design §4's S6 row: code derives diagnosis, delivery
     state, kind, admission and promotion eligibility; §6.4 through `derive.unit_outcome`). An absence claim whose sweeps,
     cross-review and reconsiderations did not all finish is not derived and is named, since its gap is not checked; so
@@ -1478,13 +1716,7 @@ def derive_stage(run_dir, summary, judgments, swept, again):
             not_derived.append({"candidate_id": cid, "why": "its absence claim's sweeps, cross-review and "
                                                            "reconsiderations did not all finish"})
             continue
-        held = {}
-        for who in SEAT_KEYS:
-            path = run_dir / reconsideration_rel(item_of(cid), who)
-            if path.is_file():
-                held[who] = records.read_json(path)["judgment"]
-        given = derivation_input(population[cid], sources[cid], rows[cid], first,
-                                 held if set(held) == set(SEAT_KEYS) else {}, point)
+        given = derivation_given(population[cid], sources[cid], rows[cid], first, point, (reconsidered or {}).get(cid, {}))
         outcome = derive.unit_outcome(given, {}, TEST_STATE)
         matched = [u for u, d in (outcome["unit_diagnosis"].get("current") or {}).items() if d != "no match"]
         waiting += len(population[cid].get("sessions") or []) * len(matched)
@@ -1652,31 +1884,108 @@ def check(labels, capacity, reconsider=False):
     return judged
 
 
-def attempt_problems(built, limits, schema_bytes, who):
-    """The bound on one judgment attempt's packet as `Supervisor.item(packet_check=)` asks it, built under the call id
-    its reservation gave it and, on a retry, carrying its correction: JUDGE_OVER_CAPACITY when it and the output cap
-    exceed the seat's capacity. A seat whose capacity is not measured is not bounded here (D13)."""
+def attempt_problems(built, limits, schema_bytes, who, code="JUDGE_OVER_CAPACITY"):
+    """The bound on one attempt's packet as `Supervisor.item(packet_check=)` asks it, built under the call id its
+    reservation gave it and, on a retry, carrying its correction: `code` (JUDGE_OVER_CAPACITY for a judgment, and the
+    sweep's and the cross-review's own) when it and the output cap exceed the seat's capacity. A seat whose capacity is
+    not measured is not bounded here (D13)."""
     from runlib import stage_read
     size = bound.driver_bytes(built, schema_bytes)[0]
     beyond = beyond_capacity(max(size - stage_read.CORRECTION_ROOM, 0), limits)
-    return [f"JUDGE_OVER_CAPACITY {who}: this attempt's packet of {size} driver bytes with the output cap exceeds the "
+    return [f"{code} {who}: this attempt's packet of {size} driver bytes with the output cap exceeds the "
             f"seat's capacity {limits['capacity']}"] if beyond else []
+
+
+def over_capacity(run_id, built, limits, schema_bytes, code, advice):
+    """Before any call of a kind is made: every packet of `built` (`[(item, side, seat, text)]`) whose first attempt,
+    with room for its retry's correction and the output cap, exceeds its seat's capacity (`limits[side]`), refused by
+    `code` naming them and what the run can change. Codex WP-11 r1 #3: the sweeps and the cross-review were sent with
+    no capacity bound at all, and a shard's unit count does not bound its bytes."""
+    over = []
+    for item, side, seat, text in built:
+        made = packet.build(f"{run_id}-{STAGE}-{item}-a1", STAGE, seat, text, schema_bytes)
+        size = bound.driver_bytes(made, schema_bytes)[0]
+        if beyond_capacity(size, limits[side]):
+            over.append(f"{item} ({size} driver bytes, {seat} capacity {limits[side]['capacity']})")
+    if over:
+        raise Refused(f"{code} S6: {len(over)} packets exceed their seat's capacity with the output cap and a retry's "
+                      f"correction ({'; '.join(over[:3])}); {advice}")
+
+
+ATTEMPT = re.compile(r"(?P<item>.+-a)(?P<n>[1-9][0-9]*)")
+
+
+def due_correction(call_dir):
+    """The exact correction dispatch sent with the attempt in `call_dir` when it was the one corrective retry, or None.
+
+    Supervisor.item retries a failed attempt once, sending the payload, a newline and `gate.correction` of what the
+    failed attempt was told: the stage's check when the gate accepted it (its `gate.STAGE_CHECK` record), the gate's
+    own verdict otherwise. So the predecessor is the latest earlier attempt of the same item with a call directory
+    (a reservation that was released keeps its number, so the numbers can skip), it must have been sent the payload
+    alone and not been accepted, and the correction is rebuilt from its own records here, byte for byte. Codex WP-11 r2
+    #1: a frame alone admitted an invented diagnostic, two corrections, and a correction on a first attempt."""
+    call_dir = pathlib.Path(call_dir)
+    held = gate.Call(call_dir)
+    found = ATTEMPT.fullmatch(str(held.call.get("call_id") or ""))
+    if found is None or found["item"] + found["n"] != call_dir.name:
+        return None
+    earlier = sorted((int(d.name[len(found["item"]):]), d) for d in call_dir.parent.glob(f"{found['item']}*")
+                     if d.name[len(found["item"]):].isdigit() and int(d.name[len(found["item"]):]) < int(found["n"])
+                     and (d / "call.json").is_file())
+    if not earlier:
+        return None
+    before = earlier[-1][1]
+    prior = gate.Call(before)
+    if prior.call.get("payload_sha256") != held.call.get("payload_sha256") or prior.packet is None \
+            or packet.sha256_bytes(packet.split(prior.packet)[1] or b"") != held.call.get("payload_sha256"):
+        return None
+    verdict = gate.accept(before)
+    if verdict["ok"]:
+        checked = before / gate.STAGE_CHECK
+        failures = (records.read_json(checked).get("failures") or []) if checked.is_file() else []
+        if not failures:
+            return None   # the predecessor was accepted, so nothing was retried after it
+        verdict = {"failures": failures}
+    return gate.correction(verdict)
+
+
+def corrected_sha256(call_dir, text):
+    """The payload hash the receipt of the attempt in `call_dir` is due to carry when that attempt was the one corrective
+    retry of `text`: the hash of `text`, a newline and `due_correction(call_dir)`, when that whole payload is exactly
+    what the attempt was sent and the call says it was made for `text`; None otherwise, so a receipt is then held to the
+    payload S6 built and nothing else (Codex WP-11 r1 #1, r2 #1)."""
+    held = gate.Call(call_dir)
+    sent = packet.split(held.packet)[1] if held.packet is not None else None
+    base = text.encode("utf-8")
+    if sent is None or held.call.get("payload_sha256") != packet.sha256_bytes(base):
+        return None
+    correction = due_correction(call_dir)
+    if correction is None:
+        return None
+    expected = base + b"\n" + correction.encode("utf-8")
+    return packet.sha256_bytes(sent) if sent == expected else None
 
 
 def stage_receipts(calls):
     """N#1 over the accepted calls: each candidate's two receipts carry the payload S6 built for it and one payload hash
     between them (PACKET_DIVERGENCE), and no two receipts of the stage one packet hash (RECEIPT_STALE). `calls` are
-    `(candidate id, seat, call id, receipt, payload sha256)`."""
+    `(candidate id, seat, call id, receipt, payload sha256[, corrected sha256])`: an attempt that was the corrective
+    retry of that payload (`corrected_sha256`) carries its correction's hash, and is held to that one and read as the
+    payload S6 built when the seats are compared, because the correction is the gate's answer to that seat's own
+    attempt and not a second judgment payload."""
     out, by_candidate = [], {}
-    for cid, seat, call_id, receipt, built in calls:
-        by_candidate.setdefault(cid, {})[call_id] = (seat, receipt)
+    for cid, seat, call_id, receipt, built, *rest in calls:
+        corrected = rest[0] if rest else None
         got = (receipt.get("evidence") or {}).get("payload_sha256")
-        if got != built:
+        if corrected is not None and got == corrected:
+            receipt = {**receipt, "evidence": {**(receipt.get("evidence") or {}), "payload_sha256": built}}
+        elif got != built:
             out.append(f"PACKET_DIVERGENCE {call_id}: its receipt carries the payload hash {str(got)[:12]}, and S6 built "
                        f"{str(built)[:12]} for {cid}")
+        by_candidate.setdefault(cid, {})[call_id] = (seat, receipt)
     for held in by_candidate.values():
         out += [p for p in receipt_problems(held) if not p.startswith("RECEIPT_STALE")]
-    out += [p for p in receipt_problems({c: (s, r) for _cid, s, c, r, _b in calls}) if p.startswith("RECEIPT_STALE")]
+    out += [p for p in receipt_problems({c: (s, r) for _cid, s, c, r, _b, *_rest in calls}) if p.startswith("RECEIPT_STALE")]
     return out
 
 
@@ -1789,6 +2098,13 @@ def call_row(out):
 
 
 def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibration"):
+    """`_run`, with the expected verdicts' file S5 wrote sealed for as long as it runs (`controls.sealed`): any module
+    that opens it, by its name, a glob, a computed name or a link, is refused CONTROLS_READ (Codex WP-10 X r1 #7)."""
+    with controls.sealed(run_dir, STAGE):
+        return _run(run_dir, supervisor, dry=dry, seats_path=seats_path, tranche=tranche)
+
+
+def _run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibration"):
     """S6 over S5's population (plan WP-11): admitted against its inputs, it builds and measures every judgment packet
     (`build`); dry, it writes `judgments/dry.json` and leaves the record `partial`. Otherwise every judged candidate is
     sent to Judge A and Judge B through `supervisor`, each an item of its own, with the same payload; each answer is
@@ -1849,7 +2165,8 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
                         "payload_sha256": measured["payload_sha256"], "packet_sha256": receipt.get("packet_sha256"),
                         "judgment": judgment})
                     stage.output(rel)
-                    receipts.append((cid, seat, call_id, receipt, measured["payload_sha256"]))
+                    receipts.append((cid, seat, call_id, receipt, measured["payload_sha256"],
+                                     corrected_sha256(call_dir, text)))
                     held.update(call_id=call_id, judgment=rel)
                 row["seats"][who] = held
             calls.append(row)
@@ -1857,13 +2174,13 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         swept, sweep_receipts = sweep_stage(run_dir, stage, supervisor, declaration, sorted(packets), judgments, sources,
                                             caps, tranche)
         crossed, cross_receipts = cross_stage(run_dir, stage, supervisor, declaration, swept, item_of, caps, tranche)
-        again, again_receipts = reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, judgments,
-                                                 crossed, caps, tranche)
+        again, again_receipts, reconsidered = reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets,
+                                                               judgments, crossed, caps, tranche)
         held_receipts = receipts + sweep_receipts + cross_receipts + again_receipts
         problems = stage_receipts(held_receipts)
         if problems:
             raise Refused("\n".join(problems))
-        derived = derive_stage(run_dir, summary, judgments, swept, again)
+        derived = derive_stage(run_dir, summary, judgments, swept, again, reconsidered)
         records.write_json(run_dir, run_dir / DERIVATIONS, derived)
         stage.output(DERIVATIONS)
         gated = gate_stage(run_dir, calls)
@@ -1931,6 +2248,13 @@ def report_lines(summary):
         if summary["interrupted"]:
             lines.append(f"interrupted reservations closed: {len(summary['interrupted'])}")
         sw = summary["sweeps"]
+        cl = sw.get("claims") or {}
+        lines.append(f"absence claims ({'swept' if cl.get('swept') else 'not swept'}): {cl.get('count')} of "
+                     f"{cl.get('judged_by_both')} candidates judged by both - "
+                     + ", ".join(f"{k} {v['claims']} of {v['judged_by_both']}" for k, v in (cl.get("by_kind") or {}).items())
+                     + "; current point " + ("complete" if (cl.get("reference") or {}).get("complete") else "incomplete")
+                     + f" under the {(cl.get('reference') or {}).get('policy')} policy, layers "
+                     + ", ".join(f"{k}={v}" for k, v in ((cl.get("reference") or {}).get("layers") or {}).items()))
         if not sw["complete"]:
             lines.append(f"sweeps: none - {sw['why']}")
         else:
@@ -1940,7 +2264,8 @@ def report_lines(summary):
                          + f"; {c['reused']} answered by an earlier accepted attempt; {len(sw['not_judged_by_both'])} "
                            "candidates not swept because a judge did not judge them")
             cr = summary["cross_review"]
-            lines.append(f"cross-review by Judge B: {len(cr['reviewed'])} absence claims reviewed, {len(cr['not_reviewed'])} "
+            lines.append(f"cross-review by Judge B: {len(cr['reviewed'])} absence claims reviewed, "
+                         f"{len(cr.get('exhausted') or [])} with nothing left to sweep, {len(cr['not_reviewed'])} "
                          f"not; calls " + ", ".join(f"{o} {cr['counts'][o]}" for o in OUTCOMES))
             dv = summary["derivations"]["counts"]
             lines.append(f"derivations: {dv['derived']} candidates derived, {dv['not_derived']} not; admission "
@@ -2006,16 +2331,23 @@ def fx_library(wide=0):
     return units
 
 
-def fx_seats(root, capacity_a=None, name="seats.json"):
+def fx_seats(root, capacity_a=None, name="seats.json", capacities=None, codex_allowance=None):
     """A seats file as D13 leaves the judges' seats until their first live calls: seats.json's own, with Judge A's
     capacity and Claude's allowance measured and Judge B's host allowance and seat capacity not; `capacity_a` replaces
-    Judge A's capacity."""
+    Judge A's capacity. `capacities` (`{seat: tokens}`) declares a capacity for other seats at their host's version, and
+    `codex_allowance` measures the Codex host's, so a sweep's or a cross-review's seat can be bounded in a control."""
     held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
     if capacity_a is not None:
         held["seat_capacity"]["claude:claude-opus-5-5/high"]["context_capacity"] = capacity_a
     held["hosts"]["codex"]["host_allowance"] = {"hermetic": {"allowance_tokens": None, "measured": False,
                                                              "basis": "unmeasured: D13"}}
     held["seat_capacity"].pop("codex:gpt-6-astra/xhigh", None)
+    for seat, tokens in (capacities or {}).items():
+        held["seat_capacity"][seat] = {"context_capacity": tokens, "basis": "planted by a control",
+                                       "host_version": held["hosts"][seat.partition(":")[0]]["version"]}
+    if codex_allowance is not None:
+        held["hosts"]["codex"]["host_allowance"] = {"hermetic": {"allowance_tokens": codex_allowance, "measured": True,
+                                                                 "basis": "planted by a control"}}
     path = pathlib.Path(root) / name
     path.write_text(json.dumps(held), encoding="utf-8")
     return path
@@ -2086,17 +2418,20 @@ def self_test():
             refusal(lambda: validate.compile_schema(held)))
     control("done-when 8: the judgment schema's per-unit and per-candidate fields are §6.2's", not contract_problems(held),
             f"{contract_problems(held)}")
+    # each plant tolerates a schema that already lacks what it removes, so a mutation of the schema itself fails the
+    # control above by name instead of ending the suite here (Codex WP-11 r1 #6)
     dropped = json.loads(json.dumps(held))
-    del dropped["$defs"]["unit_judgment"]["properties"]["quote"]
-    dropped["$defs"]["unit_judgment"]["required"].remove("quote")
+    dropped["$defs"]["unit_judgment"]["properties"].pop("quote", None)
+    dropped["$defs"]["unit_judgment"]["required"] = [f for f in dropped["$defs"]["unit_judgment"]["required"]
+                                                     if f != "quote"]
     named("control: a §6.2 field dropped from the schema is CONTRACT_DRIFT", contract_problems(dropped), "CONTRACT_DRIFT")
     added = json.loads(json.dumps(held))
     added["$defs"]["unit_judgment"]["properties"]["confidence"] = {"type": "string"}
     named("control: a schema field §6.2 does not name and no reason declares is CONTRACT_DRIFT",
           contract_problems(added), "CONTRACT_DRIFT")
     gone = json.loads(json.dumps(held))
-    del gone["properties"]["no_longer_arises"]
-    gone["required"].remove("no_longer_arises")
+    gone["properties"].pop("no_longer_arises", None)
+    gone["required"] = [f for f in gone["required"] if f != "no_longer_arises"]
     named("control: a declared extra field the schema no longer holds is CONTRACT_DRIFT", contract_problems(gone),
           "CONTRACT_DRIFT stage_judge.EXTRA_FIELDS")
     control("the schema's paths are read through its references (the requirements and the units are reached)",
@@ -2318,6 +2653,52 @@ def self_test():
                     and [c.split()[0] for c in dry.get("limits", {}).get("B", {}).get("unmeasured", [])]
                     == ["ALLOWANCE_UNMEASURED", "CAPACITY_UNDECLARED"] and dry.get("output_cap") == OUTPUT_CAP,
                     f"{dry.get('limits')}")
+            # Codex WP-10 X r1 #7: whatever module S6 runs, and however it reaches the expected verdicts' file - a glob
+            # over the run, a computed name, a link under another name, an open relative to the run's directory - it is
+            # refused CONTROLS_READ; each reader is planted in S6's own builder on a copy of the golden run
+            kept_build = globals()["build"]
+
+            def plant_reader(read):
+                def reading(run_dir, *rest, **kw):
+                    read(pathlib.Path(run_dir))
+                    return kept_build(run_dir, *rest, **kw)
+                return reading
+
+            def linked(where):
+                os.link(where / controls.CONTROLS_FILE, where / "linked.json")
+                return (where / "linked.json").read_text(encoding="utf-8")
+
+            def by_fd(where):
+                fd = os.open(where, os.O_RDONLY)
+                try:
+                    os.close(os.open(controls.CONTROLS_FILE, os.O_RDONLY, dir_fd=fd))
+                finally:
+                    os.close(fd)
+
+            def swallowed(where):
+                try:
+                    (where / controls.CONTROLS_FILE).read_bytes()
+                except Exception:  # noqa: BLE001 - the planted reader hides the refusal; the seal names it at the end
+                    pass
+            readers = {"glob": lambda where: {p.name: p.read_text(encoding="utf-8") for p in where.glob("*.json")},
+                       "constructed": lambda where: (where / ("con" + "trols." + "json")).read_text(encoding="utf-8"),
+                       "linked": linked, "fd-relative": by_fd, "swallowed": swallowed}
+            sealed_said = {}
+            for label, read in readers.items():
+                target = copy_of(f"sealed-{label}")
+                globals()["build"] = plant_reader(read)
+                try:
+                    sealed_said[label] = refusal(lambda: run(target, dry=True, seats_path=seats_file))
+                finally:
+                    globals()["build"] = kept_build
+            control("Codex WP-10 X r1 #7: a glob over the run, a computed name, a link, an fd-relative open, and a read "
+                    "whose refusal is swallowed, planted in S6's own builder, are each CONTROLS_READ",
+                    all(str(v).startswith("CONTROLS_READ S6") for v in sealed_said.values()) and len(sealed_said) == 5,
+                    f"{ {k: str(v)[:90] for k, v in sealed_said.items()} }")
+            outside = copy_of("sealed-after")
+            control("Codex WP-10 X r1 #7: the seal holds only while S6 runs: the same file opens after it",
+                    guarded(lambda: run(outside, dry=True, seats_path=seats_file).get("dry"), None) is True
+                    and guarded(lambda: bool((outside / controls.CONTROLS_FILE).read_bytes()), False), "")
             lines = guarded(lambda: report_lines(made), [])
             control("golden: the report says what was judged, measured and not measured, in counts and codes",
                     any("candidates judged" in l for l in lines) and any("not computed: ALLOWANCE_UNMEASURED" in l for l in lines),
@@ -2490,7 +2871,74 @@ def self_test():
                     and not {tainted, unjudged} & set(dv_first.get("verdicts", {}))
                     and len(dv_first.get("verdicts", {})) == len(judged_ids) - 2, f"{dv_first.get('not_derived')}")
             made = {d.name for d in (called / "calls").iterdir()} if (called / "calls").is_dir() else set()
-            second = guarded(lambda: run(called, supervisor(called, root / "cells-2", clean_plan)), lambda e: {"problem": repr(e)})
+            given_seen, kept_given = {}, globals()["derivation_given"]
+
+            def recording(candidate, *rest):
+                held = kept_given(candidate, *rest)
+                given_seen[candidate["candidate_id"]] = json.loads(json.dumps(held))
+                return held
+            globals()["derivation_given"] = recording   # S6's own derivation, its inputs kept as it made them
+            try:
+                second = guarded(lambda: run(called, supervisor(called, root / "cells-2", clean_plan)),
+                                 lambda e: {"problem": repr(e)})
+            finally:
+                globals()["derivation_given"] = kept_given
+            dv_second = guarded(lambda: records.read_json(called / DERIVATIONS), {})
+            from_disk = {cid: guarded(lambda cid=cid: given_from_run(called, cid), lambda e: {"problem": repr(e)})
+                         for cid in given_seen}
+            differs = sorted(cid for cid in given_seen if from_disk[cid] != given_seen[cid])
+            control("K5: S6's derivation and a recomputation from S6's own files on disk get identical inputs for "
+                    "every candidate S6 derived", bool(given_seen) and set(given_seen) == set(dv_second.get("verdicts", {}))
+                    and not differs, f"{len(given_seen)} derived, differing {differs[:3]}")
+            replayed = sorted(cid for cid in given_seen if guarded(lambda cid=cid: derive.unit_outcome(
+                from_disk[cid], {}, TEST_STATE), {}) != dv_second.get("verdicts", {}).get(cid, {}).get("outcome"))
+            control("K5: and derive.unit_outcome over the input from disk reproduces each stored outcome",
+                    bool(given_seen) and not replayed, f"not reproduced {replayed[:3]}")
+            # the golden's two judges answer alike, so a seat read in place of the other would pass the comparison
+            # above: B's file is changed in a copy and must reach B's side of the input, and only B's
+            # the fixture is the whole run, copied under its own name (a call id names its run), not the files the
+            # function under test lists (Codex WP-11 r2 #4); B's edit is registered in the copy's S6 record, since what is
+            # asked here is which file reaches which side, not whether an edit is caught
+            seat_root = root / "k5-seats"
+            some_cid = sorted(given_seen)[0] if given_seen else None
+            seat_marks = {}
+            if some_cid is not None:
+                shutil.copytree(called, seat_root / called.name)
+                seated_run = seat_root / called.name
+                b_rel = judgment_rel(item_of(some_cid), "B")
+                b_held = records.read_json(seated_run / b_rel)
+                name = sorted(b_held["judgment"]["requirements"])[0]
+                b_held["judgment"]["requirements"][name]["mark"] = "uncertain"
+                (seated_run / b_rel).chmod(0o600)
+                (seated_run / b_rel).write_text(json.dumps(b_held), encoding="utf-8")
+                seat_record = records.read_json(records.record_path(seated_run, STAGE))
+                for o in seat_record.get("outputs") or []:
+                    if o["artifact"] == b_rel:
+                        o["sha256"] = records.sha256_file(seated_run / b_rel)
+                records.record_path(seated_run, STAGE).chmod(0o600)
+                records.record_path(seated_run, STAGE).write_text(json.dumps(seat_record), encoding="utf-8")
+                seated = guarded(lambda: given_from_run(seated_run, some_cid), lambda e: {"problem": repr(e)})
+                seat_marks = {who: ((seated.get("judges") or {}).get(who) or {}).get("requirements", {}).get(name)
+                              for who in SEAT_KEYS} if "problem" not in seated else {"problem": seated["problem"][:160]}
+            control("K5: each judge's side of the input is read from that judge's own file",
+                    seat_marks.get("B") == "uncertain" and seat_marks.get("A") not in (None, "uncertain"), f"{seat_marks}")
+            # exactly the per-candidate files S6 left for it on disk, enumerated from the directory, and each an output
+            # S6's record holds
+            held_outputs = {o["artifact"] for o in guarded(
+                lambda: records.read_json(records.record_path(called, STAGE)), {}).get("outputs", [])}
+
+            def on_disk(cid):
+                i = item_of(cid)
+                return {str(f.relative_to(called)) for pattern in (f"judgments/{i}/*.json", f"cross_review/{i}.json",
+                                                                    f"reconsiderations/{i}/*.json")
+                        for f in called.glob(pattern)}
+            listed = {cid: guarded(lambda cid=cid: given_artifacts(called, cid), lambda e: [repr(e)]) for cid in given_seen}
+            control("K5: given_artifacts names exactly the per-candidate files S6 left, both judges' judgments among them, "
+                    "each an output S6's record holds",
+                    bool(given_seen) and all(sorted(listed[cid]) == sorted(on_disk(cid)) and set(listed[cid]) <= held_outputs
+                                             and {f"judgments/{item_of(cid)}/{w}.json" for w in "AB"} <= set(listed[cid])
+                                             for cid in given_seen),
+                    f"{[(cid[:12], sorted(listed[cid])[:3]) for cid in given_seen if sorted(listed[cid]) != sorted(on_disk(cid))][:2]}")
             record = guarded(lambda: records.read_json(records.record_path(called, STAGE)), {})
             remade = {d.name for d in (called / "calls").iterdir()} - made if (called / "calls").is_dir() else set()
             control("golden (J2): run again, S6 reuses every accepted attempt and calls only the two items that were not "
@@ -2618,12 +3066,15 @@ def self_test():
                     any(p.startswith("JUDGE_OVER_CAPACITY A") for p in guarded(lambda: attempt_problems(
                         sent, {**limits_a, "capacity": 1000}, held_schema_bytes, "A"), [])), "")
             moved_dir = root / "capacity-moved"
-            shutil.copytree(called / "calls" / some_call, moved_dir)
-            call_record = records.read_json(moved_dir / "call.json")
-            call_record["bound"]["context_capacity"] = 999
-            (moved_dir / "call.json").chmod(0o600)
-            (moved_dir / "call.json").write_text(json.dumps(call_record), encoding="utf-8")
-            said = refusal(lambda: check(packets[judged_ids[0]][0], limits_a.get("capacity"))(moved_dir))
+            if some_call and (called / "calls" / some_call / "call.json").is_file():
+                shutil.copytree(called / "calls" / some_call, moved_dir)
+                call_record = records.read_json(moved_dir / "call.json")
+                call_record["bound"]["context_capacity"] = 999
+                (moved_dir / "call.json").chmod(0o600)
+                (moved_dir / "call.json").write_text(json.dumps(call_record), encoding="utf-8")
+                said = refusal(lambda: check(packets[judged_ids[0]][0], limits_a.get("capacity"))(moved_dir))
+            else:   # the call this copies was not accepted: the control says so rather than the suite ending here
+                said = f"no accepted call of Judge A to copy ({some_call!r})"
             control("control: an attempt whose call record carries another capacity than S6 was admitted against is "
                     "CAPACITY_UNRECORDED", said.startswith("CAPACITY_UNRECORDED"), said[:200])
             # ---- done-when 4's decidable halves (J2b deferred, D-20261111-c4fa71) -------------------------------------
@@ -2669,6 +3120,26 @@ def self_test():
             control("done-when 6: at a reference point the absence policy reads as incomplete, no absence claim stands and "
                     "nothing is swept", sw_second.get("complete") is False and sw_second.get("calls") == []
                     and sw_second.get("absent") == [] and "absence unknown" in sw_second.get("why", ""), f"{sw_second}")
+            # the expectation is read from the judgments on disk, not through absent_candidates: a candidate whose every
+            # unit both judges marked situation no and action no is an absence claim whatever the policy
+            claims = sw_second.get("claims") or {}
+
+            def marked_none(cid):
+                held = [guarded(lambda w=w: records.read_json(called / judgment_rel(item_of(cid), w))["judgment"], None)
+                        for w in SEAT_KEYS]
+                return all(held) and all(u.get("situation") == "no" and u.get("action") == "no"
+                                         for h in held for u in h["units"])
+            planted_claims = sorted(c for c in judged_ids if marked_none(c))
+            inventory_layers = {row["layer"]: row["status"] for row in
+                                guarded(lambda: records.read_json(called / "inventory" / "current.json"), {}).get("layers") or []}
+            control("J3a (D-20261111-eaa2a8): at an incomplete point the judges' absence claims are still named and "
+                    "counted per candidate kind beside the number judged, with the point's state and every layer's "
+                    "status, and no sweep is called", bool(planted_claims)
+                    and claims.get("candidates") == planted_claims and claims.get("count") == len(planted_claims)
+                    and sum(v.get("claims", 0) for v in (claims.get("by_kind") or {}).values()) == len(planted_claims)
+                    and claims.get("swept") is False and (claims.get("reference") or {}).get("complete") is False
+                    and (claims.get("reference") or {}).get("layers") == inventory_layers and bool(inventory_layers)
+                    and sw_second.get("calls") == [] and sw_second.get("absent") == [], f"{claims} {planted_claims}")
             ub = dry.get("sweep_upper_bound") or {}
             index = stage_retrieve.UnitIndex(records.read_json(gold / "inventory" / "current.json")["units"])
             dry_judged = [r["candidate_id"] for r in dry.get("packets", [])]
@@ -2739,6 +3210,9 @@ def self_test():
                 sweep_rows += [{"match": [f"-{RECONSIDER}{who}-a"], "auto": "reconsider"} for who in ("A", "B")]
                 judge_rows = json.loads(pathlib.Path(whole_plan).read_text(encoding="utf-8"))
                 pathlib.Path(whole_plan).write_text(json.dumps(judge_rows + sweep_rows), encoding="utf-8")
+                # the same run before any S6 call, for the corrective-retry runs below (Codex WP-11 r1 #1)
+                retry_base = root / "retry-base"
+                shutil.copytree(whole.parent, retry_base)
                 defect_sweep_plan = root / "plan-whole-defect.json"
                 defect_sweep_plan.write_text(json.dumps(
                     judge_rows + [{"match": [f"-{STAGE}-sweep-g001-s001-b-a"], "auto": "sweep", "drop_first": True}] + sweep_rows),
@@ -2858,6 +3332,467 @@ def self_test():
                         and not again_cross.get(claims_known[0], {}).get("reused")
                         and all(r.get("reused") for c, r in again_cross.items() if c != claims_known[0]) and len(again_cross) > 1,
                         f"{[(c[:12], r.get('outcome'), r.get('reused')) for c, r in again_cross.items()]}")
+                # Codex WP-11 r1 #1: in each of the four call kinds one attempt fails its check and its one corrective retry,
+                # sent with the gate's correction, is accepted; the run completes, and a run after it answers every call
+                # from those attempts. The first attempts are planted by call id, so the retries meet the ordinary rows.
+                retried = retry_base / whole.name
+                judged_one = next((c for c in sorted(whole_packets) if c not in made_gaps and whole_packets[c][0].units), None)
+                seat_a = f"SEAT: {fresh.get('seats', {}).get('A')}"
+                normal = next((r for r in judge_rows if judged_one and r["match"] == [seat_a, whole_packets[judged_one][1]]), None)
+                planted_first = {
+                    "judge": f"-{STAGE}-{item_of(judged_one or '')}-A-a1",
+                    "sweep": f"-{STAGE}-sweep-g001-s001-b-a1",
+                    "cross": f"-{STAGE}-{item_of(claims_known[1] if len(claims_known) > 1 else '')}-X-a1",
+                    "reconsider": f"-{STAGE}-{item_of(recon_of.get(0, ''))}-{RECONSIDER}A-a1"}
+                retry_rows = ([{"match": [planted_first["judge"]], "answer": {**normal["answer"],
+                                                                             "units": normal["answer"]["units"][1:]}}]
+                              if normal else []) + [
+                    {"match": [planted_first["sweep"]], "auto": "sweep", "drop_first": True},
+                    {"match": [planted_first["cross"]], "auto": "cross", "drop_first": True},
+                    {"match": [planted_first["reconsider"]], "auto": "reconsider", "yes_first": True,
+                     "extra": {"requirements": fx_answer()["requirements"]}}]
+                retry_plan = root / "plan-whole-retry.json"
+                retry_plan.write_text(json.dumps(retry_rows + judge_rows + sweep_rows), encoding="utf-8")
+                fifth = guarded(lambda: run(retried, supervisor(retried, root / "cells-11", retry_plan)),
+                                lambda e: {"problem": repr(e)})
+                fifth_record = guarded(lambda: records.read_json(records.record_path(retried, STAGE)), {})
+                attempts_of = {kind: sorted(d.name for d in (retried / "calls").iterdir()
+                                            if (retried / "calls").is_dir() and d.name.endswith(frag[:-1] + "2")
+                                            and (retried / "calls" / d.name / "receipt.json").is_file())
+                               for kind, frag in planted_first.items()}
+                control("Codex WP-11 r1 #1: an attempt that fails its check in each of the four call kinds is retried once "
+                        "with the gate's correction, the retry is accepted and its receipt passes N#1, and the run completes",
+                        normal is not None and len(recon_of) == 3 and "problem" not in fifth
+                        and fifth_record.get("status") == "complete" and all(len(v) == 1 for v in attempts_of.values()),
+                        f"{str(fifth.get('problem'))[:300]} {fifth_record.get('status')} {attempts_of}")
+                retry_dir = retried / "calls" / attempts_of["judge"][0] if attempts_of.get("judge") else None
+                text_one = whole_packets[judged_one][1] if judged_one else ""
+                due = guarded(lambda: corrected_sha256(retry_dir, text_one), "RAISED") if retry_dir else None
+                receipt_one = guarded(lambda: records.read_json(retry_dir / "receipt.json"), {}) if retry_dir else {}
+                control("Codex WP-11 r1 #1: a retry's due hash is its receipt's only when what was sent is the payload S6 "
+                        "built and the gate's correction; another payload, or the first attempt, is held to S6's own hash",
+                        due is not None and due == (receipt_one.get("evidence") or {}).get("payload_sha256")
+                        and guarded(lambda: corrected_sha256(retry_dir, text_one.replace("\n", " \n", 1)), "RAISED") is None
+                        and guarded(lambda: corrected_sha256(pathlib.Path(str(retry_dir)[:-1] + "1"), text_one), "RAISED")
+                        is None, f"{due} {(receipt_one.get('evidence') or {}).get('payload_sha256')}")
+                # Codex WP-11 r2 #1, in each of the four call kinds: a retry's due hash is its receipt's only when the attempt
+                # was sent the first attempt's payload, a newline and the exact correction the gate rebuilds from that first
+                # attempt's own records. Each tampering is made on a copy of the item's two call directories; an untouched
+                # copy is accepted, so a refusal is the tampering's and not the copy's.
+                def tampered(kind, edit):
+                    second_name = (attempts_of.get(kind) or [""])[0]
+                    first_name = second_name[:-1] + "1"
+                    where = root / "retry-tamper" / f"{kind}-{edit}"
+                    for name in (first_name, second_name):
+                        if (retried / "calls" / name).is_dir() and not (where / name).exists():
+                            shutil.copytree(retried / "calls" / name, where / name)
+                    first_dir, second_dir = where / first_name, where / second_name
+                    base = guarded(lambda: packet.split((first_dir / "packet.md").read_bytes())[1].decode("utf-8"), "")
+                    correction = guarded(lambda: due_correction(second_dir), None) or ""
+
+                    def resend(target, payload):
+                        held_packet = (target / "packet.md").read_bytes()
+                        envelope = held_packet[:held_packet.index(("\n" + packet.PAYLOAD_MARKER + "\n").encode("utf-8"))]
+                        (target / "packet.md").chmod(0o600)
+                        (target / "packet.md").write_bytes(envelope + ("\n" + packet.PAYLOAD_MARKER + "\n" + payload)
+                                                           .encode("utf-8"))
+                    other = next((t for c, (_l, t) in sorted(whole_packets.items()) if t != base), "")
+                    try:
+                        if edit == "invented":
+                            resend(second_dir, base + "\n" + gate.correction({"failures": ["INVENTED a diagnostic"]}))
+                        elif edit == "double":
+                            resend(second_dir, base + "\n" + correction + "\n" + correction)
+                        elif edit == "first":
+                            resend(first_dir, base + "\n" + correction)
+                            return guarded(lambda: corrected_sha256(first_dir, base), "RAISED")
+                        elif edit == "wrong-predecessor":
+                            # the predecessor accepted after all (its stage check had nothing to say), or, where the gate
+                            # refused it, sent something other than the payload alone
+                            if (first_dir / gate.STAGE_CHECK).is_file():
+                                (first_dir / gate.STAGE_CHECK).chmod(0o600)
+                                (first_dir / gate.STAGE_CHECK).write_text(json.dumps({"failures": []}), encoding="utf-8")
+                            else:
+                                resend(first_dir, base + " ")
+                        elif edit == "other-payload":
+                            return guarded(lambda: corrected_sha256(second_dir, other), "RAISED")
+                    except (OSError, ValueError) as exc:
+                        return f"RAISED {exc!r}"
+                    return guarded(lambda: corrected_sha256(second_dir, base), "RAISED")
+                receipt_hash = {kind: (guarded(lambda kind=kind: records.read_json(
+                    retried / "calls" / attempts_of[kind][0] / "receipt.json"), {}).get("evidence") or {}).get("payload_sha256")
+                    for kind in planted_first if attempts_of.get(kind)}
+                kept = {kind: tampered(kind, "untouched") for kind in planted_first}
+                control("Codex WP-11 r2 #1: in each call kind, the retried attempt's due hash, rebuilt from its first attempt's "
+                        "records, is its receipt's", len(receipt_hash) == 4
+                        and all(kept[k] is not None and kept[k] == receipt_hash.get(k) for k in planted_first),
+                        f"{kept} {receipt_hash}")
+                refused_kinds = {(kind, edit): tampered(kind, edit) for kind in planted_first
+                                 for edit in ("invented", "double", "first", "wrong-predecessor", "other-payload")}
+                control("Codex WP-11 r2 #1: in each call kind, an invented diagnostic, a doubled correction, a correction on "
+                        "a first attempt, a wrong predecessor, and another candidate's payload get no due hash",
+                        len(refused_kinds) == 20 and all(v is None for v in refused_kinds.values()),
+                        f"{[k for k, v in refused_kinds.items() if v is not None]}")
+                # Codex WP-11 r1 #2 and r2 #2: S10's reader takes S6's files only as S6's stage record registered them, and
+                # holds each to the call S6 accepted; each case on its own copy of the run after its last invocation
+                c0 = claims_known[0] if claims_known else ""
+                other = next((c for c in sorted(whole_packets) if c not in claims_known), "")
+
+                def stale_case(name, mutate=None):
+                    here = root / "stale" / name
+                    shutil.copytree(whole.parent, here)
+                    run_here = here / whole.name
+
+                    def rewrite(rel, change):
+                        path = run_here / rel
+                        held = records.read_json(path)
+                        path.chmod(0o600)
+                        path.write_text(json.dumps(change(held)), encoding="utf-8")
+
+                    def reregister(*rels):   # S6's stage record made to agree with the files as they now are
+                        rec_path = records.record_path(run_here, STAGE)
+                        rec = records.read_json(rec_path)
+                        for o in rec.get("outputs") or []:
+                            if o["artifact"] in rels:
+                                o["sha256"] = records.sha256_file(run_here / o["artifact"])
+                        rec_path.chmod(0o600)
+                        rec_path.write_text(json.dumps(rec), encoding="utf-8")
+                    try:
+                        if mutate is not None:
+                            mutate(run_here, rewrite, reregister)
+                    except (OSError, KeyError, ValueError, Refused) as exc:
+                        return f"RAISED {exc!r}", run_here
+                    return refusal(lambda: given_from_run(run_here, c0 if name.startswith("r-") else other)) or \
+                        guarded(lambda: derive.unit_outcome(given_from_run(run_here, c0 if name.startswith("r-") else other),
+                                                            {}, TEST_STATE)["candidate_diagnosis"]["current"]["diagnosis"],
+                                "RAISED"), run_here
+                rel_b, rel_a = reconsideration_rel(item_of(c0), "B"), judgment_rel(item_of(other), "A")
+
+                def shrink(run_here, rewrite, reregister=None):
+                    def change(held):
+                        for r in (held.get("reconsiderations") or {}).get("reconsidered") or []:
+                            if r["candidate_id"] == c0:
+                                r["returned"] = 0
+                        return held
+                    rewrite(SUMMARY, change)
+                    if reregister:
+                        reregister(SUMMARY)
+
+                def foreign_named(run_here, rewrite, reregister):
+                    rewrite(rel_b, lambda held: {**held, "call_id": "another-run-S6-x-a1"})
+
+                    def change(held):
+                        for r in (held.get("reconsiderations") or {}).get("calls") or []:
+                            if r["candidate_id"] == c0:
+                                r["seats"]["B"]["call_id"] = "another-run-S6-x-a1"
+                        return held
+                    rewrite(SUMMARY, change)
+                    reregister(rel_b, SUMMARY)
+
+                def copied_from(run_here, rewrite, reregister):
+                    held = records.read_json(run_here / judgment_rel(item_of(other), "B"))
+                    rewrite(rel_b, lambda _old: {**held, "call_id": records.read_json(run_here / rel_b)["call_id"]})
+                    reregister(rel_b)
+                said = {name: stale_case(name, mutate)[0] for name, mutate in (
+                    ("r-kept", None),
+                    ("r-summary-edited", lambda r, w, g: shrink(r, w)),
+                    ("r-summary-agrees", lambda r, w, g: shrink(r, w, g)),
+                    ("r-summary-copied", lambda r, w, g: (shutil.copyfile(called / SUMMARY, r / SUMMARY), None)),
+                    ("r-seat", lambda r, w, g: (w(rel_b, lambda h: {**h, "seat": "codex:another/seat"}), g(rel_b))),
+                    ("r-candidate", copied_from),
+                    ("r-foreign-named", foreign_named),
+                    ("j-seat", lambda r, w, g: (w(rel_a, lambda h: {**h, "seat": "claude:another/seat"}), g(rel_a))),
+                    ("j-edited", lambda r, w, g: w(rel_a, lambda h: {**h, "call_id": "another-run-S6-y-a1"})))}
+                control("Codex WP-11 r2 #2: S10's reader derives a reconsidered claim from S6's files as its stage record "
+                        "registered them: covered", said["r-kept"] == "covered", f"{said['r-kept']}")
+                control("Codex WP-11 r2 #2: a summary edited after S6 wrote it is OUTPUT_UNRECORDED",
+                        str(said["r-summary-edited"]).startswith(f"OUTPUT_UNRECORDED S6 {SUMMARY}"), f"{said['r-summary-edited']}")
+                control("Codex WP-11 r2 #2: a summary made to agree with the stage record, saying nothing was returned, is "
+                        "RECONSIDERATION_STALE against the cross-review S6 registered",
+                        str(said["r-summary-agrees"]).startswith(f"RECONSIDERATION_STALE {c0}: its cross-review returned"),
+                        f"{said['r-summary-agrees']}")
+                control("Codex WP-11 r2 #2: another run's summary copied in place of S6's is OUTPUT_UNRECORDED",
+                        str(said["r-summary-copied"]).startswith(f"OUTPUT_UNRECORDED S6 {SUMMARY}"),
+                        f"{said['r-summary-copied']}")
+                i0, i1 = item_of(c0), item_of(other)
+                exact = {c: guarded(lambda c=c: sorted(given_artifacts(whole, c)), lambda e: [repr(e)]) for c in (c0, other)}
+                control("Codex WP-11 r2 #4: given_artifacts names exactly a reconsidered claim's two judgments, its "
+                        "cross-review and its two reconsiderations, and exactly the two judgments of a candidate that was "
+                        "not a claim", bool(c0) and bool(other) and exact == {
+                            c0: sorted([f"judgments/{i0}/A.json", f"judgments/{i0}/B.json", f"cross_review/{i0}.json",
+                                        f"reconsiderations/{i0}/A.json", f"reconsiderations/{i0}/B.json"]),
+                            other: sorted([f"judgments/{i1}/A.json", f"judgments/{i1}/B.json"])}, f"{exact}")
+                control("Codex WP-11 r2 #2: same call id, wrong seat: RECONSIDERATION_STALE naming the seat",
+                        f"RECONSIDERATION_STALE {c0} B: its seat" in str(said["r-seat"]), f"{said['r-seat']}")
+                control("Codex WP-11 r2 #2: same call id, another candidate's reconsideration: RECONSIDERATION_STALE "
+                        "naming the candidate", f"RECONSIDERATION_STALE {c0} B: its candidate_id" in str(said["r-candidate"]),
+                        f"{said['r-candidate']}")
+                control("Codex WP-11 r2 #2: a foreign call id the summary and the stage record were both made to name is "
+                        "not one of this run's calls", f"RECONSIDERATION_STALE {c0} B: the call 'another-run-S6-x-a1' is not"
+                        in str(said["r-foreign-named"]), f"{said['r-foreign-named']}")
+                control("Codex WP-11 r2 #2: a first judgment with the same call id and another seat is JUDGMENT_STALE, and "
+                        "one edited without its record is OUTPUT_UNRECORDED",
+                        f"JUDGMENT_STALE {other} A: its seat" in str(said["j-seat"])
+                        and str(said["j-edited"]).startswith(f"OUTPUT_UNRECORDED S6 {rel_a}"),
+                        f"{said['j-seat']} {said['j-edited']}")
+                # the live derivation reads the reconsiderations it accepted, held in memory, and never their files
+                live_root = root / "stale" / "live"
+                shutil.copytree(whole.parent, live_root)
+                live = live_root / whole.name
+                summary_l = guarded(lambda: records.read_json(live / SUMMARY), {})
+                judgments_l = {c: {w: guarded(lambda c=c, w=w: records.read_json(live / judgment_rel(item_of(c), w))
+                                              ["judgment"], {}) for w in SEAT_KEYS} for c in sorted(whole_packets)}
+                accepted_l = {c0: {w: guarded(lambda w=w: records.read_json(live / reconsideration_rel(item_of(c0), w))
+                                              ["judgment"], {}) for w in SEAT_KEYS}}
+                for w in SEAT_KEYS:
+                    (live / reconsideration_rel(item_of(c0), w)).unlink(missing_ok=True)
+                swept_l, again_l = summary_l.get("sweeps") or {}, summary_l.get("reconsiderations") or {}
+
+                def live_current(held):
+                    out = guarded(lambda: derive_stage(live, summary_l, judgments_l, swept_l, again_l, held), {})
+                    return (((out.get("verdicts") or {}).get(c0) or {}).get("outcome") or {}).get(
+                        "candidate_diagnosis", {}).get("current", {}).get("diagnosis")
+                control("Codex WP-11 r2 #2: the live derivation reads the reconsiderations it accepted, not their files: with "
+                        "the files gone it derives covered from what it holds, and gap when it holds none",
+                        (live_current(accepted_l), live_current({})) == ("covered", "gap"),
+                        f"{live_current(accepted_l)} {live_current({})}")
+                # Codex WP-11 r1 #3: the sweeps and Judge B's cross-review are held to their seats' capacity, every packet
+                # before the first call of its kind and each attempt as it is sent; a seat nobody measured is not bounded
+                # (D13). Driven with a supervisor that records what it is asked, over a copy of the swept run.
+                cap_root = root / "cap-copy"
+                shutil.copytree(whole.parent, cap_root)
+                capped = cap_root / whole.name
+                judged_w = sorted(whole_packets)
+                judgments_w = {c: {w: guarded(lambda c=c, w=w: records.read_json(capped / judgment_rel(item_of(c), w))
+                                              ["judgment"], {}) for w in SEAT_KEYS} for c in judged_w}
+                sources_w = {r["candidate_id"]: r["source"]
+                             for r in guarded(lambda: records.read_json(capped / SUMMARY), {}).get("packets", [])}
+                swept_w = guarded(lambda: records.read_json(capped / SUMMARY), {}).get("sweeps") or {}
+
+                class Asked:
+                    def __init__(self, seats_path):
+                        self.seats_path, self.items = seats_path, []
+
+                    def item(self, stage_, item, seat, text, schema_, **kw):
+                        self.items.append((item, seat, kw))
+                        return {"item": item, "outcome": "failed", "codes": ["NOT_SENT"], "attempts": []}
+
+                def asked(kind, seats_file):
+                    sup = Asked(seats_file)
+                    said = ""
+                    with records.run_stage(capped, STAGE, INPUTS) as stg:
+                        try:
+                            if kind == "sweep":
+                                sweep_stage(capped, stg, sup, stg.declaration, judged_w, judgments_w, sources_w, {},
+                                            "calibration")
+                            else:
+                                cross_stage(capped, stg, sup, stg.declaration, swept_w, item_of, {}, "calibration")
+                        except Refused as exc:
+                            said = str(exc)
+                        except Exception as exc:  # noqa: BLE001 - an earlier part's failure, read by the control
+                            said = f"RAISED {exc!r}"
+                        stg.record["status"] = "partial"
+                    return said, sup.items
+                sweep_seat, cross_seat = "claude:claude-sonnet-5-5/medium", "codex:gpt-6-astra/xhigh"
+                huge = packet.build("c-a2", STAGE, "s", "x" * 8_000_000)
+                said_s, asked_s = asked("sweep", fx_seats(root, name="sweep-tight.json", capacities={sweep_seat: 3000}))
+                control("Codex WP-11 r1 #3: a sweep shard over its seat's capacity is SWEEP_OVER_CAPACITY before any sweep "
+                        "is sent", said_s.startswith("SWEEP_OVER_CAPACITY S6") and asked_s == [], f"{said_s[:200]} {len(asked_s)}")
+                said_s, asked_s = asked("sweep", fx_seats(root, name="sweep-room.json", capacities={sweep_seat: 150_000}))
+                side_a = [kw for item, seat, kw in asked_s if seat == sweep_seat]
+                side_b = [kw for item, seat, kw in asked_s if seat != sweep_seat]
+                control("Codex WP-11 r1 #3: within capacity every sweep is sent with its seat's capacity and an attempt bound "
+                        "that refuses an oversized attempt, and the unmeasured Codex sweep seat is not bounded (D13)",
+                        not said_s and side_a and side_b and all(kw.get("context_capacity") == 150_000 for kw in side_a)
+                        and all(any(x.startswith("SWEEP_OVER_CAPACITY sweep a") for x in kw.get("packet_check", lambda m: [])(huge))
+                                for kw in side_a)
+                        and all(kw.get("context_capacity") is None and kw.get("packet_check", lambda m: [])(huge) == [] for kw in side_b),
+                        f"{said_s[:200]} {[kw.get('context_capacity') for kw in side_a]} "
+                        f"{[guarded(lambda kw=kw: kw.get('packet_check', lambda m: [])(huge), ['RAISED'])[:1] for kw in side_a]} "
+                        f"{[kw.get('context_capacity') for kw in side_b]} "
+                        f"{[guarded(lambda kw=kw: kw.get('packet_check', lambda m: [])(huge), ['RAISED'])[:1] for kw in side_b]}")
+                said_c, asked_c = asked("cross", fx_seats(root, name="cross-tight.json", capacities={cross_seat: 3000},
+                                                         codex_allowance=5000))
+                control("Codex WP-11 r1 #3: a cross-review packet over Judge B's capacity is CROSS_OVER_CAPACITY before any "
+                        "cross-review is sent", said_c.startswith("CROSS_OVER_CAPACITY S6") and asked_c == [],
+                        f"{said_c[:200]} {len(asked_c)}")
+                said_c, asked_c = asked("cross", fx_seats(root, name="cross-room.json", capacities={cross_seat: 150_000},
+                                                         codex_allowance=5000))
+                control("Codex WP-11 r1 #3: within capacity every cross-review is sent with Judge B's capacity and an attempt "
+                        "bound that refuses an oversized attempt", not said_c and asked_c
+                        and all(kw.get("context_capacity") == 150_000
+                                and any(x.startswith("CROSS_OVER_CAPACITY B") for x in kw.get("packet_check", lambda m: [])(huge))
+                                for _i, _s, kw in asked_c), f"{said_c[:200]} {len(asked_c)}")
+                # Codex WP-11 r1 #4: a claim S5 retrieved every remaining unit for has nothing to sweep (shard_plan gives it
+                # no shard); it completes with no cross-review or reconsideration call and is derived from the judges'
+                # own judgments, as a gap
+                c_ex = claims_known[0] if claims_known else ""
+                swept_ex = {**swept_w, "absent": [c_ex], "groups": shard_plan({c_ex: []}, 5, 100), "calls": []}
+                summary_w = guarded(lambda: records.read_json(capped / SUMMARY), {})
+                sup_ex = Asked(None)
+                with records.run_stage(capped, STAGE, INPUTS) as stg:
+                    crossed_ex = guarded(lambda: cross_stage(capped, stg, sup_ex, stg.declaration, swept_ex, item_of, {},
+                                                             "calibration")[0], {})
+                    again_ex = guarded(lambda: reconsider_stage(capped, stg, sup_ex, stg.declaration, summary_w,
+                                                                whole_packets, judgments_w, crossed_ex, {},
+                                                                "calibration")[0], {})
+                    stg.record["status"] = "partial"
+                derived_ex = guarded(lambda: derive_stage(capped, summary_w, judgments_w, swept_ex, again_ex), {})
+                current_ex = (((derived_ex.get("verdicts") or {}).get(c_ex) or {}).get("outcome") or {}).get(
+                    "candidate_diagnosis", {}).get("current", {}).get("diagnosis")
+                control("Codex WP-11 r1 #4: an absence claim with nothing left to sweep is complete with no cross-review or "
+                        "reconsideration call, and is derived from the judges' judgments as a gap",
+                        bool(c_ex) and crossed_ex.get("exhausted") == [c_ex] and not crossed_ex.get("not_reviewed")
+                        and sup_ex.items == [] and [r["candidate_id"] for r in again_ex.get("reconsidered", [])] == [c_ex]
+                        and current_ex == "gap"
+                        and c_ex not in [r["candidate_id"] for r in derived_ex.get("not_derived", [])],
+                        f"{crossed_ex.get('exhausted')} {crossed_ex.get('not_reviewed')} {len(sup_ex.items)} "
+                        f"{again_ex.get('reconsidered')} {current_ex} {derived_ex.get('not_derived')}")
+                # Codex WP-11 r1 #5: a units-only reconsideration packet shows no stored unit or ledger entry id - the
+                # candidate's own references to ones it does not show carry labels of their own. Read value by value
+                # from the packet's candidate object, so an id inside other text (a decision id) is not counted.
+                def stored_values(value, labels):
+                    if isinstance(value, dict):
+                        return [x for v in value.values() for x in stored_values(v, labels)]
+                    if isinstance(value, list):
+                        return [x for v in value for x in stored_values(v, labels)]
+                    if isinstance(value, str):
+                        target = value[len(CLUSTER_PREFIX):] if value.startswith(CLUSTER_PREFIX) else value
+                        return [value] if target in labels.unit_store or target in labels.entry_store else []
+                    return []
+                referring = [(c, labels) for c, (labels, _t) in sorted(whole_packets.items()) if labels.units
+                             and stored_values({k: v for k, v in labels.candidate.items()
+                                                if k not in ("candidate_id", "label", "event_ids", "sessions")}, labels)]
+                leaked = {}
+                for c, labels in referring:
+                    shown = guarded(lambda labels=labels: json.loads(reconsider_payload(returned_labels(
+                        labels, [labels.units["n1"]])).split("<candidate>\n", 1)[1].split("\n</candidate>", 1)[0]), "RAISED")
+                    leaked[c] = ["RAISED"] if shown == "RAISED" else stored_values(shown, labels)
+                control("Codex WP-11 r1 #5: a reconsideration packet's candidate holds no stored unit or ledger entry id; "
+                        "the fixture holds candidates whose fields reference them",
+                        referring and not any(leaked.values()),
+                        f"{len(referring)} {[(c[:20], v[:3]) for c, v in leaked.items() if v][:3]}")
+                # Codex WP-11 r2 #3: no packet of any of the four kinds shows a decision reference - a decision id
+                # (`<entry id>@<run>`, every one the ledger's entries hold and every one a candidate resolves) or the
+                # approval, adjudication or confirmation a decision records - nor a stored unit or ledger entry id. Read
+                # value by value: every JSON string a payload holds, decoded, compared whole.
+                def strings_of(text):
+                    out = []
+                    for raw in re.findall(r'"((?:[^"\\\n]|\\.)*)"', text):
+                        try:
+                            out.append(json.loads(f'"{raw}"'))
+                        except ValueError:
+                            out.append(raw)
+                    return out
+                any_labels = next(iter(whole_packets.values()))[0] if whole_packets else None
+                decision_refs = set()
+                for entry in (any_labels.entry_store.values() if any_labels else []):
+                    for d in entry.get("decisions") or []:
+                        decision_refs.add(f"{entry['id']}@{d.get('run')}")
+                        # an approval the ledger records as `legacy` or `unavailable` names no row: a state, not a reference
+                        decision_refs |= {d.get(k) for k in ("approval_id", "adjudication_id", "confirmation")
+                                          if isinstance(d.get(k), str)
+                                          and d.get(k) not in lifecycle_intake.ledger_lib.UNAPPROVED}
+                resolving = [(c, labels) for c, (labels, _t) in sorted(whole_packets.items())
+                             if ((labels.candidate.get("lifecycle") or {}).get("resolves"))]
+                decision_refs |= {labels.candidate["lifecycle"]["resolves"] for _c, labels in resolving}
+
+                def four_kinds(c, labels):
+                    u = labels.units.get("n1") or sorted(labels.unit_store)[0]
+                    kinds = {"judge": lambda: payload(labels),
+                             "reconsider": lambda: reconsider_payload(returned_labels(labels, [u])),
+                             "sweep": lambda: sweep_payload(SweepLabels({"pairs": {c: [u]}, "units": [u]},
+                                                                        {c: labels.candidate}, labels.unit_store,
+                                                                        labels.entry_store), "a" * 64),
+                             "cross": lambda: cross_payload(CrossLabels(labels.candidate, {u: {"A": {"situation": "no"}}},
+                                                                        [u], [], labels.unit_store, labels.entry_store))}
+                    return {kind: guarded(make, "RAISED") for kind, make in kinds.items()}
+                shown_refs = {}
+                for c, labels in [(c, labels) for c, (labels, _t) in sorted(whole_packets.items())
+                                  if labels.candidate.get("lifecycle")]:
+                    stored = set(labels.unit_store) | set(labels.entry_store)
+                    for kind, text in four_kinds(c, labels).items():
+                        hits = ["RAISED"] if text == "RAISED" else sorted(
+                            {v for v in strings_of(text) if v in decision_refs or v in stored})
+                        if hits:
+                            shown_refs[(c[:24], kind)] = hits[:3]
+                control("Codex WP-11 r2 #3: no judge, sweep, cross-review or reconsideration packet of a lifecycle candidate "
+                        "shows a decision reference or a stored unit or entry id; the fixture holds candidates that resolve "
+                        "a decision", bool(resolving) and bool(decision_refs) and not shown_refs,
+                        f"{len(resolving)} resolving, {len(decision_refs)} references, shown {sorted(shown_refs.items())[:3]}")
+                # WP-10 X r1 #4: on disk the mixed population tells a planted candidate from a natural one (S4's
+                # candidates.json lists the naturals by construction; S4 derives their ids from their labels, and the
+                # planted ones take the labels after them), and no byte a model is sent carries either: in every packet
+                # the complete golden sent, of all four kinds, no JSON string is a candidate id or the stored label of the
+                # call's own candidate, and each CALL-ID names a candidate only by `item_of`, one digest for every member
+                population_w = guarded(lambda: records.read_json(whole / "checked-candidates.json"),
+                                       {"candidates": []})["candidates"]
+                planted_w = {e["candidate_id"] for e in guarded(lambda: records.read_json(whole / controls.CONTROLS_FILE),
+                                                                {"planted": []})["planted"]}
+                ids_w = {k["candidate_id"] for k in population_w}
+                of_item = {item_of(k["candidate_id"]): k for k in population_w}
+                kinds_w, carried = collections.Counter(), []
+                for call_json in sorted((whole / "calls").glob("*/call.json")) if (whole / "calls").is_dir() else []:
+                    held_call = guarded(lambda: records.read_json(call_json), {})
+                    if held_call.get("stage") != STAGE:
+                        continue   # the run's earlier stages' calls (S3, S4) are other packets
+                    item = str(held_call.get("item") or "")
+                    sent = guarded(lambda: (call_json.parent / "packet.md").read_text(encoding="utf-8"), "")
+                    head, _sep, body = sent.partition("\n" + packet.PAYLOAD_MARKER + "\n")
+                    call_line = head.split("\n", 1)[0]
+                    kind = ("sweep" if item.startswith("sweep-") else "cross" if item.endswith("-X")
+                            else "reconsider" if item[:-1].endswith(f"-{RECONSIDER}") else "judge")
+                    kinds_w[kind] += 1
+                    own = of_item.get(item.split("-", 1)[0]) if kind != "sweep" else None
+                    shown = set(strings_of(body))
+                    # a sweep's candidates are k1, ... in candidate-id order within the shard and a cross-review's is
+                    # always k1: packet labels, which a stored label may happen to spell, so those two kinds are held to
+                    # carrying no id; the judge and reconsideration packets label nothing k
+                    hits = sorted(shown & ids_w) + ([own["label"]] if own and kind in ("judge", "reconsider")
+                                                    and own.get("label") in shown else [])
+                    hits += [i for i in ids_w if i in call_line]
+                    if kind != "sweep" and own is None:
+                        hits.append(f"no candidate has the item {item}")
+                    if hits:
+                        carried.append((call_json.parent.name[-30:], kind, hits[:3]))
+                control("WP-10 X r1 #4: no packet of any kind carries a candidate id or its stored label, and each CALL-ID "
+                        "names its candidate by the one digest every member gets; the golden mixes natural and planted "
+                        "candidates and sent all four kinds", not carried and planted_w and ids_w - planted_w
+                        and set(kinds_w) == {"judge", "sweep", "cross", "reconsider"},
+                        f"{dict(kinds_w)} planted {len(planted_w)} natural {len(ids_w - planted_w)} carried {carried[:3]}")
+                # and in the calls that carry several candidates (a sweep shard; a cross-review carries one, always k1),
+                # what orders them is the candidate id: `shard_plan` groups them in id order and `SweepLabels` labels a
+                # shard's k1, ... in id order, whatever order they arrive in. A planted candidate is a formed one, and
+                # every formed id, planted or natural, is `k-` and sixteen hex digits of a sha256 (a planted one of the
+                # nonce, a natural one of its run and label), so among them the order is a digest's, one rule for both
+                # kinds, and no position follows creation or label number. A lifecycle candidate's id names its source,
+                # which its sweep view shows anyway.
+                id_form = re.compile(r"k-[0-9a-f]{16}")
+                by_id_w = {k["candidate_id"]: k for k in population_w}
+                formed_w = {k["candidate_id"] for k in population_w if k.get("source") == "formed"}
+                some_labels = next(iter(whole_packets.values()))[0] if whole_packets else None
+                unit_w = sorted(some_labels.unit_store)[0] if some_labels else None
+                arriving = sorted(formed_w, reverse=True)[:5]
+                probe_labels = guarded(lambda: SweepLabels({"pairs": {c: [unit_w] for c in arriving}, "units": [unit_w]},
+                                                           by_id_w, some_labels.unit_store, some_labels.entry_store), None)
+                grouped = [c for g in (guarded(lambda: records.read_json(whole / SUMMARY), {}).get("sweeps") or {})
+                           .get("groups") or [] for c in g.get("candidates") or []]
+                control("WP-10 X r1 #4 (round 2's question): candidates sharing a packet are ordered and labelled by "
+                        "candidate id, and every id is one digest form for planted and natural alike",
+                        probe_labels is not None and list(probe_labels.candidates.values()) == sorted(arriving)
+                        and planted_w <= formed_w and all(id_form.fullmatch(i) for i in formed_w)
+                        and grouped and grouped == sorted(grouped),
+                        f"{getattr(probe_labels, 'candidates', None)} {[i for i in formed_w if not id_form.fullmatch(i)][:2]} "
+                        f"{grouped[:4]}")
+                sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
+                                lambda e: {"problem": repr(e)})
+                sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
+                    h.get("reused") for row in (sixth.get("sweeps") or {}).get("calls", []) for h in row["seats"].values()] + [
+                    row.get("reused") for row in (sixth.get("cross_review") or {}).get("calls", [])] + [
+                    h.get("reused") for row in (sixth.get("reconsiderations") or {}).get("calls", [])
+                    for h in row["seats"].values()]
+                control("Codex WP-11 r1 #1: run again, every call is answered by its accepted attempt, the retried ones "
+                        "included, and the receipts still pass", "problem" not in sixth and sixth_reused
+                        and all(sixth_reused), f"{str(sixth.get('problem'))[:300]} {sixth_reused.count(None)}")
                 # ---- Judge B's cross-review (J3b, done-when 3) --------------------------------------------------------
                 cr = again_sw.get("cross_review") or {}
                 pop_b = {k["candidate_id"]: k for k in records.read_json(whole / "checked-candidates.json")["candidates"]}
@@ -2917,9 +3852,12 @@ def self_test():
                     named("control (done-when 3): a cross-review missing one partial flag is CROSS_REVIEW_INCOMPLETE",
                           cross_review_problems({**rec, "partial_flags": rec["partial_flags"][1:]}, flags_c, neg_c, built_sha),
                           "CROSS_REVIEW_INCOMPLETE")
+                    # another sample is always built and always judged by the checker: the drawn ones reversed, or with
+                    # a unit nobody drew added when there are fewer than two (Codex WP-11 r1 #7)
+                    kept_negatives = list(rec["seeded_negatives"])
+                    another = kept_negatives[::-1] if len(set(kept_negatives)) > 1 else kept_negatives + ["u-not-drawn"]
                     named("control: a cross-review whose negatives are another sample is CROSS_REVIEW_INCOMPLETE",
-                          cross_review_problems({**rec, "seeded_negatives": rec["seeded_negatives"][::-1]}, flags_c, neg_c,
-                                                built_sha) if len(neg_c) > 1 else ["CROSS_REVIEW_INCOMPLETE vacuous"],
+                          cross_review_problems({**rec, "seeded_negatives": another}, flags_c, neg_c, built_sha),
                           "CROSS_REVIEW_INCOMPLETE")
                     corrupted = json.loads(json.dumps(marks_c))
                     some_neg = (neg_c or flags_c)[0]

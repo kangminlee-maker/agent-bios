@@ -228,10 +228,14 @@ Agent-bios does not install credentials or infer a model account from dependency
   unauthenticated opposite-family route is reported, not credited as a completed review.
 - **Codex capture** — `codex-run --capture DIR` records one call's evidence through
   `wrappers/codex_frame_filter.py` (standard-library Python 3), resolved beside the adapter.
-  It reads codex-cli 0.163.0's trace frames, which appear only under the caller's
+  It reads codex-cli's trace frames, which appear only under the caller's
   `RUST_LOG=tungstenite::protocol=trace,codex_otel.log_only=info,codex_core::responses_retry=warn`;
-  the channel is unsupported and version-bound, so a capture without it attests no model. A
-  capture refuses a codex whose version is not `CODEX_RUN_VERSION` (`HOST_VERSION_MISMATCH`).
+  the channel is unsupported and version-bound, so a capture without it attests no model. The
+  frame shape was verified on codex-cli 0.163.0; session distill pins 0.167.0 since 2026-11-12, and
+  its first 0.167.0 capture is what confirms the shape there. A capture refuses a codex whose
+  version is not `CODEX_RUN_VERSION` (`HOST_VERSION_MISMATCH`), and every exit the adapter takes
+  before it starts codex names its code (`codex-run: CODE ...`), which the distill driver records
+  as the call's `runner_refused`.
 <!-- mcp-inventory:start -->
 <!-- facts: {"bundlers": {"compose/app_desktop/server.py": ["compose/instructions_app.py"]}, "capabilities": [], "servers": ["compose/app_desktop/server.py"]} -->
 - **MCP servers** — derived from source by `gates/check-mcp-inventory.py`.

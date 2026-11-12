@@ -27,7 +27,12 @@ Code only: no model is called. For every candidate of S4's population - formed a
   (derive.absence) the current point S2 recorded decides, and when it is not complete every candidate is withheld from
   an absence sweep, with the count and the reason travelling by name to the summary and the report (D-20261111-eaa2a8).
 
-The output holds names, ids, hashes, scores and counts; no unit text, lesson or quote.
+Three outputs, each with its own boundary. `checks.json` and `controls.json` hold names, ids, hashes, scores and
+counts: no unit text, lesson or quote. `checked-candidates.json` (POPULATION_FILE) is the population S6 builds its
+packets from, and it is evidence-bearing by design: every candidate whole (S4's formed ones with their lessons, the
+lifecycle intake's, the planted controls) and the evidence records S6 shows beside them - the origin quotes S4
+verified and kept, and a planted quote - redacted text included. It is private to the run and goes to a model only through S6's packets (Codex WP-10 X r1 #9:
+a counts-only sentence covered all three).
   stage_retrieve.py --self-test
 """
 import collections
@@ -253,21 +258,26 @@ def stored_evidence(run_dir, names):
 
 
 def cited(candidate, subject_of):
-    """`(evidence ids a candidate cites, problems)`: its admission's quotes and the quotes of its events' claims."""
+    """`(evidence ids a candidate cites, problems)`: its admission's quotes, and the quotes of every claim it cites - by
+    its admission's `claim_ids`, its tension's `instance_claim_ids` and its events' claims - each claim once. Codex WP-10
+    r1 #1: the claims cited directly were skipped, so a quote reached only through one was never verified again."""
     events = {r["id"]: r for r in subject_of["events"]}
-    ids, problems = set(), []
+    ids, problems, claim_ids = set(), [], []
     for requirement in (candidate.get("admission") or {}).values():
         ids.update(requirement.get("evidence_ids") or [])
+        claim_ids += list(requirement.get("claim_ids") or [])
+    claim_ids += list((candidate.get("tension") or {}).get("instance_claim_ids") or [])
     for event_id in candidate.get("event_ids") or []:
         row = events.get(event_id)
         if row is None:
             continue
-        for claim_id in row["claim_ids"] + row["outcome_claim_ids"]:
-            claim = subject_of["claims"].get(claim_id)
-            if claim is None:
-                problems.append(f"CLAIM_UNKNOWN {claim_id}")
-                continue
-            ids.update(q["evidence_id"] for q in claim["quotes"])
+        claim_ids += row["claim_ids"] + row["outcome_claim_ids"]
+    for claim_id in dict.fromkeys(claim_ids):
+        claim = subject_of["claims"].get(claim_id)
+        if claim is None:
+            problems.append(f"CLAIM_UNKNOWN {claim_id}")
+            continue
+        ids.update(q["evidence_id"] for q in claim["quotes"])
     return sorted(ids), problems
 
 
@@ -741,6 +751,37 @@ def self_test():
             raw = guarded(lambda: (gold / "checks.json").read_text(encoding="utf-8"), "")
             control("checks.json holds names, ids, scores and counts: no unit text and no lesson",
                     raw and not [t for t in texts if t and t in raw], f"{[t for t in texts if t and t in raw][:2]}")
+            # Codex WP-10 X r1 #9: each output's boundary on its own, against the texts the run's stores hold - the
+            # library's units, S4's lessons, and the redacted text of every quote S4's formed candidates cite
+            cited_q = set()
+            for k in cands:
+                if k["source"] == "formed":
+                    cited_q |= set(guarded(lambda k=k: cited(k, stage_form.subject(gold))[0], []))
+            quote_texts = []
+            for path in sorted((gold / "evidence").glob("*.jsonl")):
+                for line in path.read_text(encoding="utf-8").splitlines():
+                    rec = json.loads(line) if line.strip() else {}
+                    if rec.get("evidence_id") in cited_q and len(rec.get("redacted_text") or "") > 12:
+                        quote_texts.append(rec["redacted_text"])
+
+            def holds(raw_text, text):   # as written, or as JSON escapes it
+                return any(form in raw_text for form in (text, json.dumps(text)[1:-1],
+                                                         json.dumps(text, ensure_ascii=False)[1:-1]))
+            outputs = {name: guarded(lambda name=name: (gold / name).read_text(encoding="utf-8"), "") for name in OUTPUTS}
+            lessons = [k["lesson"] for k in cands if k["source"] == "formed" and len(k.get("lesson") or "") > 12]
+            leaked = {name: [t[:30] for t in texts + quote_texts if holds(outputs[name], t)]
+                      for name in ("checks.json", controls.CONTROLS_FILE)}
+            # what the population carries beyond the candidates: the origin quotes S4 verified and kept
+            origin_texts = [r["redacted_text"] for r in (guarded(lambda: records.read_json(gold / "candidates.json"), {})
+                                                         .get("origin_evidence") or {}).values()
+                            if len(r.get("redacted_text") or "") > 12]
+            carried = [t[:30] for t in lessons + origin_texts if not holds(outputs[POPULATION_FILE], t)]
+            control("Codex WP-10 X r1 #9: checks.json and controls.json hold no unit text, lesson or quote, and "
+                    "checked-candidates.json, the evidence-bearing population, holds every formed lesson and the redacted "
+                    "text of every origin quote S4 kept", bool(lessons) and bool(quote_texts) and bool(origin_texts)
+                    and all(outputs.values()) and not any(leaked.values()) and not carried,
+                    f"{len(lessons)} lessons {len(quote_texts)} quotes {len(origin_texts)} origins leaked {leaked} "
+                    f"not carried {carried[:2]}")
 
             # quote checks: an altered quote in the store fails by code and id
             altered = copy_of("altered")
@@ -763,6 +804,26 @@ def self_test():
                     "counted in the summary", target_id and a_row.get("quote_ok") is False
                     and a_row.get("quote_problems") == [f"QUOTE_MISMATCH {target_id}"]
                     and a_doc["summary"].get("quote_failed") == 1, f"{target_id} {a_row.get('quote_problems')}")
+            # Codex WP-10 r1 #1: the same altered quote, reached only through a claim the candidate cites directly - by
+            # its admission's claim_ids, and by its tension's instance_claim_ids - is QUOTE_MISMATCH too
+            sub_a = guarded(lambda: stage_form.subject(altered), {"events": [], "claims": {}})
+            direct = next((c for c, claim in sub_a["claims"].items()
+                           if any(q["evidence_id"] == target_id for q in claim["quotes"])), None)
+            names_a = [t["name"] for t in guarded(lambda: records.read_json(altered / "views.json")["transcripts"], [])]
+            stored_a = guarded(lambda: stored_evidence(altered, names_a), {})
+            by_claims = {"candidate_id": "k-direct", "event_ids": [],
+                         "admission": {"observed_event": {"claim_ids": [direct], "evidence_ids": []}}}
+            by_tension = {"candidate_id": "k-tension", "event_ids": [], "admission": {},
+                          "tension": {"instance_claim_ids": [direct]}}
+            got_direct = [guarded(lambda k=k: quote_problems(altered, cited(k, sub_a)[0], stored_a, {}), ["RAISED"])
+                          for k in (by_claims, by_tension)]
+            control("Codex WP-10 r1 #1: an altered quote reached only through a claim cited directly - by the admission's "
+                    "claim_ids or the tension's instance_claim_ids - is QUOTE_MISMATCH by evidence id",
+                    direct and target_id and got_direct == [[f"QUOTE_MISMATCH {target_id}"]] * 2,
+                    f"{direct} {target_id} {got_direct}")
+            control("Codex WP-10 r1 #1: a claim cited directly that no store holds is CLAIM_UNKNOWN",
+                    guarded(lambda: cited({**by_claims, "admission": {"observed_event": {"claim_ids": ["c-none"]}}},
+                                          sub_a)[1], []) == ["CLAIM_UNKNOWN c-none"])
             # a tampered immutable copy, at the function: the record's own copy hashes otherwise
             tampered = copy_of("tampered")
             sub_t = guarded(lambda: stage_form.subject(tampered), None)
