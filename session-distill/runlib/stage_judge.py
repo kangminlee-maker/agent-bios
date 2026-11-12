@@ -2098,6 +2098,13 @@ def call_row(out):
 
 
 def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibration"):
+    """`_run`, with the expected verdicts' file S5 wrote sealed for as long as it runs (`controls.sealed`): any module
+    that opens it, by its name, a glob, a computed name or a link, is refused CONTROLS_READ (Codex WP-10 X r1 #7)."""
+    with controls.sealed(run_dir, STAGE):
+        return _run(run_dir, supervisor, dry=dry, seats_path=seats_path, tranche=tranche)
+
+
+def _run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibration"):
     """S6 over S5's population (plan WP-11): admitted against its inputs, it builds and measures every judgment packet
     (`build`); dry, it writes `judgments/dry.json` and leaves the record `partial`. Otherwise every judged candidate is
     sent to Judge A and Judge B through `supervisor`, each an item of its own, with the same payload; each answer is
@@ -2646,6 +2653,52 @@ def self_test():
                     and [c.split()[0] for c in dry.get("limits", {}).get("B", {}).get("unmeasured", [])]
                     == ["ALLOWANCE_UNMEASURED", "CAPACITY_UNDECLARED"] and dry.get("output_cap") == OUTPUT_CAP,
                     f"{dry.get('limits')}")
+            # Codex WP-10 X r1 #7: whatever module S6 runs, and however it reaches the expected verdicts' file - a glob
+            # over the run, a computed name, a link under another name, an open relative to the run's directory - it is
+            # refused CONTROLS_READ; each reader is planted in S6's own builder on a copy of the golden run
+            kept_build = globals()["build"]
+
+            def plant_reader(read):
+                def reading(run_dir, *rest, **kw):
+                    read(pathlib.Path(run_dir))
+                    return kept_build(run_dir, *rest, **kw)
+                return reading
+
+            def linked(where):
+                os.link(where / controls.CONTROLS_FILE, where / "linked.json")
+                return (where / "linked.json").read_text(encoding="utf-8")
+
+            def by_fd(where):
+                fd = os.open(where, os.O_RDONLY)
+                try:
+                    os.close(os.open(controls.CONTROLS_FILE, os.O_RDONLY, dir_fd=fd))
+                finally:
+                    os.close(fd)
+
+            def swallowed(where):
+                try:
+                    (where / controls.CONTROLS_FILE).read_bytes()
+                except Exception:  # noqa: BLE001 - the planted reader hides the refusal; the seal names it at the end
+                    pass
+            readers = {"glob": lambda where: {p.name: p.read_text(encoding="utf-8") for p in where.glob("*.json")},
+                       "constructed": lambda where: (where / ("con" + "trols." + "json")).read_text(encoding="utf-8"),
+                       "linked": linked, "fd-relative": by_fd, "swallowed": swallowed}
+            sealed_said = {}
+            for label, read in readers.items():
+                target = copy_of(f"sealed-{label}")
+                globals()["build"] = plant_reader(read)
+                try:
+                    sealed_said[label] = refusal(lambda: run(target, dry=True, seats_path=seats_file))
+                finally:
+                    globals()["build"] = kept_build
+            control("Codex WP-10 X r1 #7: a glob over the run, a computed name, a link, an fd-relative open, and a read "
+                    "whose refusal is swallowed, planted in S6's own builder, are each CONTROLS_READ",
+                    all(str(v).startswith("CONTROLS_READ S6") for v in sealed_said.values()) and len(sealed_said) == 5,
+                    f"{ {k: str(v)[:90] for k, v in sealed_said.items()} }")
+            outside = copy_of("sealed-after")
+            control("Codex WP-10 X r1 #7: the seal holds only while S6 runs: the same file opens after it",
+                    guarded(lambda: run(outside, dry=True, seats_path=seats_file).get("dry"), None) is True
+                    and guarded(lambda: bool((outside / controls.CONTROLS_FILE).read_bytes()), False), "")
             lines = guarded(lambda: report_lines(made), [])
             control("golden: the report says what was judged, measured and not measured, in counts and codes",
                     any("candidates judged" in l for l in lines) and any("not computed: ALLOWANCE_UNMEASURED" in l for l in lines),

@@ -18,7 +18,8 @@ candidate - its events, sessions and quotes - and changes exactly what its kind 
 A control's id is `k-` and sixteen hex digits, as a formed candidate's is, derived from a nonce drawn per run; its record
 has exactly the fields of the natural candidate it borrows. What marks it a control - its kind, what it borrowed and
 its expected verdict - is written only to `controls.json` (CONTROLS_FILE), which no packet carries and S6 never reads:
-`reader_problems` holds the modules to that, naming every site that names the file. The §3.2 gate controls are
+`reader_problems` names every site that names the file, and S6 runs with the file `sealed`, so a read that does not
+name it (a glob, a computed name, a link) is refused where it opens. The §3.2 gate controls are
 declared beside them; the gate judges them over planted call directories of the stage that dispatches calls.
 
 `check_s5` holds S5's checks to the S5 verdicts; `evaluate` holds the judgments and the gate's verdicts to the rest,
@@ -29,9 +30,11 @@ before S7), REJECTION_SHARE_ZERO (more than twenty natural candidates and none r
   controls.py --self-test
 """
 import ast
+import contextlib
 import copy
 import hashlib
 import json
+import os
 import pathlib
 import random
 import re
@@ -380,6 +383,62 @@ def reader_sites(texts):
                         (isinstance(node, (ast.Name, ast.Attribute)) and getattr(node, "id", getattr(node, "attr", None)) == "CONTROLS_FILE"):
                     sites.add((rel, name))
     return sites
+
+
+# ---- WP-10 X r1 #7: the expected verdicts' file is sealed while a judging stage runs ------------------------------
+
+_SEAL = {"installed": False, "stages": [], "opened": []}
+
+
+def _sealed_open(event, args):
+    """The audit hook `sealed` installs: while a stage holds the seal, opening any file named controls.json - or any
+    path that is the run's controls.json under another name (a link) - is refused, the controls table aside, and the
+    attempt is recorded so a caller that swallows the refusal is still named when the stage ends."""
+    if event != "open" or not _SEAL["stages"] or not args or not isinstance(args[0], (str, bytes, os.PathLike)):
+        return
+    stage, run_file, table_id, sealed_id = _SEAL["stages"][-1]
+    try:
+        name = os.fsdecode(args[0])
+        st = os.stat(name)
+        held = (st.st_dev, st.st_ino)
+    except (OSError, TypeError, ValueError):
+        held = None
+    if held is not None and held == table_id:
+        return   # the controls TABLE (tables/controls.json), which holds no run's verdicts
+    if os.path.basename(name) == CONTROLS_FILE or (held is not None and held == sealed_id):
+        _SEAL["opened"].append(name)
+        raise Refused(f"CONTROLS_READ {stage}: {name} was opened while {stage} runs; the expected verdicts "
+                      f"({run_file}) are sealed from every module the stage runs, by name, glob or link alike")
+
+
+@contextlib.contextmanager
+def sealed(run_dir, stage):
+    """Hold the expected verdicts' file of `run_dir` sealed while the block runs (Codex WP-10 X r1 #7: a scan for the
+    file's name cannot see a glob, a computed name or a link, so the boundary is held where every read passes, at
+    `open`). An attempt is refused where it is made and, should its caller swallow that, CONTROLS_READ when the block
+    ends."""
+    if not _SEAL["installed"]:
+        sys.addaudithook(_sealed_open)
+        _SEAL["installed"] = True
+
+    def identity(path):
+        try:
+            st = os.stat(path)
+            return st.st_dev, st.st_ino
+        except OSError:
+            return None
+    run_file = pathlib.Path(run_dir) / CONTROLS_FILE
+    _SEAL["stages"].append((stage, str(run_file), identity(TABLE_PATH), identity(run_file)))
+    before = len(_SEAL["opened"])
+    try:
+        yield
+    finally:
+        _SEAL["stages"].pop()
+        opened = _SEAL["opened"][before:]
+        del _SEAL["opened"][before:]
+    if opened:
+        raise Refused(f"CONTROLS_READ {stage}: {len(opened)} opens of the sealed expected verdicts' file while it ran "
+                      f"(the first {opened[0]})")
 
 
 def reader_problems(texts):
