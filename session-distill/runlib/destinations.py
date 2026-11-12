@@ -20,9 +20,11 @@ writes.
 
     destinations.py --self-test
 """
+import ast
 import json
 import os
 import pathlib
+import re
 import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
@@ -105,9 +107,21 @@ def table_problems():
             if cls not in CLASSES:
                 problems.append(f"DESTINATION_UNDECLARED {row['writer']}: class {cls!r} is not one "
                                 f"of {', '.join(CLASSES)}")
-        if row.get("destinations") and row.get("writes_without_override"):
-            problems.append(f"DESTINATION_BOTH_WAYS {row['writer']}: a writer resolves its "
-                            f"destination from overrides or declares one directly, never both")
+        # A writer may do BOTH, and the real tree settles it: `install.sh` resolves CLAUDE_CONFIG_DIR
+        # and CODEX_HOME from the environment while assigning `STATE_DIR` from `$HOME`
+        # unconditionally (install.sh:48). The first version of this gate forbade the combination,
+        # which would have forced the inventory to misdescribe its largest writer. What must hold is
+        # that a fixed root is itself classified and shown where it was derived from.
+        if row.get("writes_without_override") and not row.get("writer_unwritten"):
+            if row["writes_without_override"] not in CLASSES:
+                problems.append(f"FIXED_ROOT_UNCLASSED {row['writer']}: "
+                                f"{row['writes_without_override']!r} is not a destination class")
+            derived_fixed_here = any(e["writer"] == row["writer"] and e["override"] is None
+                                     for e in closure())
+            if derived_fixed_here and not row.get("fixed_roots"):
+                problems.append(f"FIXED_ROOT_UNSHOWN {row['writer']}: the closure derived a "
+                                f"HOME-fixed root for this writer and the row shows none of the "
+                                f"lines it came from")
         if not row.get("$comment"):
             problems.append(f"WRITER_UNREASONED {row['writer']}: every row carries its own reason")
     _held, conflicts = class_of_override()
@@ -146,20 +160,457 @@ def fidelity_problems():
             problems.append(f"WRITER_SOURCE_ABSENT {row['writer']}: {source} does not exist")
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
+        carried = {entry["override"] for entry in row.get("destinations") or ()}
         for held in row.get("fallbacks") or ():
+            # A fallback for an override the row does not carry is the same error as a certified
+            # class for an override the writer does not read: install.sh's fallbacks listed
+            # AGENT_BIOS_STATE_DIR, whose literal IS in install.sh — as an unconditional assignment
+            # with no override in it — so the literal check passed over it.
+            if held["override"] not in carried:
+                problems.append(f"FALLBACK_UNPAIRED {row['writer']} {held['override']}: a fallback "
+                                f"is stated for an override this row carries no destination for")
+                continue
             if held["literal"] not in text:
                 problems.append(f"FALLBACK_MOVED {row['writer']} {held['override']}: {source} no "
                                 f"longer carries {held['literal']!r}")
     return problems
 
 
+# ---- the inventory derived from the writers' real closure ---------------------------------------
+#
+# The first version of this table was written from memory and was incomplete in both directions: it
+# lacked nine override variables that shipped writers really read, and it certified
+# `AGENT_BIOS_STATE_DIR` for `install.sh`, which assigns `STATE_DIR` from `$HOME` unconditionally and
+# never reads that variable at all — a row certifying a value its writer cannot use. Memory is not a
+# source. These functions derive the closure from the shipped files themselves, so a writer that
+# gains a destination appears here without anyone remembering to add it.
+
+# A destination override is one whose fallback is a PATH. `AGENT_LAUNCH_TUI:-1`,
+# `AGENT_BIOS_UPDATE_CHECK:-1` and `AGENT_BIOS_LEGACY_INSTALL` are flags compared to a literal, and a
+# flag is not a place anything is written.
+_OVERRIDE_NAME = (r"(AGENT_BIOS_[A-Z_]+|AGENT_LAUNCH_[A-Z_]+|XDG_[A-Z_]+|CLAUDE_CONFIG_DIR"
+                  r"|CODEX_HOME|ZDOTDIR|HOME)")
+# Python: ANY mapping's `.get("OVERRIDE"`, over the whole text rather than line by line. Both
+# corrections are findings from the first derivation: it matched only `environ.get(`, so
+# `compose/instructions_install.py`'s `self.env.get("CLAUDE_CONFIG_DIR", ...)` — the same read
+# through an injected environment — looked like an override the writer does not read; and it scanned
+# single lines, so `session-distill/update-state.py`'s three-line `os.environ.get(` was invisible.
+# Both false answers pointed the same way, at the table being wrong where it was right.
+_PY_OVERRIDE = re.compile(r'\.get\(\s*["\']' + _OVERRIDE_NAME + r'["\']\s*(?:,\s*(?P<fb>(?:[^()]|\([^()]*\))*))?',
+                          re.DOTALL)
+_PY_SUBSCRIPT = re.compile(r'environ\[\s*["\']' + _OVERRIDE_NAME + r'["\']\s*\]')
+_SH_OVERRIDE = re.compile(r'\$\{' + _OVERRIDE_NAME + r':-(?P<fb>[^}]*)\}')
+_PATHISH = re.compile(r'(Path\.home\(\)|expanduser|os\.path\.join|\$HOME|\$\{HOME\}|/|\.local|\.config)')
+_HOME_ROOT = re.compile(r'(Path\.home\(\)|expanduser\(\s*["\']~|\$HOME|\$\{HOME\})')
+_ROOTISH = re.compile(r'(\.local/|\.config/|\.claude|\.codex|\.cache/|\.zsh|/share/|/bin\b)')
+
+
+def shipped_writers():
+    """Every shipped script the package carries, from `package.json` `files[]`.
+
+    Derived rather than listed: a writer added to the package is scanned without this module being
+    told about it, which is the whole point of deriving the inventory.
+    """
+    manifest = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
+    held = [REPO / rel for rel in sorted(_author_writers()) if (REPO / rel).is_file()]
+    for entry in manifest.get("files") or ():
+        path = REPO / entry
+        if path.is_file() and path.suffix in (".py", ".sh", ".zsh"):
+            held.append(path)
+        elif path.is_dir():
+            held += [p for p in sorted(path.rglob("*"))
+                     if p.is_file() and p.suffix in (".py", ".sh", ".zsh")]
+    return held
+
+
+def _author_writers():
+    """Writers the table declares as author-side, with the paths they live at.
+
+    `session-distill/update-state.py` is one: it writes the nudge state the design's §10.6 names, and
+    it is NOT in `package.json` `files[]` — the owner runs it from a checkout. Scanning only the
+    shipped set therefore cannot see it, and the first derivation reported its real row as
+    certifying an override nobody reads. A writer outside the package is admissible in this table,
+    but it must say so, and `inventory_problems` holds the declaration against `files[]` in both
+    directions so "author-side" cannot be used to excuse a shipped writer from the derivation.
+    """
+    return {row["writer"] for row in writers() if row.get("writer_scope") == "author"}
+
+
+# A path-shaped environment read is not yet a destination: `AGENT_BIOS_PACKAGE_ROOT` names where the
+# package is READ from, `AGENT_BIOS_PYTHON_EXECUTABLE` names an interpreter, and the fixture strings
+# in `inventory.py`'s own self-test name paths nothing writes. A derivation that cannot tell a read
+# from a write produces an inventory whose exemption list is the real table — which is the shape this
+# repo refuses everywhere else. So the question asked of each read is whether its value REACHES A
+# WRITE in the same file.
+_WRITE_CALLS = frozenset((
+    "write_text", "write_bytes", "mkdir", "makedirs", "touch", "replace", "rename", "symlink_to",
+    "copy", "copy2", "copyfile", "copytree", "move", "unlink", "rmtree", "chmod", "write",
+    "writelines", "writestr", "add", "extractall", "dump", "mkstemp", "NamedTemporaryFile",
+))
+_SH_WRITE = re.compile(
+    r'(>>?\s*"?\$|\b(cp|mv|mkdir|install|tee|rm|rmdir|ln|chmod|touch|cat\s*>|tar|printf[^|]*>)\b)')
+
+
+def _py_destination_reads(text):
+    """(override, line) for every env read in this Python source whose value reaches a write.
+
+    Reaching is answered over NAMES, not over a full dataflow: the read's assignment target (a name
+    or an attribute like `self.state_root`) must appear somewhere inside a write call's arguments.
+    That is deliberately generous — a name used in one write and read in ten still counts — because
+    the failure this inventory exists to prevent is a destination nobody declared, and a row too many
+    costs a reason while a row too few costs the owner's files.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    reads = []               # (override, line, target-name)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        names = set()
+        for target in targets:
+            for part in ast.walk(target):
+                if isinstance(part, ast.Name):
+                    names.add(part.id)
+                elif isinstance(part, ast.Attribute):
+                    names.add(part.attr)
+        if node.value is None:
+            continue
+        held = ast.unparse(node.value)
+        # A CALL, not a text match. `compose/assemble.py` holds
+        # `CLAUDE_VAR = "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"` — a token it rewrites text with, and a
+        # regex over the unparsed value read that string as an environment read. A string that
+        # mentions an override is not a read of it.
+        overrides, home_call = set(), False
+        for part in ast.walk(node.value):
+            if isinstance(part, ast.Subscript) and isinstance(part.slice, ast.Constant):
+                base = part.value
+                base_name = (base.attr if isinstance(base, ast.Attribute)
+                             else getattr(base, "id", ""))
+                if base_name == "environ" and re.fullmatch(_OVERRIDE_NAME, str(part.slice.value) or ""):
+                    overrides.add(str(part.slice.value))
+            if not isinstance(part, ast.Call):
+                continue
+            func = part.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            if name == "get" and part.args:
+                # The key can be chosen at runtime: `compose/instructions_understand.py` reads
+                # `.get("CODEX_HOME" if host == "codex" else "CLAUDE_CONFIG_DIR", ...)`, which
+                # honours BOTH overrides. Reading only a constant key recorded that writer as
+                # fixing its root from HOME — the same error as certifying an override nobody reads,
+                # pointing the other way.
+                asked_nodes = [part.args[0]]
+                if isinstance(part.args[0], ast.IfExp):
+                    asked_nodes = [part.args[0].body, part.args[0].orelse]
+                for node_asked in asked_nodes:
+                    if not isinstance(node_asked, ast.Constant):
+                        continue
+                    asked = str(node_asked.value)
+                    if re.fullmatch(_OVERRIDE_NAME, asked) and _PATHISH.search(held):
+                        overrides.add(asked)
+            if name in ("home", "expanduser"):
+                home_call = True
+        for asked in overrides:
+            for name in names:
+                reads.append((asked, node.lineno, name))
+        if not overrides and home_call and _ROOTISH.search(held):
+            for name in names:
+                reads.append((None, node.lineno, name))
+    written = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+        opens_for_write = (
+            name == "open"
+            and any(isinstance(a, ast.Constant) and isinstance(a.value, str)
+                    and any(mode in a.value for mode in ("w", "a", "x", "+"))
+                    for a in list(node.args[1:]) + [k.value for k in node.keywords]))
+        if name not in _WRITE_CALLS and not opens_for_write:
+            continue
+        for part in ast.walk(node):
+            if isinstance(part, ast.Name):
+                written.add(part.id)
+            elif isinstance(part, ast.Attribute):
+                written.add(part.attr)
+    # One name is not enough. `launch/shell_integration.py` reads ZDOTDIR into `self.zdotdir`, builds
+    # `self.startup` from it, and writes THAT — so a rule that asks only whether the read's own
+    # target appears in a write call calls a correct row a false certificate. The names form a graph
+    # (an assignment is an edge from every name in its value to every target), and the question is
+    # whether the read's target reaches a written name through it.
+    edges = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        outs = set()
+        for target in targets:
+            for part in ast.walk(target):
+                if isinstance(part, ast.Name):
+                    outs.add(part.id)
+                elif isinstance(part, ast.Attribute):
+                    outs.add(part.attr)
+        for part in ast.walk(node.value):
+            source = (part.id if isinstance(part, ast.Name)
+                      else part.attr if isinstance(part, ast.Attribute) else None)
+            if source:
+                edges.setdefault(source, set()).update(outs)
+
+    # One hop across a call. `session-distill/update-state.py` reads its override into `STATE` and
+    # passes it to a function that writes through `os.replace(temporary, path)` — the write names
+    # the PARAMETER, not the module constant, so a graph that stops at function boundaries declares
+    # a real destination unwritten. An argument therefore flows to the callee's parameter when the
+    # callee is defined in this same module.
+    params = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            spec = node.args
+            params[node.name] = [a.arg for a in
+                                 list(spec.posonlyargs) + list(spec.args) + list(spec.kwonlyargs)]
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        callee = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
+        if callee not in params:
+            continue
+        for index, argument in enumerate(node.args):
+            if index >= len(params[callee]):
+                break
+            for part in ast.walk(argument):
+                source = (part.id if isinstance(part, ast.Name)
+                          else part.attr if isinstance(part, ast.Attribute) else None)
+                if source:
+                    edges.setdefault(source, set()).add(params[callee][index])
+        for keyword in node.keywords:
+            if keyword.arg in params[callee]:
+                for part in ast.walk(keyword.value):
+                    source = (part.id if isinstance(part, ast.Name)
+                              else part.attr if isinstance(part, ast.Attribute) else None)
+                    if source:
+                        edges.setdefault(source, set()).add(keyword.arg)
+
+    def reaches(name):
+        seen, queue = {name}, [name]
+        while queue:
+            held_name = queue.pop()
+            if held_name in written:
+                return True
+            for nxt in edges.get(held_name, ()):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    queue.append(nxt)
+        return False
+
+    return [(override, line) for override, line, name in reads if reaches(name)]
+
+
+def _sh_destination_reads(text):
+    """The same question for a shell script: the variable the read is assigned to must appear in a
+    redirection or a writing command's arguments."""
+    held, lines = [], text.splitlines()
+    assigns = {}             # variable -> (override|None, line)
+    for number, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        assign = re.match(r'(?:local\s+|export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)', stripped)
+        if not assign:
+            continue
+        name, value = assign.group(1), assign.group(2)
+        for match in _SH_OVERRIDE.finditer(value):
+            if _PATHISH.search(match.group("fb")) or _PATHISH.search(value):
+                assigns[name] = (match.group(1), number)
+        if name not in assigns and _HOME_ROOT.search(value) and _ROOTISH.search(value):
+            assigns[name] = (None, number)
+    # Shell carries the same indirection: `install.sh` builds `MANIFEST="$STATE_DIR/manifest.txt"`
+    # and writes the manifest. Propagate a root through assignments that mention it, to a fixpoint.
+    for _ in range(4):
+        for number, line in enumerate(lines, 1):
+            stripped = line.strip()
+            assign = re.match(r'(?:local\s+|export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)', stripped)
+            if not assign or stripped.startswith("#"):
+                continue
+            name, value = assign.group(1), assign.group(2)
+            if name in assigns:
+                continue
+            for held_name, origin in list(assigns.items()):
+                if re.search(r'\$\{?' + re.escape(held_name) + r'\b', value):
+                    assigns[name] = origin
+                    break
+    for number, line in enumerate(lines, 1):
+        if line.strip().startswith("#") or not _SH_WRITE.search(line):
+            continue
+        for name, (override, where) in assigns.items():
+            if re.search(r'\$\{?' + re.escape(name) + r'\b', line):
+                held.append((override, where))
+    return held
+
+
+_CLOSURE_CACHE = {}
+
+
+def closure():
+    """The (writer, override) pairs and HOME-fixed roots the shipped tree really carries.
+
+    Each entry is `{writer, override|None, line, text}`. `override=None` means the writer defines a
+    destination root from HOME with no variable to redirect it, which is a different obligation: the
+    run cannot point that writer anywhere, so the table must say so rather than name an override.
+    """
+    # Scanning every shipped script costs real time, and `table_problems` asks this question once
+    # per row: without a cache the self-test's table mutations re-scan the tree dozens of times.
+    # The key is the declared author-side set, the only input a caller can vary in one process.
+    key = tuple(sorted(_author_writers()))
+    if key in _CLOSURE_CACHE:
+        return _CLOSURE_CACHE[key]
+    held = []
+    for path in shipped_writers():
+        rel = str(path.relative_to(REPO))
+        text = path.read_text(encoding="utf-8", errors="replace")
+        lines = text.splitlines()
+        reached = (_py_destination_reads(text) if path.suffix == ".py"
+                   else _sh_destination_reads(text))
+        for override, number in sorted(set(reached), key=lambda h: (h[0] or "", h[1])):
+            line = lines[number - 1] if number - 1 < len(lines) else ""
+            held.append({"writer": rel, "override": override, "line": number,
+                         "text": line.strip()[:160]})
+        continue
+        # (the line-scan below is retired: it could not tell a read from a write)
+        matcher = _PY_OVERRIDE if path.suffix == ".py" else _SH_OVERRIDE
+        claimed = set()
+        for match in matcher.finditer(text):
+            number = text.count("\n", 0, match.start()) + 1
+            line = lines[number - 1] if number - 1 < len(lines) else ""
+            if line.strip().startswith("#"):
+                continue
+            fallback = match.group("fb") or ""
+            # The fallback decides: a path means a destination, a literal means a flag. With no
+            # fallback at all, the surrounding statement has to look like a path.
+            context = match.group(0) + " " + line
+            if not _PATHISH.search(fallback) and not _PATHISH.search(context):
+                continue
+            claimed.add(number)
+            held.append({"writer": rel, "override": match.group(1),
+                         "line": number, "text": line.strip()[:160]})
+        for match in _PY_SUBSCRIPT.finditer(text) if path.suffix == ".py" else ():
+            number = text.count("\n", 0, match.start()) + 1
+            claimed.add(number)
+            held.append({"writer": rel, "override": match.group(1), "line": number,
+                         "text": lines[number - 1].strip()[:160]})
+        for number, line in enumerate(lines, 1):
+            if number in claimed or line.strip().startswith("#") or not line.strip():
+                continue
+            if _HOME_ROOT.search(line) and _ROOTISH.search(line):
+                held.append({"writer": rel, "override": None, "line": number,
+                             "text": line.strip()[:160]})
+    _CLOSURE_CACHE[key] = held
+    return held
+
+
+def inventory_problems():
+    """Where the table and the derived closure disagree, in both directions.
+
+    `INVENTORY_INCOMPLETE` is a (writer, override) pair the tree carries and the table does not — the
+    run would hand that writer an environment it never certified. `INVENTORY_UNWRITTEN` is the
+    reverse and the one that actually shipped: a row certifying an override its writer does not read,
+    so the certificate is about a value that cannot reach the writer. A pair may be excused only by
+    name, in the table's `not_a_destination`, with its own reason.
+    """
+    table_data = table()
+    excused = {(row["writer"], row.get("override")): row.get("reason")
+               for row in table_data.get("not_a_destination") or ()}
+    declared, fixed = set(), set()
+    for row in writers():
+        for held in row.get("destinations") or ():
+            declared.add((row["writer"], held["override"]))
+        if row.get("writes_without_override"):
+            fixed.add(row["writer"])
+    problems = []
+    derived_pairs, derived_fixed = set(), set()
+    for entry in closure():
+        if entry["override"] is None:
+            derived_fixed.add(entry["writer"])
+            continue
+        derived_pairs.add((entry["writer"], entry["override"]))
+    for pair in sorted(derived_pairs - declared):
+        if pair in excused:
+            continue
+        problems.append(f"INVENTORY_INCOMPLETE {pair[0]} {pair[1]}: the shipped writer reads this "
+                        f"override as a destination and no table row carries the pair")
+    forward = {row["writer"] for row in writers() if row.get("writer_unwritten")}
+    for writer in sorted(forward):
+        if (REPO / writer).exists():
+            problems.append(f"INVENTORY_FORWARD_LANDED {writer}: the row is declared as a writer "
+                            f"that does not exist yet, and the file now exists — the declaration "
+                            f"must give way to the derived closure")
+    for pair in sorted(declared - derived_pairs):
+        if pair in excused or pair[0] in forward:
+            continue
+        problems.append(f"INVENTORY_UNWRITTEN {pair[0]} {pair[1]}: the table certifies a destination "
+                        f"class for an override this writer's source never reads, so the class is "
+                        f"about a value that cannot reach it")
+    for writer in sorted(derived_fixed):
+        if any(w == writer for w, _ in declared) or writer in fixed or writer in forward:
+            continue
+        if (writer, None) in excused:
+            continue
+        problems.append(f"INVENTORY_FIXED_ROOT {writer}: the writer derives a destination root from "
+                        f"HOME with no override, and the table neither carries the writer nor "
+                        f"excuses it — a run cannot point that writer anywhere")
+    shipped_rel = {str(p.relative_to(REPO)) for p in shipped_writers()}
+    packed = set(json.loads((REPO / "package.json").read_text(encoding="utf-8")).get("files") or ())
+    for writer in sorted(_author_writers()):
+        if writer in packed or any(writer.startswith(entry) for entry in packed if entry.endswith("/")):
+            problems.append(f"INVENTORY_SCOPE_WRONG {writer}: declared author-side while "
+                            f"package.json files[] ships it, so the declaration excuses a writer "
+                            f"the derivation can see")
+        elif not (REPO / writer).is_file():
+            problems.append(f"INVENTORY_SCOPE_ABSENT {writer}: declared author-side and not present "
+                            f"in this tree at all")
+    if not shipped_rel:
+        problems.append("INVENTORY_NO_WRITERS_SCANNED: package.json files[] yielded no script to "
+                        "scan, so every table row would pass unexamined")
+    if not derived_pairs:
+        problems.append("INVENTORY_DERIVED_EMPTY: the closure found no (writer, override) pair at "
+                        "all, so an empty table would satisfy this check")
+    return problems
+
+
 def inside(path, root):
-    """Public name for the containment question, so one module answers it.
+    """Public name for the LEXICAL containment question, so one module answers it.
+
+    Lexical is half the answer and the smaller half. `os.open` follows symlinks, so a path inside
+    this root can still open a file outside it; what closes that is the WRITER opening with
+    `O_NOFOLLOW` (`journal.Storage.append` does), not a comparison of strings. A caller that cannot
+    open with O_NOFOLLOW must check `links_problem` as well.
 
     `journal.py` asks it of its own file: the journal is `runtime_state`, and a journal written
     outside its declared root is the hole this module exists to close.
     """
     return _inside(path, root)
+
+
+def links_problem(path, root):
+    """A symlink on the way from `root` to `path`, by name, or None.
+
+    For a caller that cannot open with `O_NOFOLLOW`. It walks the parts between the root and the
+    path and names the first link it finds, because a link anywhere on the way is enough to put the
+    final write outside the root. It answers about the filesystem AS IT IS NOW, so a writer that
+    can refuse the follow itself should do that instead: between this check and the open, a link can
+    appear.
+    """
+    path, root = pathlib.Path(path), pathlib.Path(root)
+    if not _inside(path, root):
+        return f"DESTINATION_OUTSIDE_ROOT {path}: not inside {root}"
+    held = root
+    for part in path.relative_to(pathlib.PurePosixPath(os.path.normpath(str(root)))).parts:
+        held = held / part
+        if held.is_symlink():
+            return (f"DESTINATION_SYMLINK {held}: a symlink on the way to {path} can put the write "
+                    f"outside {root}, and a lexical check cannot see it")
+    return None
 
 
 def _inside(path, root):
@@ -237,12 +688,17 @@ def problems(declaration, environ):
 def document(declaration, environ):
     """The manifest `apply` writes before any effect, or Refused naming what stops it."""
     rows = resolved_rows(declaration, environ)
-    held = table_problems() + fidelity_problems() + resolution_problems(rows)
+    # The derived inventory is part of the manifest's own correctness, not a separate audit: a
+    # destination the tree writes and the table does not carry is exactly the hole this manifest
+    # exists to close, so `apply` refuses before any effect rather than recording a partial answer.
+    held = (table_problems() + fidelity_problems() + inventory_problems()
+            + resolution_problems(rows))
     if held:
         raise Refused("; ".join(held))
     return {"stage": "S11", "resolved": rows,
             "overrides_required": list(required_overrides()),
             "classes": list(CLASSES),
+            "writers_scanned": sorted({entry["writer"] for entry in closure()}),
             "$comment": "design §10.5 / N#4: every writer's destination, resolved from the "
                         "environment the run hands it and asserted inside its declared root before "
                         "the first effect."}
@@ -346,6 +802,18 @@ def self_test():
             "password database", ", ".join(required_overrides()),
             "AGENT_BIOS_SESSION_DISTILL_STATE")
 
+    def _row(data, writer):
+        """The row for this writer, by NAME.
+
+        These controls used to index `writers[0]`, which is the trap AGENTS.md names: the row at
+        index 0 moved when the inventory became derived, and the control then died with a KeyError
+        over a row that simply has no fallbacks instead of failing by name.
+        """
+        for row in data["writers"]:
+            if row["writer"] == writer:
+                return row
+        raise AssertionError(f"self-test needs a {writer} row and the table has none")
+
     def with_table(mutate, call):
         """Run `call` with the table mutated, restoring it however the call ends."""
         held = json.loads(json.dumps(table()))
@@ -357,7 +825,7 @@ def self_test():
             _TABLE.update(held)
 
     control("a writer naming a class the declaration does not hold is refused by name",
-            with_table(lambda t: t["writers"][0]["destinations"][0].__setitem__("class", "elsewhere"),
+            with_table(lambda t: _row(t, "install.sh")["destinations"][0].__setitem__("class", "elsewhere"),
                        lambda: "; ".join(table_problems())),
             "DESTINATION_UNDECLARED install.sh")
     control("a class no writer writes under is refused as a stale declaration",
@@ -368,16 +836,34 @@ def self_test():
             "DESTINATION_CLASS_UNWRITTEN nudge")
     control("one variable placed in two classes by two writers is refused: its single value cannot "
             "be inside two roots",
-            with_table(lambda t: t["writers"][2]["destinations"][1].__setitem__("class", "recovery"),
+            with_table(lambda t: next(e for e in _row(t, "launch/shell_integration.py")["destinations"]
+                                      if e["override"] == "AGENT_BIOS_STATE_DIR"
+                                      ).__setitem__("class", "recovery"),
                        lambda: "; ".join(table_problems())),
             "OVERRIDE_CLASS_SPLIT AGENT_BIOS_STATE_DIR")
-    control("a writer that both takes overrides and declares a class directly is refused, because "
-            "then two answers exist for one destination",
-            with_table(lambda t: t["writers"][0].__setitem__("writes_without_override", "checkout"),
+    # A writer may both take overrides and fix a root from HOME — install.sh does — so what is
+    # refused is a fixed root with no class and a fixed root with nothing to show for it.
+    def with_writer(writer, mutate):
+        def apply(data):
+            for row in data["writers"]:
+                if row["writer"] == writer:
+                    mutate(row)
+        return apply
+
+    control("a fixed destination root whose class is not in the vocabulary is refused",
+            with_table(with_writer("install.sh",
+                                   lambda row: row.__setitem__("writes_without_override", "nowhere")),
                        lambda: "; ".join(table_problems())),
-            "DESTINATION_BOTH_WAYS install.sh")
+            "FIXED_ROOT_UNCLASSED install.sh")
+    control("and a fixed root with no derived lines to show is refused, so the row cannot assert a "
+            "root nobody can check",
+            with_table(with_writer("install.sh", lambda row: row.pop("fixed_roots", None)),
+                       lambda: "; ".join(table_problems())),
+            "FIXED_ROOT_UNSHOWN install.sh")
+    clean("a writer that does both is accepted, because install.sh really does both",
+          [p for p in table_problems() if "install.sh" in p])
     control("a row that names no class at all is refused",
-            with_table(lambda t: (t["writers"][4].__setitem__("writes_without_override", None)),
+            with_table(lambda t: _row(t, "git").__setitem__("writes_without_override", None),
                        lambda: "; ".join(table_problems())),
             "DESTINATION_UNDECLARED git")
     control("an empty writer set is refused, because a manifest over no writer confines nothing",
@@ -385,16 +871,16 @@ def self_test():
                        lambda: "; ".join(table_problems())),
             "WRITER_SET_EMPTY")
     control("a writer row without its own reason is refused",
-            with_table(lambda t: t["writers"][0].pop("$comment"),
+            with_table(lambda t: _row(t, "install.sh").pop("$comment"),
                        lambda: "; ".join(table_problems())),
             "WRITER_UNREASONED install.sh")
     control("a fallback whose literal has left its writer's source is named with the file",
-            with_table(lambda t: t["writers"][0]["fallbacks"][0].__setitem__(
+            with_table(lambda t: _row(t, "install.sh")["fallbacks"][0].__setitem__(
                            "literal", "${CLAUDE_CONFIG_DIR:-$HOME/.claude-gone}"),
                        lambda: "; ".join(fidelity_problems())),
             "FALLBACK_MOVED install.sh CLAUDE_CONFIG_DIR")
     control("and a row whose source file is gone is named too, rather than raising",
-            with_table(lambda t: t["writers"][0].__setitem__("fallback_source", "install-gone.sh"),
+            with_table(lambda t: _row(t, "install.sh").__setitem__("fallback_source", "install-gone.sh"),
                        lambda: guarded(lambda: "; ".join(fidelity_problems()))),
             "WRITER_SOURCE_ABSENT install.sh")
 
@@ -464,8 +950,126 @@ def self_test():
                                   if k != "checkout"}}, fx_env()))),
             "DESTINATION_ROOT_ABSENT")
 
+    # ---- the derived inventory ---------------------------------------------------------------
+    #
+    # The table was written from memory once and was wrong in both directions. These controls hold
+    # the derivation itself, because the derivation is now what the table rests on.
+    held_closure = closure()
+    clean("the derivation and the table agree in both directions", inventory_problems())
+    control("the closure is not empty, so an empty table could not pass unexamined",
+            "yes" if len(held_closure) > 20 else f"only {len(held_closure)}", "yes")
+    control("a row certifying an override its writer never reads is refused by name — the defect "
+            "that shipped: install.sh assigns STATE_DIR from $HOME and reads no such variable",
+            with_table(lambda t: _row(t, "install.sh")["destinations"].append(
+                           {"override": "AGENT_BIOS_STATE_DIR", "class": "install_roots"}),
+                       lambda: "; ".join(inventory_problems())),
+            "INVENTORY_UNWRITTEN install.sh AGENT_BIOS_STATE_DIR")
+    control("and a pair the tree carries with no row is refused by name",
+            with_table(lambda t: _row(t, "install.sh").__setitem__(
+                           "destinations",
+                           [e for e in _row(t, "install.sh")["destinations"]
+                            if e["override"] != "CLAUDE_CONFIG_DIR"]),
+                       lambda: "; ".join(inventory_problems())),
+            "INVENTORY_INCOMPLETE install.sh CLAUDE_CONFIG_DIR")
+    control("a HOME-fixed root the derivation found and the row does not show is refused",
+            with_table(lambda t: _row(t, "install.sh").pop("fixed_roots"),
+                       lambda: "; ".join(table_problems())),
+            "FIXED_ROOT_UNSHOWN install.sh")
+    control("a fallback stated for an override the row carries no destination for is refused: the "
+            "literal check passed over install.sh's AGENT_BIOS_STATE_DIR fallback because the "
+            "literal really is in the file, as an assignment with no override in it",
+            with_table(lambda t: _row(t, "install.sh")["fallbacks"].append(
+                           {"override": "AGENT_BIOS_STATE_DIR",
+                            "literal": "STATE_DIR=\"$HOME/.local/share/agent-bios\""}),
+                       lambda: "; ".join(fidelity_problems())),
+            "FALLBACK_UNPAIRED install.sh AGENT_BIOS_STATE_DIR")
+    control("an author-side writer declared while files[] ships it is refused, so the declaration "
+            "cannot excuse a writer the derivation can see",
+            with_table(lambda t: _row(t, "install.sh").__setitem__("writer_scope", "author"),
+                       lambda: "; ".join(inventory_problems())),
+            "INVENTORY_SCOPE_WRONG install.sh")
+    control("a forward declaration for a file that now exists is refused, so the derived closure "
+            "takes over rather than the row standing unchecked",
+            with_table(lambda t: _row(t, "session-distill/runlib/journal.py").__setitem__(
+                           "writer_unwritten", True),
+                       lambda: "; ".join(inventory_problems())),
+            "INVENTORY_FORWARD_LANDED session-distill/runlib/journal.py")
+
+    # Each of these five shapes was a wrong answer the derivation gave before it was corrected.
+    def derived_for(writer):
+        return sorted({e["override"] or "(fixed)" for e in held_closure if e["writer"] == writer})
+
+    control("a read assigned through an INJECTED environment counts: instructions_install.py reads "
+            "self.env.get(...), which a scan for os.environ.get called a non-reader",
+            ",".join(derived_for("compose/instructions_install.py")),
+            "(fixed),AGENT_BIOS_STATE_DIR,CLAUDE_CONFIG_DIR,CODEX_HOME,HOME,ZDOTDIR")
+    # The author-side writer is addressed through the table's own declaration rather than by its
+    # path: a shipped module naming an author-side path raises on the first packaged user, and
+    # `check-package.sh` caught this line on exactly that rule.
+    control("a read spread over several lines counts: the author-side writer's os.environ.get "
+            "spans three of them",
+            ",".join(derived_for(sorted(_author_writers())[0]) if _author_writers() else ["none"]),
+            "AGENT_BIOS_SESSION_DISTILL_STATE")
+    control("a runtime-chosen override key counts both ways: instructions_understand.py reads "
+            "'CODEX_HOME' if host == 'codex' else 'CLAUDE_CONFIG_DIR'",
+            ",".join(derived_for("compose/instructions_understand.py")),
+            "CLAUDE_CONFIG_DIR,CODEX_HOME,HOME")
+    control("a STRING that merely mentions an override is not a read of it: assemble.py's "
+            "CLAUDE_VAR literal is a token it rewrites text with",
+            "yes" if not any(e["line"] == 39 for e in held_closure
+                             if e["writer"] == "compose/assemble.py") else "counted the literal",
+            "yes")
+    control("and a root that reaches a write THROUGH other names counts: shell_integration.py "
+            "reads ZDOTDIR into self.zdotdir, builds self.startup from it, and writes that",
+            "ZDOTDIR" if "ZDOTDIR" in derived_for("launch/shell_integration.py")
+            else "missed the indirection", "ZDOTDIR")
+
+    # Lexical containment is half the answer: `os.open` follows symlinks, so a path inside the root
+    # can open a file outside it. `links_problem` is for a caller that cannot open with O_NOFOLLOW;
+    # `journal.Storage.append` does open that way, which is the stronger half.
+    # Plain names, no aliases: `dispatch.py`'s source-shape rule refuses `import os as _os` in a
+    # shipped module because renaming an executing module is how an effect hides from a scan, and it
+    # caught this block. The same blindness is a finding against this unit's own AST check.
+    import shutil
+    import tempfile
+    link_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-link-", dir="/tmp"))
+    try:
+        (link_root / "declared" / "deep").mkdir(parents=True)
+        (link_root / "outside").mkdir()
+        os.symlink(link_root / "outside" / "f.json", link_root / "declared" / "f.json")
+        os.symlink(link_root / "outside", link_root / "declared" / "away")
+        declared = link_root / "declared"
+        control("a path that IS a symlink is lexically inside and named by links_problem",
+                f'{_inside(declared / "f.json", declared)}:'
+                f'{(links_problem(declared / "f.json", declared) or "none")[:20]}',
+                "True:DESTINATION_SYMLINK")
+        control("a symlinked DIRECTORY on the way is named too, since a link anywhere puts the "
+                "write outside the root",
+                (links_problem(declared / "away" / "f.json", declared) or "none"),
+                "DESTINATION_SYMLINK")
+        clean("an ordinary path under the root carries no link problem",
+              [links_problem(declared / "deep" / "f.json", declared)]
+              if links_problem(declared / "deep" / "f.json", declared) else [])
+        control("and a path outside the root is still reported as outside, not as a link, and not "
+                "by raising",
+                guarded(lambda: links_problem(link_root / "outside" / "f.json", declared) or "none"),
+                "DESTINATION_OUTSIDE_ROOT")
+        control("the docstring says why this is the weaker half, so a caller does not read it as "
+                "the whole answer",
+                inside.__doc__, "O_NOFOLLOW")
+    finally:
+        shutil.rmtree(link_root, ignore_errors=True)
+
     # ---- the document and the write --------------------------------------------------------------
-    doc = document(fx_declaration(), fx_env())
+    # `document` refuses on an inventory problem too, so a mutation to the DERIVATION makes this
+    # call raise. Guarded, so the suite names the inventory failure instead of dying here: four
+    # revert rows reported CONTROL-SILENT with an empty FAIL list because this one line stopped the
+    # run before the controls that would have named the defect.
+    doc_or_refusal = guarded(lambda: document(fx_declaration(), fx_env()))
+    doc = doc_or_refusal if isinstance(doc_or_refusal, dict) else {
+        "resolved": [], "overrides_required": [], "refused": doc_or_refusal}
+    control("the document is produced at all, rather than refusing over its own inventory",
+            "dict" if isinstance(doc_or_refusal, dict) else str(doc_or_refusal)[:200], "dict")
     control("the document carries one resolved row per answered writer",
             str(len(doc["resolved"])), str(len(rows)))
     control("and the overrides the run must set", json.dumps(doc["overrides_required"]),
@@ -497,9 +1101,13 @@ def self_test():
               [] if (run_dir / OUTPUT).is_file()
               and records.read_json(run_dir / OUTPUT).get("resolved") == written.get("resolved")
               else [f"{written}"])
-        record = records.read_json(records.record_path(run_dir, "S11"))
+        # Guarded for the same reason as the document above: when the manifest refuses, there is no
+        # stage record to read, and reading it kills the suite instead of letting the controls below
+        # name the refusal.
+        record = guarded(lambda: records.read_json(records.record_path(run_dir, "S11")))
         control("registered with the stage, so a later stage can read its staleness",
-                json.dumps([o.get("artifact") for o in record.get("outputs") or []]), OUTPUT)
+                json.dumps([o.get("artifact") for o in record.get("outputs") or []])
+                if isinstance(record, dict) else str(record)[:200], OUTPUT)
         # Nothing is written when anything refuses: the escape case must leave no manifest at all.
         other = held_root / "r2"
         declare.create(other, fx_declaration())
@@ -514,16 +1122,89 @@ def self_test():
         shutil.rmtree(held_root, ignore_errors=True)
 
     # This module performs no effect, which is the whole reason it is the first commit. Asserted on
-    # its own source, in both directions, so a later edit that adds one is caught here.
+    # its own source — over the RUNTIME code only, since the self-test builds fixtures — and the
+    # scope is now a real scope rather than an accident. Three corrections, each one a way the old
+    # check could be walked past:
+    #
+    #  * it read the whole file, so the only thing keeping it green was that the fixture code used
+    #    ALIASED imports (`import os as _os`): removing the aliases, which `dispatch.py`'s source
+    #    rule demands, made the check fire on fixtures. A check whose silence depends on a rename is
+    #    not a check, and the review of this unit names the same blindness.
+    #  * an alias is now refused outright in the runtime code, by comparing the module's own import
+    #    bindings against the watched names: `import os as _o` then `_o.system(...)` passed.
+    #  * `getattr(os, "system")(...)` passed too, because the call's function is a `getattr` node
+    #    whose unparse starts with neither `os` nor `subprocess`.
     import ast
-    own = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
-    spawners = sorted({ast.unparse(node.func) for node in ast.walk(own) if isinstance(node, ast.Call)
-                       and ast.unparse(node.func).split(".")[0] in ("subprocess", "os")
-                       and ast.unparse(node.func) not in ("os.path.normpath", "os.environ.get")})
+
+    def effects_in(source):
+        """The watched calls a module's RUNTIME code makes, by name.
+
+        A function over source text rather than a block over this one file, so the widened rules
+        can be shown to fire on planted aliases and getattr forms. A check nobody has seen fail is
+        not a check, and the old version of this one was green only because the fixture code used
+        aliases.
+        """
+        tree = ast.parse(source)
+        WATCHED = ("subprocess", "os", "shutil", "tempfile")
+        ALLOWED = ("os.path.normpath", "os.environ.get", "os.environ", "os.path.join",
+                   "os.path.sep", "os.sep", "os.fspath")
+        runtime = ast.Module(body=[node for node in tree.body
+                                   if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                                           and node.name in ("self_test", "main"))],
+                             type_ignores=[])
+        bindings = {}            # local name -> the module it is bound to
+        for node in ast.walk(runtime):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    bindings[alias.asname or alias.name.split(".")[0]] = alias.name.split(".")[0]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                for alias in node.names:
+                    bindings[alias.asname or alias.name] = node.module.split(".")[0]
+        spawners = set()
+        for node in ast.walk(runtime):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.asname and alias.name.split(".")[0] in WATCHED:
+                        spawners.add(f"import {alias.name} as {alias.asname} (an alias on a watched "
+                                     f"module hides its calls from this very check)")
+            if not isinstance(node, ast.Call):
+                continue
+            rendered = ast.unparse(node.func)
+            root_name = rendered.split(".")[0].split("(")[0]
+            if bindings.get(root_name) in WATCHED or root_name in WATCHED:
+                canonical = rendered.replace(root_name, bindings.get(root_name, root_name), 1)
+                if canonical not in ALLOWED:
+                    spawners.add(canonical)
+            # `getattr(os, "system")(...)`: the callee is itself a getattr over a watched module.
+            if isinstance(node.func, ast.Call) and getattr(node.func.func, "id", "") == "getattr":
+                inner = node.func
+                if inner.args and ast.unparse(inner.args[0]).split(".")[0] in WATCHED:
+                    spawners.add(f"getattr({ast.unparse(inner.args[0])}, "
+                                 f"{ast.unparse(inner.args[1]) if len(inner.args) > 1 else '?'})")
+        return sorted(spawners)
+
+    own_source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    spawners = effects_in(own_source)
+    control("the no-effects check fires on a PLAIN call",
+            "; ".join(effects_in("import os\ndef f():\n    os.system('x')\n")), "os.system")
+    control("and on an ALIASED import, which is what kept the old check green",
+            "; ".join(effects_in("import os as _o\ndef f():\n    _o.system('x')\n")),
+            "os.system")
+    control("and names the alias itself, since the rename is the hiding place",
+            "; ".join(effects_in("import subprocess as sp\n")),
+            "import subprocess as sp")
+    control("and on a getattr form, which the review of this unit named",
+            "; ".join(effects_in("import os\ndef f():\n    getattr(os, 'system')('x')\n")),
+            "getattr(os, 'system')")
+    clean("while the allowed path helpers are not effects",
+          effects_in("import os\ndef f():\n    return os.path.normpath('a')\n"))
+    clean("and the self-test's own fixture building is out of scope, since it is fixtures",
+          effects_in("import os\ndef self_test():\n    os.symlink('a', 'b')\n"))
     clean("this module runs nothing and spawns nothing: the code that confines writes cannot itself "
           "be a writer", spawners)
     control("and the only file it writes is its own manifest",
-            ", ".join(sorted({ast.unparse(node.func) for node in ast.walk(own)
+            ", ".join(sorted({ast.unparse(node.func)
+                              for node in ast.walk(ast.parse(own_source))
                               if isinstance(node, ast.Call)
                               and ast.unparse(node.func).startswith("records.write_")})),
             "records.write_json")
