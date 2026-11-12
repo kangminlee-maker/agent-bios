@@ -99,7 +99,42 @@ def table_problems(held=None):
         if not set(row["expected"]) == set(row["checked_at"]) <= {"S5", "S6"}:
             problems.append(f"TABLE_INVALID planted {row['kind']}: its expected verdicts are not one per stage it is "
                             "checked at (S5, S6)")
+            continue
+        for stage, verdict in row["expected"].items():
+            rule = verdict.get("rule") if isinstance(verdict, dict) else None
+            if not isinstance(verdict, dict) or not verdict.get("text") or not isinstance(rule, dict) or not rule \
+                    or set(rule) - RULE_KEYS[stage] or ("problem" in rule) != ("of" in rule and "in" in rule):
+                problems.append(f"TABLE_INVALID planted {row['kind']} {stage}: an expected verdict is its design text "
+                                f"and a rule of {sorted(RULE_KEYS[stage])} (`problem` with `of` and `in`)")
     return problems
+
+
+# what each stage's evaluator applies of an expected verdict's rule (tables/controls.json)
+RULE_KEYS = {"S5": {"retrieved", "problem", "of", "in", "fields"}, "S6": {"unit_diagnosis", "admission", "requirements"}}
+
+
+def s5_holds(rule, entry, row):
+    """Whether S5's row of a planted candidate is the table's verdict: the unit it names retrieved for it, the problem
+    it names reported on its subject, and the row's fields as the rule gives them."""
+    ok = True
+    if "retrieved" in rule:
+        ok = ok and entry[rule["retrieved"]] in {u["unit_id"] for u in row["retrieved_units"]}
+    if "problem" in rule:
+        ok = ok and f"{rule['problem']} {entry[rule['of']]}" in row[rule["in"]]
+    return ok and all(row.get(k) == v for k, v in (rule.get("fields") or {}).items())
+
+
+def s6_holds(rule, entry, verdict):
+    """Whether S6's verdict on a planted candidate is the table's: its unit diagnosis at the current point, its
+    admission, and both judges' marks on the requirements the rule names."""
+    ok = True
+    if "unit_diagnosis" in rule:
+        of = rule["unit_diagnosis"]
+        ok = (verdict["outcome"]["unit_diagnosis"].get("current") or {}).get(entry[of["of"]]) == of["is"]
+    if "admission" in rule:
+        ok = ok and verdict["outcome"]["admission"]["admission"] == rule["admission"]
+    return ok and all(verdict["requirements"][w].get(name) == mark for w in ("A", "B")
+                      for name, mark in (rule.get("requirements") or {}).items())
 
 
 def planted_id(nonce, kind, n):
@@ -160,7 +195,8 @@ def plant(natural, unit_index, cited_of, evidence_of, known_sessions, nonce=None
            "gate": [{"kind": row["kind"], "code": row["code"]} for row in table()["gate"]]}
     planted, evidence = [], {}
     units = paraphrasable(unit_index)
-    chosen_units = rng.sample(units, min(len(units), DESIGN_6_5_COUNTS["paraphrase_covered"]))
+    wanted = next((spec["count"] for spec in table()["planted"] if spec["kind"] == "paraphrase_covered"), 0)
+    chosen_units = rng.sample(units, min(len(units), wanted))   # the table's count (Codex WP-10 r1 #5), not §6.5's copy
     for spec in table()["planted"]:
         for n in range(spec["count"]):
             kind = spec["kind"]
@@ -224,18 +260,13 @@ def check_s5(doc, rows_by_id):
             problems.append(f"CONTROLS_INCOMPLETE {entry['kind']} {entry['candidate_id']}: S5 checked no such candidate")
             continue
         kind = entry["kind"]
-        if kind == "paraphrase_covered":
-            ok = entry["unit_id"] in {u["unit_id"] for u in row["retrieved_units"]}
-        elif kind == "altered_quote":
-            ok = row["quote_ok"] is False and f"QUOTE_MISMATCH {entry['evidence_id']}" in row["quote_problems"]
-        elif kind == "fabricated_session":
-            ok = f"SESSION_UNKNOWN {entry['session']}" in row["session_problems"]
-        else:
-            ok = False
+        # the rule the table gave this control when it was planted (Codex WP-10 r1 #5: each kind's verdict was
+        # restated here, so a table that changed it was not obeyed)
+        ok = s5_holds(entry["expected"]["S5"]["rule"], entry, row)
         entry["S5"] = {"ok": ok}
         if not ok:
             problems.append(f"CONTROL_FAILED {entry['candidate_id']} {kind}: S5 did not give it its verdict "
-                            f"({entry['expected']['S5']})")
+                            f"({entry['expected']['S5']['text']})")
     return problems
 
 
@@ -256,16 +287,12 @@ def evaluate(doc, verdicts, gate_verdicts, natural_ids, s5_rows):
             controls.append({"candidate_id": entry["candidate_id"], "kind": entry["kind"], "ok": False})
             continue
         admitted = v["outcome"]["admission"]["admission"]
-        if entry["kind"] == "paraphrase_covered":
-            ok = (v["outcome"]["unit_diagnosis"].get("current") or {}).get(entry["unit_id"]) == "covers"
-        elif entry["kind"] == "temporal_order_cause":
-            ok = admitted == "rejected" and all(v["requirements"][w].get("causal_support") == "unmet" for w in ("A", "B"))
-        else:
-            ok = admitted == "rejected"
+        ok = s6_holds(entry["expected"]["S6"]["rule"], entry, v)
         controls.append({"candidate_id": entry["candidate_id"], "kind": entry["kind"], "ok": ok})
         if not ok:
             why = "accepted as natural" if admitted == "admitted" else "not given its verdict"
-            problems.append(f"CONTROL_FAILED {entry['candidate_id']} {entry['kind']}: {why} ({entry['expected']['S6']})")
+            problems.append(f"CONTROL_FAILED {entry['candidate_id']} {entry['kind']}: {why} "
+                            f"({entry['expected']['S6']['text']})")
     gate = []
     for row in doc["gate"]:
         got = gate_verdicts.get(row["kind"])
@@ -522,6 +549,42 @@ def self_test():
                         any(p.startswith(f"CONTROL_FAILED {target} {kind}") for p in check_s5(copy.deepcopy(doc), bent)),
                         f"{check_s5(copy.deepcopy(doc), bent)}")
 
+            # Codex WP-10 r1 #5: the verdict a control is held to is the table's rule, read where it was planted
+            swapped = copy.deepcopy(doc)
+            for e in swapped["planted"]:
+                if e["kind"] == "altered_quote":
+                    e["expected"]["S5"]["rule"] = {"problem": "SESSION_UNKNOWN", "of": "evidence_id",
+                                                   "in": "quote_problems"}
+            aq = next(e["candidate_id"] for e in doc["planted"] if e["kind"] == "altered_quote")
+            control("Codex WP-10 r1 #5: S5's verdict on a control follows its rule: the altered quote's row passes its "
+                    "own rule and fails one that names another problem",
+                    check_s5(copy.deepcopy(doc), good) == []
+                    and any(p.startswith(f"CONTROL_FAILED {aq} altered_quote") for p in check_s5(swapped, good)),
+                    f"{check_s5(swapped, good)}")
+            # one more than §6.5's two, from a library that holds that many: a count read from §6.5's copy samples two
+            # units and names the third incomplete
+            more = DESIGN_6_5_COUNTS["paraphrase_covered"] + 1
+            ruled = copy.deepcopy(table())
+            for r in ruled["planted"]:
+                if r["kind"] == "paraphrase_covered":
+                    r["count"] = more
+            _TABLES["t"] = ruled
+            try:
+                _p, _e, ruled_doc = plant(natural, index, cited_of, evidence_of, known, "dd")
+            finally:
+                _TABLES.pop("t", None)
+            control("Codex WP-10 r1 #5: the paraphrases planted are the table's count, not §6.5's copy of it",
+                    len(paraphrasable(index)) >= more
+                    and sum(1 for e in ruled_doc["planted"] if e["kind"] == "paraphrase_covered") == more
+                    and not [i for i in ruled_doc["incomplete"] if i["kind"] == "paraphrase_covered"],
+                    f"{len(paraphrasable(index))} paraphrasable {[e['kind'] for e in ruled_doc['planted']]} "
+                    f"{ruled_doc['incomplete']}")
+            invalid = copy.deepcopy(table())
+            invalid["planted"][0]["expected"]["S5"]["rule"] = {"judged": "unit_id"}
+            control("Codex WP-10 r1 #5: a rule no evaluator applies is TABLE_INVALID",
+                    any(p.startswith("TABLE_INVALID planted paraphrase_covered S5") for p in table_problems(invalid)),
+                    f"{table_problems(invalid)}")
+
             # ---- after S6: the judge controls, the gate controls, the natural share -----------------------------------
             def outcome(admission, covers=None):
                 return {"outcome": {"admission": {"admission": admission}, "unit_diagnosis": {"current": covers or {}}},
@@ -546,6 +609,17 @@ def self_test():
                     any(p.startswith(f"CONTROL_FAILED {temporal} temporal_order_cause: accepted as natural") for p in accepted["problems"])
                     and refusal(lambda: require(accepted)).startswith("CONTROL_FAILED"), f"{accepted['problems']}")
             other = {**verdicts[temporal], "requirements": {"A": {"causal_support": "met"}, "B": {"causal_support": "unmet"}}}
+            loose = copy.deepcopy(doc)
+            for e in loose["planted"]:
+                if e["kind"] == "temporal_order_cause":
+                    e["expected"]["S6"]["rule"] = {"admission": "rejected"}
+            control("Codex WP-10 r1 #5: S6's verdict on a control follows its rule: the temporal-order control rejected "
+                    "for another requirement fails its own rule and passes one that asks only for the rejection",
+                    any(p.startswith(f"CONTROL_FAILED {temporal}") for p in
+                        evaluate(doc, {**verdicts, **some, temporal: other}, gates, nat, {})["problems"])
+                    and not any(p.startswith(f"CONTROL_FAILED {temporal}") for p in
+                                evaluate(loose, {**verdicts, **some, temporal: other}, gates, nat, {})["problems"]),
+                    "the rule was not followed")
             control("CONTROL_FAILED: a temporal-order control rejected for another requirement is not its verdict",
                     any(p.startswith(f"CONTROL_FAILED {temporal}") for p in
                         evaluate(doc, {**verdicts, **some, temporal: other}, gates, nat, {})["problems"]), "passed")

@@ -188,17 +188,21 @@ def eligible(kind, lineages, class_a, class_b, arc_confirmed=False):
     rows = {row["id"]: row for row in table()["promotion"]}
     if isinstance(lineages, bool) or not isinstance(lineages, int) or lineages < 0:
         raise Refused(f"JUDGMENT_INVALID lineages {lineages!r}: a count")
+
+    def verdict(row_id):   # the row's own `eligible` (Codex WP-10 r1 #5: written here as True and False)
+        allowed = rows[row_id].get("allowed_dispositions")
+        return rows[row_id]["eligible"], row_id, list(allowed) if allowed is not None else None
     if kind in rows["type_g"]["types"]:
         g = rows["type_g"]
         if lineages >= g["independent_lineages_at_least"] or (g["or_arc_confirmed"] and arc_confirmed is True):
-            return True, "type_g", None
+            return verdict("type_g")
     else:
         if lineages >= rows["lineages"]["independent_lineages_at_least"]:
-            return True, "lineages", None
+            return verdict("lineages")
         classes = rows["consequence"]["both_judges_class_one_of"]
         if class_a in classes and class_b in classes:
-            return True, "consequence", None
-    return False, "below_bar", list(rows["below_bar"]["allowed_dispositions"])
+            return verdict("consequence")
+    return verdict("below_bar")
 
 
 # ---- the whole derivation -----------------------------------------------------------------------
@@ -742,6 +746,17 @@ def self_test():
            ("admitted", True, "untested: s8_deferred"))
     expect("control: a failing deterministic check leaves it disputed",
            judged({"u1": unit()}, {"u1": [pinned]}, checks_pass=False)["admission"]["admission"], "disputed")
+    flipped = copy.deepcopy(held)
+    for r in flipped["promotion"]:
+        if r["id"] == "lineages":
+            r["eligible"] = False
+    _TABLES["t"] = flipped
+    try:
+        moved = eligible("D", 2, None, None)
+    finally:
+        _TABLES["t"] = held
+    expect("Codex WP-10 r1 #5: two lineages are eligible as the lineages row says, and not once a scratch table says "
+           "that row is not", (eligible("D", 2, None, None)[:2], moved[:2]), ((True, "lineages"), (False, "lineages")))
     expect("one lineage, no grave consequence: below the bar, with the dispositions it allows",
            judged({"u1": unit()}, {"u1": [pinned]}, lineages=1)["eligible"],
            {"eligible": False, "row": "below_bar", "allowed_dispositions": ["incubate", "keep", "drop", "none"]})
