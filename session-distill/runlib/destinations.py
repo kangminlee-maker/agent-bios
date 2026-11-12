@@ -140,17 +140,51 @@ def table_problems(root=None):
     return problems
 
 
-def install_layout(root=None):
-    """`"checkout"` or `"package"`, decided by whether the author-side tree is present.
+LAYOUT_DECLARATION = "provenance.json"
+LAYOUT_AUTHOR_TREE = "gates"
 
-    The npm package carries `session-distill/` and `package.json` and NOT `gates/`, so the presence
-    of the author-side tree is what separates the two layouts. It matters here because an
-    author-scope writer's SOURCE is not shipped: `fidelity_problems` reads every `fallback_source`,
-    so in a packaged install the manifest failed `WRITER_SOURCE_ABSENT` over
-    `session-distill/update-state.py` — a refusal that no packaged user can act on, and one no
-    check run from a clone can see. Found by the WP-21 review.
+
+def install_layout(root=None):
+    """`"checkout"`, `"package"`, or None when nothing in the tree declares which.
+
+    It matters because an author-scope writer's SOURCE is not shipped: `fidelity_problems` reads
+    every `fallback_source`, so in a packaged install the manifest failed `WRITER_SOURCE_ABSENT`
+    over `session-distill/update-state.py` — a refusal no packaged user can act on, and one no check
+    run from a clone can see. Found by the WP-21 review.
+
+    Decided by a DECLARED fact, not by an absence. `provenance.json` is written by
+    `gates/check-publish.sh --stamp` at `npm prepack`, carries the commit the tarball holds, and is
+    removed again after packing, so it exists in a published package and in nothing else. The
+    author tree (`gates/`) is the checkout's own declaration. Inferring `package` from a missing
+    directory made every incomplete copy of this tree a package — including a fixture that had
+    simply not copied everything — and the excuses that ride on the layout (an author-scope writer
+    may be absent; its source need not be read) were then granted to a tree nobody had published.
+    Neither declaration present, or both, is not guessed at: it is None, and `layout_problems` says
+    so by name.
     """
-    return "checkout" if (pathlib.Path(root or REPO) / "gates").is_dir() else "package"
+    base = pathlib.Path(root or REPO)
+    declared = (base / LAYOUT_DECLARATION).is_file()
+    author_side = (base / LAYOUT_AUTHOR_TREE).is_dir()
+    if declared and not author_side:
+        return "package"
+    if author_side and not declared:
+        return "checkout"
+    return None
+
+
+def layout_problems(root=None):
+    """What stops the layout being established, by name — a refusal, not a default."""
+    base = pathlib.Path(root or REPO)
+    if install_layout(base) is not None:
+        return []
+    held = ((base / LAYOUT_DECLARATION).is_file(), (base / LAYOUT_AUTHOR_TREE).is_dir())
+    if held == (True, True):
+        return [f"LAYOUT_AMBIGUOUS {base}: it carries both a package's {LAYOUT_DECLARATION} and the "
+                f"author-side {LAYOUT_AUTHOR_TREE}/, so which excuses apply to an author-scope "
+                f"writer cannot be established"]
+    return [f"LAYOUT_UNDECLARED {base}: neither a package's {LAYOUT_DECLARATION} nor the "
+            f"author-side {LAYOUT_AUTHOR_TREE}/ is here, so this tree does not say which layout it "
+            f"is, and the excuses that ride on the layout may not be granted by default"]
 
 
 def author_rows_absent(root=None):
@@ -572,6 +606,29 @@ def inventory_problems(root=None):
         problems.append(f"INVENTORY_UNWRITTEN {pair[0]} {pair[1]}: the table certifies a destination "
                         f"class for an override this writer's source never reads, so the class is "
                         f"about a value that cannot reach it")
+    # The REVERSE direction for fixed-root rows, which this check did not cover: a row claiming a
+    # HOME-fixed root for a writer that is not in this tree at all passed, because every leg here
+    # asked about (writer, override) PAIRS and a fixed root has none. A nonexistent writer with
+    # `writes_without_override` was certified by `path = root, inside = bool(root)` (the round-2
+    # review found both halves).
+    for row in writers():
+        if not row.get("writes_without_override"):
+            continue
+        if row.get("writer_unwritten") or row["writer"] in uninstalled or row["writer"] == "git":
+            continue
+        if not (base / row["writer"]).exists():
+            problems.append(f"INVENTORY_FIXED_ROOT_ABSENT {row['writer']}: the row claims a fixed "
+                            f"destination root and the writer is not in this tree, is not declared "
+                            f"`writer_unwritten` and is not author-side, so the row certifies a "
+                            f"class for a file nobody has")
+        if row.get("root_from") not in ("home", "argument"):
+            problems.append(f"INVENTORY_ROOT_FROM_UNSTATED {row['writer']}: a fixed-root row says "
+                            f"whether the run passes the root (`argument`) or the writer derives it "
+                            f"from HOME (`home`), because the two are certified differently")
+        if row.get("root_from") == "home" and not (row.get("fixed_roots") or ()):
+            problems.append(f"INVENTORY_FIXED_ROOT_UNSHOWN {row['writer']}: the row says the root "
+                            f"is derived from HOME and shows no source line it is derived at, so "
+                            f"there is nothing to compute the destination from")
     for writer in sorted(derived_fixed):
         if any(w == writer for w, _ in declared) or writer in fixed or writer in forward:
             continue
@@ -651,6 +708,375 @@ def _inside(path, root):
     return path == root or root in path.parents
 
 
+# ─── The environment a writer is GIVEN ───────────────────────────────────────────────────────────
+# The inversion this unit's round-2 review asked for, and the reason it is the right way round:
+# DERIVING every override that could redirect a write loses the moment a writer resolves one across
+# a module boundary (`environment_value` reads the instructions and corpus aliases in
+# `compose/instructions_install.py`, where this module's scanner does not follow), and what is not
+# derived is not refused. An override that is ABSENT cannot redirect anything.
+#
+# So the run hands each writer an environment holding EXACTLY the names the table declares for it,
+# with HOME set to what the run declares, and the derivation becomes a DISCLOSURE: what does this
+# writer read that it was not given? A non-empty answer withholds certification instead of being
+# weighed.
+#
+# Four channels the environment cannot close, each with its own rule below rather than a hope:
+# the password database (a path from `getpwuid` ignores HOME entirely), an absolute literal in the
+# source, a login shell that re-reads the user's profile and restores what was scrubbed, and a path
+# the writer takes as an ARGUMENT — which is not a hole but the preferred channel, because an
+# argument cannot be inherited by anything.
+ENVIRONMENT_HOME = ("environment", "home")
+
+
+def declared_home(declaration):
+    """The HOME the run declares for its writers, or None.
+
+    Its own block rather than a destination class: HOME is not a place anything is classified into,
+    it is the input from which this writer's fixed roots are computed. Optional in the declaration's
+    schema and REQUIRED here, so a lane whose fixtures predate it still declares a valid run while
+    no manifest can be written without it.
+    """
+    held = (declaration or {}).get(ENVIRONMENT_HOME[0]) or {}
+    return held.get(ENVIRONMENT_HOME[1])
+
+
+def environment_for(row, declaration):
+    """Exactly what the run hands this writer: the declared overrides, and HOME. Nothing else.
+
+    `{name: value}`, where each name is one this writer's own table row declares and each value is
+    the declared root of that name's class. A variable this writer reads and the table does not
+    declare for it is ABSENT from the answer, which is the whole mechanism: it cannot redirect a
+    write it is not there for.
+    """
+    roots = (declaration or {}).get("destinations") or {}
+    held = {}
+    for entry in row.get("destinations") or ():
+        held[entry["override"]] = roots.get(entry.get("class"))
+    home = declared_home(declaration)
+    if home:
+        held["HOME"] = home
+    return held
+
+
+def reads_not_given(writer, environment, root=None):
+    """The override names this writer's own source reads that the run did not hand it.
+
+    The derivation's job after the inversion: not to PROVE containment — the absence of a variable
+    does that — but to DISCLOSE what a writer reaches for and is not given. A non-empty answer
+    withholds certification, because a writer reading a name the run did not set resolves it through
+    a fallback the run never declared, and where that fallback points is not this manifest's answer.
+    """
+    held = {entry["override"] for entry in closure(root)
+            if entry["writer"] == writer and entry["override"]}
+    # A pair the table has REASONED about is not an undisclosed read: `not_a_destination` names the
+    # writer, the variable and why no §10.6 operation can reach that write. The row carries those
+    # names with their reasons (`reads_excused`) so the manifest shows them instead of hiding them;
+    # what withholds certification is a read nobody has reasoned about.
+    return sorted(held - set(environment or {}) - set(excused_overrides(writer)))
+
+
+def excused_overrides(writer):
+    """`{override: reason}` the table declares not a destination for this writer."""
+    return {row.get("override"): row.get("reason")
+            for row in table().get("not_a_destination") or ()
+            if row.get("writer") == writer and row.get("override")}
+
+
+def environment_problems(declaration):
+    """What stops an environment being produced at all, by name."""
+    problems = []
+    if not declared_home(declaration):
+        problems.append(f"ENVIRONMENT_HOME_UNDECLARED: the run declares no "
+                        f"{'.'.join(ENVIRONMENT_HOME)}, so every HOME-derived root is a guess and "
+                        f"no writer can be handed an environment")
+    return problems
+
+
+# The ways a writer in this tree names the home it derives a root from: the library call, the shell
+# variable, the tilde, and a LOCAL named `home` — `compose/instructions_install.py` assigns
+# `home = Path(self.env.get("HOME", str(Path.home())))` and then builds every root from it, so a
+# pattern that knew only `Path.home()` read that writer's roots as unestablishable.
+_HOME_ROOTED = re.compile(
+    r"""(?:pathlib\.Path\.home\(\)|Path\.home\(\)|os\.path\.expanduser\(|\$HOME|\$\{HOME\}"""
+    r"""|\bhome\b|~)"""
+    r"""\s*(?:/\s*)?["']?/?(?P<suffix>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*)?""")
+
+
+def source_line(writer, number, base=None):
+    """The writer's own line `number`, or None when the file is not in this installation.
+
+    The table stores a 160-character EXCERPT of that line as evidence for a reader; the computation
+    reads the file, because the excerpt cut `str(home / ".config/agent-bios/corpus")` off the end of
+    a long line and that root then read as unestablishable. The table says where to look; the source
+    says what is there.
+    """
+    path = pathlib.Path(base or REPO) / writer
+    if not path.is_file() or not number:
+        return None
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    if not 0 < number <= len(lines):
+        return None
+    # The STATEMENT, not the line: `INSTRUCTIONS_STATUS_PATH = pathlib.Path(` opens a call whose
+    # HOME-derived default is three lines further down, and one line of it establishes nothing. The
+    # window ends where the parentheses balance, so it is the statement's own extent rather than a
+    # guess, and it is bounded so an unbalanced file cannot read the rest of the module in.
+    held = [lines[number - 1]]
+    depth = held[0].count("(") - held[0].count(")")
+    index = number
+    while depth > 0 and index < len(lines) and len(held) < 6:
+        held.append(lines[index])
+        depth += lines[index].count("(") - lines[index].count(")")
+        index += 1
+    return " ".join(piece.strip() for piece in held)
+
+
+def fixed_destination(entry, home, source_text=None):
+    """`(path, why)` for one declared fixed root, computed from the GIVEN home.
+
+    `path=None` with a reason is **certification withheld**: the row's own source line does not say,
+    in a form this can read, where the writer will write. That is a state the manifest carries and
+    S11 refuses on — not a warning. Before this, a fixed-root row was certified by
+    `path = root, inside = bool(root)`, which asserts nothing about the writer at all: `install.sh`
+    came back certified at the install_roots root while its source puts STATE_DIR under HOME (the
+    round-2 review).
+    """
+    source = source_text if source_text is not None else ((entry or {}).get("root") or "")
+    if not home:
+        return None, "the run declares no home, so a HOME-derived root cannot be computed"
+    held = _HOME_ROOTED.search(source)
+    if not held:
+        return None, (f"its source line names no HOME-derived root this can read: {source[:80]!r}")
+    suffix = held.group("suffix") or ""
+    if not suffix or "(" in suffix or "," in suffix:
+        # The line derives its root from HOME and the SUFFIX is an expression this cannot read —
+        # `Path(environment_value(..., str(home / ".config/agent-bios/corpus")))` on one line of a
+        # multi-line call. What is established is the BOUND: the writer writes under the home it
+        # was given. Whether that is a certification depends on the class root, which is the
+        # caller's comparison, so the bound is returned and labelled rather than guessed at or
+        # refused outright.
+        return str(pathlib.Path(home)), ("a HOME-derived root whose suffix this cannot read "
+                                         f"({source[:60]!r}); the home is its upper bound")
+    return str(pathlib.Path(home) / suffix), "/".join(["<home>", suffix])
+
+
+# ─── The four channels an environment cannot close ───────────────────────────────────────────────
+# Scrubbing the environment is the mechanism and it is not sufficient: a writer can reach a path
+# without reading a variable at all. Each channel has a RULE here rather than a hope, and each rule
+# is derived from the writer's own source.
+#
+#  * the PASSWORD DATABASE. `getpwuid`/`getpwnam` answer with the account's home whatever HOME says,
+#    so a path built from one cannot be redirected by the run at all. No writer may read it: this is
+#    not excusable by a statement, because there is nothing the run could do about it. This is the
+#    channel that wrote a run into the owner's real home during a commit hook, and it is proved BY
+#    SOURCE — never by running a writer with a real HOME to see where it lands.
+#  * a LOGIN SHELL. `bash -l`, `zsh -l`, `--login` re-read the user's profile and restore exactly
+#    the variables the run scrubbed, so a child shell must not be a login shell.
+#  * an ABSOLUTE LITERAL. A path spelled out in the source reads no variable, so the row must state
+#    it with its reason.
+#  * a PATH ARGUMENT. Not a hole but the PREFERRED channel: an argument cannot be inherited by
+#    anything, so a writer that takes one is handed its root that way and the row records it.
+CHANNEL_RULES = {
+    "password_database": (
+        re.compile(r"\b(?:getpwuid|getpwnam|pwd\.getpw\w+|os\.getlogin)\s*\("),
+        "reads the password database, whose answer the run cannot redirect at all"),
+    "login_shell": (
+        re.compile(r"(?:--login\b|\b(?:ba|z)?sh\s+-[A-Za-z]*l\b)"),
+        "starts a login shell, which re-reads the user's profile and restores what was scrubbed"),
+}
+CHANNEL_STATED = {
+    "absolute_literals": (
+        # The token is the literal's first whitespace-free run: `"/Library/Application Support/x"`
+        # identifies itself by `/Library/Application`, and a command string like `"/bin/sleep 30 &"`
+        # by `/bin/sleep`, which is what a statement about it should name. The closing quote is NOT
+        # required — a literal with a space in it is still an absolute path in the source.
+        re.compile(r"""["'](/(?:usr|opt|etc|var|srv|Users|home|Library|private|tmp|bin|sbin)"""
+                   r"""[^"'\s]*)"""),
+        "names an absolute path in its source, which reads no variable"),
+    "path_arguments": (
+        re.compile(r"(--(?:state-dir|config-home|corpus-dir|instructions-dir|root|prefix"
+                   r"|home))\b"),
+        "takes a path as an argument, which is the channel the run prefers"),
+}
+
+
+def channel_lines(text, pattern):
+    """The line numbers of a pattern's matches outside comments, for one writer's source."""
+    held = []
+    for number, line in enumerate((text or "").splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith(("#", "//", "*")):
+            continue
+        if pattern.search(line):
+            held.append(number)
+    return held
+
+
+def guarded_by(text, line, name):
+    """Whether the statement at `line` runs only when `name` is ABSENT from the environment.
+
+    The licence for the one channel that cannot otherwise be excused. `compose/instructions_session`
+    reads the password database at one line, and only inside `if home is None:` where `home` came
+    from `env.get('HOME')` — so with HOME GIVEN, the line is unreachable, and the environment closes
+    the channel after all. Two hops, both from the source: the enclosing `if` names the guard, or it
+    names a local the enclosing scope assigned from it. Proved by SOURCE, never by running a writer
+    against a real home to see where it lands.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        # A shell writer: the guard has to be visible immediately above the line, which is as much
+        # as a reader of shell can establish without an interpreter.
+        lines = (text or "").splitlines()
+        held_name = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])")
+        return any(held_name.search(held) for held in lines[max(0, line - 6):line - 1])
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        inside = any(getattr(child, "lineno", None) == line
+                     for part in list(node.body) + list(node.orelse)
+                     for child in ast.walk(part))
+        if not inside:
+            continue
+        held_name = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])")
+        test = ast.unparse(node.test)
+        if held_name.search(test):
+            return True
+        asked = {held.id for held in ast.walk(node.test) if isinstance(held, ast.Name)}
+        for assign in ast.walk(tree):
+            if isinstance(assign, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id in asked
+                    for target in assign.targets):
+                if held_name.search(ast.unparse(assign.value)):
+                    return True
+    return False
+
+
+def channel_tokens(text, pattern):
+    """The matched tokens of a pattern outside comments: the literal path, the option name."""
+    held = set()
+    for line in (text or "").splitlines():
+        if line.strip().startswith(("#", "//", "*")):
+            continue
+        for found in pattern.finditer(line):
+            held.add(found.group(1) if found.groups() else found.group(0))
+    return held
+
+
+def channel_problems(root=None):
+    """Every channel a writer's source shows that this module has not answered for, by name.
+
+    Two kinds. A FORBIDDEN channel (the password database, a login shell) is a defect no statement
+    excuses, because the run cannot do anything about it. A STATED channel (an absolute literal, a
+    path argument) must be named in the writer's own row with its reason, and a statement whose
+    channel the source no longer shows is stale — the same bar as every other allowlist here.
+    """
+    base = pathlib.Path(root or REPO)
+    problems, subjects = [], 0
+    for row in writers():
+        path = base / row["writer"]
+        if not path.is_file():
+            continue
+        subjects += 1
+        text = path.read_text(encoding="utf-8", errors="replace")
+        stated = row.get("channels") or {}
+        for name, (pattern, why) in CHANNEL_RULES.items():
+            licences = {held.get("line"): held for held in stated.get(name) or ()
+                        if isinstance(held, dict)}
+            for number in channel_lines(text, pattern):
+                licence = licences.get(number)
+                guard = (licence or {}).get("guarded_by")
+                if guard and guarded_by(text, number, guard) and (licence or {}).get("reason"):
+                    # Licensed, and the licence is held against the source: the line runs only when
+                    # the run does not set `guard`, and the run always sets it. A licence naming no
+                    # line, or a guard the source does not show, licenses nothing.
+                    continue
+                problems.append(f"CHANNEL_{name.upper()} {row['writer']}:{number}: it {why}, so the "
+                                f"environment the run hands it cannot decide where it writes"
+                                + (f" — the row licenses line {number} by {guard!r}, which its "
+                                   f"source does not show guarding it" if guard else ""))
+            for number in sorted(licences):
+                if number not in channel_lines(text, pattern):
+                    problems.append(f"CHANNEL_STALE {row['writer']} {name}:{number}: the row "
+                                    f"licenses a line the source no longer shows")
+        for name, (pattern, why) in CHANNEL_STATED.items():
+            # Keyed to the TOKEN — the literal path, the option name — and not to a line number,
+            # which goes stale on any edit above it and teaches a reader to renumber rather than
+            # re-examine. The licence above is line-keyed on purpose: there is one of it, and a
+            # moved line there has to be looked at again.
+            found = channel_tokens(text, pattern)
+            held_stated = stated.get(name) or {}
+            said = set(held_stated.get("tokens") or ())
+            if found - said:
+                problems.append(f"CHANNEL_UNSTATED {row['writer']} {name}: "
+                                f"{', '.join(sorted(found - said)[:4])} — it {why}, and the row "
+                                f"says nothing about {'that' if len(found - said) == 1 else 'those'}")
+            if said - found:
+                problems.append(f"CHANNEL_STALE {row['writer']} {name}: the row states "
+                                f"{', '.join(sorted(said - found)[:4])} and the source no longer "
+                                f"shows it")
+            if found and not held_stated.get("reason"):
+                problems.append(f"CHANNEL_UNREASONED {row['writer']} {name}: the row names the "
+                                f"tokens and gives no reason why this channel is safe for a run "
+                                f"that confines this writer")
+    if not subjects:
+        problems.append("CHANNEL_NO_WRITERS_READ: no writer's source was read, so every channel "
+                        "would pass unexamined")
+    return problems
+
+
+# ─── git's own configuration ─────────────────────────────────────────────────────────────────────
+# git reads configuration no environment variable names: the system file, the user's global file,
+# and the repository's own `.git/config`, where `core.worktree` moves the work tree somewhere else
+# entirely and `include.path` pulls in a file that can set it. The sweep below closes the first two;
+# the third is READ and judged before the first git call, because a scrubbed environment cannot
+# close a file inside the repository the run was given.
+GIT_ENVIRONMENT = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
+GIT_CONFIG_REFUSED = (
+    ("worktree", "GIT_CONFIG_WORKTREE", "points the work tree somewhere other than the checkout the "
+                                        "run declared, so every commit would land outside it"),
+    ("include", "GIT_CONFIG_INCLUDE", "includes another configuration file, and what that file sets "
+                                      "is not in this answer"),
+    ("includeif", "GIT_CONFIG_INCLUDE", "includes another configuration file conditionally, and what "
+                                        "that file sets is not in this answer"),
+)
+
+
+def git_problems(checkout):
+    """What the declared checkout's own git configuration does that the environment cannot close.
+
+    Read as TEXT, deliberately: asking `git config` for the answer runs git in the configuration
+    being judged, and `include.path` is exactly the mechanism that would decide the answer. A `.git`
+    that is a FILE (a worktree, a submodule) points at a directory elsewhere, so the config this
+    would read is not the one git will — that is refused rather than followed.
+    """
+    base = pathlib.Path(checkout or "")
+    held = base / ".git"
+    if held.is_file():
+        return [f"GIT_DIR_INDIRECT {held}: `.git` is a file pointing at a git directory elsewhere, "
+                f"so the configuration judged here is not the one git would read"]
+    if not held.is_dir():
+        return [f"GIT_REPOSITORY_ABSENT {base}: the declared checkout holds no repository, so a "
+                f"commit there would be written into whatever repository encloses it"]
+    config = held / "config"
+    if not config.is_file():
+        return []
+    problems = []
+    text = config.read_text(encoding="utf-8", errors="replace")
+    section = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") :
+            section = stripped[1:].split("]")[0].split('"')[0].strip().lower()
+            continue
+        name, _, value = stripped.partition("=")
+        key = f"{section}.{name.strip().lower()}" if section else name.strip().lower()
+        for token, code, why in GIT_CONFIG_REFUSED:
+            if key in (f"core.{token}", f"{token}.path") or section == token:
+                problems.append(f"{code} {config}: {key} = {value.strip()!r} — it {why}")
+                break
+    return problems
+
+
 def resolved_rows(declaration, environ, root=None):
     """One row per writer: `{class, writer, path, root, inside}` as N#4 names it.
 
@@ -658,6 +1084,7 @@ def resolved_rows(declaration, environ, root=None):
     — never from this process's own environment unless the caller passes it.
     """
     roots = (declaration or {}).get("destinations") or {}
+    home = declared_home(declaration)
     rows = []
     absent = set(author_rows_absent(root))
     for row in writers():
@@ -669,22 +1096,92 @@ def resolved_rows(declaration, environ, root=None):
                          "writer": row["writer"], "path": None, "root": None, "inside": None,
                          "not_installed": "author-side writer, not present in this install"})
             continue
+        # What this writer is GIVEN, and what it reads that is not in it. The environment is the
+        # mechanism; the disclosure is what says the mechanism is not enough for this writer.
+        given = environment_for(row, declaration)
+        ungiven = reads_not_given(row["writer"], given, root)
+        excused = excused_overrides(row["writer"])
         # One row per (writer, override), so a single escaping value cannot hide behind a sibling
         # of the same writer that is in root.
         for entry in row.get("destinations") or ():
             override, cls = entry.get("override"), entry.get("class")
-            root, value = roots.get(cls), environ.get(override)
+            # `held_root`, not `root`: the parameter names the INSTALLATION being inspected, and
+            # this loop used to rebind it to a class root — so anything later in the function that
+            # needed the installation root got a destination instead.
+            held_root, value = roots.get(cls), environ.get(override)
             if not value:
                 rows.append({"class": cls, "writer": f"{row['writer']} [{override}]", "path": None,
-                             "root": root, "inside": False, "unset": [override]})
+                             "root": held_root, "inside": False, "unset": [override]})
                 continue
             rows.append({"class": cls, "writer": f"{row['writer']} [{override}]", "path": value,
-                         "root": root, "inside": bool(root) and _inside(value, root)})
+                         "root": held_root,
+                         "inside": bool(held_root) and _inside(value, held_root),
+                         "reads_not_given": ungiven, "reads_excused": excused,
+                         "certification": "withheld" if ungiven else "given",
+                         "why": (f"its source reads {', '.join(ungiven)}, which the run does not "
+                                 f"hand it, so it would resolve those through a fallback nobody "
+                                 f"declared" if ungiven else
+                                 "the run hands it this value and nothing else can redirect it")})
         if row.get("writes_without_override"):
             cls = row["writes_without_override"]
-            root = roots.get(cls)
-            rows.append({"class": cls, "writer": row["writer"], "path": root, "root": root,
-                         "inside": bool(root)})
+            held_root = roots.get(cls)
+            fixed = [entry for entry in row.get("fixed_roots") or ()
+                     if not entry.get("not_a_destination")]
+            if row.get("writer_unwritten"):
+                # A forward declaration: the file does not exist yet, so there is nothing to
+                # confine and nothing to withhold. `INVENTORY_FORWARD_LANDED` fails the day it
+                # appears, which is when the derived closure takes over from this row.
+                rows.append({"class": cls, "writer": row["writer"], "path": None,
+                             "root": held_root, "inside": None, "certification": "forward",
+                             "why": "declared as a writer that does not exist yet"})
+                continue
+            if row.get("root_from") == "argument":
+                # The PREFERRED channel, and a certification in its own right: the run hands this
+                # writer its root as an argument, so there is no variable to inherit and nothing to
+                # derive from HOME. An argument cannot be redirected by an environment at all.
+                rows.append({"class": cls, "writer": row["writer"], "path": held_root,
+                             "root": held_root, "inside": bool(held_root),
+                             "certification": "argument",
+                             "why": "the run passes this writer its root; it reads no override for "
+                                    "it and derives nothing from HOME"})
+                continue
+            if not fixed:
+                # A row that claims a fixed root and shows none of the lines it came from cannot be
+                # certified: there is nothing to compute from. `writer_unwritten` rows are the
+                # exception the table declares for work in flight.
+                rows.append({"class": cls, "writer": row["writer"], "path": None,
+                             "root": held_root, "inside": None,
+                             "certification": None if row.get("writer_unwritten") else "withheld",
+                             "why": ("declared as a writer that does not exist yet"
+                                     if row.get("writer_unwritten") else
+                                     "the row claims a HOME-fixed root and shows no source line "
+                                     "for it, so there is nothing to compute from")})
+                continue
+            for entry in fixed:
+                held_line = source_line(row["writer"], entry.get("derived_at_line"), root)
+                path, why = fixed_destination(entry, home, source_text=held_line)
+                bounded = path is not None and "upper bound" in why
+                # A bound is a certification only where the class root CONTAINS the home: then
+                # every path the writer can compute under the home is inside the root, whatever the
+                # suffix is. Where the root is narrower, the suffix is exactly what would decide,
+                # and it is unread — so certification is withheld rather than guessed either way.
+                if bounded and not (bool(held_root) and _inside(str(pathlib.Path(home)), held_root)):
+                    rows.append({"class": cls,
+                                 "writer": f"{row['writer']} [fixed:{entry.get('derived_at_line')}]",
+                                 "path": None, "root": held_root, "inside": None,
+                                 "certification": "withheld",
+                                 "why": f"{why}, and the declared {cls} root is narrower than the "
+                                        f"home, so whether this write lands inside it is exactly "
+                                        f"what the unread suffix would decide"})
+                    continue
+                rows.append({"class": cls,
+                             "writer": f"{row['writer']} [fixed:{entry.get('derived_at_line')}]",
+                             "path": path, "root": held_root,
+                             "inside": None if path is None else (bool(held_root)
+                                                                  and _inside(path, held_root)),
+                             "certification": ("withheld" if path is None
+                                               else "bounded" if bounded else "computed"),
+                             "why": why})
     return rows
 
 
@@ -707,9 +1204,26 @@ def resolution_problems(rows):
             # Judging it would produce DESTINATION_ROOT_ABSENT for a writer that cannot write,
             # which is how the packaged manifest refused over a file npm does not ship.
             continue
+        if row.get("certification") == "forward":
+            # A forward declaration: no file, no path, nothing to confine. `INVENTORY_FORWARD_LANDED`
+            # is what fails the day the writer appears.
+            continue
+        if row.get("certification") == "withheld":
+            # A NAMED STATE, not a warning: the manifest says certification is withheld for this
+            # destination, and S11 refuses on it. Before, a fixed root was certified by
+            # `path = root, inside = bool(root)`, which asserts nothing about where the writer
+            # writes — `install.sh` was certified at the install_roots root while its own source
+            # puts STATE_DIR under HOME (the round-2 review).
+            problems.append(f"DESTINATION_UNCERTIFIED {row['writer']}: {row.get('why')}, so where "
+                            f"this writer writes cannot be established and no effect may proceed")
+            continue
         if not row.get("root"):
             problems.append(f"DESTINATION_ROOT_ABSENT {row['writer']}: the run declares no root for "
                             f"class {row['class']}")
+            continue
+        if row.get("path") is None:
+            problems.append(f"DESTINATION_UNRESOLVED {row['writer']}: no path was resolved for it, "
+                            f"so there is nothing to judge for containment")
             continue
         if not row["inside"]:
             problems.append(f"DESTINATION_OUTSIDE_ROOT {row['writer']}: {row['path']} is not inside "
@@ -719,7 +1233,10 @@ def resolution_problems(rows):
 
 def problems(declaration, environ, root=None):
     """Everything wrong, table and resolution together. Empty means apply may take its first effect."""
-    held = table_problems(root) + fidelity_problems(root) + inventory_problems(root)
+    held = (environment_problems(declaration)
+            + git_problems(((declaration or {}).get("destinations") or {}).get("checkout"))
+            + layout_problems(root) + channel_problems(root)
+            + table_problems(root) + fidelity_problems(root) + inventory_problems(root))
     if held:
         return held
     return resolution_problems(resolved_rows(declaration, environ, root))
@@ -731,7 +1248,10 @@ def document(declaration, environ, root=None):
     # The derived inventory is part of the manifest's own correctness, not a separate audit: a
     # destination the tree writes and the table does not carry is exactly the hole this manifest
     # exists to close, so `apply` refuses before any effect rather than recording a partial answer.
-    held = (table_problems(root) + fidelity_problems(root) + inventory_problems(root)
+    held = (environment_problems(declaration)
+            + git_problems(((declaration or {}).get("destinations") or {}).get("checkout"))
+            + layout_problems(root) + channel_problems(root)
+            + table_problems(root) + fidelity_problems(root) + inventory_problems(root)
             + resolution_problems(rows))
     if held:
         raise Refused("; ".join(held))
@@ -830,7 +1350,32 @@ def _effect_reachable(tree):
         walk(node)
         return held
 
-    frontier = {name for name in functions if name != "self_test"}
+    # A function the SUITE alone calls is the suite. Excluding `self_test` by name and making every
+    # other function a root read `_self_test_body` — the half of the suite a dying-control wrapper
+    # delegates to — as a runtime entry point, and the suite's own fixture building as module
+    # effects. Decided by reachability like everything else here: a function is test-only when it
+    # has callers and every one of them is test-only, and `self_test` qualifies when nothing
+    # outside that set calls it. A `self_test` a RUNTIME function calls is therefore not test-only,
+    # which is the case a control below plants.
+    callers = {name: set() for name in functions}
+    for held_name, held_node in functions.items():
+        for reached in called_in(held_node) & set(functions):
+            callers[reached].add(held_name)
+    test_only = set()
+    moved = True
+    while moved:
+        moved = False
+        for name in functions:
+            if name in test_only:
+                continue
+            held_callers = callers[name] - test_only
+            if name == "self_test" and not held_callers:
+                test_only.add(name)
+                moved = True
+            elif name != "self_test" and callers[name] and not held_callers:
+                test_only.add(name)
+                moved = True
+    frontier = {name for name in functions if name not in test_only}
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             frontier |= called_in(node) & set(functions)
@@ -953,13 +1498,36 @@ def effect_audit(source):
 
 
 def self_test():
-    # Imported once, at the top: a later `import shutil` inside this function makes the name a
-    # local for the WHOLE function, so an earlier use raises UnboundLocalError. That is the same
-    # shadowing trap as a local named like a module function.
+    """Positive control first, then one planted violation per rule, each refused BY NAME.
+
+    The body is wrapped so a control that DIES still speaks. The A revert trial planted
+    `for entry in fixed:` -> `for entry in ():`: the fixed-root rows vanished, the control reading
+    the first of them raised StopIteration, and the suite ended with no [FAIL] line at all — a row
+    that reads as CONTROL-SILENT, which is indistinguishable from a rule nobody enforces. A
+    traceback is not a control firing, so the wrapper prints the control that was in flight.
+    """
+    failures, ran = [], []
+    try:
+        return _self_test_body(failures, ran)
+    except BaseException as exc:  # noqa: BLE001 - the suite must speak before it dies
+        held = ran[-1] if ran else "<no control ran>"
+        print(f"destinations --self-test [FAIL] the suite died after {held!r}: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for name, detail in failures:
+            print(f"destinations --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"destinations --self-test: INCOMPLETE ({len(ran)} controls ran, {len(failures)} "
+              f"failed before the suite died)", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
+    # Imported here, before anything uses them: a later `import shutil` inside this function makes
+    # the name a local for the WHOLE function, so an earlier use raises UnboundLocalError — the same
+    # shadowing trap as a local named like a module function. They stay out of the module's own
+    # imports because this half of the file is the suite, and the module itself touches no
+    # filesystem of its own.
     import shutil
     import tempfile
-
-    failures, ran = [], []
 
     def control(name, got, want):
         ran.append(name)
@@ -994,14 +1562,33 @@ def self_test():
     FIXTURE = declare.fixture()
     root = str(pathlib.PurePosixPath(FIXTURE["destinations"][CLASSES[0]]).parent.parent)
 
+    # A checkout that is a real repository, because the manifest judges the declared checkout's own
+    # git configuration before any effect. Built as FILES — a `.git/` holding a `config` — and never
+    # by running `git init`, which under a commit hook's exported GIT_DIR rewrites the author's real
+    # `.git/config` (AGENTS.md's first trap).
+    fixture_checkout = pathlib.Path(tempfile.mkdtemp(prefix="dest-checkout-", dir="/tmp"))
+    (fixture_checkout / ".git").mkdir(parents=True, exist_ok=True)
+    (fixture_checkout / ".git" / "config").write_text(
+        "[core]\n\tbare = false\n\trepositoryformatversion = 0\n", encoding="utf-8")
+
     def fx_declaration(**over):
         held = dict(FIXTURE["destinations"])
+        held["checkout"] = str(fixture_checkout)
         held.update(over)
         return {**FIXTURE, "destinations": held}
 
     def fx_env(**over):
-        held = {override: f"{root}/destinations/{cls}/{override.lower()}"
-                for override, cls in class_of_override()[0].items()}
+        """The environment the RUN produces, built from the declaration like a run's own.
+
+        It used to be built from a hardcoded `/srv/destinations/<class>/<name>`, which meant the
+        suite judged values no declaration had produced: a root the declaration names and a value
+        the fixture invents cannot disagree, because they were never the same answer. Every value
+        is now the declared root of that name's class, with HOME the declared home, which is what
+        `environment_for` hands each writer.
+        """
+        roots = fx_declaration()["destinations"]
+        held = {override: roots.get(cls) for override, cls in class_of_override()[0].items()}
+        held["HOME"] = declared_home(FIXTURE)
         held.update(over)
         return held
 
@@ -1129,7 +1716,11 @@ def self_test():
           [r["writer"] for r in rows if set(r) < {"class", "writer", "path", "root", "inside"}])
     control("a writer with several overrides is answered once per override, so one escaping value "
             "cannot hide behind a sibling in root",
-            str(len([r for r in rows if r["writer"].startswith("install.sh [")])), "3")
+            str(len([r for r in rows if r["writer"].startswith("install.sh [")])),
+            str(len([e for e in next(r for r in writers() if r["writer"] == "install.sh")
+                     ["destinations"]])
+                + len([e for e in next(r for r in writers() if r["writer"] == "install.sh")
+                       .get("fixed_roots") or []])))
 
     # OVERRIDE_MISSING: the case that writes into a real home through a fallback.
     unset = resolution_problems(resolved_rows(fx_declaration(),
@@ -1157,15 +1748,16 @@ def self_test():
     control("a destination under a second root is refused by name with both paths",
             "; ".join(escaped), f"DESTINATION_OUTSIDE_ROOT session-distill/update-state.py "
                                 f"[AGENT_BIOS_SESSION_DISTILL_STATE]: {root}-other/nudge/state.json")
+    nudge_root = fx_declaration()["destinations"]["nudge"]
     control("and the refusal names the root it is not inside", "; ".join(escaped),
-            f"not inside {root}/destinations/nudge")
+            f"not inside {nudge_root}")
     clean("a path that IS the root is inside it, not an escape",
           resolution_problems(resolved_rows(
-              fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{root}/destinations/nudge"))))
+              fx_declaration(), fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=nudge_root))))
     control("a sibling directory whose name merely starts with the root's is an escape, not a child",
             "; ".join(resolution_problems(resolved_rows(
                 fx_declaration(),
-                fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{root}/destinations/nudge-other/s.json")))),
+                fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{nudge_root}-other/s.json")))),
             "DESTINATION_OUTSIDE_ROOT")
     control("a traversal that climbs out of the root is an escape even though its text begins inside",
             "; ".join(resolution_problems(resolved_rows(
@@ -1175,7 +1767,7 @@ def self_test():
     clean("and one that climbs and comes back is inside, because the question is what the writer opens",
           resolution_problems(resolved_rows(
               fx_declaration(),
-              fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{root}/destinations/nudge/d/../s.json"))))
+              fx_env(AGENT_BIOS_SESSION_DISTILL_STATE=f"{nudge_root}/d/../s.json"))))
     control("a run that declares no root for a class is refused rather than defaulting to one",
             "; ".join(resolution_problems(resolved_rows(
                 {"destinations": {k: v for k, v in fx_declaration()["destinations"].items()
@@ -1256,6 +1848,307 @@ def self_test():
             "ZDOTDIR" if "ZDOTDIR" in derived_for("launch/shell_integration.py")
             else "missed the indirection", "ZDOTDIR")
 
+    # ---- the environment a writer is GIVEN ---------------------------------------------------
+    #
+    # The inversion. Deriving every override that could redirect a write loses across a module
+    # boundary, and what is not derived is not refused; a variable that is ABSENT cannot redirect
+    # anything. These controls are about the environment this module PRODUCES — it executes nothing,
+    # so what is asserted is the mapping, not a process.
+    held_install = next(r for r in writers() if r["writer"] == "install.sh")
+    given_install = environment_for(held_install, fx_declaration())
+    control("a writer is handed exactly the names its own row declares, and HOME",
+            json.dumps(sorted(given_install)),
+            json.dumps(sorted({e["override"] for e in held_install["destinations"]} | {"HOME"})))
+    control("and each value is the declared root of that name's class, not a value invented here",
+            json.dumps(given_install["CLAUDE_CONFIG_DIR"]),
+            json.dumps(fx_declaration()["destinations"]["install_roots"]))
+    control("HOME is what the run declares it hands, which is what every fixed root is computed "
+            "from", json.dumps(given_install["HOME"]),
+            json.dumps(declared_home(fx_declaration())))
+    clean("a variable this writer reads and its row does not declare is ABSENT from what it is "
+          "given — the whole mechanism, since what is not there cannot redirect a write",
+          [name for name in ("AGENT_BIOS_UNINSTALL_ARCHIVE", "XDG_CACHE_HOME", "GIT_DIR",
+                             "AGENT_LAUNCH_CONFIG", "AGENT_BIOS_INSTRUCTIONS_DIR")
+           if name in given_install])
+    control("and the environment is the same answer for every writer: the names its row declares, "
+            "with no extras anywhere",
+            json.dumps(sorted({name for row in writers()
+                               for name in environment_for(row, fx_declaration())
+                               if name != "HOME"
+                               and name not in {e["override"]
+                                                for e in row.get("destinations") or ()}})),
+            "[]")
+    control("a run that declares no home is refused before any writer is handed anything",
+            "; ".join(environment_problems({**FIXTURE, "environment": {}})),
+            "ENVIRONMENT_HOME_UNDECLARED")
+    clean("while the fixture run declares one", environment_problems(FIXTURE))
+    control("and the manifest refuses without it rather than guessing the owner's home",
+            refusal(lambda: document({**fx_declaration(), "environment": {}}, fx_env())),
+            "ENVIRONMENT_HOME_UNDECLARED")
+
+    # ---- the derivation as DISCLOSURE ---------------------------------------------------------
+    control("what a writer reads and is not given is disclosed per row, and withholds "
+            "certification: a fallback nobody declared points nowhere this manifest can speak for",
+            "; ".join(resolution_problems([
+                {"class": "install_roots", "writer": "x [CLAUDE_CONFIG_DIR]", "path": "/a",
+                 "root": "/a", "inside": True, "reads_not_given": ["AGENT_BIOS_STATE_DIR"],
+                 "certification": "withheld",
+                 "why": "its source reads AGENT_BIOS_STATE_DIR, which the run does not hand it"}])),
+            "DESTINATION_UNCERTIFIED x [CLAUDE_CONFIG_DIR]")
+    clean("the real writers read nothing they are not given, once the excused pairs carry their "
+          "reasons",
+          [f"{row['writer']}: {row['reads_not_given']}" for row in
+           resolved_rows(fx_declaration(), fx_env()) if row.get("reads_not_given")])
+    control("and an excused pair is SHOWN with its reason rather than hidden, since the run does "
+            "not hand it and something has to say why that is safe",
+            json.dumps(sorted(excused_overrides("install.sh"))),
+            '["AGENT_BIOS_UNINSTALL_ARCHIVE"]')
+    control("the disclosure is derived from the writer's own closure, so a name it stops reading "
+            "stops being disclosed",
+            json.dumps(reads_not_given("install.sh", {}, None)),
+            json.dumps(sorted({e["override"] for e in closure(None)
+                               if e["writer"] == "install.sh" and e["override"]}
+                              - set(excused_overrides("install.sh")))))
+    control("a writer handed nothing at all reads everything it reads ungiven, which is the "
+            "disclosure firing rather than an empty answer",
+            "yes" if reads_not_given("install.sh", {}, None) else "the disclosure is empty", "yes")
+
+    # ---- the fixed roots, computed from the given HOME ----------------------------------------
+    fixed_rows = [r for r in resolved_rows(fx_declaration(), fx_env()) if "[fixed:" in r["writer"]]
+    control("every fixed-root row carries a path computed from the declared home, not the class "
+            "root restated",
+            json.dumps(sorted({r["certification"] for r in fixed_rows})), '["computed"]')
+    control("and the home-rooted statement whose suffix cannot be read is BOUNDED by the home "
+            "instead of being guessed at",
+            fixed_destination({}, "/h", source_text="root = Path(pick(home, other()))")[1],
+            "the home is its upper bound")
+    held_state = next(r for r in fixed_rows if r["writer"].startswith("install.sh"))
+    control("install.sh's own STATE_DIR is computed under the home it is given",
+            held_state["path"],
+            str(pathlib.Path(declared_home(fx_declaration())) / ".local/share/agent-bios"))
+    control("and the manifest says how it was computed, so a reader can check it by hand",
+            held_state["why"], "<home>/.local/share/agent-bios")
+    control("a declaration whose class root does not contain what the writer computes is refused "
+            "by name rather than certified",
+            "; ".join(resolution_problems(resolved_rows(
+                fx_declaration(install_roots="/srv/elsewhere"), fx_env()))),
+            "DESTINATION_OUTSIDE_ROOT install.sh [fixed:")
+    # A statement whose suffix is unreadable, planted on install.sh's own row: where the class
+    # root CONTAINS the home, the bound is a certification; where it is narrower, the unread suffix
+    # is exactly what would decide, so certification is withheld rather than guessed either way.
+    # Asked of the two functions directly: every statement in this tree has a readable suffix, so
+    # the bounded case has no live subject, and a control that waits for one tests nothing.
+    control("a fixed root whose suffix cannot be read is bounded by the home, and that bound is a "
+            "certification only where the class root contains the home",
+            json.dumps([fixed_destination({}, "/h", source_text="root = Path(pick(home, x()))")[0],
+                        _inside("/h", "/h/.local"), _inside("/h", "/h")]),
+            '["/h", false, true]')
+    control("and a row that claims a fixed root while the run declares no home is uncertified, "
+            "never certified at the root",
+            "; ".join(p for p in resolution_problems(resolved_rows(
+                {**fx_declaration(), "environment": {}}, fx_env())) if "UNCERTIFIED" in p),
+            "the run declares no home")
+    control("a writer the run PASSES its root is certified by that, which is the preferred channel "
+            "because an argument cannot be inherited",
+            json.dumps(sorted({r["certification"] for r in resolved_rows(fx_declaration(), fx_env())
+                               if r["writer"] in ("git", "session-distill/runlib/journal.py")})),
+            '["argument"]')
+    control("and the row says so, naming what passes it",
+            next(r["why"] for r in resolved_rows(fx_declaration(), fx_env()) if r["writer"] == "git"),
+            "the run passes this writer its root")
+    control("a fixed-root row that says neither how its root is reached is a table defect",
+            "; ".join(with_table(lambda held: [row.pop("root_from") for row in held["writers"]
+                                               if row["writer"] == "install.sh"],
+                                 inventory_problems)),
+            "INVENTORY_ROOT_FROM_UNSTATED install.sh")
+    control("and one that says HOME and shows no line to derive it at is another",
+            "; ".join(with_table(lambda held: [row.pop("fixed_roots") for row in held["writers"]
+                                               if row["writer"] == "install.sh"],
+                                 inventory_problems)),
+            "INVENTORY_FIXED_ROOT_UNSHOWN install.sh")
+    control("a fixed-root row for a writer this tree does not have is reported, which the pair-only "
+            "legs could not see",
+            "; ".join(with_table(lambda held: held["writers"].append(
+                {"writer": "compose/no-such-writer.py", "destinations": [],
+                 "writes_without_override": "install_roots", "root_from": "home",
+                 "fixed_roots": [{"derived_at_line": 1, "root": "X = Path.home() / 'x'"}],
+                 "$comment": "planted"}), inventory_problems)),
+            "INVENTORY_FIXED_ROOT_ABSENT compose/no-such-writer.py")
+    control("the line the destination is computed from is read from the WRITER's source, not from "
+            "the table's 160-character excerpt of it",
+            "yes" if (source_line("compose/instructions_install.py", 327) or "").endswith(
+                ".expanduser()") else "the excerpt is what was read", "yes")
+    control("and a multi-line statement is read to where its parentheses balance, because one line "
+            "of it establishes nothing",
+            fixed_destination({}, "/h", source_text=source_line("launch/agent-launch.py", 8314))[1],
+            "<home>/.local/share/agent-bios/corpus-status.json")
+
+    # ---- the four channels an environment cannot close ---------------------------------------
+    #
+    # Scrubbing is the mechanism and it is not sufficient: a writer can reach a path without reading
+    # a variable. Each channel is derived from the writer's own source, and each control plants its
+    # subject rather than waiting for a real writer to acquire one.
+    clean("no writer in this tree reaches a path through a channel the run cannot answer for",
+          channel_problems())
+    control("and the check says so about a non-empty set of writers, since an empty one would pass "
+            "unexamined", "named" if "CHANNEL_NO_WRITERS_READ" in "; ".join(
+                channel_problems(str(pathlib.Path(tempfile.mkdtemp(prefix="dest-nowriter-",
+                                                                   dir="/tmp"))))) else "silent",
+            "named")
+
+    def with_source(writer, text, call):
+        """Run `call` with one writer's source replaced in a throwaway copy of the tree."""
+        held_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-channel-", dir="/tmp"))
+        try:
+            for row in writers():
+                source = REPO / row["writer"]
+                if not source.is_file():
+                    continue
+                target = held_root / row["writer"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(text if row["writer"] == writer
+                                  else source.read_text(encoding="utf-8", errors="replace"),
+                                  encoding="utf-8")
+            (held_root / "gates").mkdir(exist_ok=True)
+            return call(str(held_root))
+        finally:
+            shutil.rmtree(held_root, ignore_errors=True)
+
+    # The password database: the channel that put a run in the owner's real home during a commit
+    # hook. Proved BY SOURCE in both directions — the defect and its licence — because the only
+    # other way to prove it is to run a writer against a real home and look at what appeared.
+    control("a writer that reads the password database is refused by name: the run cannot redirect "
+            "what `getpwuid` answers",
+            "; ".join(with_source("compose/prune-backups.py",
+                                  "import pwd, os\nroot = pwd.getpwuid(os.getuid()).pw_dir\n",
+                                  channel_problems)),
+            "CHANNEL_PASSWORD_DATABASE compose/prune-backups.py:2")
+    control("and the licence for one is held against the source: the read must sit behind the "
+            "absence of a name the run always gives",
+            json.dumps([guarded_by("home = env.get('HOME')\nif home is None:\n    import pwd\n"
+                                   "    home = pwd.getpwuid(os.getuid()).pw_dir\n", 4, "HOME"),
+                        guarded_by("home = env.get('XDG_HOME')\nif home is None:\n    import pwd\n"
+                                   "    home = pwd.getpwuid(os.getuid()).pw_dir\n", 4, "HOME"),
+                        guarded_by("import pwd\nhome = pwd.getpwuid(os.getuid()).pw_dir\n", 2,
+                                   "HOME")]),
+            "[true, false, false]")
+    control("so a row licensing a line its source does not guard is refused, naming the guard it "
+            "claimed",
+            "; ".join(with_table(
+                lambda held: [row.__setitem__("channels", {"password_database": [
+                    {"line": 2, "guarded_by": "HOME", "reason": "planted"}]})
+                    for row in held["writers"] if row["writer"] == "compose/prune-backups.py"],
+                lambda: with_source("compose/prune-backups.py",
+                                    "import pwd, os\nroot = pwd.getpwuid(os.getuid()).pw_dir\n",
+                                    channel_problems))),
+            "which its source does not show guarding it")
+    control("and a licence with no reason licenses nothing either",
+            "; ".join(with_table(
+                lambda held: [row.__setitem__("channels", {"password_database": [
+                    {"line": 4, "guarded_by": "HOME"}]})
+                    for row in held["writers"] if row["writer"] == "compose/prune-backups.py"],
+                lambda: with_source("compose/prune-backups.py",
+                                    "import os, pwd\nhome = os.environ.get('HOME')\n"
+                                    "if home is None:\n    home = pwd.getpwuid(os.getuid()).pw_dir\n",
+                                    channel_problems))),
+            "CHANNEL_PASSWORD_DATABASE compose/prune-backups.py:4")
+    clean("while the real licence in this tree holds: the read is behind `if home is None` where "
+          "home came from the HOME the run hands it",
+          [p for p in channel_problems() if "PASSWORD_DATABASE" in p])
+
+    # A login shell restores exactly what was scrubbed.
+    control("a child login shell is refused by name, because a profile re-read puts the user's own "
+            "variables back",
+            "; ".join(with_source("wrappers/codex-run.sh",
+                                  "#!/bin/sh\nexec zsh -l -c \"$1\"\n", channel_problems)),
+            "CHANNEL_LOGIN_SHELL wrappers/codex-run.sh:2")
+    control("and `--login` spelled in full is the same channel",
+            "; ".join(with_source("wrappers/codex-run.sh",
+                                  "#!/bin/sh\nbash --login -c \"$1\"\n", channel_problems)),
+            "CHANNEL_LOGIN_SHELL wrappers/codex-run.sh:2")
+
+    # An absolute literal and a path argument are STATED, with their reasons, keyed to the token.
+    control("an absolute literal a row does not name is reported with the literal itself",
+            "; ".join(with_source("compose/instructions_setup.py",
+                                  "DEST = '/Library/Application Support/x'\n", channel_problems)),
+            "CHANNEL_UNSTATED compose/instructions_setup.py absolute_literals: "
+            "/Library/Application")
+    control("a statement whose token the source no longer shows is stale, not approval",
+            "; ".join(with_table(
+                lambda held: [row["channels"]["absolute_literals"]["tokens"].append("/srv/gone")
+                              for row in held["writers"]
+                              if row["writer"] == "wrappers/codex_frame_filter.py"],
+                channel_problems)),
+            "CHANNEL_STALE wrappers/codex_frame_filter.py absolute_literals: the row states "
+            "/srv/gone")
+    control("and a statement with tokens and no reason is refused: naming a channel is not "
+            "answering for it",
+            "; ".join(with_table(
+                lambda held: [row["channels"]["absolute_literals"].pop("reason")
+                              for row in held["writers"]
+                              if row["writer"] == "wrappers/codex_frame_filter.py"],
+                channel_problems)),
+            "CHANNEL_UNREASONED wrappers/codex_frame_filter.py absolute_literals")
+    control("a path option a row does not record is reported, because an argument is the channel "
+            "the run PREFERS and it has to know the writer takes one",
+            "; ".join(with_source("compose/instructions_setup.py",
+                                  "parser.add_argument('--state-dir')\n", channel_problems)),
+            "CHANNEL_UNSTATED compose/instructions_setup.py path_arguments: --state-dir")
+    control("and every option in this tree is recorded with the reason it is preferred",
+            json.dumps(sorted(
+                (table()["writers"][i]["channels"]["path_arguments"]["tokens"]
+                 for i in range(len(table()["writers"]))
+                 if (table()["writers"][i].get("channels") or {}).get("path_arguments")),
+                key=len)[0]),
+            '["--state-dir"]')
+
+    # ---- git's own configuration, before any git effect --------------------------------------
+    #
+    # git reads configuration the environment does not name: a system file, the user's global file,
+    # and the repository's own `.git/config` — where `core.worktree` points the work tree somewhere
+    # else entirely and `include.path` pulls in a file that can set it. A scrubbed environment does
+    # not close any of them, so the run names them explicitly and judges the repository's config
+    # before the first git call.
+    control("the sweep the run hands git is declared, not assembled at the call site",
+            json.dumps(GIT_ENVIRONMENT),
+            '{"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}')
+    git_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-git-", dir="/tmp"))
+    try:
+        (git_root / ".git").mkdir()
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\tbare = false\n", encoding="utf-8")
+        clean("a repository whose config sets neither is accepted", git_problems(git_root))
+        (git_root / ".git" / "config").write_text(
+            "[core]\n\tworktree = /srv/elsewhere\n", encoding="utf-8")
+        control("one that points its work tree elsewhere is refused by name, with the value",
+                "; ".join(git_problems(git_root)),
+                "GIT_CONFIG_WORKTREE")
+        (git_root / ".git" / "config").write_text(
+            "[include]\n\tpath = ../../../other\n", encoding="utf-8")
+        control("and one that includes another config file is refused, because what that file sets "
+                "is not in this answer", "; ".join(git_problems(git_root)),
+                "GIT_CONFIG_INCLUDE")
+        (git_root / ".git" / "config").write_text(
+            "[includeIf \"gitdir:/srv\"]\n\tpath = other\n", encoding="utf-8")
+        control("a conditional include is the same channel",
+                "; ".join(git_problems(git_root)), "GIT_CONFIG_INCLUDE")
+        (git_root / ".git").rename(git_root / ".git-moved")
+        (git_root / ".git").write_text(f"gitdir: {git_root / '.git-moved'}\n", encoding="utf-8")
+        control("a `.git` FILE pointing at a directory elsewhere — a worktree or a submodule — is "
+                "refused rather than followed, since the config judged would not be the one git "
+                "reads", "; ".join(git_problems(git_root)), "GIT_DIR_INDIRECT")
+        control("and a tree with no repository at all is refused, because `git commit` there "
+                "writes into whatever repository encloses it",
+                "; ".join(git_problems(git_root / "no-repository-here")),
+                "GIT_REPOSITORY_ABSENT")
+    finally:
+        shutil.rmtree(git_root, ignore_errors=True)
+    control("the manifest refuses before any effect when the checkout's git config carries one of "
+            "them, rather than after the first commit",
+            refusal(lambda: document(fx_declaration(checkout=str(REPO / "no-such-checkout")),
+                                     fx_env())),
+            "GIT_REPOSITORY_ABSENT")
+
     # ---- the two install layouts ----------------------------------------------------------------
     #
     # A packaged install has no `gates/` and no author-scope writer source. The manifest used to
@@ -1288,9 +2181,33 @@ def self_test():
                 target = pack / held_path.relative_to(REPO)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(held_path.read_bytes())
-        control("the package layout is recognised without `gates/`", install_layout(pack), "package")
-        control("and a checkout is recognised by its presence",
+        # What a package DECLARES, written here because npm's own pack writes it: `files[]` carries
+        # `provenance.json`, `check-publish.sh --stamp` writes it at prepack with the commit the
+        # tarball holds, and removes it afterwards — so it is in a published package and in no
+        # checkout. A fixture that models a package carries it, like one that models a checkout
+        # carries `gates/`.
+        (pack / LAYOUT_DECLARATION).write_text(
+            json.dumps({"commit": "0" * 40, "committedAt": "2026-11-12T00:00:00Z", "dirty": False}),
+            encoding="utf-8")
+        control("the package layout is recognised by what a publish DECLARES, not by a directory "
+                "that happens to be missing", install_layout(pack), "package")
+        control("and a checkout is recognised by the author tree it declares itself with",
                 install_layout(REPO), "checkout")
+        bare = layout_root / "bare"
+        (bare / "session-distill").mkdir(parents=True)
+        control("a tree that declares neither is not guessed at: an incomplete copy used to BE a "
+                "package, and every excuse the layout carries was granted to it",
+                str(install_layout(bare)), "None")
+        control("and the manifest refuses over it by name rather than defaulting",
+                "; ".join(layout_problems(bare)), f"LAYOUT_UNDECLARED {bare}")
+        both = layout_root / "both"
+        (both / "gates").mkdir(parents=True)
+        (both / LAYOUT_DECLARATION).write_text("{}", encoding="utf-8")
+        control("a tree carrying both declarations is refused too, since which excuses apply "
+                "cannot be established", "; ".join(layout_problems(both)),
+                f"LAYOUT_AMBIGUOUS {both}")
+        clean("while the real checkout and the package fixture each declare exactly one",
+              layout_problems(REPO) + layout_problems(pack))
         control("the author-scope writer is named as not installed there",
                 ", ".join(author_rows_absent(pack)), author_writer or "none")
         clean("and its absence is not a fidelity failure in that layout",
@@ -1385,7 +2302,23 @@ def self_test():
             str(len(doc["resolved"])), str(len(rows)))
     control("and the overrides the run must set", json.dumps(doc["overrides_required"]),
             "AGENT_BIOS_SESSION_DISTILL_STATE")
-    clean("with every row inside its root", [r["writer"] for r in doc["resolved"] if not r["inside"]])
+    # `inside` is None where there is nothing to confine — a writer this install does not have, and
+    # a forward declaration whose file does not exist. Those rows carry their own state and are not
+    # read as escapes; `False` is an escape and is what this asks about.
+    clean("every row in the written manifest carries a named certification, so a later stage reads "
+          "a state rather than inferring one from a missing field",
+          [r["writer"] for r in doc["resolved"]
+           if not (r.get("certification") or r.get("not_installed") or r.get("unset"))])
+    control("and the states are the declared ones, with no row certified by silence",
+            json.dumps(sorted({str(r.get("certification")) for r in doc["resolved"]})),
+            '["argument", "computed", "forward", "given"]')
+    clean("with every row that HAS a path inside its root",
+          [r["writer"] for r in doc["resolved"] if r["inside"] is False])
+    control("and the rows with nothing to confine say which they are, by a named state, rather "
+            "than reading as escapes or as certified",
+            json.dumps(sorted({str(r.get("certification") or r.get("not_installed"))
+                               for r in doc["resolved"] if r["inside"] is None})),
+            '["forward"]')
     control("a document over an escaping environment is refused instead of written",
             refusal(lambda: document(fx_declaration(),
                                      fx_env(CODEX_HOME=f"{root}-other/codex"))),
@@ -1502,6 +2435,23 @@ def self_test():
             json.dumps(effect_scope(own_source)), '"resolved_rows"')
     clean("this module runs nothing and spawns nothing: the code that confines writes cannot itself "
           "be a writer", spawners)
+    # The dying-control wrapper, and the audit rule it needed. A suite split across two functions
+    # is still the suite: `_self_test_body` is reached only from `self_test`, so it is test-only by
+    # reachability and its fixture building is not a module effect.
+    control("the suite's own body is out of the audit's scope, because the suite alone calls it",
+            "out" if "_self_test_body" not in effect_scope(own_source) else "in", "out")
+    control("and the rule is reachability, not the name: a body a RUNTIME function calls is in",
+            json.dumps(effect_scope("def self_test():\n    pass\n"
+                                    "def _self_test_body(f, r):\n    pass\n"
+                                    "def run():\n    return _self_test_body([], [])\n")),
+            '"_self_test_body"')
+    control("the wrapper prints the control that was in flight, so a suite that dies is not read "
+            "as a rule nobody enforces",
+            next((line.strip() for line in own_source.splitlines()
+                  if "the suite died after" in line), "<no such line>"),
+            'print(f"destinations --self-test [FAIL] the suite died after {held!r}: "')
+    control("and it says INCOMPLETE rather than OK, since the controls after the death never ran",
+            "yes" if "destinations --self-test: INCOMPLETE" in own_source else "no", "yes")
     control("and the only file it writes is its own manifest",
             ", ".join(sorted({ast.unparse(node.func)
                               for node in ast.walk(ast.parse(own_source))
@@ -1509,6 +2459,7 @@ def self_test():
                               and ast.unparse(node.func).startswith("records.write_")})),
             "records.write_json")
 
+    shutil.rmtree(fixture_checkout, ignore_errors=True)
     print(f"destinations --self-test: {'FAILED' if failures else 'OK'} ({len(ran)} controls: the "
           f"writer inventory held against its writers' own sources, OVERRIDE_MISSING before any "
           f"escape judgement, an escape under a second fixture root, the root itself and a "

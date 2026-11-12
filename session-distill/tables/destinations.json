@@ -23,7 +23,16 @@
           "root": "state_dir = pathlib.Path(args.state_dir or pathlib.Path.home() / \".local/share/agent-bios\")"
         }
       ],
-      "$comment": "Compiles the instruction payload into the two config homes and the state root; the run hands it the environment it must write under."
+      "$comment": "Compiles the instruction payload into the two config homes and the state root; the run hands it the environment it must write under.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is how the run gives it the state root instead of letting it derive one: the option wins over AGENT_BIOS_STATE_DIR and over the HOME fallback, and an argument cannot be inherited by a child the way a variable can."
+        }
+      }
     },
     {
       "writer": "compose/canary.sh",
@@ -62,7 +71,16 @@
           "root": "STATE_DIR = pathlib.Path.home() / \".local/share/agent-bios\""
         }
       ],
-      "$comment": "Reads and rewrites the private installation's stored state under the state root and both config homes."
+      "$comment": "Reads and rewrites the private installation's stored state under the state root and both config homes.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes; the environment and the HOME fallback are only read when it is absent."
+        }
+      }
     },
     {
       "writer": "compose/instructions_app.py",
@@ -73,7 +91,15 @@
           "derived_at_line": 103
         }
       ],
-      "$comment": "Writes the desktop app bridge's files under the owner's home."
+      "$comment": "Writes the desktop app bridge's files under the owner's home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of any variable."
+        }
+      }
     },
     {
       "writer": "compose/instructions_import.py",
@@ -84,7 +110,15 @@
           "derived_at_line": 91
         }
       ],
-      "$comment": "Imports an instruction corpus into paths rooted at the owner's home."
+      "$comment": "Imports an instruction corpus into paths rooted at the owner's home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of any variable."
+        }
+      }
     },
     {
       "writer": "compose/instructions_install.py",
@@ -141,7 +175,8 @@
         }
       ],
       "fallback_source": "compose/instructions_install.py",
-      "$comment": "The private installer: it writes the catalog, the store, the launcher status and the shell hook across the state root, both config homes and ZDOTDIR."
+      "$comment": "The private installer: it writes the catalog, the store, the launcher status and the shell hook across the state root, both config homes and ZDOTDIR.",
+      "root_from": "home"
     },
     {
       "writer": "compose/instructions_session.py",
@@ -152,7 +187,16 @@
           "derived_at_line": 538
         }
       ],
-      "$comment": "Writes the per-session instruction selection under the owner's home."
+      "$comment": "Writes the per-session instruction selection under the owner's home.",
+      "channels": {
+        "password_database": [
+          {
+            "line": 72,
+            "guarded_by": "HOME",
+            "reason": "The read is `pwd.getpwuid(os.getuid()).pw_dir`, reached only inside `if home is None:` where `home = env.get('HOME')`. The run always hands this writer HOME, so the branch is unreachable for a confined run — and the value is used to BUILD A LOOKUP PATTERN for Claude's own user-scope instruction files, not a destination. Established from the source, which is the only way this one can be established: running the writer against a real HOME to see where it lands is the accident this whole unit exists to prevent."
+          }
+        ]
+      }
     },
     {
       "writer": "compose/instructions_setup.py",
@@ -186,7 +230,8 @@
           "root": "self.user_root = Path(user_root or environment_value(os.environ,"
         }
       ],
-      "$comment": "Owns the instruction store under the state root."
+      "$comment": "Owns the instruction store under the state root.",
+      "root_from": "home"
     },
     {
       "writer": "compose/instructions_understand.py",
@@ -207,7 +252,15 @@
           "derived_at_line": 384
         }
       ],
-      "$comment": "Writes the understanding records into whichever host's config home the call names — the override key itself is chosen at runtime, so both keys are rows."
+      "$comment": "Writes the understanding records into whichever host's config home the call names — the override key itself is chosen at runtime, so both keys are rows.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of any variable."
+        }
+      }
     },
     {
       "writer": "compose/prune-backups.py",
@@ -218,7 +271,16 @@
           "root": "state = pathlib.Path(args.state_dir or pathlib.Path.home() / \".local/share/agent-bios\")"
         }
       ],
-      "$comment": "Prunes backups under the state root."
+      "$comment": "Prunes backups under the state root.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes; pruning is the one operation where a wrong root deletes rather than writes, so it is given rather than derived."
+        }
+      }
     },
     {
       "writer": "compose/windows_deploy.py",
@@ -234,7 +296,15 @@
           "derived_at_line": 386
         }
       ],
-      "$comment": "Writes the Windows shortcut and its state under the state root; on this platform no apply reaches it, but the pair is real and classified rather than excused."
+      "$comment": "Writes the Windows shortcut and its state under the state root; on this platform no apply reaches it, but the pair is real and classified rather than excused.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--root"
+          ],
+          "reason": "`--root` is the deployment root the run passes; nothing is derived from the environment when it is present."
+        }
+      }
     },
     {
       "writer": "install.sh",
@@ -273,7 +343,16 @@
         }
       ],
       "fallback_source": "install.sh",
-      "$comment": "The compatibility installer. It resolves both config homes and ZDOTDIR from the environment AND fixes STATE_DIR, BIN_DIR and LAUNCH_DIR from $HOME with no override at all (install.sh:48, :47, :45) — which is why an AGENT_BIOS_STATE_DIR row for this writer certified a value it cannot use."
+      "$comment": "The compatibility installer. It resolves both config homes and ZDOTDIR from the environment AND fixes STATE_DIR, BIN_DIR and LAUNCH_DIR from $HOME with no override at all (install.sh:48, :47, :45) — which is why an AGENT_BIOS_STATE_DIR row for this writer certified a value it cannot use.",
+      "root_from": "home",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--state-dir"
+          ],
+          "reason": "`--state-dir` is the root the run passes, ahead of AGENT_BIOS_STATE_DIR and ahead of the `$HOME/.local/share/agent-bios` fallback in its own source."
+        }
+      }
     },
     {
       "writer": "launch/agent-launch.py",
@@ -316,7 +395,8 @@
           "root": "INSTRUCTIONS_STATUS_PATH = pathlib.Path("
         }
       ],
-      "$comment": "The launcher: it writes its profile, venv, update-check and version state, the distill nudge state, and reads both config homes to place per-host files."
+      "$comment": "The launcher: it writes its profile, venv, update-check and version state, the distill nudge state, and reads both config homes to place per-host files.",
+      "root_from": "home"
     },
     {
       "writer": "launch/agent-launch.zsh",
@@ -327,7 +407,8 @@
           "root": "local host=\"$1\" foreign=\"$2\" state=\"$HOME/.local/share/agent-bios\" first prog stamp"
         }
       ],
-      "$comment": "The shell function caches a host's subcommands under the state root."
+      "$comment": "The shell function caches a host's subcommands under the state root.",
+      "root_from": "home"
     },
     {
       "writer": "launch/provision-venv.sh",
@@ -385,10 +466,25 @@
       "fixed_roots": [
         {
           "derived_at_line": 8382,
-          "root": "home_ref = f\"@fixture/core:{pathlib.Path.home()}/.claude/an-item-under-the-owners-home\""
+          "root": "home_ref = f\"@fixture/core:{pathlib.Path.home()}/.claude/an-item-under-the-owners-home\"",
+          "not_a_destination": "the line builds a fixture REFERENCE string for a control (`@fixture/core:<home>/...`), not a path anything opens; the derivation sees the home expression reach a write because the string is written into the fixture file"
         }
       ],
-      "$comment": "Reads the owner's home to take the census. Its only writes go inside the run directory; the HOME pair is a row because the derivation sees the read reach a write, and the class states what the run may not do with it."
+      "$comment": "Reads the owner's home to take the census. Its only writes go inside the run directory; the HOME pair is a row because the derivation sees the read reach a write, and the class states what the run may not do with it.",
+      "root_from": "argument",
+      "$comment_root_from": "its writes go inside the run directory it is handed; the HOME it reads is a READ of the owner's home for the census, which the personal_layers row states, not a destination",
+      "channels": {
+        "absolute_literals": {
+          "tokens": [
+            "/bin/sleep",
+            "/etc/passwd",
+            "/tmp",
+            "/usr/bin:/bin",
+            "/var/tmp"
+          ],
+          "reason": "None of the five is a destination. `/tmp` and `/var/tmp` are the CANDIDATE list the census picks a scratch directory from and are joined with the run's own TMPDIR before anything is written; `/usr/bin:/bin` is a PATH default for a child environment; `/etc/passwd` is a string a control hands to the confinement to be refused; `/bin/sleep` is the program a control starts so that a second process exists to hold a lock, and it writes nothing."
+        }
+      }
     },
     {
       "writer": "session-distill/update-state.py",
@@ -418,7 +514,16 @@
           "derived_at_line": 551
         }
       ],
-      "$comment": "The Claude wrapper writes its session log under the Claude config home."
+      "$comment": "The Claude wrapper writes its session log under the Claude config home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--home",
+            "--root"
+          ],
+          "reason": "`--root` and `--home` are passed by the run; the wrapper forwards them to the host instead of exporting a variable the host's own children would inherit."
+        }
+      }
     },
     {
       "writer": "wrappers/codex-helm.sh",
@@ -429,7 +534,15 @@
           "derived_at_line": 345
         }
       ],
-      "$comment": "The Codex helm writes its state under the Codex home."
+      "$comment": "The Codex helm writes its state under the Codex home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--home"
+          ],
+          "reason": "`--home` is passed by the run rather than exported, so a child of the host does not inherit it."
+        }
+      }
     },
     {
       "writer": "wrappers/codex-run.sh",
@@ -440,7 +553,15 @@
           "derived_at_line": 154
         }
       ],
-      "$comment": "The Codex wrapper writes its session state under the Codex home."
+      "$comment": "The Codex wrapper writes its session state under the Codex home.",
+      "channels": {
+        "path_arguments": {
+          "tokens": [
+            "--home"
+          ],
+          "reason": "`--home` is passed by the run rather than exported, so a child of the host does not inherit it."
+        }
+      }
     },
     {
       "writer": "wrappers/codex_frame_filter.py",
@@ -451,7 +572,15 @@
           "derived_at_line": 434
         }
       ],
-      "$comment": "The frame filter writes its cache under the state root."
+      "$comment": "The frame filter writes its cache under the state root.",
+      "channels": {
+        "absolute_literals": {
+          "tokens": [
+            "/Users/canary/private-value"
+          ],
+          "reason": "A canary value inside a fixture payload, written so a leak of it can be recognised in output. Nothing opens it."
+        }
+      }
     },
     {
       "writer": "git",
@@ -459,7 +588,9 @@
       "fallback_source": null,
       "$comment": "One commit per applied item. The destination is the working tree the run was given, which has no environment override: the confinement is that the tree is the fixture clone named by the `checkout` class, never a worktree sharing the owner's .git.",
       "destinations": [],
-      "writes_without_override": "checkout"
+      "writes_without_override": "checkout",
+      "root_from": "argument",
+      "$comment_root_from": "the working tree the run was given, as an argument to every git call; there is no environment override for it, and the confinement is that the tree is the clone the `checkout` class names"
     },
     {
       "writer": "session-distill/runlib/stage_close.py",
@@ -468,7 +599,9 @@
       "$comment": "The close writes the ledger, the version registry and the coverage state, all inside the checkout. The nudge is its own class because it is written last and by another writer. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
       "destinations": [],
       "writes_without_override": "checkout",
-      "writer_unwritten": true
+      "writer_unwritten": true,
+      "root_from": "argument",
+      "$comment_root_from": "the run directory and the checkout are passed to the stage, as they are to every stage"
     },
     {
       "writer": "session-distill/runlib/stage_apply.py",
@@ -491,7 +624,9 @@
       "$comment": "Recovery writes only its own journal and report, under the class whose root exists so that a recovery after a drifted apply has somewhere to land that the apply did not touch. This file does not exist yet (S11/S12 are STAGE_NOT_IMPLEMENTED); the row is a forward declaration and INVENTORY_FORWARD_LANDED fails when the file appears, so the derived closure takes over rather than this row standing unchecked.",
       "destinations": [],
       "writes_without_override": "recovery",
-      "writer_unwritten": true
+      "writer_unwritten": true,
+      "root_from": "argument",
+      "$comment_root_from": "the recovery root is passed to it, like every other stage's"
     },
     {
       "writer": "session-distill/runlib/journal.py",
@@ -499,7 +634,18 @@
       "fallback_source": null,
       "$comment": "The write-ahead journal itself. It is runtime state rather than part of the run so that a run directory lost with its machine does not take the record of what was already applied with it.",
       "destinations": [],
-      "writes_without_override": "runtime_state"
+      "writes_without_override": "runtime_state",
+      "root_from": "argument",
+      "$comment_root_from": "the journal's root is the function's own `root` argument (`append(path, record, root)`), which the run passes from the declared runtime_state; it reads no variable for it",
+      "channels": {
+        "absolute_literals": {
+          "tokens": [
+            "/etc/passwd",
+            "/tmp"
+          ],
+          "reason": "`/etc/passwd` and `/tmp` are control inputs: the first is a target the lexical check must refuse as absolute, the second is where a control builds its own temp tree. Every real journal path is reached through the confined handle under the root the run passes."
+        }
+      }
     }
   ],
   "not_a_destination": [

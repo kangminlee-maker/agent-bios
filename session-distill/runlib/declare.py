@@ -436,7 +436,26 @@ def fixture():
         "host_allowance": {sonnet: {"allowance_tokens": 3200, "host_version": claude,
                                     "flag_set_sha256": digest("flags")}},
         "output_caps": {VIEW_WINDOW_STAGE: 32000},
-        "destinations": {name: f"/srv/fixture/destinations/{name}" for name in DESTINATIONS},
+        # COHERENT with the home below, because the writers derive their roots from it: a class
+        # root that does not contain what its writers compute from HOME is a declaration no run can
+        # satisfy, and the destination manifest says so by name. Each root here is where the real
+        # writers really write, with the fixture home in place of the owner's.
+        "destinations": {"checkout": "/srv/fixture/checkout",
+                         # The HOME itself: a private installation writes in several places under
+                         # it — the state root, both config homes, the corpus, the launcher's bin —
+                         # so the class root that contains them all is the home. A run that wants a
+                         # narrower one declares it, and then a writer whose suffix cannot be read
+                         # is uncertified rather than assumed.
+                         "install_roots": "/srv/fixture/home",
+                         "personal_layers": "/srv/fixture/home",
+                         "launcher_shell_integration": "/srv/fixture/home/.config/agent-bios/shell",
+                         "runtime_state": "/srv/fixture/home/.local/state/agent-bios",
+                         "nudge": "/srv/fixture/home/.local/state/agent-bios/nudge",
+                         "recovery": "/srv/fixture/home/.local/state/agent-bios/recovery"},
+        # What the run HANDS its writers. The destination manifest computes every HOME-derived root
+        # from this one and compares the result with its class root, so a fixture without it cannot
+        # produce a manifest — which is the point: the alternative is guessing the owner's home.
+        "environment": {"home": "/srv/fixture/home"},
     }
 
 
@@ -479,6 +498,10 @@ def self_test():
     # `posture`, whose authority is design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md,
     # and `output_caps` (WP-08: the cap's declared home, named in the schema's $comment).
     # The schema is the authority for their shape; this pins which fields exist.
+    # `environment` is optional HERE and required by the destination manifest: what the run hands
+    # its writers (WP-21, `destinations.environment_for`), declared by a run written before the
+    # block existed or not at all, and refused at the manifest rather than at S0 so that no lane's
+    # fixture becomes invalid for a field only S11 needs.
     # `density` and `retry` are the two optional fields (WP-08e: an earlier run's measured table; W r1 F4: the retries a
     # call's claim holds), each named in the schema's $comment.
     declared = {"question", "kind", "posture", "window", "sources", "checks", "budget", "seats",
@@ -486,8 +509,10 @@ def self_test():
                 "declaration_seq", "host_allowance", "output_caps", "destinations"}
     control("schema-requires-exactly-the-declared-fields",
             [] if set(SCHEMA["required"]) == declared
-            and set(SCHEMA["properties"]) == declared | {"density", "retry", "retrieval", "judge", "sweeps"}
-            and all(f"{name} (optional)" in SCHEMA["$comment"] for name in ("density", "retry", "retrieval", "judge", "sweeps"))
+            and set(SCHEMA["properties"]) == declared | {"density", "retry", "retrieval", "judge",
+                                                          "sweeps", "environment"}
+            and all(f"{name} (optional)" in SCHEMA["$comment"]
+                    for name in ("density", "retry", "retrieval", "judge", "sweeps", "environment"))
             else [f"schema requires {sorted(SCHEMA['required'])}, declares {sorted(SCHEMA['properties'])}"])
     measured = {"bytes_per_token": 1.852, "measured_in": "c2-20261110", "samples": 8, "at": "2026-11-10T23:22:00+09:00"}
     s3_seat = fixture()["seats"][VIEW_WINDOW_STAGE]  # a name of its own: `sonnet` is assigned later in this function
