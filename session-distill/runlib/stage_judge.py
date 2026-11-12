@@ -391,6 +391,10 @@ BLOCKS = {"candidate": "candidate", "claims": "claims", "units": "units", "conte
 # what the candidate block leaves out of a candidate's record: its ids (shown as labels elsewhere or not at all) and the
 # lifecycle record, which it shows without the candidate's own id and source
 CANDIDATE_HIDDEN = ("candidate_id", "label", "event_ids", "sessions", "lifecycle")
+# what a lifecycle candidate carries for the stages after S6 and never shows a model: the decision a due decision
+# resolves, `<entry id>@<run>` (design §7.1), which names a stored entry and run and is the hidden candidate id's own
+# tail (Codex WP-11 r2 #3); the judges are shown the entry it is about (its label), its status and its expiry
+LIFECYCLE_INTERNAL = ("resolves",)
 CLUSTER_PREFIX = "g_cluster:"  # a placed cluster's id (lifecycle_intake): the prefix and the unit its entries share
 
 
@@ -489,7 +493,8 @@ class JudgeLabels:
         k = self.candidate
         view = {key: k[key] for key in sorted(k) if key not in CANDIDATE_HIDDEN}
         life = k.get("lifecycle")
-        view["lifecycle"] = {key: v for key, v in sorted(life.items()) if key not in ("candidate_id", "source")} \
+        view["lifecycle"] = {key: v for key, v in sorted(life.items())
+                             if key not in ("candidate_id", "source") + LIFECYCLE_INTERNAL} \
             if isinstance(life, dict) else None
         view["sessions"] = list(k.get("sessions") or [])
         view["quotes"] = [{"evidence_id": q, **stage_form.quote_row({"record": self.evidence[q].get("line"),
@@ -862,7 +867,8 @@ def sweep_view(candidate, entries, units):
     life = candidate.get("lifecycle") or {}
     named_entries = stage_retrieve.as_list(life.get("target_entry")) + stage_retrieve.as_list(life.get("entries"))
     named_units = stage_retrieve.as_list(life.get("target_unit")) + stage_retrieve.as_list(life.get("target_units"))
-    return {"source": candidate["source"], **{k: v for k, v in sorted(life.items()) if k not in LIFECYCLE_NAMED},
+    return {"source": candidate["source"],
+            **{k: v for k, v in sorted(life.items()) if k not in LIFECYCLE_NAMED + LIFECYCLE_INTERNAL},
             "entry_texts": [lifecycle_intake.entry_text(entries[i]) for i in named_entries if i in entries],
             "unit_texts": [units[u]["text"] for u in named_units if u in units],
             "names_not_held": sum(1 for i in named_entries if i not in entries) + sum(1 for u in named_units if u not in units)}
@@ -3612,6 +3618,54 @@ def self_test():
                         "the fixture holds candidates whose fields reference them",
                         referring and not any(leaked.values()),
                         f"{len(referring)} {[(c[:20], v[:3]) for c, v in leaked.items() if v][:3]}")
+                # Codex WP-11 r2 #3: no packet of any of the four kinds shows a decision reference - a decision id
+                # (`<entry id>@<run>`, every one the ledger's entries hold and every one a candidate resolves) or the
+                # approval, adjudication or confirmation a decision records - nor a stored unit or ledger entry id. Read
+                # value by value: every JSON string a payload holds, decoded, compared whole.
+                def strings_of(text):
+                    out = []
+                    for raw in re.findall(r'"((?:[^"\\\n]|\\.)*)"', text):
+                        try:
+                            out.append(json.loads(f'"{raw}"'))
+                        except ValueError:
+                            out.append(raw)
+                    return out
+                any_labels = next(iter(whole_packets.values()))[0] if whole_packets else None
+                decision_refs = set()
+                for entry in (any_labels.entry_store.values() if any_labels else []):
+                    for d in entry.get("decisions") or []:
+                        decision_refs.add(f"{entry['id']}@{d.get('run')}")
+                        # an approval the ledger records as `legacy` or `unavailable` names no row: a state, not a reference
+                        decision_refs |= {d.get(k) for k in ("approval_id", "adjudication_id", "confirmation")
+                                          if isinstance(d.get(k), str)
+                                          and d.get(k) not in lifecycle_intake.ledger_lib.UNAPPROVED}
+                resolving = [(c, labels) for c, (labels, _t) in sorted(whole_packets.items())
+                             if ((labels.candidate.get("lifecycle") or {}).get("resolves"))]
+                decision_refs |= {labels.candidate["lifecycle"]["resolves"] for _c, labels in resolving}
+
+                def four_kinds(c, labels):
+                    u = labels.units.get("n1") or sorted(labels.unit_store)[0]
+                    kinds = {"judge": lambda: payload(labels),
+                             "reconsider": lambda: reconsider_payload(returned_labels(labels, [u])),
+                             "sweep": lambda: sweep_payload(SweepLabels({"pairs": {c: [u]}, "units": [u]},
+                                                                        {c: labels.candidate}, labels.unit_store,
+                                                                        labels.entry_store), "a" * 64),
+                             "cross": lambda: cross_payload(CrossLabels(labels.candidate, {u: {"A": {"situation": "no"}}},
+                                                                        [u], [], labels.unit_store, labels.entry_store))}
+                    return {kind: guarded(make, "RAISED") for kind, make in kinds.items()}
+                shown_refs = {}
+                for c, labels in [(c, labels) for c, (labels, _t) in sorted(whole_packets.items())
+                                  if labels.candidate.get("lifecycle")]:
+                    stored = set(labels.unit_store) | set(labels.entry_store)
+                    for kind, text in four_kinds(c, labels).items():
+                        hits = ["RAISED"] if text == "RAISED" else sorted(
+                            {v for v in strings_of(text) if v in decision_refs or v in stored})
+                        if hits:
+                            shown_refs[(c[:24], kind)] = hits[:3]
+                control("Codex WP-11 r2 #3: no judge, sweep, cross-review or reconsideration packet of a lifecycle candidate "
+                        "shows a decision reference or a stored unit or entry id; the fixture holds candidates that resolve "
+                        "a decision", bool(resolving) and bool(decision_refs) and not shown_refs,
+                        f"{len(resolving)} resolving, {len(decision_refs)} references, shown {sorted(shown_refs.items())[:3]}")
                 sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
                                 lambda e: {"problem": repr(e)})
                 sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
