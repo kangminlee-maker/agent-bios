@@ -594,7 +594,7 @@ if held == t:
 held += "\n\nif '--self-test' not in sys.argv:\n    pass\nelse:\n    author_rows_absent(None)\n"
 p.write_text(held, encoding="utf-8")
 JPLANT5I
-  case_is "nor is one called only in the else of a top-level `not in` guard" \
+  case_is "nor is one called only in the else of a top-level 'not in' guard" \
           "never calls it outside its own suite"
 
   # The exemption is keyed to the ROW. The same path written in a second row is a reference nothing

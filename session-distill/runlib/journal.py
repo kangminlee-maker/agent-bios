@@ -695,6 +695,11 @@ def operation_problems(records, record):
     """
     held = plan_digest(record)
     problems = []
+    # A plan whose `done` is in the journal is COMPLETED and nothing else. Asked row by row, the
+    # planned row of a finished operation also answered UNRECONCILED - "no done record" - ahead of
+    # the done row's answer, and sent a retry of finished work to recovery (the round-8 review).
+    completed = any(row.get("operation_id") == record.get("operation_id") and row.get("kind") == "done"
+                    for row in records)
     for row in records:
         if row.get("operation_id") != record.get("operation_id"):
             continue
@@ -708,7 +713,7 @@ def operation_problems(records, record):
                                 f"journal holds another plan under this id ({plan_digest(row)[:12]}… "
                                 f"against {held[:12]}…), so neither can serve as the other's "
                                 f"durability")
-            else:
+            elif not completed:
                 problems.append(f"JOURNAL_OPERATION_UNRECONCILED {record.get('operation_id')}: a "
                                 f"plan for it is durable with no done record, which is what §10.6's "
                                 f"recovery decides; a retry enters recovery and does not re-run the "
@@ -1667,6 +1672,8 @@ def self_test():
         control("a COMPLETED operation is refused by its own name", said_completed,
                 "JOURNAL_OPERATION_COMPLETED OP-once")
         control("and the effect did not run a second time", json.dumps(twice), '["ran"]')
+        control("and it is completed ONLY: its planned row is not also read as unreconciled",
+                json.dumps("JOURNAL_OPERATION_UNRECONCILED" in said_completed), "false")
         pending_path = root / "state" / "pending.jsonl"
         plan_pending = fx_plan(operation_id="OP-pending")
         append(pending_path, plan_pending, root=str(root))
