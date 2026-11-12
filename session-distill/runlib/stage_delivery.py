@@ -619,20 +619,38 @@ def unit_index(current):
     (plan WP-11 D1 (a1)) — and never the transitive `operative_context` closure beside it, and never
     a recomputation of mentions here. The export is carried by every unit of a document or by none,
     so a document without it is refused by name rather than read with the closure as a stand-in."""
-    units, without = {}, []
+    units, without, misshapen = {}, [], []
     for row in current.get("units") or []:
         edges = row.get("edges")
         if not isinstance(edges, dict):
             without.append(row.get("unit_id"))
+            continue
+        # `block` is the KIND of block the unit is, a string from the inventory's own enum
+        # (`inventory.BLOCK_KINDS`), and `start` is not published in the emitted document at all.
+        # This index read `block` as an object and took `start` out of it, so every real S2 unit
+        # raised AttributeError here while the frozen fixtures — which carried `block: {"start": …}`,
+        # a shape no producer writes — passed. Refusing by name is what makes the next shape change
+        # a message instead of a traceback.
+        if row.get("block") is not None and not isinstance(row["block"], str):
+            misshapen.append(f"{row.get('unit_id')}: block is {type(row['block']).__name__}, not the "
+                             f"string kind the inventory publishes")
             continue
         context = sorted({row["unit_id"], *(edges.get("direct") or []), *(edges.get("reached") or [])})
         units[row["unit_id"]] = {
             "unit_id": row["unit_id"], "path": row.get("path"), "text": row.get("text"),
             "version_sha256": row.get("version_sha256"), "layer": row.get("layer"),
             "item_ref": row.get("item_ref"), "carrier_id": row.get("carrier_id"),
-            "n": row.get("n"), "start": (row.get("block") or {}).get("start"),
+            "n": row.get("n"),
+            # Published if the inventory ever publishes it; today it does not, and the ordering in
+            # `delivery_evidence.units_of` falls back to `n`, the occurrence number, which it does
+            # publish. Carried as None rather than dropped so a reader can tell "not published"
+            # from "zero".
+            "start": row.get("start"), "block": row.get("block"),
             "operative_context": context, "context_source": "inventory.edges",
         }
+    if misshapen:
+        raise Refused(f"DELIVERY_UNIT_SHAPE {len(misshapen)} current unit(s) are not in the shape "
+                      f"`inventory.emitted_document` writes (first: {misshapen[:2]})")
     if without:
         raise Refused(f"DELIVERY_EDGES_ABSENT {len(without)} current unit(s) carry no `edges` "
                       f"(first: {without[:3]}): the one-step context set is the inventory's to "
@@ -861,6 +879,35 @@ STATE_PATHS = ("delivered", "exposed_not_read", "not_delivered",
                "unknown/absent_from_compiled_text", f"unknown/{UNRESOLVED}", f"unknown/{UNJUDGED}")
 
 
+def _producer_current(text="# Guide\n\n- the rule\n", path="claude/guides/g.md",
+                      layer="catalog", item_ref="claude:guides/g"):
+    """A real `current` document, from S2's own producer over a carrier written here.
+
+    The fixtures used to carry a hand-written unit whose `block` was an object with a `start` in it.
+    No producer writes that: `block` is a string kind and `start` is not published at all, so
+    `unit_index` worked on every fixture and raised AttributeError on every real document. The shape
+    must come from the producer, and it does not need the owner's data to do so — a carrier built
+    from this text, under a fixture home, goes through `inventory.emitted_document`, which is THE
+    production path (`reference_of` calls the same function).
+    """
+    from runlib import inventory
+
+    # Removed before returning: the umbrella fails a leg that leaves an entry in TMPDIR, and it is
+    # right to — a suite that litters cannot tell its own leftovers from a run's.
+    with tempfile.TemporaryDirectory(prefix="s5b-fx-home-") as home:
+        ctx = {"home": home, "state_root": None, "notes": {}, "commit": None,
+               "release_ref": None, "snapshot": {}, "events": []}
+        held = inventory.carrier(layer, path, text, item_ref=item_ref)
+        document, _units = inventory.emitted_document(
+            "current", [{"layer": layer, "producer": "the S5b fixture producer",
+                         "status": "complete", "reasons": [], "carriers": [held]}], ctx)
+    operative = [unit for unit in document["units"] if unit.get("class") == "operative"]
+    if not operative:
+        raise Refused("FIXTURE_PRODUCER_EMPTY: the producer published no operative unit, so a "
+                      "fixture built from it would assert nothing")
+    return document, operative[0]
+
+
 def _records_fixture(path_id):
     """The run-shaped artifacts that drive `document` to one state path, and what it must answer.
 
@@ -869,19 +916,24 @@ def _records_fixture(path_id):
     and say nothing about the assembly. The session, the unit and the decision are the same in all of
     them; what differs is the evidence, which is the point.
     """
-    unit = {"unit_id": "u-1", "path": "claude/guides/g.md", "text": "- the rule", "version_sha256": "a" * 64,
-            "layer": "catalog", "item_ref": "claude:guides/g", "carrier_id": "c-" + "0" * 24, "n": 1,
-            "unit_ref": "r-" + "1" * 24, "block": {"start": 100},
-            "operative_context": ["u-1"], "edges": {"direct": ["u-1"], "reached": []}}
+    # The unit and the document around it come from S2's producer, not from this file. Every id the
+    # other artifacts have to agree with is then read OFF the produced unit, because a fixture whose
+    # carrier id is a row of zeros agrees only with itself.
+    current_doc, unit = _producer_current()
+    carrier_id = unit["carrier_id"]
+    version = unit["version_sha256"]
+    item_ref = unit["item_ref"]
+    unit_ref = unit["unit_ref"]
+    unit_id = unit["unit_id"]
     session_ref = "p-" + "1" * 24
     base = {
         "events": [{"event_id": "v-1", "at_record": "500/message/content", "kind": "request"}],
         "checks": {"candidates": [{"candidate_id": "k-1", "named_units_absent": [],
-                                   "retrieved_units": [{"unit_id": "u-1", "layer": "catalog", "rank": 1,
+                                   "retrieved_units": [{"unit_id": unit_id, "layer": "catalog", "rank": 1,
                                                         "score": 1.0, "named": True, "copies": 1}]}]},
         "candidates": {"candidates": [{"candidate_id": "k-1", "sessions": ["claude:t-1"],
                                        "event_ids": ["v-1"]}]},
-        "current": {"units": [unit]},
+        "current": current_doc,
         "sessions": {"sessions": [{"session_ref": session_ref, "session": "claude:t-1",
                                    "transcript": {"host": "claude", "id": "t-1", "source": "claude_projects"},
                                    "pin": {"status": "read", "content_ref": "b" * 64, "baseline_ref": None,
@@ -892,17 +944,17 @@ def _records_fixture(path_id):
                      "events": [{"event_id": "e-1", "kind": "session_injection", "session_ref": session_ref,
                                  "line": 10, "at": "2026-09-16T07:44:40+00:00", "members": []}]},
         "release": {"sessions": [{"session_ref": session_ref, "segments": [],
-                                  "unsegmented": {"complete": True, "items": ["claude:guides/g"],
+                                  "unsegmented": {"complete": True, "items": [item_ref],
                                                   "incomplete_reasons": []}}]},
-        "store": {"versions": {"c-" + "0" * 24: {"a" * 64: {"item_ref": "claude:guides/g"}}}, "units": {}},
-        "shared": {"carriers": [{"carrier_id": "c-" + "0" * 24, "version_sha256": "a" * 64}],
-                   "items": [{"ref": "claude:guides/g", "surface": "always"}],
+        "store": {"versions": {carrier_id: {version: {"item_ref": item_ref}}}, "units": {}},
+        "shared": {"carriers": [{"carrier_id": carrier_id, "version_sha256": version}],
+                   "items": [{"ref": item_ref, "surface": "always"}],
                    "instruction_text_sha256": "d" * 64,
-                   "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 1, "total": 1}],
-                   "item_pointer_in_compiled_text": [{"ref": "claude:guides/g", "pointer": None,
+                   "instruction_coverage": [{"unit_ref": unit_ref, "covered": 1, "total": 1}],
+                   "item_pointer_in_compiled_text": [{"ref": item_ref, "pointer": None,
                                                       "basis": "surface_has_no_pointer"}],
                    "router_path": None,
-                   "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "always",
+                   "unit_surfaces": [{"unit_ref": unit_ref, "surface": "always",
                                       "source": "snapshot"}],
                    "unavailable": []},
         "copy": [],
@@ -913,12 +965,12 @@ def _records_fixture(path_id):
         return base, {"state": "delivered", "level": "exposed"}
     if path_id == "unknown/absent_from_compiled_text":
         return ({**base, "shared": {**base["shared"],
-                                    "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 0,
+                                    "instruction_coverage": [{"unit_ref": unit_ref, "covered": 0,
                                                               "total": 1}]}},
                 {"state": "unknown", "reason": "absent_from_compiled_text"})
     if path_id == "selected_unavailable":
         return ({**base, "shared": {**base["shared"],
-                                    "unavailable": [{"ref": "claude:guides/g", "surface": "always",
+                                    "unavailable": [{"ref": item_ref, "surface": "always",
                                                      "reason": "route_absent"}]}},
                 {"state": "selected_unavailable", "level": "selected"})
     if path_id == "not_delivered/selection_lacks_item":
@@ -928,14 +980,14 @@ def _records_fixture(path_id):
         # baseline. Before those facts the judge answered `surface_unclassified` and §6.3's absence
         # could not be found at all.
         return ({**base,
-                 "store": {"versions": {"c-" + "0" * 24: {"a" * 64: {"item_ref": "claude:other"}}},
+                 "store": {"versions": {carrier_id: {version: {"item_ref": "claude:other"}}},
                            "units": {}},
                  "shared": {**base["shared"],
                             "items": [{"ref": "claude:other", "surface": "always"}],
                             "instruction_coverage": [],
                             "item_pointer_in_compiled_text": [{"ref": "claude:other", "pointer": None,
                                                                "basis": "surface_has_no_pointer"}],
-                            "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "always",
+                            "unit_surfaces": [{"unit_ref": unit_ref, "surface": "always",
                                                "source": "baseline"}]}},
                 {"state": "not_delivered", "reason": "selection_lacks_item"})
     if path_id == "not_delivered":
@@ -951,9 +1003,23 @@ def _records_fixture(path_id):
         # `surface_unclassified` rather than an absence. Raised with the lead beside the pointer
         # question: S2 publishing each unit's catalogue surface, not only the selected ones, would
         # open it.
-        native_unit = {**unit, "layer": "native_global", "path": "CLAUDE.md", "item_ref": "native:global"}
+        # The native route gets its own PRODUCED document, from a carrier in the native layer: a
+        # unit copied from the catalogue one and relabelled would carry a carrier id derived from
+        # the catalogue layer, which no producer would ever emit for a native unit.
+        native_doc, _native_unit = _producer_current(text="- the rule\n", path="CLAUDE.md",
+                                                     layer="native_global", item_ref="native:global")
+        native_operative = [u for u in native_doc["units"] if u.get("class") == "operative"]
+        native_id = native_operative[0]["unit_id"]
         return ({**base,
-                 "current": {"units": [native_unit]},
+                 "current": native_doc,
+                 # The pair is owed for the NATIVE document's unit: leaving the catalogue id here
+                 # left the fixture owing no pair at all, and `run_fixture` then reported
+                 # FIXTURE_NO_ROW rather than the state this fixture exists to pin.
+                 "checks": {"candidates": [{"candidate_id": "k-1", "named_units_absent": [],
+                                            "retrieved_units": [{"unit_id": native_id,
+                                                                 "layer": "native_global", "rank": 1,
+                                                                 "score": 1.0, "named": True,
+                                                                 "copies": 1}]}]},
                  "sessions": {**base["sessions"],
                               "events": [{"event_id": "e-1", "kind": "native", "session_ref": session_ref,
                                           "line": 10, "at": "2026-09-16T07:44:40+00:00",
@@ -962,7 +1028,13 @@ def _records_fixture(path_id):
                  # A native unit's item is not a catalogue item, so no surface is published for it;
                  # the ladder comes from its layer, which is the point of this fixture.
                  "shared": {**base["shared"],
-                            "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": None,
+                            # No coverage rows: coverage is published per catalogue unit, and the
+                            # base block's row names the catalogue reference, which resolves to
+                            # nothing in this document. Carrying it made the fixture answer
+                            # `coverage_ref_unresolved` instead of the absence it exists to pin.
+                            "instruction_coverage": [],
+                            "unit_surfaces": [{"unit_ref": native_operative[0]["unit_ref"],
+                                               "surface": None,
                                                "source": "unpublished"}]}},
                 {"state": "not_delivered", "reason": "not_in_recorded_injection"})
     if path_id == f"unknown/{UNRESOLVED}":
@@ -986,7 +1058,7 @@ def _records_fixture(path_id):
                             "items": [{"ref": "claude:guides/g", "surface": "requested"}],
                             "item_pointer_in_compiled_text": [{"ref": "claude:guides/g", "pointer": True,
                                                                "basis": "emitted_path"}],
-                            "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "requested",
+                            "unit_surfaces": [{"unit_ref": unit_ref, "surface": "requested",
                                                "source": "snapshot"}]}},
                 {"state": "exposed_not_read", "level": "pointer exposed"})
     raise Refused(f"FIXTURE_UNKNOWN {path_id}: no records fixture is written for this state path")
@@ -1000,7 +1072,13 @@ def generate_fixtures(path=FIXTURES_PATH):
     fixtures = []
     for path_id in STATE_PATHS:
         artifacts, expected = _records_fixture(path_id)
-        fixtures.append({"id": path_id, "artifacts": artifacts, "expected": expected})
+        subject = None
+        if artifacts is not None:
+            operative = [u for u in (artifacts["current"].get("units") or [])
+                         if u.get("class") == "operative"]
+            subject = operative[0]["unit_id"] if operative else None
+        fixtures.append({"id": path_id, "artifacts": artifacts, "expected": expected,
+                         "subject_unit": subject})
     doc = {"$comment": "design §6.3 at the records level: one frozen fixture per state path "
                        "`runlib/stage_delivery.py` can write, each a whole set of run-shaped artifacts "
                        "driven through `document`. Written once by `stage_delivery.py "
@@ -1008,6 +1086,64 @@ def generate_fixtures(path=FIXTURES_PATH):
            "fixtures": fixtures}
     path.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return len(fixtures)
+
+
+# Which schema judges each frozen artifact, and for the ones no schema judges, why. The review of
+# this package found the fixtures built from shapes no producer emits; a schema check is what makes
+# that decidable rather than remembered. `current` is the one artifact with a published schema for
+# the whole document, and it is the one the finding was about.
+FIXTURE_SCHEMAS = {"current": ("inventory.schema.json", "current_document")}
+FIXTURE_UNSCHEMAED = {
+    "checks": "the fixture carries only the `candidates` block this stage reads; checks.schema.json "
+              "describes the WHOLE S5 document, so validating a deliberate subset against it would "
+              "fail on the blocks this stage never touches",
+    "candidates": "S4's document is described by form.schema.json at the whole-document level, and "
+                  "the fixture carries the two rows this stage reads",
+    "sessions": "S2's session document has no published schema in session-distill/schemas",
+    "release": "the release document has no published schema",
+    "store": "the instruction store is state, not a stage document",
+    "shared": "the selection inventory's shared block has no published schema of its own",
+    "events": "an event record is validated by event.schema.json per LINE, not as a list; the "
+              "fixture's rows are written into a .jsonl by `run_fixture` and read back by the stage",
+    "copy": "a list of file names",
+}
+
+
+def fixture_schema_problems(frozen=None):
+    """Every frozen artifact judged by its producer's schema, or named with why none judges it.
+
+    An artifact nobody validates is how a fixture drifts from its producer: this library's `current`
+    documents carried `block` as an object with a `start` in it, which `inventory.schema.json` would
+    have refused the day it was written.
+    """
+    from runlib import validate
+
+    frozen = frozen or json.loads(pathlib.Path(FIXTURES_PATH).read_text(encoding="utf-8"))
+    problems, validators = [], {}
+    for artifact, (schema_file, definition) in FIXTURE_SCHEMAS.items():
+        schema = json.loads((HERE / "schemas" / schema_file).read_text(encoding="utf-8"))
+        held = dict(schema["$defs"][definition])
+        held["$defs"] = schema["$defs"]
+        held["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+        validators[artifact] = validate.compile_schema(held)
+    judged = 0
+    for fixture in frozen.get("fixtures") or []:
+        artifacts = fixture.get("artifacts")
+        if artifacts is None:
+            continue
+        for artifact, value in artifacts.items():
+            if artifact in validators:
+                judged += 1
+                for problem in validate.validate_instance(validators[artifact], value):
+                    problems.append(f"FIXTURE_SHAPE {fixture['id']} {artifact}: {problem}")
+            elif artifact not in FIXTURE_UNSCHEMAED:
+                problems.append(f"FIXTURE_UNJUDGED {fixture['id']} {artifact}: no schema judges this "
+                                f"artifact and no reason is declared for it, so it can drift from "
+                                f"its producer unnoticed")
+    if not judged:
+        problems.append("FIXTURE_SCHEMA_SCOPE_EMPTY: no artifact was judged by a schema, so a "
+                        "green answer here would be about nothing")
+    return problems
 
 
 def run_fixture(root, fixture):
@@ -1029,7 +1165,14 @@ def run_fixture(root, fixture):
     doc = document(run_dir, artifacts["checks"], artifacts["candidates"], artifacts["current"], session,
                    artifacts["release"], artifacts["store"], lambda ref: artifacts["shared"],
                    artifacts["copy"] or ["aa.jsonl"])
-    rows = [row for row in doc["rows"] if row["unit_id"] == "u-1"]
+    # The subject is named by the fixture, because the unit id now comes from the producer and is a
+    # digest, not "u-1". A hardcoded id here would silently select nothing and the fixture would
+    # report FIXTURE_NO_ROW for every path.
+    subject = fixture.get("subject_unit")
+    if not subject:
+        return [f"FIXTURE_SUBJECT_UNNAMED {fixture['id']}: the fixture does not say which unit its "
+                f"expectation is about, so no row can be selected"]
+    rows = [row for row in doc["rows"] if row["unit_id"] == subject]
     if not rows:
         return [f"FIXTURE_NO_ROW {fixture['id']}: the artifacts owe no pair for the unit"]
     row = rows[0]
@@ -1048,6 +1191,32 @@ def run_fixture(root, fixture):
 def self_test():
     """Positive control first, then one planted violation per rule, each refused BY NAME."""
     failures, ran = [], []
+
+    def _body():
+        return _self_test_body(failures, ran)
+
+    # A crash must not swallow what the suite already knows. The defect this package was fixed for
+    # raised AttributeError inside `unit_index`, so a revert trial over it reported an exit code and
+    # nothing else: the controls that would have NAMED the defect had already run, and their
+    # failures were printed only at the end. Printing them before re-raising is what turns a
+    # traceback into evidence.
+    try:
+        return _body()
+    except BaseException as exc:
+        # Printed even when nothing had failed yet, because the crash itself is the finding: the
+        # defect this package was fixed for raised inside `unit_index` on the FIRST document call,
+        # so a revert trial saw an exit code with no text and reported the control as silent.
+        print(f"stage_delivery --self-test: INCOMPLETE ({len(ran)} controls ran, "
+              f"{len(failures)} already failing when the suite died)", file=sys.stderr)
+        print(f"stage_delivery --self-test [FAIL] the suite died: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        for held in failures:
+            print(f"stage_delivery --self-test [FAIL] {held}", file=sys.stderr)
+        raise
+
+
+def _self_test_body(failures, ran):
+    """The suite itself. Split out only so a crash can report the failures already collected."""
 
     def control(label, got, want):
         ran.append(label)
@@ -1093,22 +1262,32 @@ def self_test():
             encoding="utf-8")
         checks = {"candidates": [
             {"candidate_id": "k-1",
-             "retrieved_units": [{"unit_id": "u-1", "layer": "catalog", "rank": 1, "score": 1.0,
-                                  "named": True, "copies": 1}],
+             "retrieved_units": [{"unit_id": None, "layer": "catalog", "rank": 1, "score": 1.0,
+                                  "named": True, "copies": 1}],      # filled with u1 below
              "named_units_absent": ["u-gone"]},
             {"candidate_id": "k-2", "retrieved_units": [], "named_units_absent": []}]}
         candidates = {"candidates": [
             {"candidate_id": "k-1", "sessions": ["claude:t-1"], "event_ids": ["v-1", "v-2"]},
             {"candidate_id": "k-2", "sessions": ["claude:t-1"], "event_ids": []}]}
-        current = {"units": [
-            {"unit_id": "u-1", "path": "claude/guides/g.md", "text": "- x", "version_sha256": "a" * 64,
-             "layer": "catalog", "item_ref": "claude:guides/g", "carrier_id": "c-" + "0" * 24, "n": 1,
-             "block": {"start": 100}, "operative_context": ["u-1", "u-2", "u-3"],
-             "edges": {"direct": ["u-1", "u-2"], "reached": []}},
-            {"unit_id": "u-2", "path": "claude/guides/g.md", "text": "- y", "version_sha256": "a" * 64,
-             "layer": "catalog", "item_ref": "claude:guides/g", "carrier_id": "c-" + "0" * 24, "n": 2,
-             "block": {"start": 200}, "operative_context": ["u-2"],
-             "edges": {"direct": ["u-2"], "reached": []}}]}
+        # The document comes from S2's producer over a guide written here, not from a unit shape
+        # typed into this suite. The one it replaced carried `block` as an object with a `start` in
+        # it, which no producer emits: every control below passed over that shape while
+        # `unit_index` raised AttributeError on every real document. Ids are digests now, so the
+        # suite binds names to them instead of spelling them.
+        current, _subject = _producer_current(
+            text="# Guide\n\n- the first rule\n- the second rule\n")
+        operative_units = [u for u in current["units"] if u.get("class") == "operative"]
+        u1, u2 = operative_units[0]["unit_id"], operative_units[1]["unit_id"]
+        heading_unit = next(u["unit_id"] for u in current["units"] if u.get("class") != "operative")
+        # An id the producer did not emit, for the control that the closure is not substituted for
+        # the one-step set.
+        u_absent = "u-" + "0" * 16
+        carrier_fx = operative_units[0]["carrier_id"]
+        version_fx = operative_units[0]["version_sha256"]
+        item_fx = operative_units[0]["item_ref"]
+        ref_u1 = operative_units[0]["unit_ref"]
+        ref_u2 = operative_units[1]["unit_ref"]
+        checks["candidates"][0]["retrieved_units"][0]["unit_id"] = u1
         sessions = {"sessions": [{"session_ref": "p-" + "1" * 24, "session": "claude:t-1",
                                   "transcript": {"host": "claude", "id": "t-1", "source": "claude_projects"},
                                   "pin": {"status": "read", "content_ref": "b" * 64, "baseline_ref": None,
@@ -1153,13 +1332,50 @@ def self_test():
               [key for row in doc["rows"] for key in row if key in ("returned", "text", "bytes")])
 
         # The context set is the judge's one-step set, and the closure beside it is never read.
-        units = unit_index(current)
+        held_said = None
+        try:
+            units = unit_index(current)
+        except BaseException as exc:
+            held_said = f"{type(exc).__name__}: {exc}"
+            failures.append("the index reads a produced document without raising: " + held_said)
+            units = {}
+        # The expectation is the producer's own edges for that unit, read off the document that was
+        # handed in — an input, not something this function computed.
+        want_context = sorted({u1, *(operative_units[0]["edges"]["direct"] or []),
+                               *(operative_units[0]["edges"]["reached"] or [])})
         control("the operative context is direct plus one-step reached",
-                json.dumps(units["u-1"]["operative_context"]), '["u-1", "u-2"]')
+                json.dumps(units[u1]["operative_context"]), json.dumps(want_context))
         clean("and the transitive closure is not what was read",
-              [u for u in units.values() if "u-3" in u["operative_context"]])
-        control("the source of that set is named in the row", units["u-1"]["context_source"], "inventory.edges")
-        no_edges = {"units": [{**current["units"][0], "edges": None}]}
+              [u for u in units.values() if u_absent in u["operative_context"]])
+        control("the source of that set is named in the row", units[u1]["context_source"], "inventory.edges")
+        # `block` is the KIND, a string, and `start` is not published at all. This index read
+        # `block` as an object and took `start` out of it, so it worked on every frozen fixture --
+        # which carried that invented shape -- and raised AttributeError on every real document.
+        # Asked BEFORE anything that could crash on the same shape, and asked through a guard, so
+        # a revert of the fix produces a named failure here rather than only an exit code.
+        def said(call):
+            try:
+                call()
+            except BaseException as exc:          # the exception IS this control's answer
+                return f"{type(exc).__name__}: {exc}"
+            return "no exception"
+
+        control("the index reads a produced document without raising: `block` is a string and "
+                "digging `start` out of it is what crashed on every real document",
+                said(lambda: unit_index(current)), "no exception")
+        held_index = units[u1]
+        control("the unit carries the producer's block KIND, a string",
+                json.dumps({"block": held_index["block"]}),
+                json.dumps({"block": operative_units[0]["block"]}))
+        control("and `start` is None because the emitted document does not publish it, rather than "
+                "being dug out of `block`",
+                json.dumps({"start": held_index["start"]}), '{"start": null}')
+        control("a unit whose `block` is an object -- the shape the old fixtures carried -- is "
+                "refused by name instead of raising AttributeError",
+                refusal(lambda: unit_index(
+                    {"units": [{**operative_units[0], "block": {"start": 100}}]})),
+                "DELIVERY_UNIT_SHAPE")
+        no_edges = {"units": [{**operative_units[0], "edges": None}]}
         control("an inventory that publishes no edges is refused by name",
                 refusal(lambda: unit_index(no_edges)), "DELIVERY_EDGES_ABSENT")
 
@@ -1168,7 +1384,7 @@ def self_test():
         events_by_ref = {"p-" + "1" * 24: [
             {"event_id": "e-1", "kind": "native", "session_ref": "p-" + "1" * 24, "line": 12,
              "at": "2026-09-16T07:44:40.323000+00:00",
-             "members": [{"carrier_id": "c-" + "0" * 24, "version_sha256": "a" * 64, "ordinal": 0}]},
+             "members": [{"carrier_id": carrier_fx, "version_sha256": version_fx, "ordinal": 0}]},
             {"event_id": "e-2", "kind": "native", "session_ref": "p-" + "1" * 24, "line": None,
              "at": "2026-09-16T07:45:00.000000+00:00", "members": []}]}
         evidence, counts = session_evidence(session_row, events_by_ref,
@@ -1177,7 +1393,8 @@ def self_test():
         control("a native event is placed at its record line, not its instant",
                 json.dumps((evidence.get("native_events") or [{}])[0]), '"at": 12')
         control("and its carrier version is resolved to the units it loaded",
-                json.dumps((evidence.get("native_events") or [{}])[0]), '"unit_ids": ["u-1", "u-2"]')
+                json.dumps((evidence.get("native_events") or [{}])[0]),
+                f'"unit_ids": {json.dumps(sorted([u1, u2, heading_unit]))}')
         control("an event with no line is counted, not placed at an ordinal nobody recorded",
                 str(counts.get("events_without_a_line", "no such count")), "1")
         clean("and it is not in the comparable set",
@@ -1195,32 +1412,37 @@ def self_test():
         # given a unit's lines. Keyed by the inventory's `r-` reference, translated here to the unit ids
         # the judge asks about.
         facts_shared = {
-            "carriers": [{"carrier_id": "c-" + "0" * 24, "version_sha256": "a" * 64}],
-            "items": [{"ref": "claude:guides/g", "surface": "always"}],
+            "carriers": [{"carrier_id": carrier_fx, "version_sha256": version_fx}],
+            "items": [{"ref": item_fx, "surface": "always"}],
             "instruction_text_sha256": "d" * 64,
-            "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 1, "total": 2},
+            "instruction_coverage": [{"unit_ref": ref_u1, "covered": 1, "total": 2},
                                      {"unit_ref": "r-" + "9" * 24, "covered": 5, "total": 5}],
-            "unavailable": [{"ref": "claude:guides/g", "surface": "always", "reason": "route_absent"}]}
-        facts_units = [{**current["units"][0], "unit_ref": "r-" + "1" * 24},
-                       {**current["units"][1], "unit_ref": "r-" + "2" * 24}]
-        facts_store = {"versions": {"c-" + "0" * 24: {"a" * 64: {"item_ref": "claude:guides/g"}}}, "units": {}}
+            "unavailable": [{"ref": item_fx, "surface": "always", "reason": "route_absent"}]}
+        # The OPERATIVE units, with the refs the producer gave them: `current["units"][0]` is the
+        # heading unit now, and attaching u1's reference to it put the coverage counts on the wrong
+        # id while every control still passed.
+        facts_units = [operative_units[0], operative_units[1]]
+        facts_store = {"versions": {carrier_fx: {version_fx: {"item_ref": item_fx}}}, "units": {}}
         facts_row = {**session_row, "selection": {"status": "read", "reason": None,
                                                   "inventory_ref": "i-" + "a" * 24}}
         facts_evidence, facts_counts = session_evidence(
             facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
             lambda ref: facts_shared, facts_store, None, None, facts_units)
         control("the per-unit coverage counts reach the judge under the unit ids it asks about",
-                json.dumps(facts_evidence.get("instruction_coverage")), '"u-1": {"covered": 1, "total": 2}')
+                json.dumps(facts_evidence.get("instruction_coverage")),
+                f'"{u1}": ' + '{"covered": 1, "total": 2}')
         # A published row whose reference resolves to no unit here: named and counted, never dropped.
         # The lead's correction (2026-11-11): a drop is a resolution failure, and a block that lost
         # every row to one would read like a session nobody published facts for.
         control("a coverage row naming a unit this run does not carry is named, not dropped",
                 json.dumps(facts_counts.get("coverage_refs_unresolved")), "r-" + "9" * 24)
         clean("and no unit id is invented for it",
-              [ref for ref in facts_evidence.get("instruction_coverage") or () if ref not in ("u-1", "u-2")])
+              [ref for ref in facts_evidence.get("instruction_coverage") or ()
+               if ref not in (u1, u2, heading_unit)])
         facts_sessions = {"sessions": [{**facts_row}]}
-        facts_current = {"units": [{**row, "unit_ref": ref} for row, ref in
-                                   zip(current["units"], ("r-" + "1" * 24, "r-" + "2" * 24))]}
+        # The producer already gave every unit its `unit_ref`; zipping fresh constants onto the
+        # document's units overwrote them, and the heading unit took u1's reference.
+        facts_current = {"units": list(current["units"])}
 
         def facts_document(shared, current=None):
             """The rows and summary this stage writes when the session's inventory publishes `shared`."""
@@ -1233,23 +1455,23 @@ def self_test():
         missed = {**facts_shared, "instruction_coverage": [{"unit_ref": "r-" + "9" * 24, "covered": 1, "total": 1}]}
         missed_rows, missed_doc = facts_document(missed)
         control("the pair whose coverage the block could not answer for names the failure",
-                json.dumps(missed_rows.get("u-1") or {}), UNRESOLVED)
+                json.dumps(missed_rows.get(u1) or {}), UNRESOLVED)
         # Both kinds of row at once, which is what makes the next assertion about the PAIR rather
         # than about the session: the block answers for u-1 and also carries a reference nothing here
         # resolves, so only the per-pair clause can keep the failure off u-1's row.
         answered = {**facts_shared,
-                    "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 1, "total": 2},
+                    "instruction_coverage": [{"unit_ref": ref_u1, "covered": 1, "total": 2},
                                              {"unit_ref": "r-" + "9" * 24, "covered": 1, "total": 1}]}
         answered_rows, answered_doc = facts_document(answered)
         clean("and the pair the block did answer for does not, though its session has an unresolved one",
-              ([UNRESOLVED] if UNRESOLVED in ((answered_rows.get("u-1") or {}).get("reasons") or []) else [])
+              ([UNRESOLVED] if UNRESOLVED in ((answered_rows.get(u1) or {}).get("reasons") or []) else [])
               + ([] if answered_doc["summary"]["coverage_refs_unresolved"] == 1
                  else ["the fixture's session has no unresolved reference, so the clause is untested"]))
 
         # ---- the judge's own answer (commit 7). The session here has a read pin, a selection
         # inventory and the facts, so every input §6.3 reads is present and the row is ITS answer
         # rather than this stage's unknown.
-        judged_row = answered_rows.get("u-1") or {}
+        judged_row = answered_rows.get(u1) or {}
         clean("a pair with every input present is handed to the judge",
               [UNJUDGED] if UNJUDGED in (judged_row.get("reasons") or []) else [])
         control("and the row carries the surface the judge answered on", json.dumps(judged_row),
@@ -1286,6 +1508,38 @@ def self_test():
         control("a fixture declared unreachable with no reason is named",
                 "; ".join(run_fixture(root, {"id": "x", "artifacts": None, "expected": {}})),
                 "FIXTURE_UNREACHABLE_UNEXPLAINED")
+        # Every frozen artifact held against its producer's schema, and each artifact no schema
+        # judges named with its reason. This is what makes "the fixture is in the producer's shape"
+        # decidable: `inventory.schema.json` would have refused the old `block: {"start": …}` unit
+        # the day it was written.
+        clean("every frozen artifact is judged by its producer's schema or says why not",
+              fixture_schema_problems())
+        planted_shape = {"fixtures": [{"id": "planted", "subject_unit": "u-x",
+                                       "artifacts": {**frozen["fixtures"][0]["artifacts"],
+                                                     "current": {"units": [
+                                                         {**operative_units[0],
+                                                          "block": {"start": 100}}]}},
+                                       "expected": {"state": "delivered"}}]}
+        control("a frozen unit in a shape the producer does not emit is refused by name — the "
+                "defect this library was built with",
+                "; ".join(fixture_schema_problems(planted_shape)), "FIXTURE_SHAPE planted current")
+        control("and an artifact nobody judges and nobody excuses is named too",
+                "; ".join(fixture_schema_problems(
+                    {"fixtures": [{"id": "planted", "subject_unit": "u-x",
+                                   "artifacts": {**frozen["fixtures"][0]["artifacts"],
+                                                 "invented": {"what": "nothing produces this"}},
+                                   "expected": {}}]})),
+                "FIXTURE_UNJUDGED planted invented")
+        control("a run that judged no artifact at all is refused, so a green answer cannot be "
+                "about nothing",
+                "; ".join(fixture_schema_problems({"fixtures": []})),
+                "FIXTURE_SCHEMA_SCOPE_EMPTY")
+        control("a fixture that does not name its subject unit is refused by name, since the ids "
+                "are the producer's digests and no literal can stand in for them",
+                "; ".join(run_fixture(root, {"id": "no-subject",
+                                             "artifacts": frozen["fixtures"][0]["artifacts"],
+                                             "expected": {"state": "delivered"}})),
+                "FIXTURE_SUBJECT_UNNAMED")
         control("and a fixture whose artifacts owe no pair for its unit is named",
                 "; ".join(run_fixture(root, {"id": "y", "artifacts": {
                     **(frozen["fixtures"][0]["artifacts"]),
@@ -1293,7 +1547,11 @@ def self_test():
                                                    "event_ids": ["v-1"]}]},
                     "checks": {"candidates": [{"candidate_id": "k-1", "retrieved_units": [],
                                                "named_units_absent": []}]}},
-                    "expected": {"state": "delivered"}})),
+                    "expected": {"state": "delivered"},
+                    # Named, so the refusal is about the missing ROW and not about the missing name:
+                    # with the subject unnamed the control met FIXTURE_SUBJECT_UNNAMED instead and
+                    # stopped testing what it was written for.
+                    "subject_unit": frozen["fixtures"][0]["subject_unit"]})),
                 "FIXTURE_NO_ROW")
         control("the installer surface is answered by the judge's own reader, not by a ladder",
                 json.dumps(doc["installer"]), "receipt_live_waiting_wp15")
@@ -1357,7 +1615,7 @@ def self_test():
                           "item_pointer_in_compiled_text": [{"ref": "claude:guides/g", "pointer": True,
                                                              "basis": "emitted_path"}],
                           "router_path": "/x/router/relevant.md",
-                          "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "requested",
+                          "unit_surfaces": [{"unit_ref": ref_u1, "surface": "requested",
                                              "source": "snapshot"}]}
         pointer_evidence, pointer_counts = session_evidence(
             facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
@@ -1373,16 +1631,16 @@ def self_test():
         control("and how many surfaces", json.dumps(pointer_counts), '"unit_surfaces": 1')
         surface_rows, _surface_doc = facts_document(pointer_shared)
         control("a unit the session was not given is judged on the catalogue surface S2 published",
-                json.dumps((surface_rows.get("u-1") or {}).get("surface")), "guide")
+                json.dumps((surface_rows.get(u1) or {}).get("surface")), "guide")
         # A native unit is matched by its LAYER, and attaching a published surface to one moved it
         # onto another ladder entirely; the classifier is asked first, and this row is why.
         native_rows, _native_doc = facts_document(
             {**pointer_shared,
-             "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "requested", "source": "snapshot"}]},
-            current={"units": [{**current["units"][0], "unit_ref": "r-" + "1" * 24,
+             "unit_surfaces": [{"unit_ref": ref_u1, "surface": "requested", "source": "snapshot"}]},
+            current={"units": [{**operative_units[0],
                                 "layer": "native_global", "item_ref": "native:global"}]})
         control("a native unit keeps its layer's ladder, whatever surface is published for it",
-                json.dumps((native_rows.get("u-1") or {}).get("surface")), "native_layer")
+                json.dumps((native_rows.get(u1) or {}).get("surface")), "native_layer")
         # Absence rather than emptiness: a session whose inventory publishes no facts carries NO
         # coverage key, and `delivery_evidence` then answers unknown by name. An empty block would be
         # the claim that the text covered nothing, which is `not_delivered` for every unit of it.
@@ -1441,12 +1699,13 @@ def self_test():
 
         # A unit whose text this run cannot see is answered unknown by name rather than judged on a
         # placeholder: the comparison would fail for every line and claim a miss from nothing read.
-        redacted = {"units": [{**current["units"][0], "text": REDACTED},
-                              current["units"][1]]}
+        redacted = {"units": [{**unit, "text": REDACTED} if unit["unit_id"] == u1 else unit
+                              for unit in current["units"]]}
         doc_red = document(fixture, checks, candidates, redacted, sessions, release_doc, store,
                            lambda ref: None, ["aa.jsonl"])
         control("a redacted unit is not judged on its placeholder",
-                json.dumps([r["reasons"] for r in doc_red["rows"] if r["unit_id"] == "u-1"][0]),
+                json.dumps(([r["reasons"] for r in doc_red["rows"] if r["unit_id"] == u1]
+                            or [["NO_ROW_FOR_THE_SUBJECT_UNIT"]])[0]),
                 "unit_text_redacted")
         control("each row names the ordinal it used", json.dumps((doc.get("rows") or [{}])[0]),
                 '"decision_ordinal": "event.at_record"')
