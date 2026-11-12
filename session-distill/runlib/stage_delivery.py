@@ -235,7 +235,7 @@ def pairs_of(checks, candidates, decisions, by_name, by_transcript, by_view=None
                 session = by_name.get(name) if name else None
                 events.append({"event_id": None, "decision_at": None,
                                "session_ref": (session or {}).get("session_ref"), "session": name,
-                               "reason": "no_decision_event"})
+                               "reason": "no_decision_event" if name else NOT_SESSION_DERIVED})
         for event in events:
             for unit in units:
                 owed.append({"candidate_id": cid, "unit_id": unit, "producer": "S4", **event})
@@ -257,8 +257,8 @@ def pairs_of(checks, candidates, decisions, by_name, by_transcript, by_view=None
                              "event_id": None, "decision_at": None,
                              "session_ref": (session or {}).get("session_ref"),
                              "session": name,
-                             "reason": "no_decision_event" if session
-                                       else "session_absent_from_inventory"})
+                             "reason": NOT_SESSION_DERIVED if not name else
+                                       "no_decision_event" if session else "session_absent_from_inventory"})
     return owed
 
 
@@ -345,6 +345,12 @@ UNRESOLVED = "coverage_ref_unresolved"
 # A pair one of the judge's inputs is missing for. The reasons already name WHICH input, so this is
 # the statement that the state beside them is this stage's and not §6.3's.
 UNJUDGED = "delivery_unjudged"
+# A pair whose candidate names NO session: a legacy entry or a redundancy hint that arrived by lifecycle intake
+# rather than from a session of this window. Delivery is a question about a session, so the pair is not one this
+# stage could ever judge. It keeps its row (nothing is dropped), is counted on its own, and is outside the
+# denominator `complete` is computed over. Its delivery `state` stays `unknown`: that vocabulary is
+# `tables/unit_outcome.json`'s, and this is a fact about the pair's population, carried in `population`.
+NOT_SESSION_DERIVED = "not_session_derived"
 
 
 def pointer_facts(shared):
@@ -1022,6 +1028,14 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
         # judged on does not need. They reach the row like any other reason, so nothing is hidden;
         # what they do not do is turn a judgeable pair into an unknown (the WP-11b review).
         carried = []
+        if pair.get("reason") == NOT_SESSION_DERIVED:
+            rows.append({**{k: v for k, v in pair.items() if k != "reason"}, "state": "unknown", "level": None,
+                         "reasons": [NOT_SESSION_DERIVED], "population": NOT_SESSION_DERIVED, "surface": None,
+                         "selection": None, "decision_ordinal": None,
+                         "requirements": len(unit["operative_context"]) if unit else None, "native_events": 0,
+                         "reads": None, "release_complete": None, "coverage": None,
+                         "coverage_refs_unresolved": 0})
+            continue
         if pair.get("reason"):
             reasons.append(pair["reason"])
         if pair["unit_id"] and unit is None:
@@ -1123,6 +1137,7 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
                              for ref, (_built, counts, _surfaces) in counts_by_ref.items()
                              if counts.get("coverage_refs_unresolved")}
     unjudged = sum(1 for row in rows if UNJUDGED in row["reasons"])
+    apart = sum(1 for row in rows if row.get("population") == NOT_SESSION_DERIVED)
     # The installer surface is not a unit's: §6.3 answers it from the installation binding and its
     # receipt, through `installer_exposure` rather than through a ladder. This run holds neither —
     # the binding is a verdict over the owner's state root and the receipt lives beside it, and S2
@@ -1143,7 +1158,7 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
             # the two must stay distinguishable, because one says the evidence was assembled and
             # answered nothing for this pair and the other says nobody assembled any.
             "pending_reason": None if not unjudged else
-                              f"{unjudged} of {len(rows)} pairs lack one of the judge's inputs and are "
+                              f"{unjudged} of {len(rows) - apart} session-derived pairs lack one of the judge's inputs and are "
                               f"`unknown` naming it ({PENDING}); this is the per-pair state inside a file "
                               f"that exists, not S6's `delivery_assembly_waiting`",
             "sources": {"count": len(sources), "dir": SOURCES_DIR},
@@ -1172,7 +1187,10 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
                         "coverage_refs_unresolved": sum(len(refs) for refs in unresolved_by_session.values()),
                         "sessions_with_an_unresolved_coverage_ref": len(unresolved_by_session),
                         "pairs_named_" + UNRESOLVED: sum(1 for row in rows if UNRESOLVED in row["reasons"]),
-                        "pairs_judged": len(rows) - unjudged,
+                        # Outside the denominator: no session, so no delivery question (NOT_SESSION_DERIVED).
+                        "pairs_" + NOT_SESSION_DERIVED: apart,
+                        "pairs_session_derived": len(rows) - apart,
+                        "pairs_judged": len(rows) - apart - unjudged,
                         "pairs_" + UNJUDGED: unjudged},
             "coverage_refs_unresolved": {ref: refs for ref, refs in sorted(unresolved_by_session.items())}}
 
@@ -1848,6 +1866,46 @@ def _self_test_body(failures, ran):
                 json.dumps([row["reasons"] for row in pl_rows]), "session_absent_from_inventory")
         control("the summary counts the pairs by producer, so a shrinking denominator is visible",
                 json.dumps(doc_pl["summary"]["pairs_by_producer"]), '"S5": 1')
+        # A candidate that names no session - a legacy entry, a redundancy hint - beside the formed one. Both rows
+        # are built by the path that produces them (`lifecycle_intake`), so the shape is theirs and not this suite's.
+        from runlib import lifecycle_intake
+        same_text = ("alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho "
+                     "sigma tau")
+        apart_rows = lifecycle_intake.legacy_incubation({"entries": [
+            {"id": "L-1", "status": "incubating", "decisions": [], "classification": {"type": "A"}}]})
+        apart_rows += lifecycle_intake.redundancy_pairs([
+            {"unit_id": name, "class": "operative", "layer": "catalog", "path": path, "sha": "s1", "text": same_text}
+            for name, path in (("u-a", "a.md"), ("u-b", "b.md"))])[0]
+        apart_population = {"candidates": planted_population["candidates"][:1] + apart_rows}
+        apart_checks = {"candidates": checks["candidates"] + [
+            {"candidate_id": row["candidate_id"], "source": row["source"],
+             "retrieved_units": [{"unit_id": u1, "layer": "catalog", "rank": 1, "score": 1.0, "named": True,
+                                  "copies": 1}], "named_units_absent": []} for row in apart_rows]}
+        doc_ap = document(fixture, apart_checks, candidates, current, sessions, release_doc,
+                          store, lambda ref: None, ["aa.jsonl"], suite_views, apart_population)
+        ap_rows = [row for row in doc_ap["rows"] if row["candidate_id"] in {r["candidate_id"] for r in apart_rows}]
+        control("the producing path gives a legacy entry and a redundancy hint, and neither names a session",
+                json.dumps([sorted(r["source"] for r in apart_rows), [r.get("sessions") for r in apart_rows]]),
+                json.dumps([["legacy", "redundancy_hint"], [None, None]]))
+        control("a pair whose candidate names no session keeps its row, says so and nothing else, and its delivery "
+                "state stays in the outcome table's vocabulary",
+                json.dumps(sorted((row["candidate_id"].split(":")[0], row["state"], row["reasons"],
+                                   row.get("population")) for row in ap_rows)),
+                json.dumps([["legacy", "unknown", [NOT_SESSION_DERIVED], NOT_SESSION_DERIVED],
+                            ["redundancy_hint", "unknown", [NOT_SESSION_DERIVED], NOT_SESSION_DERIVED]]))
+        base_summary = document(fixture, checks, candidates, current, sessions, release_doc, store,
+                                lambda ref: None, ["aa.jsonl"], suite_views,
+                                {"candidates": planted_population["candidates"][:1]})
+        control("it is counted on its own and is outside the denominator: the session-derived pairs, the judged "
+                "ones and `complete` are what they are without it",
+                json.dumps([doc_ap["summary"]["pairs_" + NOT_SESSION_DERIVED],
+                            doc_ap["summary"]["pairs"] - doc_ap["summary"]["pairs_session_derived"],
+                            doc_ap["summary"]["pairs_judged"] == base_summary["summary"]["pairs_judged"],
+                            doc_ap["summary"]["pairs_" + UNJUDGED] == base_summary["summary"]["pairs_" + UNJUDGED],
+                            doc_ap["complete"] == base_summary["complete"]]),
+                json.dumps([2, 2, True, True, True]))
+        control("and a pair that DOES name a session is never set apart",
+                json.dumps(sorted({row.get("population") for row in doc_pl["rows"]}, key=str)), "[null]")
         clean("a candidate S4 already names is not enumerated twice",
               [cid for cid in {row["candidate_id"] for row in doc_pl["rows"]}
                if len([row for row in doc_pl["rows"]
