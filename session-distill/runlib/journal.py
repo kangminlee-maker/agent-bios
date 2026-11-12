@@ -32,7 +32,9 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import sys
+import unicodedata
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
@@ -109,7 +111,20 @@ class Storage:
 
     def append(self, path, data):
         path = pathlib.Path(path)
+        # Which ancestors this append CREATES, noted before creating them. `mkdir(parents=True)` can
+        # make root/state/nested while only the journal and its immediate parent are fsynced, so a
+        # power loss could take the whole chain and the record with it — durable inside a directory
+        # entry that never reached the device. Found by the WP-21 review.
+        created = []
+        held_parent = path.parent
+        while not held_parent.exists():
+            created.append(held_parent)
+            if held_parent.parent == held_parent:
+                break
+            held_parent = held_parent.parent
         path.parent.mkdir(parents=True, exist_ok=True)
+        for made in reversed(created):
+            self._created_directory(made)
         _seam("before_write")
         # O_NOFOLLOW: `os.open` follows a symlink, so a journal path that is a link under the
         # declared root appends OUTSIDE it and the containment check cannot see it. The check is
@@ -139,12 +154,30 @@ class Storage:
             os.fsync(handle)
         finally:
             os.close(handle)
-        directory = os.open(path.parent, os.O_RDONLY)
+        self._sync_directory(path.parent)
+        _seam("after_fsync")
+
+    def _created_directory(self, made):
+        """A directory this append CREATED: its entry lives in its parent, so the parent is synced.
+
+        A hook rather than a direct call because what is at risk is the ENTRY, and a storage fake
+        has to be able to model the entry's loss instead of the sync's absence. `LosingStorage`
+        overrides this one and `_sync_directory` both.
+        """
+        self._sync_directory(made.parent)
+
+    def _sync_directory(self, directory_path):
+        """fsync one directory, so the names it holds reach the device.
+
+        Its own method because the creation chain needs the same operation: a storage fake that
+        models file contents but not directory ENTRIES cannot show the loss this closes, which is
+        why `LosingStorage` overrides it too.
+        """
+        directory = os.open(directory_path, os.O_RDONLY)
         try:
             os.fsync(directory)
         finally:
             os.close(directory)
-        _seam("after_fsync")
 
 
 class LosingStorage(Storage):
@@ -157,10 +190,33 @@ class LosingStorage(Storage):
 
     def __init__(self):
         self.unsynced = []
+        self.unsynced_directories = []
+
+    def _created_directory(self, made):
+        """A directory ENTRY that has not reached the device yet.
+
+        Contents and entries are lost separately on a real filesystem, and a fake that models only
+        contents cannot show the second loss at all — which is why the ancestor defect survived a
+        suite that had a storage fake in it. An entry that never landed takes everything under it
+        with it, because nothing can reach what has no name.
+        """
+        self.unsynced_directories.append(pathlib.Path(made))
+
+    def _sync_directory(self, directory_path):
+        """Nothing: this storage syncs nothing until `lose_unsynced` decides."""
 
     def append(self, path, data):
         path = pathlib.Path(path)
+        created = []
+        held_parent = path.parent
+        while not held_parent.exists():
+            created.append(held_parent)
+            if held_parent.parent == held_parent:
+                break
+            held_parent = held_parent.parent
         path.parent.mkdir(parents=True, exist_ok=True)
+        for made in reversed(created):
+            self._created_directory(made)
         _seam("before_write")
         self.unsynced.append((path, data))
         _seam("after_write_before_fsync")
@@ -182,10 +238,26 @@ class LosingStorage(Storage):
         _seam("after_fsync")
 
     def lose_unsynced(self):
-        """Discard every write that has not been fsynced. Returns how many were lost."""
+        """Discard every write and every directory entry that has not been fsynced.
+
+        Returns `{contents, directories}`: a real filesystem loses the two separately, and the
+        caller that only ever counted contents could not see a journal whose own directory entry
+        never landed.
+        """
         held = len(self.unsynced)
+        directories = [p for p in self.unsynced_directories if p.exists()]
         self.unsynced = []
-        return held
+        self.unsynced_directories = []
+        # The entries are removed from the LAST created downwards, so the tree is taken apart in
+        # the order a device that never got them would have left it.
+        lost_directories = 0
+        for directory in sorted({str(p) for p in directories}, key=len, reverse=True):
+            held_path = pathlib.Path(directory)
+            if not held_path.is_dir():
+                continue
+            shutil.rmtree(held_path, ignore_errors=True)
+            lost_directories += 1
+        return {"contents": held, "directories": lost_directories}
 
 
 def frame(record):
@@ -209,10 +281,35 @@ def record_problems(record):
     extra = sorted(set(record) - set(required) - {"kind"})
     if extra:
         problems.append(f"JOURNAL_FIELD_UNDECLARED {kind}: {', '.join(extra)}")
-    for field in ("operation_id", "target", "item_id"):
+    for field in ("operation_id", "target", "item_id", "approval_id"):
         value = record.get(field)
-        if field in record and (not isinstance(value, str) or not value):
+        if field not in record:
+            continue
+        if not isinstance(value, str) or not value:
             problems.append(f"JOURNAL_VALUE {kind}.{field}: a non-empty string, not {value!r}")
+            continue
+        # No character that a reader, a renderer or a path could read as structure. These values are
+        # written into a line-delimited journal and the target is opened by an effect: a Unicode
+        # line separator in a target was accepted, and `str.splitlines` — which other readers in
+        # this repo still use — would have split the record at it. The framing itself now carries
+        # any payload (that is `read`'s job); what a legal RECORD may hold is this rule's.
+        held_bad = sorted({repr(ch) for ch in value
+                           if unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp")})
+        if held_bad:
+            problems.append(f"JOURNAL_CONTROL_CHARACTER {kind}.{field}: {', '.join(held_bad)} is "
+                            f"not admissible in a value this journal carries on one line")
+    target = record.get("target")
+    if isinstance(target, str) and target:
+        # The target is a path an effect will open, judged by component as §10.5's operations are.
+        parts = target.split("/")
+        if target.startswith("/") or target.startswith("~"):
+            problems.append(f"JOURNAL_TARGET_ABSOLUTE {kind}: {target!r} is not a path inside the "
+                            f"checkout")
+        if ".." in parts:
+            problems.append(f"JOURNAL_TARGET_TRAVERSAL {kind}: {target!r} carries a `..` segment")
+        if "" in parts[1:-1] or target.endswith("/"):
+            problems.append(f"JOURNAL_TARGET_SPELLING {kind}: {target!r} has an empty path "
+                            f"component, so two spellings would name one file")
     return problems
 
 
@@ -252,8 +349,75 @@ def append(path, record, root, storage=None):
     problems = record_problems(record)
     if problems:
         raise Refused("; ".join(problems))
+    # An unterminated tail is reconciled before anything is added to it. Appending blindly put the
+    # new frame on the same line as the torn one, and recovery then read ONE unframed line where two
+    # records had been written — the second was durable and invisible. §10.6 expects a torn tail; it
+    # does not expect the next append to bury it.
+    held = read(path)
+    if held["torn"] and held.get("unterminated"):
+        raise Refused(f"JOURNAL_TAIL_UNRECONCILED {path}: the last line carries no newline, so an "
+                      f"append would put two records on one line. Reconcile the tail "
+                      f"(`reconcile_tail`) before adding to this journal")
     (storage or Storage()).append(path, frame(record))
     return record
+
+
+def journalled(path, record, root, effect, storage=None):
+    """Append the plan, then take the effect, then append the done record. Returns both records.
+
+    The API a future effect loop calls, and the reason it exists: §10.5's ordering is "no effect
+    precedes a successful fsync", and nothing in this module could show that an effect WAITED,
+    because the only ordering control appended a record and then looked at the journal. It invoked
+    no effect, created no target and held no before-state, so it would have passed over a loop that
+    took the effect first. The WP-21 review named it.
+
+    `effect` is called with no arguments and its return value is carried into the done record's
+    `result`. It is called exactly once, after the plan record is durable, and not at all when the
+    append refuses or the storage loses the write.
+    """
+    storage = storage or Storage()
+    plan = append(path, record, root, storage=storage)
+    # Durable only if the journal now actually holds it: a storage that lost the unsynced write has
+    # told us nothing was written, and the effect must not run.
+    held = read(path)
+    if not any(row.get("operation_id") == record.get("operation_id")
+               and row.get("kind") == "planned" for row in held["records"]):
+        raise Refused(f"JOURNAL_PLAN_NOT_DURABLE {path}: the plan record for "
+                      f"{record.get('operation_id')!r} is not in the journal after the append, so "
+                      f"the effect is not taken")
+    result = effect()
+    finished = done(record["operation_id"], record["target"], record["before_sha256"],
+                    record["after_sha256"], record["item_id"], record["approval_id"],
+                    commit=result if isinstance(result, str) else None)
+    append(path, finished, root, storage=storage)
+    return {"planned": plan, "done": finished, "result": result}
+
+
+def reconcile_tail(path, root):
+    """Truncate an unterminated tail so appending is safe again, and say what was dropped.
+
+    The tail is returned rather than silently discarded: an interrupted append is a record somebody
+    may want to look at, and recovery (§10.6) is the reader that decides. Only a tail with no
+    newline is removed — a complete line whose frame does not verify is corruption, not an
+    interrupted write, and this does not touch it.
+    """
+    path = pathlib.Path(path)
+    if not root or not destinations.inside(path, root):
+        raise Refused(f"JOURNAL_OUTSIDE_ROOT {path}: not inside the declared runtime_state root "
+                      f"{root!r}")
+    if not path.is_file():
+        return {"dropped": None}
+    blob = path.read_bytes()
+    if not blob or blob.endswith(b"\n"):
+        return {"dropped": None}
+    cut = blob.rfind(b"\n") + 1
+    dropped = blob[cut:]
+    with open(path, "r+b") as handle:
+        handle.truncate(cut)
+        handle.flush()
+        os.fsync(handle.fileno())
+    Storage()._sync_directory(path.parent)
+    return {"dropped": dropped.decode("utf-8", errors="replace")}
 
 
 def read(path):
@@ -265,19 +429,40 @@ def read(path):
     """
     path = pathlib.Path(path)
     if not path.is_file():
-        return {"records": [], "torn": [], "problems": []}
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return {"records": [], "torn": [], "problems": [], "unterminated": False}
+    # Split on the protocol's LITERAL LF, over BYTES, and keep whether the last line carried its
+    # delimiter. `str.splitlines()` did both jobs wrongly: it splits on U+2028, U+2029, U+0085 and
+    # more, so a payload containing any of them — `frame` writes with ensure_ascii=False, so it can
+    # — came back as two torn lines and the record read as corruption; and it discards delimiter
+    # information, so a COMPLETE frame whose final LF never reached the device read as a finished
+    # record, and the next append then put two records on one line and lost one of them from
+    # recovery. Both were found by the WP-21 review.
+    blob = path.read_bytes()
+    unterminated = bool(blob) and not blob.endswith(b"\n")
+    pieces = blob.split(b"\n")
+    if pieces and pieces[-1] == b"":
+        pieces = pieces[:-1]
     records, torn, problems = [], [], []
-    for number, line in enumerate(lines, start=1):
-        held = _unframe(line)
-        if held is None:
-            torn.append({"line": number, "text": line[:120]})
-            if number != len(lines):
+    for number, raw in enumerate(pieces, start=1):
+        last = number == len(pieces)
+        try:
+            line = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            line = None
+        held = None if line is None else _unframe(line)
+        if held is None or (last and unterminated):
+            # An unterminated tail is torn even when the bytes before it frame correctly: the
+            # delimiter is part of the record, and a reader that accepts the frame without it
+            # cannot tell a finished append from one that stopped before its newline.
+            torn.append({"line": number, "text": (line or repr(raw))[:120],
+                         "why": "no trailing newline" if held is not None else "unframed"})
+            if not last:
                 problems.append(f"JOURNAL_TORN_MIDDLE line {number}: a line with lines after it "
                                 f"cannot have been torn by an append, so this is corruption")
             continue
         records.append(held)
-    return {"records": records, "torn": torn, "problems": problems}
+    return {"records": records, "torn": torn, "problems": problems,
+            "unterminated": unterminated}
 
 
 def _unframe(line):
@@ -605,11 +790,12 @@ def self_test():
         for line in storage_src.splitlines():
             held_line = line.strip()
             for mark in ("self._write_once(handle,", "os.fsync(handle)",
-                         "os.fsync(directory)"):
+                         "self._sync_directory(path.parent)"):
                 if held_line.startswith(mark) or held_line.startswith("held = " + mark):
                     steps.append(mark.rstrip("(,"))
         control("the real storage writes, then fsyncs the file, then fsyncs its directory, in that "
-                "order", " -> ".join(steps), "self._write_once(handle -> os.fsync(handle) -> os.fsync(directory)")
+                "order", " -> ".join(steps), "self._write_once(handle -> os.fsync(handle) -> "
+                "self._sync_directory(path.parent)")
         control("a seam name the list does not hold is refused, so a misspelled seam cannot test "
                 "nothing", refusal(lambda: inject("after_the_effect")), "FAULT_UNKNOWN")
         clean("and no seam stays armed after its control", sorted(_INJECTED))
@@ -629,15 +815,201 @@ def self_test():
         control("a fault between the write and the fsync leaves the record unsynced",
                 str(len(losing.unsynced)), "1")
         control("and losing the unsynced write leaves the journal with no such record",
-                f'{losing.lose_unsynced()}:{len(read(lost_path)["records"])}', "1:0")
+                f'{losing.lose_unsynced()["contents"]}:{len(read(lost_path)["records"])}',
+                "1:0")
         clean("which is the state §10.5 requires: the caller had not been told the record was "
               "durable, so it had not taken its effect",
               [] if not lost_path.exists() or not read(lost_path)["records"] else ["the record survived"])
+        # ---- durability of the NAMES, not only the bytes --------------------------------------
+        #
+        # `mkdir(parents=True)` can create a whole chain while only the journal and its immediate
+        # parent are fsynced: the record is then durable inside directory entries that never
+        # reached the device. The WP-21 review found it, and found that the storage fake could not
+        # show it either, because it modelled contents and not entries.
+        class CountingStorage(Storage):
+            """A real storage that records which directories it synced."""
+
+            def __init__(self):
+                self.synced = []
+
+            def _sync_directory(self, directory_path):
+                self.synced.append(str(directory_path))
+                Storage._sync_directory(self, directory_path)
+
+        counting = CountingStorage()
+        deep_path = root / "state" / "a" / "b" / "c" / "deep.jsonl"
+        append(deep_path, fx_plan(), root=str(root), storage=counting)
+        control("every directory the append created is synced, not only the journal's own parent",
+                json.dumps(sorted(set(counting.synced))),
+                json.dumps(sorted({str(root / "state"), str(root / "state" / "a"),
+                                   str(root / "state" / "a" / "b"),
+                                   str(root / "state" / "a" / "b" / "c")})))
+        control("and the record is readable afterwards",
+                str(len(read(deep_path)["records"])), "1")
+        losing_dirs = LosingStorage()
+        lost_deep = root / "state" / "x" / "y" / "lost-deep.jsonl"
+        append(lost_deep, fx_plan(), root=str(root), storage=losing_dirs)
+        held_lost = losing_dirs.lose_unsynced()
+        control("and the storage fake models directory ENTRIES as their own loss, which is what "
+                "kept this defect invisible (the contents loss has its own control above; this one "
+                "is about the names)",
+                json.dumps({"directories": held_lost["directories"] > 0}),
+                '{"directories": true}')
+        clean("losing the entry takes the journal under it, because nothing can reach what has no "
+              "name", [] if not lost_deep.exists() else ["the journal survived its own directory"])
+
+        # ---- the framing, on the protocol's own delimiter ------------------------------------------
+        #
+        # `frame` writes with ensure_ascii=False, so a payload can carry any Unicode; `read` used
+        # `str.splitlines()`, which splits on U+2028, U+2029, U+0085 and more. A record whose text
+        # held one of those came back as two torn lines and read as corruption. The WP-21 review
+        # found it; these controls are the round trips it asked for.
+        # Asked UNCONDITIONALLY. The first version of this block only ran its controls when writing
+        # the record was refused, so a change that stopped refusing would have made the whole
+        # framing question silently unasked — six controls that could not fire.
+        for name, separator in (("line separator U+2028", "\u2028"),
+                                ("paragraph separator U+2029", "\u2029"),
+                                ("next line U+0085", "\u0085"),
+                                ("vertical tab", "\v"),
+                                ("form feed", "\f"),
+                                ("carriage return", "\r")):
+            sep_path = root / "state" / f"sep-{ord(separator)}.jsonl"
+            sep_path.parent.mkdir(parents=True, exist_ok=True)
+            sep_path.write_bytes(frame({"kind": "note", "text": f"before{separator}after"}))
+            held_sep = read(sep_path)
+            control(f"a payload containing a {name} is one record, not two torn lines",
+                    f'{len(held_sep["records"])}:{len(held_sep["torn"])}', "1:0")
+            control(f"and its text survives the round trip with the {name} intact",
+                    json.dumps((held_sep["records"] or [{}])[0].get("text")),
+                    json.dumps(f"before{separator}after"))
+        for bad_target, want in (("claude/guides/g\u2028x.md", "JOURNAL_CONTROL_CHARACTER"),
+                                 ("/etc/passwd", "JOURNAL_TARGET_ABSOLUTE"),
+                                 ("~/.claude/CLAUDE.md", "JOURNAL_TARGET_ABSOLUTE"),
+                                 ("claude/../../etc/x", "JOURNAL_TARGET_TRAVERSAL"),
+                                 ("claude//guides/g.md", "JOURNAL_TARGET_SPELLING"),
+                                 ("claude/guides/", "JOURNAL_TARGET_SPELLING")):
+            control(f"a target spelled {bad_target!r} is refused by name",
+                    "; ".join(record_problems({**fx_plan(), "target": bad_target})), want)
+        control("and a control character in the approval id is refused too, since every value here "
+                "is written on one line",
+                "; ".join(record_problems({**fx_plan(), "approval_id": "A-1\u0085x"})),
+                "JOURNAL_CONTROL_CHARACTER")
+        clean("while an ordinary target passes", record_problems(fx_plan()))
+
+        # A control character in a record's own fields is a different question, and the record
+        # rules answer it: the framing must carry any payload, and the rules decide which payloads
+        # are legal records.
+        control("and the append refuses such a record before writing anything",
+                refusal(lambda: append(root / "state" / "ctl.jsonl",
+                                       {**fx_plan(), "target": "claude/guides/g\u2028x.md"},
+                                       root=str(root))),
+                "JOURNAL_CONTROL_CHARACTER")
+        clean("with no file left behind",
+              [] if not (root / "state" / "ctl.jsonl").exists() else ["a journal was created"])
+
+        # A COMPLETE frame whose final newline never reached the device: torn, and appending to it
+        # is refused rather than putting two records on one line.
+        tail_path = root / "state" / "tail.jsonl"
+        tail_path.parent.mkdir(parents=True, exist_ok=True)
+        tail_path.write_bytes(frame(fx_plan()).rstrip(b"\n"))
+        held_tail = read(tail_path)
+        control("a frame with no trailing newline is torn, not a finished record",
+                f'{len(held_tail["records"])}:{len(held_tail["torn"])}:{held_tail["unterminated"]}',
+                "0:1:True")
+        control("and the tear says why",
+                json.dumps((held_tail["torn"] or [{}])[0].get("why")),
+                '"no trailing newline"')
+        control("appending to such a journal is refused by name, instead of burying the tail",
+                refusal(lambda: append(tail_path, fx_plan(), root=str(root))),
+                "JOURNAL_TAIL_UNRECONCILED")
+        held_reconciled = reconcile_tail(tail_path, str(root))
+        control("reconciling it returns what was dropped rather than discarding it silently",
+                json.dumps(held_reconciled["dropped"] == frame(fx_plan()).rstrip(b"\n").decode()),
+                "true")
+        append(tail_path, fx_plan(), root=str(root))
+        control("and then the append lands as one record on its own line",
+                f'{len(read(tail_path)["records"])}:{len(read(tail_path)["torn"])}', "1:0")
+        clean("reconciling a journal with a complete tail drops nothing",
+              [] if reconcile_tail(tail_path, str(root))["dropped"] is None else ["it dropped a line"])
+        control("and reconciling outside the declared root is refused like any other write",
+                refusal(lambda: reconcile_tail(held_tree / "other" / "x.jsonl", str(root))),
+                "JOURNAL_OUTSIDE_ROOT")
+
+        # ---- the ordering, with an effect that is actually invoked --------------------------------
+        #
+        # The controls above show the RECORD's fate. They say nothing about whether an effect waited
+        # for it, because none of them has an effect: that was the WP-21 review's finding, and
+        # `journalled` is the seam it asked for. The target here is a file inside the fixture, and
+        # the before-state is held so "the effect did not happen" is a fact rather than an absence.
+        effects = []
+        target_file = root / "state" / "target.txt"
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_text("before\n", encoding="utf-8")
+
+        def take_effect():
+            effects.append(target_file.read_text(encoding="utf-8"))
+            target_file.write_text("after\n", encoding="utf-8")
+            return "deadbeef" * 5
+
+        order_path = root / "state" / "ordered.jsonl"
+        held_order = journalled(order_path, fx_plan(), str(root), take_effect)
+        control("the effect ran, and the journal holds the plan before it did",
+                f'{len(effects)}:{effects[0].strip() if effects else "never ran"}', "1:before")
+        control("and the done record follows it", json.dumps(held_order["done"]["kind"]), '"done"')
+        control("with the effect's own result carried into it",
+                json.dumps(held_order["done"]["commit"]), '"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"')
+        control("so the journal reads plan then done, in that order",
+                ",".join(row["kind"] for row in read(order_path)["records"]), "planned,done")
+        control("and the target was changed exactly once", target_file.read_text(encoding="utf-8"),
+                "after")
+
+        # The fault case: a storage that loses the unsynced plan must leave the effect UNTAKEN.
+        untaken = []
+        lost_target = root / "state" / "untaken.txt"
+        lost_target.write_text("before\n", encoding="utf-8")
+
+        class SilentStorage(Storage):
+            """Returns from `append` having written nothing.
+
+            Not a crash and not a refusal: the shape where a storage says it is done and the device
+            holds nothing. `LosingStorage` cannot model it — it writes on the way through and
+            `lose_unsynced` only forgets the list — so the check that the plan is really IN the
+            journal needs its own fake.
+            """
+
+            def append(self, path, data):
+                pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        said_order = refusal(lambda: journalled(
+            root / "state" / "untaken.jsonl",
+            fx_plan(), str(root),
+            lambda: untaken.append("the effect ran") or "x",
+            storage=SilentStorage()))
+        control("an effect is NOT taken when the plan record did not survive the append",
+                f'{said_order}|{len(untaken)}', "JOURNAL_PLAN_NOT_DURABLE")
+        # And the fault BEFORE the fsync: the append raises, so `journalled` never reaches the
+        # effect. The two together cover both ways the plan can fail to become durable.
+        faulted = []
+        disarm_order = inject("after_write_before_fsync")
+        try:
+            said_fault = refusal(lambda: journalled(
+                root / "state" / "faulted.jsonl", fx_plan(), str(root),
+                lambda: faulted.append("the effect ran") or "x", storage=LosingStorage()))
+        finally:
+            disarm_order()
+        control("a fault between the write and the fsync stops the effect too",
+                f'{said_fault}|{len(faulted)}', "Injected")
+        clean("and that effect was never called either", faulted)
+        clean("and the target is untouched", [] if lost_target.read_text(encoding="utf-8") == "before\n"
+              else ["the effect ran anyway"])
+        clean("the effect was never called at all", untaken)
+
         kept = LosingStorage()
         keep_path = root / "state" / "kept.jsonl"
         append(keep_path, fx_plan(), root=str(root), storage=kept)
         control("while a completed append is synced, so losing nothing loses nothing",
-                f'{kept.lose_unsynced()}:{len(read(keep_path)["records"])}', "0:1")
+                f'{kept.lose_unsynced()["contents"]}:{len(read(keep_path)["records"])}',
+                "0:1")
 
         # ---- what recovery reads ----------------------------------------------------------------
         many = [fx_plan(operation_id="op-a"), fx_plan(operation_id="op-b"),
