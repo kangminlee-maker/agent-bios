@@ -3706,6 +3706,30 @@ def self_test():
                         "candidates and sent all four kinds", not carried and planted_w and ids_w - planted_w
                         and set(kinds_w) == {"judge", "sweep", "cross", "reconsider"},
                         f"{dict(kinds_w)} planted {len(planted_w)} natural {len(ids_w - planted_w)} carried {carried[:3]}")
+                # and in the calls that carry several candidates (a sweep shard; a cross-review carries one, always k1),
+                # what orders them is the candidate id: `shard_plan` groups them in id order and `SweepLabels` labels a
+                # shard's k1, ... in id order, whatever order they arrive in. A planted candidate is a formed one, and
+                # every formed id, planted or natural, is `k-` and sixteen hex digits of a sha256 (a planted one of the
+                # nonce, a natural one of its run and label), so among them the order is a digest's, one rule for both
+                # kinds, and no position follows creation or label number. A lifecycle candidate's id names its source,
+                # which its sweep view shows anyway.
+                id_form = re.compile(r"k-[0-9a-f]{16}")
+                by_id_w = {k["candidate_id"]: k for k in population_w}
+                formed_w = {k["candidate_id"] for k in population_w if k.get("source") == "formed"}
+                some_labels = next(iter(whole_packets.values()))[0] if whole_packets else None
+                unit_w = sorted(some_labels.unit_store)[0] if some_labels else None
+                arriving = sorted(formed_w, reverse=True)[:5]
+                probe_labels = guarded(lambda: SweepLabels({"pairs": {c: [unit_w] for c in arriving}, "units": [unit_w]},
+                                                           by_id_w, some_labels.unit_store, some_labels.entry_store), None)
+                grouped = [c for g in (guarded(lambda: records.read_json(whole / SUMMARY), {}).get("sweeps") or {})
+                           .get("groups") or [] for c in g.get("candidates") or []]
+                control("WP-10 X r1 #4 (round 2's question): candidates sharing a packet are ordered and labelled by "
+                        "candidate id, and every id is one digest form for planted and natural alike",
+                        probe_labels is not None and list(probe_labels.candidates.values()) == sorted(arriving)
+                        and planted_w <= formed_w and all(id_form.fullmatch(i) for i in formed_w)
+                        and grouped and grouped == sorted(grouped),
+                        f"{getattr(probe_labels, 'candidates', None)} {[i for i in formed_w if not id_form.fullmatch(i)][:2]} "
+                        f"{grouped[:4]}")
                 sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
                                 lambda e: {"problem": repr(e)})
                 sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
