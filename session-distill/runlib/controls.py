@@ -144,7 +144,13 @@ def plant(natural, unit_index, cited_of, evidence_of, known_sessions, nonce=None
 
     `natural` are S4's candidates; `cited_of(candidate)` the evidence ids it cites; `evidence_of(id)` the record of an
     id or None; `known_sessions` the census's session keys. A kind that cannot be planted from the run's material is
-    listed `incomplete` with its reason, and S5 refuses the run CONTROLS_INCOMPLETE."""
+    listed `incomplete` with its reason, and S5 refuses the run CONTROLS_INCOMPLETE.
+
+    A planted id is drawn from the nonce and a planted label follows S4's last, so on disk the two kinds differ in form,
+    as S4's own candidates.json already tells them apart. What must not tell them apart is what a judge is sent, and no
+    model is sent either: S6 hides the id and the label from every packet and names a candidate's calls by one digest of
+    its id (stage_judge's CANDIDATE_HIDDEN and `item_of`), which S6's self-test holds on every packet its golden sends
+    (Codex WP-10 X r1 #4)."""
     nonce = nonce or secrets.token_hex(8)
     rng = random.Random(nonce)
     formed = sorted((k for k in natural if k["source"] == "formed" and k.get("event_ids")), key=lambda k: k["candidate_id"])

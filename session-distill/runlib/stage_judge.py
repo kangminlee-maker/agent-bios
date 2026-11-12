@@ -3666,6 +3666,46 @@ def self_test():
                         "shows a decision reference or a stored unit or entry id; the fixture holds candidates that resolve "
                         "a decision", bool(resolving) and bool(decision_refs) and not shown_refs,
                         f"{len(resolving)} resolving, {len(decision_refs)} references, shown {sorted(shown_refs.items())[:3]}")
+                # WP-10 X r1 #4: on disk the mixed population tells a planted candidate from a natural one (S4's
+                # candidates.json lists the naturals by construction; S4 derives their ids from their labels, and the
+                # planted ones take the labels after them), and no byte a model is sent carries either: in every packet
+                # the complete golden sent, of all four kinds, no JSON string is a candidate id or the stored label of the
+                # call's own candidate, and each CALL-ID names a candidate only by `item_of`, one digest for every member
+                population_w = guarded(lambda: records.read_json(whole / "checked-candidates.json"),
+                                       {"candidates": []})["candidates"]
+                planted_w = {e["candidate_id"] for e in guarded(lambda: records.read_json(whole / controls.CONTROLS_FILE),
+                                                                {"planted": []})["planted"]}
+                ids_w = {k["candidate_id"] for k in population_w}
+                of_item = {item_of(k["candidate_id"]): k for k in population_w}
+                kinds_w, carried = collections.Counter(), []
+                for call_json in sorted((whole / "calls").glob("*/call.json")) if (whole / "calls").is_dir() else []:
+                    held_call = guarded(lambda: records.read_json(call_json), {})
+                    if held_call.get("stage") != STAGE:
+                        continue   # the run's earlier stages' calls (S3, S4) are other packets
+                    item = str(held_call.get("item") or "")
+                    sent = guarded(lambda: (call_json.parent / "packet.md").read_text(encoding="utf-8"), "")
+                    head, _sep, body = sent.partition("\n" + packet.PAYLOAD_MARKER + "\n")
+                    call_line = head.split("\n", 1)[0]
+                    kind = ("sweep" if item.startswith("sweep-") else "cross" if item.endswith("-X")
+                            else "reconsider" if item[:-1].endswith(f"-{RECONSIDER}") else "judge")
+                    kinds_w[kind] += 1
+                    own = of_item.get(item.split("-", 1)[0]) if kind != "sweep" else None
+                    shown = set(strings_of(body))
+                    # a sweep's candidates are k1, ... in candidate-id order within the shard and a cross-review's is
+                    # always k1: packet labels, which a stored label may happen to spell, so those two kinds are held to
+                    # carrying no id; the judge and reconsideration packets label nothing k
+                    hits = sorted(shown & ids_w) + ([own["label"]] if own and kind in ("judge", "reconsider")
+                                                    and own.get("label") in shown else [])
+                    hits += [i for i in ids_w if i in call_line]
+                    if kind != "sweep" and own is None:
+                        hits.append(f"no candidate has the item {item}")
+                    if hits:
+                        carried.append((call_json.parent.name[-30:], kind, hits[:3]))
+                control("WP-10 X r1 #4: no packet of any kind carries a candidate id or its stored label, and each CALL-ID "
+                        "names its candidate by the one digest every member gets; the golden mixes natural and planted "
+                        "candidates and sent all four kinds", not carried and planted_w and ids_w - planted_w
+                        and set(kinds_w) == {"judge", "sweep", "cross", "reconsider"},
+                        f"{dict(kinds_w)} planted {len(planted_w)} natural {len(ids_w - planted_w)} carried {carried[:3]}")
                 sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
                                 lambda e: {"problem": repr(e)})
                 sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
