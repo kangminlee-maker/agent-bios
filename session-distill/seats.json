@@ -62,7 +62,7 @@
           "allowance_tokens": 19167,
           "measured": true,
           "measured_version": "0.167.0",
-          "basis": "D13 re-pin 2026-11-12 from D7's live run at commit 6670341: observed main-request input tokens (input + cache read + cache creation), max over the 4 hermetic S6 calls through dispatch (codex-cli 0.167.0, structured output through the strict projection): gpt-6-astra/xhigh judge 19167 and 18829, gpt-6-astra/xhigh cross-review 16392, gpt-6-luna/medium sweep 15670; each call's warm-up request was 2 input tokens. Includes the packet and the handed schema (7.0 to 18.7 KB), so it overstates the host's share, as the Claude allowance does"
+          "basis": "D13 re-pin 2026-11-12 from D7's live run at commit 6670341: observed main-request input tokens (input + cache read + cache creation), max over the 4 hermetic S6 calls through dispatch (codex-cli 0.167.0, structured output through the strict projection): gpt-6-astra/xhigh judge 19167 and 18829, gpt-6-astra/xhigh cross-review 16392, gpt-6-luna/medium sweep 15670; each call's warm-up request was 2 input tokens. Includes the packet and the handed schema (7.0 to 18.7 KB), so it overstates the host's share, as the Claude allowance does. It is the largest observed main-request input of a call, the packet and the schema it was handed included, so as an allowance it is an upper bound on the host's own share, not that share"
         }
       },
       "context": {
@@ -104,7 +104,7 @@
     ]
   },
   "seat_capacity": {
-    "$comment": "The seat's context window, host-reported. A view-window call on a seat with no entry here is refused (CAPACITY_UNDECLARED): check (d) is about the context, and an invented capacity is a check about nothing. Codex captures report no context size (D7, codex-cli 0.167.0), so codex:gpt-6-astra/xhigh and codex:gpt-6-luna/medium carry no entry, and until one is declared they are the one exception not held to a capacity: S6 names them CAPACITY_UNDECLARED and judges no overrun for them. The source proposed for them is the model catalogue the pinned codex-cli binary bundles, which gives both models context_window 272000 (max_context_window 872000); declaring it is pending a decision.",
+    "$comment": "The seat's context window, as the host states it: host-reported where the host reports one, else the host's own model catalogue at the pinned version, the basis saying which. A view-window call on a seat with no entry here is refused (CAPACITY_UNDECLARED): check (d) is about the context, and an invented capacity is a check about nothing. Every seat stage_seats names has an entry (gate.seats_problems, CAPACITY_UNDECLARED).",
     "claude:claude-sonnet-5-5/high": {
       "context_capacity": 1000000,
       "host_version": "2.1.317",
@@ -119,6 +119,21 @@
       "context_capacity": 1000000,
       "host_version": "2.1.317",
       "basis": "host-reported modelUsage.contextWindow, D13 re-pin 2026-11-12: D7's live S6 sweep call (claude 2.1.317, claude-sonnet-5-5/medium, commit 6670341) reported 1000000"
+    },
+    "codex:gpt-6-astra/xhigh": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the xhigh seat; bound to 0.167.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6-astra/high": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the high seat; bound to 0.167.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6-luna/medium": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-luna context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the medium seat; bound to 0.167.0 and re-read from the binary on a re-pin"
     }
   }
 }

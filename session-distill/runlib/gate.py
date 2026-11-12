@@ -282,7 +282,10 @@ def seats_problems(doc):
     established at and says which: a measured host allowance its `measured_version`, a profile's built-in `context` its
     `observed_version` unless it is declared `carried` with a basis, a measured auxiliary role its
     `measured_version`, and a seat capacity its `host_version`. So a version move that leaves any of them at the old
-    version is named here, and the re-pin takes each with it: re-measured, marked unmeasured, or declared carried."""
+    version is named here, and the re-pin takes each with it: re-measured, marked unmeasured, or declared carried.
+
+    And every seat a stage is seated with has a capacity (`CAPACITY_UNDECLARED`): a seat with none was the one
+    exception check (d) could not hold, and a re-pin that drops a capacity leaves that seat unbounded by name."""
     out = []
     hosts = (doc or {}).get("hosts") or {}
     for host, entry in sorted(hosts.items()):
@@ -311,6 +314,16 @@ def seats_problems(doc):
         if held.get("host_version") != pinned:
             out.append(f"PIN_STALE seat_capacity.{seat}: reported at host {held.get('host_version')!r}, and the pin is "
                        f"{pinned!r}; report it again at the pinned version, or remove it")
+    declared = (doc or {}).get("seat_capacity") or {}
+    seated = {}
+    for stage, rows in sorted(((doc or {}).get("stage_seats") or {}).items()):
+        if not stage.startswith("$") and isinstance(rows, list):
+            for seat in rows:
+                seated.setdefault(seat, stage)
+    for seat, stage in sorted(seated.items()):
+        if not isinstance(declared.get(seat), dict):
+            out.append(f"CAPACITY_UNDECLARED seat_capacity.{seat}: {stage} is seated with it and seats.json declares no "
+                       "context capacity for it; every seat is held to one")
     return out
 
 
@@ -2653,7 +2666,11 @@ def self_test():
             ("a-seat-capacity-at-another-version",
              lambda d: d.setdefault("seat_capacity", {}).update(
                  {"claude:planted/high": {"context_capacity": 1, "host_version": "0.0.1", "basis": "b"}}),
-             "PIN_STALE seat_capacity.claude:planted/high")):
+             "PIN_STALE seat_capacity.claude:planted/high"),
+            # a seat of its own, so the control keeps testing whichever seats the real file holds
+            ("a-seated-seat-with-no-capacity",
+             lambda d: d.setdefault("stage_seats", {}).update(Splanted=["codex:planted/xhigh"]),
+             "CAPACITY_UNDECLARED seat_capacity.codex:planted/xhigh")):
         ran.append(name)
         bent = copy.deepcopy(held_seats)
         bend(bent)
