@@ -321,6 +321,49 @@ NEG
   case_is "a self_test body is in the scan's scope, not outside it" \
           "names the author-side module gates/check-lexicon.py"
 
+  # The third direction for shipped JSON DATA. A table is neither prose nor code, and
+  # session-distill/tables/destinations.json legitimately names an author-side writer in a
+  # row that declares writer_scope: author -- a declaration whose reader is the runtime rule
+  # in destinations.py. Three plants: an undeclared path fails, a declared path that exists
+  # nowhere fails anyway, and removing the runtime reader makes the declaration stop
+  # excusing anything.
+  fresh
+  python3 - "$W" <<'JPLANT'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/tables/redundancy.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+d["$planted"] = {"note": "gates/check-lexicon.py"}
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+JPLANT
+  case_is "shipped json data naming an author-side path with no declaration" \
+          "names the author-side path gates/check-lexicon.py in a row that does not declare"
+
+  fresh
+  python3 - "$W" <<'JPLANT2'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/tables/redundancy.json"
+d = json.loads(p.read_text(encoding="utf-8"))
+d["$planted"] = {"note": "gates/no-such-gate-here.py", "writer_scope": "author"}
+p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+JPLANT2
+  case_is "a declared path that exists nowhere fails anyway" \
+          "exists nowhere in this repo"
+
+  # The declaration's reader is what makes it safe: remove the runtime rule and the
+  # declaration must stop excusing the reference -- the same single-sourcing the
+  # audience: author rule has, where the gate imports the assembler's own reader.
+  fresh
+  python3 - "$W" <<'JPLANT3'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "session-distill/runlib/destinations.py"
+t = p.read_text(encoding="utf-8")
+if "author_rows_absent" not in t:
+    sys.exit("self-test mutation is stale: destinations.py no longer carries author_rows_absent")
+p.write_text(t.replace("author_rows_absent", "author_rows_gone"), encoding="utf-8")
+JPLANT3
+  case_is "a writer_scope declaration whose runtime reader is gone excuses nothing" \
+          "no longer carries author_rows_absent"
+
   # An exemption is only safe while it names a real site: a stale one exempts by a path
   # nobody has, which is the shape this repo keeps finding (a declared author-side file
   # that moved, a concept home matching nothing).
@@ -1056,6 +1099,125 @@ if unused_exempt:
     sys.exit("check-package: FAILED — author-side import exemption(s) the scan never met: "
              f"{', '.join(unused_exempt)}; the reference each excuses is gone, so the entry now "
              "excuses whatever is written next in that file. Delete the entry with the reference.")
+
+# ---- the third direction for shipped JSON DATA -------------------------------------------------
+#
+# The prose and code legs above read markdown and .py. A shipped TABLE is neither, and
+# `session-distill/tables/destinations.json` names `session-distill/update-state.py` — an
+# author-side writer — in a row a shipped module reads at runtime. A packaged user does not have
+# that file, which is the same failure the code leg exists for, arriving as data. It is admissible
+# only in a row that declares `writer_scope: author`, because that declaration has a READER: the
+# runtime rule in `session-distill/runlib/destinations.py` records such a row as not installed and
+# does not certify its destination. A label whose only reader is this gate changes nothing a user
+# receives, so the gate requires that rule to still be there.
+AUTHOR_SCOPE_RULE = ("session-distill/runlib/destinations.py", "author_rows_absent")
+# Two references this leg found on the day it was added, each named with its own reason and the
+# condition that retires it. They are TRANSITIONAL, not licensed: the shape exists because work is
+# in flight, and the answer is finishing it. An entry whose reference is gone fails below, so
+# neither can quietly outlive its finding.
+JSON_AUTHOR_REF_EXEMPT = {
+    ("session-distill/seats.json", "benchmarks/dispatch.py"):
+        "provenance prose in the auxiliary seat's `basis` field, naming where the retired model "
+        "list came from. It is a mention of history, not a path anything opens. Retires when WP-17 "
+        "removes the auxiliary entry, or when `basis` is moved into a $comment.",
+    ("session-distill/tables/drift_layers.json", "design/session-distill/ledger.json"):
+        "the ledger drift layer's prefix, written against THIS repo's checkout while the layer "
+        "vocabulary is undecided (the table's own open_question says so). A packaged user has no "
+        "design/ tree, so the prefix is wrong for them — an open finding, to be fixed with the "
+        "layer vocabulary rather than by deleting the layer. Retires when config_manifest_B's keys "
+        "are decided.",
+    ("session-distill/tables/drift_layers.json", "design/session-distill/versions.json"):
+        "the same prefix list, same reason.",
+}
+shipped_json = sorted(
+    rel for rel in (str(p.relative_to(REPO)) for p in REPO.rglob("*.json"))
+    if shipped(rel) and not author_side(rel) and (REPO / rel).is_file())
+if not shipped_json:
+    sys.exit("check-package: FAILED — no shipped .json files found, so the data scan would pass "
+             "over nothing")
+
+
+def declared_author_scope(data):
+    """Every author-side path a JSON document declares with `writer_scope: author`.
+
+    Walked rather than read at one key, because the declaration must travel with the row it
+    excuses: a top-level flag would excuse every path in the file.
+    """
+    held = set()
+    if isinstance(data, dict):
+        if data.get("writer_scope") == "author":
+            for value in data.values():
+                if isinstance(value, str):
+                    held.add(rel_key(value))
+        for value in data.values():
+            held |= declared_author_scope(value)
+    elif isinstance(data, list):
+        for value in data:
+            held |= declared_author_scope(value)
+    return held
+
+
+def json_strings(data):
+    if isinstance(data, dict):
+        for key, value in data.items():
+            yield from json_strings(value)
+    elif isinstance(data, list):
+        for value in data:
+            yield from json_strings(value)
+    elif isinstance(data, str):
+        yield data
+
+
+json_refs = []
+exercised_json_exempt = set()
+rule_file, rule_name = AUTHOR_SCOPE_RULE
+rule_present = (REPO / rule_file).is_file() and rule_name in (REPO / rule_file).read_text(
+    encoding="utf-8", errors="replace")
+for rel in leg("shipped json data refs", shipped_json):
+    try:
+        data = json.loads((REPO / rel).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as problem:
+        json_refs.append(f"{rel}: could not be parsed ({type(problem).__name__}), so the scan "
+                         f"cannot judge it")
+        continue
+    excused = declared_author_scope(data)
+    for text in json_strings(data):
+        named = rel_key(text)
+        if "/" not in named or named.endswith("/"):
+            continue
+        if not author_side(named):
+            continue
+        # Exemptions are consulted BEFORE existence, because a prose field's key is the whole
+        # sentence and no such path exists: the existence branch would report the sentence instead
+        # of the reference the exemption is about.
+        held_exempt = next(((held_rel, held_named) for held_rel, held_named
+                            in JSON_AUTHOR_REF_EXEMPT
+                            if rel == held_rel and named.startswith(held_named)), None)
+        if held_exempt:
+            exercised_json_exempt.add(held_exempt)
+        elif not (REPO / named).exists():
+            json_refs.append(f"{rel}: names {named}, which exists nowhere in this repo — a "
+                             f"declaration can excuse a path the reader will not have, never one "
+                             f"nobody has")
+        elif named not in excused:
+            json_refs.append(f"{rel}: names the author-side path {named} in a row that does not "
+                             f"declare writer_scope: author, so a packaged user receives a table "
+                             f"pointing at a file they do not have")
+        elif not rule_present:
+            json_refs.append(f"{rel}: declares writer_scope: author for {named} while "
+                             f"{rule_file} no longer carries {rule_name}() — the declaration's only "
+                             f"reader would be this gate, which changes nothing a user receives")
+stale_json_exempt = [f"{rel} -> {named}" for rel, named in JSON_AUTHOR_REF_EXEMPT
+                     if (rel, named) not in exercised_json_exempt]
+if stale_json_exempt:
+    sys.exit("check-package: FAILED — shipped-JSON exemption(s) the scan never met: "
+             f"{', '.join(stale_json_exempt)}; the reference each excuses is gone, so the entry now "
+             "excuses whatever is written next in that file. Delete the entry with the reference.")
+if json_refs:
+    sys.exit("check-package: FAILED — " + str(len(json_refs)) + " shipped JSON reference(s) to an "
+             "author-side path:\n      " + "\n      ".join(json_refs)
+             + "\n      fix: declare the row `writer_scope: author` (and keep the runtime rule that "
+               "reads it), or stop naming the path")
 
 # provenance.json is EXEMPT above because a clone legitimately lacks a
 # pack-generated file — but the exemption also skips shipped(), and an unshipped

@@ -140,7 +140,32 @@ def table_problems():
     return problems
 
 
-def fidelity_problems():
+def install_layout(root=None):
+    """`"checkout"` or `"package"`, decided by whether the author-side tree is present.
+
+    The npm package carries `session-distill/` and `package.json` and NOT `gates/`, so the presence
+    of the author-side tree is what separates the two layouts. It matters here because an
+    author-scope writer's SOURCE is not shipped: `fidelity_problems` reads every `fallback_source`,
+    so in a packaged install the manifest failed `WRITER_SOURCE_ABSENT` over
+    `session-distill/update-state.py` — a refusal that no packaged user can act on, and one no
+    check run from a clone can see. Found by the WP-21 review.
+    """
+    return "checkout" if (pathlib.Path(root or REPO) / "gates").is_dir() else "package"
+
+
+def author_rows_absent(root=None):
+    """The author-scope rows whose writer is not present in this layout, by writer name.
+
+    In a package these are recorded rather than refused, and their destination is NOT certified: a
+    writer that is not installed cannot write, so there is nothing to confine. In a checkout the
+    source is required, because that is where the fallback literal is audited.
+    """
+    base = pathlib.Path(root or REPO)
+    return sorted(row["writer"] for row in writers()
+                  if row.get("writer_scope") == "author" and not (base / row["writer"]).is_file())
+
+
+def fidelity_problems(root=None):
     """Where the table's stated fallback is no longer the one its writer carries.
 
     The fallback is a restatement, tolerated because this makes its drift decidable: the literal must
@@ -148,14 +173,24 @@ def fidelity_problems():
     inventory would otherwise go on describing a writer that no longer exists.
     """
     problems = []
+    base = pathlib.Path(root or REPO)
     for row in writers():
+        # An author-scope writer absent from a packaged install is not a fidelity failure: its
+        # source is not shipped, and the row's destination is not certified either (see
+        # `author_rows_absent`). In a checkout it is required, and absence still fails.
+        if (row.get("writer_scope") == "author"
+                and install_layout(base) == "package"
+                and not (base / row["writer"]).is_file()):
+            continue
         source = row.get("fallback_source")
         if source is None:
             if row.get("fallbacks"):
                 problems.append(f"FALLBACK_UNSOURCED {row['writer']}: a fallback is stated with no "
                                 f"source to hold it against")
             continue
-        path = REPO / source
+        # Against the install this runs in, not against the author's checkout: a check that reads
+        # one tree while judging another cannot see a packaged install at all.
+        path = base / source
         if not path.is_file():
             problems.append(f"WRITER_SOURCE_ABSENT {row['writer']}: {source} does not exist")
             continue
@@ -625,7 +660,7 @@ def _inside(path, root):
     return path == root or root in path.parents
 
 
-def resolved_rows(declaration, environ):
+def resolved_rows(declaration, environ, root=None):
     """One row per writer: `{class, writer, path, root, inside}` as N#4 names it.
 
     `path` is what the writer will actually write under, taken from the environment the run hands it
@@ -633,7 +668,16 @@ def resolved_rows(declaration, environ):
     """
     roots = (declaration or {}).get("destinations") or {}
     rows = []
+    absent = set(author_rows_absent(root))
     for row in writers():
+        if row["writer"] in absent:
+            # Named, not certified: the writer is not in this install, so it writes nowhere. Saying
+            # so in the manifest is the point — a silent omission would read as "no such writer".
+            rows.append({"class": row.get("writes_without_override")
+                         or (row.get("destinations") or [{}])[0].get("class"),
+                         "writer": row["writer"], "path": None, "root": None, "inside": None,
+                         "not_installed": "author-side writer, not present in this install"})
+            continue
         # One row per (writer, override), so a single escaping value cannot hide behind a sibling
         # of the same writer that is in root.
         for entry in row.get("destinations") or ():
@@ -667,6 +711,11 @@ def resolution_problems(rows):
     for row in rows:
         if row.get("unset"):
             continue
+        if row.get("not_installed"):
+            # Nothing to confine: the writer is not in this install, so it has no path to judge.
+            # Judging it would produce DESTINATION_ROOT_ABSENT for a writer that cannot write,
+            # which is how the packaged manifest refused over a file npm does not ship.
+            continue
         if not row.get("root"):
             problems.append(f"DESTINATION_ROOT_ABSENT {row['writer']}: the run declares no root for "
                             f"class {row['class']}")
@@ -677,21 +726,21 @@ def resolution_problems(rows):
     return problems
 
 
-def problems(declaration, environ):
+def problems(declaration, environ, root=None):
     """Everything wrong, table and resolution together. Empty means apply may take its first effect."""
-    held = table_problems() + fidelity_problems()
+    held = table_problems() + fidelity_problems(root) + inventory_problems()
     if held:
         return held
-    return resolution_problems(resolved_rows(declaration, environ))
+    return resolution_problems(resolved_rows(declaration, environ, root))
 
 
-def document(declaration, environ):
+def document(declaration, environ, root=None):
     """The manifest `apply` writes before any effect, or Refused naming what stops it."""
-    rows = resolved_rows(declaration, environ)
+    rows = resolved_rows(declaration, environ, root)
     # The derived inventory is part of the manifest's own correctness, not a separate audit: a
     # destination the tree writes and the table does not carry is exactly the hole this manifest
     # exists to close, so `apply` refuses before any effect rather than recording a partial answer.
-    held = (table_problems() + fidelity_problems() + inventory_problems()
+    held = (table_problems() + fidelity_problems(root) + inventory_problems()
             + resolution_problems(rows))
     if held:
         raise Refused("; ".join(held))
@@ -699,6 +748,8 @@ def document(declaration, environ):
             "overrides_required": list(required_overrides()),
             "classes": list(CLASSES),
             "writers_scanned": sorted({entry["writer"] for entry in closure()}),
+            "layout": install_layout(root),
+            "not_installed": author_rows_absent(root),
             "$comment": "design §10.5 / N#4: every writer's destination, resolved from the "
                         "environment the run hands it and asserted inside its declared root before "
                         "the first effect."}
@@ -727,6 +778,12 @@ def write(run_dir, declaration, environ):
 
 
 def self_test():
+    # Imported once, at the top: a later `import shutil` inside this function makes the name a
+    # local for the WHOLE function, so an earlier use raises UnboundLocalError. That is the same
+    # shadowing trap as a local named like a module function.
+    import shutil
+    import tempfile
+
     failures, ran = [], []
 
     def control(name, got, want):
@@ -1024,14 +1081,70 @@ def self_test():
             "ZDOTDIR" if "ZDOTDIR" in derived_for("launch/shell_integration.py")
             else "missed the indirection", "ZDOTDIR")
 
+    # ---- the two install layouts ----------------------------------------------------------------
+    #
+    # A packaged install has no `gates/` and no author-scope writer source. The manifest used to
+    # refuse WRITER_SOURCE_ABSENT there, over `session-distill/update-state.py`, which npm does not
+    # ship: a refusal no packaged user can act on, invisible from every clone. Found by the WP-21
+    # review. These controls build both layouts as file trees and ask the real functions.
+    layout_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-layout-", dir="/tmp"))
+    try:
+        author_writer = sorted(_author_writers())[0] if _author_writers() else None
+        # The package layout: the shipped file set only. `files[]` decides it, so the fixture cannot
+        # drift from what npm actually packs.
+        packed = json.loads((REPO / "package.json").read_text(encoding="utf-8")).get("files") or []
+        pack = layout_root / "package"
+        (pack / "session-distill" / "tables").mkdir(parents=True)
+        (pack / "package.json").write_bytes((REPO / "package.json").read_bytes())
+        # Every writer source the table names, EXCEPT the author-scope one — which is exactly what
+        # npm packs and what it leaves out. `files[]` decides membership, so the fixture cannot
+        # drift from the real package.
+        for held_row in writers():
+            source = held_row.get("fallback_source")
+            if not source or held_row.get("writer_scope") == "author":
+                continue
+            if not any(source == entry or source.startswith(entry) for entry in packed):
+                continue
+            target = pack / source
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((REPO / source).read_bytes())
+        control("the package layout is recognised without `gates/`", install_layout(pack), "package")
+        control("and a checkout is recognised by its presence",
+                install_layout(REPO), "checkout")
+        control("the author-scope writer is named as not installed there",
+                ", ".join(author_rows_absent(pack)), author_writer or "none")
+        clean("and its absence is not a fidelity failure in that layout",
+              [p for p in fidelity_problems(pack) if "WRITER_SOURCE_ABSENT" in p])
+        held_rows = resolved_rows(fx_declaration(), fx_env(), root=pack)
+        control("its row is recorded rather than dropped, so the manifest does not read as though "
+                "no such writer existed",
+                "; ".join(r.get("not_installed", "") for r in held_rows
+                          if r["writer"] == author_writer),
+                "author-side writer, not present in this install")
+        clean("and that row is not judged for escape, since a writer that is not there writes "
+              "nowhere",
+              [p for p in resolution_problems(held_rows) if author_writer and author_writer in p])
+        held_doc = guarded(lambda: document(fx_declaration(), fx_env(), root=pack))
+        control("so a packaged install produces a manifest at all",
+                "dict" if isinstance(held_doc, dict) else str(held_doc)[:160], "dict")
+        control("and the manifest says which layout it was written in",
+                held_doc.get("layout") if isinstance(held_doc, dict) else "none", "package")
+        # The checkout half: the same absence IS a failure where the source is audited.
+        checkout = layout_root / "checkout"
+        (checkout / "gates").mkdir(parents=True)
+        (checkout / "session-distill").mkdir(parents=True)
+        control("in a checkout, an author-scope writer whose file is missing fails by name, "
+                "because that is where the fallback literal is held against its source",
+                "; ".join(fidelity_problems(checkout)), "WRITER_SOURCE_ABSENT")
+    finally:
+        shutil.rmtree(layout_root, ignore_errors=True)
+
     # Lexical containment is half the answer: `os.open` follows symlinks, so a path inside the root
     # can open a file outside it. `links_problem` is for a caller that cannot open with O_NOFOLLOW;
     # `journal.Storage.append` does open that way, which is the stronger half.
     # Plain names, no aliases: `dispatch.py`'s source-shape rule refuses `import os as _os` in a
     # shipped module because renaming an executing module is how an effect hides from a scan, and it
     # caught this block. The same blindness is a finding against this unit's own AST check.
-    import shutil
-    import tempfile
     link_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-link-", dir="/tmp"))
     try:
         (link_root / "declared" / "deep").mkdir(parents=True)
@@ -1085,8 +1198,6 @@ def self_test():
                        lambda: refusal(lambda: document(fx_declaration(), fx_env()))),
             "WRITER_SET_EMPTY")
 
-    import shutil
-    import tempfile
     held_root = pathlib.Path(tempfile.mkdtemp(prefix="dest-", dir="/tmp"))
     try:
         run_dir = held_root / "r1"
