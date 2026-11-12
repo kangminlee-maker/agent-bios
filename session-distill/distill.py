@@ -476,6 +476,33 @@ def cmd_form(args):
     return 0
 
 
+def cmd_read(args):
+    """S3 (runlib/stage_read.py): dry, up to the calls; otherwise its window readings through a supervisor made before
+    the stage is entered, so a live run without its token is refused before anything is recorded."""
+    from runlib import stage_read
+    run_dir = run_dir_of(args)
+    if args.dry:
+        if args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID read --dry: a dry run makes no call, so it takes no --cells or --golden-plan")
+        summary = stage_read.run(run_dir, None, dry=True, ledger_ref=args.checkout_ledger)
+        say(f"S3 read (dry): no call made; the packets' measures are in {stage_read.DRY_RECORD}, and the stage's "
+            f"record is partial")
+        return 0
+    if not args.cells:
+        raise Refused("INPUT_INVALID read --cells: the reading calls run in cells under a cell root; give --cells DIR, "
+                      "or --dry to stop before the calls")
+    if args.golden_plan is None and not os.environ.get("CLAUDE_RUN_TOKEN_FILE"):
+        raise Refused("TOKEN_FILE_UNSET S3: a live reading call's token reaches claude-run only as "
+                      "CLAUDE_RUN_TOKEN_FILE, and this environment does not set it")
+    summary = stage_read.run(run_dir, stage_form.supervisor(run_dir, args.cells, args.golden_plan),
+                             tranche=args.tranche, jobs=args.jobs, ledger_ref=args.checkout_ledger)
+    statuses = ", ".join(f"{count} {name}" for name, count in sorted((summary.get("statuses") or {}).items()))
+    say(f"S3 read: {len(summary.get('units') or {})} units ({statuses or 'none'}); window accounted="
+        f"{summary.get('accounted')}, fully_read={summary.get('fully_read')}; {summary.get('reused', 0)} readings "
+        f"reused from an earlier attempt; read.json and read-results.json are the stage's outputs")
+    return 0
+
+
 def name_checkout_ledger(args):
     """Set the module-level reference `lifecycle_intake.ledger_of` reads, from this caller's flag.
 
@@ -694,7 +721,7 @@ def cmd_stage(args):
     return 2
 
 
-HANDLERS.update({"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
+HANDLERS.update({"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory, "read": cmd_read,
                  "form": cmd_form, "retrieve": cmd_retrieve, "deliver": cmd_deliver, "judge": cmd_judge,
                  "render": cmd_render, "parse-decisions": cmd_parse_decisions, "propose": cmd_propose,
                  "review-proposals": cmd_review_proposals, "review-korean": cmd_review_korean,
@@ -778,6 +805,17 @@ def build_parser():
         if name == "parse-decisions":
             sub.add_argument("--version", type=int, help="the review version whose copy to parse (default: the current one)")
             sub.add_argument("--copy", help="the owner's edited copy (default: decisions.ko.v<n>.md in the run)")
+        if name == "read":
+            sub.add_argument("--dry", action="store_true", help="stop before the calls: every window packet's measure")
+            sub.add_argument("--cells", help="the cell root the reading calls run under (made mode 700)")
+            sub.add_argument("--golden-plan", help="a golden host's plan: the calls are answered from it and start "
+                                                   "no model")
+            sub.add_argument("--tranche", choices=("broad", "calibration"), default="broad",
+                             help="calibration reads one unit at a time")
+            sub.add_argument("--jobs", type=int, default=12, help="units read at once in a broad tranche (1 to 12)")
+            sub.add_argument("--checkout-ledger", help="the ledger's path INSIDE the declaration's checkout "
+                                                       "destination, which the caller names; without it the stage is "
+                                                       "refused LEDGER_UNNAMED rather than reading a guess")
         if name == "form":
             sub.add_argument("--dry", action="store_true", help="stop before the call: the intake and the packet's measure")
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
@@ -1075,7 +1113,7 @@ def self_test():
 
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
-        implemented = ("census", "views", "inventory", "form", "retrieve", "deliver", "judge", "propose",
+        implemented = ("census", "views", "inventory", "read", "form", "retrieve", "deliver", "judge", "propose",
                        "review-proposals", "render", "parse-decisions", "review-korean", "adjudicate", "confirm",
                        "apply", "close")
         # The structural half, which is what this suite lacked: a `cmd_` function the parser never
@@ -1155,6 +1193,25 @@ def self_test():
         code, err = cli("judge", "--run-id", "r1", "--dry")
         control("judge --dry (S6) over a run S5 has not run is refused by name, and no stage record is written or changed",
                 code == 1 and "INPUT_INVALID S5" in err and stage_files() == before, f"{code} {err}")
+        code, err = cli("read", "--run-id", "r-read")
+        control("read (S3) with neither --dry nor --cells is refused by name before anything is recorded",
+                code == 1 and "INPUT_INVALID read --cells" in err and not (out / "r-read").exists(), err)
+        code, err = cli("read", "--run-id", "r-read", "--dry", "--cells", str(out / "read-cells"))
+        control("read --dry with a cell root is refused by name: a dry run makes no call",
+                code == 1 and "INPUT_INVALID read --dry" in err, err)
+        held_token = os.environ.pop("CLAUDE_RUN_TOKEN_FILE", None)
+        try:
+            code, err = cli("read", "--run-id", "r-read", "--cells", str(out / "read-cells"))
+        finally:
+            if held_token is not None:
+                os.environ["CLAUDE_RUN_TOKEN_FILE"] = held_token
+        control("a live read with no CLAUDE_RUN_TOKEN_FILE is refused by name before its cell root or any record is made",
+                code == 1 and "TOKEN_FILE_UNSET S3" in err and not (out / "read-cells").exists()
+                and not (out / "r-read").exists(), err)
+        code, err = cli("read", "--run-id", "r1", "--dry")
+        control("read --dry (S3) reaches the stage: over a run S2 has not run it is refused on its input, by name, "
+                "and no stage record is written or changed",
+                code == 1 and "INPUT_INVALID S2" in err and stage_files() == before, f"{code} {err}")
         code, err = cli("form", "--run-id", "r-form")
         control("form (S4) with neither --dry nor --cells is refused by name before anything is recorded",
                 code == 1 and "INPUT_INVALID form --cells" in err and not (out / "r-form").exists(), err)

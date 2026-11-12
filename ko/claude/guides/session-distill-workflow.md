@@ -92,8 +92,8 @@ root로 주면 거부된다** — `inventory`는 checkout을 무조건 보호하
 state 디렉터리를 해석하게 두거나, 보호된 어떤 root(checkout, 소유자 state root, `~/.claude`,
 `~/.codex`)에도 들지 않는 디렉터리를 준다.
 
-**모든 stage가 아직 실행되는 것은 아니며, 실행되지 않는 stage는 대충 비슷한 일을 하는 대신
-이름을 대고 거부한다.** stderr에 `STAGE_NOT_IMPLEMENTED <command> (<stage>)`, 종료 코드 2.
+**S8을 뺀 모든 stage가 실행되며, 실행되지 않는 것은 대충 비슷한 일을 하는 대신 이름을 대고
+거부한다.** stderr에 `STAGE_NOT_IMPLEMENTED <command> (<stage>)`, 종료 코드 2.
 아래 표는 설계가 아니라 이 checkout이 오늘 하는 일이다:
 
 | Stage | 명령 | 오늘 |
@@ -102,15 +102,25 @@ state 디렉터리를 해석하게 두거나, 보호된 어떤 root(checkout, �
 | S1 | `distill.py census --run-id ID` | 실행된다; `--reconcile RESULTS.json`은 S3의 결과를 status와 coverage로 되돌려 접는다 |
 | S2 | `distill.py views --run-id ID` | 실행된다: 불변 복사본, redaction projection, window, 검색 index, evidence store |
 | S2 | `distill.py inventory --run-id ID --ledger design/session-distill/ledger.json` | 실행된다: reference point별 unit. ledger 경로는 부르는 쪽이 이름을 댄다 |
-| S3 | `distill.py read --run-id ID` | **거부된다.** stage의 모듈(`runlib/stage_read.py`)은 들어왔고 자기 `--fixture-driver`로 실행되지만, subcommand가 그 모듈에 연결돼 있지 않다 |
-| S4 | `distill.py form --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | 실행된다: barrier, lifecycle intake, bound까지 묶인 packet. record는 partial로 남는다 |
-| S4 | `distill.py form --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--golden-plan PLAN.json]` | 실행된다: formation 호출 하나. live(token은 `CLAUDE_RUN_TOKEN_FILE`로만) 또는 plan과 함께 golden |
-| S5 | `distill.py retrieve` | 거부된다; WP-10이 가져온다 |
-| S6 | `distill.py judge` | 거부된다; WP-11이 가져온다 |
-| S7, S7b | `distill.py propose`, `review-proposals` | 거부된다; WP-12가 둘 다 가져온다 |
-| S8 | `distill.py test` | 거부되고, **release 1에서는 계속 거부된다: S8은 이름을 걸고 release 2로 미뤄졌다(D-20261111-818391).** 적용된 변경이 도움이 됐는지는 어떤 run도 시험하지 않는다. 시험 결과를 싣는 package에 **요구되는 것**은 그 자리에 빈칸이 아니라 `untested: s8_deferred`라는 이름 붙은 상태를 싣는 것이다. 이 checkout에는 그것을 쓰는 드라이버 writer도 schema도 아직 없고, 이 표는 오늘 실행되는 것을 적는다 |
-| S9, S9b, S10, S10b | `distill.py render`, `review-korean`, `parse-decisions`, `adjudicate`, `confirm` | 거부된다; WP-20이 가져온다. S8이 없으면 §7.5의 순서는 judge들과 S7b로 물러나고, header가 그 대체를 이름으로 적는다 |
-| S11, S12 | `distill.py apply`, `close` | 거부된다; WP-21이 가져오고, 전달 검증은 설치 receipt를 읽는다 |
+| S3 | `distill.py read --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | 실행된다: 모든 window packet을 재고, 호출은 하지 않으며, record는 partial로 남는다 |
+| S3 | `distill.py read --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--tranche calibration] [--jobs N] [--golden-plan PLAN.json]` | 실행된다: window 읽기와 stitch를 supervisor를 거쳐 수행한다. live(token은 `CLAUDE_RUN_TOKEN_FILE`로만) 또는 plan을 준 golden |
+| S4 | `distill.py form --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | 실행된다: barrier, lifecycle intake, 한도에 맞춘 packet까지; record는 partial |
+| S4 | `distill.py form --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--golden-plan PLAN.json]` | 실행된다: formation 호출 한 번. live(token은 `CLAUDE_RUN_TOKEN_FILE`로만) 또는 plan을 준 golden |
+| S5 | `distill.py retrieve --run-id ID --checkout-ledger design/session-distill/ledger.json` | 실행된다: 코드만으로 후보별 검색된 unit, lineage, check를 만들고 planted control을 함께 둔다 |
+| S5b | `distill.py deliver --run-id ID` | 실행된다: 코드만으로 (session, unit, decision)마다 그 unit이 전달됐는지 답한다. session을 하나도 가리키지 않는 후보의 짝은 따로 센다(`not_session_derived`) |
+| S6 | `distill.py judge --run-id ID --dry` 또는 `--cells DIR [--golden-plan PLAN.json] --checkout-ledger design/session-distill/ledger.json` | 실행된다: 후보마다 judge 둘을 supervisor를 거쳐 부르고 derivation을 만든다 |
+| S7, S7b | `distill.py propose`, `review-proposals`에 `--dry`, 또는 `--cells DIR [--golden-plan PLAN.json]`, 또는 손에 든 답(`--answers`, `--reviews`) | 실행된다: 후보마다 proposal 하나를 받아 contract와, S11이 그 operation에서 거부할 것에 비춰 확인한다. 두 번째 seat가 각 proposal을 검토한다 |
+| S8 | `distill.py test` | 거부되고, **release 1에서는 계속 거부된다: S8은 이름을 걸고 release 2로 미뤄졌다(D-20261111-818391).** 적용한 변경이 도움이 됐는지는 어떤 run도 시험하지 않는다. 시험 결과가 들어갈 row는 `untested: s8_deferred`라는 이름 붙은 상태를 가진다 |
+| S9, S9b | `distill.py render --checkout-ledger design/session-distill/ledger.json`, `review-korean --cells DIR` | 실행된다: run 디렉터리에 한국어 검토 파일 `decisions.ko.v<n>.md`를 만들고, 그 한국어가 proposal과 일치하는지 확인한다. S8이 없으므로 순서는 judge와 S7b로 물러나고 header가 그 사실을 적는다 |
+| S10, S10b | `distill.py parse-decisions`, `adjudicate`, `confirm`, `confirm --decide` | 실행된다: 소유자가 고친 사본에서 결정을 읽고, adjudication을 다시 계산하고, 최종 집합을 만들고, 소유자의 확인 줄을 읽는다 |
+| S11 | `distill.py apply --run-id ID` | 실행된다: **확정된 변경을 declaration의 checkout 안 파일에 쓰고, 그 밖에는 아무것도 하지 않는다.** git도, installer도, personal layer도 건드리지 않는다. 끝에 commit 명령과 install 명령을 출력하며, 그 둘은 소유자가 직접 실행한다 |
+| S12 | `distill.py close --run-id ID --checkout-ledger design/session-distill/ledger.json [--checkout-coverage session-distill/coverage.json]` | 실행된다: 결정된 item을 모두 checkout의 ledger에 기록하고, periodic run이면 coverage 상태를 올린다. process를 실행하지 않으며 소유자에게 남기는 일을 이름으로 적는다: commit, install, launcher 상태, version registry 줄. `--recovery`는 예약되어 있다 |
+
+**release 1의 run이 내놓는 것.** 대부분은 library가 이미 가진 것의 정리 — legacy ledger entry에
+대한 결정, 중복되거나 쓸모없어진 unit의 축소 — 와 window에 대한 측정이다. 새 learning은 지금의
+kind 규칙 아래에서 S6의 두 judge가 받아들인 경우에만 배치된다. 적용한 변경이 도움이 됐는지는
+아무것도 시험하지 않는다: 그것은 release 2의 S8이다. run은 선언된 checkout의 파일과 그 ledger를
+바꾸며, commit과 install과 publish는 소유자가 한다.
 
 실행되는 stage가 실제로 실행된다는 증거는 드라이버 자신의 suite인
 `python3 session-distill/distill.py --self-test`(실제 파일 위에서 declare → stage → amend →

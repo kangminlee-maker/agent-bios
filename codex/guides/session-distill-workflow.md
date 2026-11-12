@@ -112,8 +112,8 @@ the repository is not a place for them. So leave `--out` unset and let the drive
 resolve the XDG state directory, or name a directory outside every protected root
 (the checkout, the owner's state root, `~/.claude`, `~/.codex`).
 
-**Not every stage runs yet, and the ones that do not refuse by name rather than
-doing something approximate.** `STAGE_NOT_IMPLEMENTED <command> (<stage>)` on
+**Every stage but S8 runs, and what does not refuses by name rather than doing
+something approximate.** `STAGE_NOT_IMPLEMENTED <command> (<stage>)` on
 stderr, exit 2. The table is what this checkout does today, not the design:
 
 | Stage | Command | Today |
@@ -122,15 +122,26 @@ stderr, exit 2. The table is what this checkout does today, not the design:
 | S1 | `distill.py census --run-id ID` | runs; `--reconcile RESULTS.json` folds S3's results back into the statuses |
 | S2 | `distill.py views --run-id ID` | runs: the immutable copies, the redaction projection, the windows, the search index, the evidence store |
 | S2 | `distill.py inventory --run-id ID --ledger design/session-distill/ledger.json` | runs: the units per reference point. The ledger path is the caller's to name |
-| S3 | `distill.py read --run-id ID` | **refuses.** The stage's module (`runlib/stage_read.py`) has landed and runs under its own `--fixture-driver`; the subcommand is not wired to it |
+| S3 | `distill.py read --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | runs: every window packet measured, no call, record partial |
+| S3 | `distill.py read --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--tranche calibration] [--jobs N] [--golden-plan PLAN.json]` | runs: the window readings and stitches through the supervisor, live (token only as `CLAUDE_RUN_TOKEN_FILE`) or golden with a plan |
 | S4 | `distill.py form --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | runs: the barrier, the lifecycle intake and the packet held to its bound, record partial |
 | S4 | `distill.py form --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--golden-plan PLAN.json]` | runs: the one formation call, live (token only as `CLAUDE_RUN_TOKEN_FILE`) or golden with a plan |
-| S5 | `distill.py retrieve` | refuses; WP-10 brings it |
-| S6 | `distill.py judge` | refuses; WP-11 brings it |
-| S7, S7b | `distill.py propose`, `review-proposals` | refuses; WP-12 brings both |
-| S8 | `distill.py test` | refuses, and **stays refused in release 1: S8 is deferred to release 2 by name (D-20261111-818391).** No run tests whether an applied change helped. The REQUIREMENT on the packages that carry a test result is that each such row carry the named state `untested: s8_deferred` rather than a blank; no driver writer or schema implements it in this checkout yet, and this table says what runs today |
-| S9, S9b, S10, S10b | `distill.py render`, `review-korean`, `parse-decisions`, `adjudicate`, `confirm` | refuses; WP-20 brings them. Without S8 the §7.5 order falls back to the judges and S7b, and the header names the fallback |
-| S11, S12 | `distill.py apply`, `close` | refuses; WP-21 brings them, and delivery verification reads the installation receipt |
+| S5 | `distill.py retrieve --run-id ID --checkout-ledger design/session-distill/ledger.json` | runs: code only - each candidate's retrieved units, lineages and checks, with the planted controls |
+| S5b | `distill.py deliver --run-id ID` | runs: code only - per (session, unit, decision) whether the unit was delivered. A pair whose candidate names no session is counted apart (`not_session_derived`) |
+| S6 | `distill.py judge --run-id ID --dry` or `--cells DIR [--golden-plan PLAN.json] --checkout-ledger design/session-distill/ledger.json` | runs: two judges per candidate through the supervisor, then the derivations |
+| S7, S7b | `distill.py propose`, `review-proposals` with `--dry`, or `--cells DIR [--golden-plan PLAN.json]`, or answers in hand (`--answers`, `--reviews`) | runs: one proposal per candidate, held to the contract and to what S11 would refuse of its operations; a second seat's review of each |
+| S8 | `distill.py test` | refuses, and **stays refused in release 1: S8 is deferred to release 2 by name (D-20261111-818391).** No run tests whether an applied change helped; a row that would carry a test result carries the named state `untested: s8_deferred` |
+| S9, S9b | `distill.py render --checkout-ledger design/session-distill/ledger.json`, `review-korean --cells DIR` | runs: the Korean review file `decisions.ko.v<n>.md` in the run directory, and a faithfulness check of its Korean against the proposals. Without S8 the order falls back to the judges and S7b, and the header says so |
+| S10, S10b | `distill.py parse-decisions`, `adjudicate`, `confirm`, `confirm --decide` | runs: the owner's decisions parsed from their edited copy, the adjudications recomputed, the final set built, and the owner's confirmation line read |
+| S11 | `distill.py apply --run-id ID` | runs: **writes the confirmed changes into files of the declaration's checkout and nothing else.** No git, no installer, no personal layer. It ends by printing the commit command and the install command, which are yours to run |
+| S12 | `distill.py close --run-id ID --checkout-ledger design/session-distill/ledger.json [--checkout-coverage session-distill/coverage.json]` | runs: records every decided item in the checkout's ledger and, for a periodic run, promotes the coverage state. It runs no process and names what it leaves to you: the commit, the install, the launcher state, the version-registry line. `--recovery` is reserved |
+
+**What a release 1 run produces.** Mostly cleanup of what the library already
+holds — legacy ledger entries decided, redundant or obsolete units reduced — and
+measurement of the window. A new learning is placed only where S6's two judges
+admit it under the kind rules as they stand. Nothing tests whether an applied
+change helped: that is S8, in release 2. The run changes files of the declared
+checkout and its ledger; the commit, the install and the publish are yours.
 
 The evidence that the runnable stages run is the driver's own suite,
 `python3 session-distill/distill.py --self-test` (declare → stage → amend → stage on
