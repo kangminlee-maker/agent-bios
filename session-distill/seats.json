@@ -59,10 +59,10 @@
       "auxiliary": [],
       "host_allowance": {
         "hermetic": {
-          "allowance_tokens": null,
-          "measured": false,
-          "measured_version": null,
-          "basis": "unmeasured: preflight (WP-23) measures it per host version and flag set"
+          "allowance_tokens": 19167,
+          "measured": true,
+          "measured_version": "0.167.0",
+          "basis": "D13 re-pin 2026-11-12 from D7's live run at commit 6670341: observed main-request input tokens (input + cache read + cache creation), max over the 4 hermetic S6 calls through dispatch (codex-cli 0.167.0, structured output through the strict projection): gpt-6-astra/xhigh judge 19167 and 18829, gpt-6-astra/xhigh cross-review 16392, gpt-6-luna/medium sweep 15670; each call's warm-up request was 2 input tokens. Includes the packet and the handed schema (7.0 to 18.7 KB), so it overstates the host's share, as the Claude allowance does"
         }
       },
       "context": {
@@ -73,9 +73,8 @@
             "skill-creator",
             "skill-installer"
           ],
-          "observed_version": "0.163.0",
-          "carried": true,
-          "basis": "the four built-in skills codex-cli 0.163.0 loaded under this profile, as its capture named them (WP-04); carried to 0.167.0 unobserved at the re-pin of 2026-11-12, since no 0.167.0 call has been captured yet. A 0.167.0 call that loads other skills is refused by the gate's effective-context check by name, and this entry is then observed again from that capture"
+          "observed_version": "0.167.0",
+          "basis": "the four built-in skills codex-cli loads under this profile, as its capture names them: observed at 0.163.0 (WP-04) and again at 0.167.0 in each of D7's four live calls on 2026-11-12 (commit 6670341), the same four"
         }
       }
     }
@@ -105,7 +104,7 @@
     ]
   },
   "seat_capacity": {
-    "$comment": "The seat's context window, host-reported. A view-window call on a seat with no entry here is refused (CAPACITY_UNDECLARED): check (d) is about the context, and an invented capacity is a check about nothing. Codex seats carry no entry until a capture reports one.",
+    "$comment": "The seat's context window, host-reported. A view-window call on a seat with no entry here is refused (CAPACITY_UNDECLARED): check (d) is about the context, and an invented capacity is a check about nothing. Codex captures report no context size (D7, codex-cli 0.167.0), so codex:gpt-6-astra/xhigh and codex:gpt-6-luna/medium carry no entry, and until one is declared they are the one exception not held to a capacity: S6 names them CAPACITY_UNDECLARED and judges no overrun for them. The source proposed for them is the model catalogue the pinned codex-cli binary bundles, which gives both models context_window 272000 (max_context_window 872000); declaring it is pending a decision.",
     "claude:claude-sonnet-5-5/high": {
       "context_capacity": 1000000,
       "host_version": "2.1.317",
@@ -114,7 +113,12 @@
     "claude:claude-opus-5-5/high": {
       "context_capacity": 1000000,
       "host_version": "2.1.317",
-      "basis": "host catalogue, read 2026-11-06 for S4's bound (W review of WP-09 r1, F5): the model catalogue the installed claude caches under ~/.claude/cache/model-catalog gives claude-opus-5-5 runtime.max_input_tokens 1000000 (max_output_tokens 128000) in each of the three catalogue files that carry runtime, the freshest fetched 2026-11-06T01:08+09:00. The same catalogue gives claude-sonnet-5-5 1000000, which is that seat's measured modelUsage.contextWindow above. Not yet compared with a host-reported contextWindow of an opus call: the first live S4 call's result carries one."
+      "basis": "host catalogue, read 2026-11-06 for S4's bound (W review of WP-09 r1, F5): the model catalogue the installed claude caches under ~/.claude/cache/model-catalog gives claude-opus-5-5 runtime.max_input_tokens 1000000 (max_output_tokens 128000) in each of the three catalogue files that carry runtime, the freshest fetched 2026-11-06T01:08+09:00. The same catalogue gives claude-sonnet-5-5 1000000, which is that seat's measured modelUsage.contextWindow above. Not yet compared with a host-reported contextWindow of an opus call: the first live S4 call's result carries one. Compared 2026-11-12: D7's two live S6 judge calls (claude 2.1.317, claude-opus-5-5/high, commit 6670341) reported modelUsage.contextWindow 1000000, the catalogue's figure."
+    },
+    "claude:claude-sonnet-5-5/medium": {
+      "context_capacity": 1000000,
+      "host_version": "2.1.317",
+      "basis": "host-reported modelUsage.contextWindow, D13 re-pin 2026-11-12: D7's live S6 sweep call (claude 2.1.317, claude-sonnet-5-5/medium, commit 6670341) reported 1000000"
     }
   }
 }

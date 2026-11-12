@@ -202,6 +202,156 @@ def schema_bytes(schema):
     return (json.dumps(sent, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
 
 
+# What each host is handed for a call's answer (D7, 2026-11-12). Claude Code reads schema.json itself: its
+# `--json-schema` check is the draft-07 reading HOST_KEYWORDS was measured for. Codex hands its `--output-schema` to
+# OpenAI's strict structured output, which takes a subset of JSON Schema, and the first live Codex judge call was
+# refused by the provider before it generated anything (`invalid_json_schema`, status 400). So a Codex call's host
+# receives a projection of schema.json made here by code (`provider_schema`); the gate still validates the answer
+# against schema.json and holds the projection to this function, so nothing the projection leaves out goes unchecked.
+PROVIDER_DIALECTS = {"claude": None, "codex": "openai-strict"}
+# The strict subset, from the provider's Structured Outputs guide ("Supported schemas", read 2026-11-12 through its
+# documentation index): the supported types; the keywords it lists per type; `additionalProperties: false` on every
+# object and every property in `required`; the root an object and not `anyOf`; each `anyOf` branch a schema of the
+# subset; definitions by `$defs`; and its limits. `description` is the one annotation its examples carry. A keyword
+# the guide lists for no type is refused, the composition keywords it names as unsupported among them.
+STRICT_TYPES = frozenset({"string", "number", "boolean", "integer", "object", "array", "null"})
+STRICT_COMMON = frozenset({"type", "description", "enum", "const", "anyOf", "$ref"})
+_STRICT_NUMBER = frozenset({"multipleOf", "maximum", "exclusiveMaximum", "minimum", "exclusiveMinimum"})
+STRICT_BY_TYPE = {"string": frozenset({"pattern", "format"}), "number": _STRICT_NUMBER, "integer": _STRICT_NUMBER,
+                  "array": frozenset({"items", "minItems", "maxItems"}),
+                  "object": frozenset({"properties", "required", "additionalProperties"}),
+                  "boolean": frozenset(), "null": frozenset()}
+STRICT_FORMATS = frozenset({"date-time", "time", "date", "duration", "email", "hostname", "ipv4", "ipv6", "uuid"})
+STRICT_LIMITS = {"properties": 5000, "depth": 10, "enum_values": 1000, "string_chars": 120_000,
+                 "large_enum": 250, "large_enum_chars": 15_000}
+# A pattern's syntax beyond what the guide shows is not assumed: its examples anchor with `^` and `$`, and it names no
+# regular-expression dialect, so a lookaround or a backreference is refused rather than sent.
+STRICT_PATTERN_UNESTABLISHED = re.compile(r"\(\?(?:=|!|<=|<!)|\\[1-9]|\\k<")
+# What the projection leaves out: the annotations the subset does not list, and the constraints it does not support,
+# which the gate still checks against schema.json.
+STRICT_DROPPED = ("$comment", "title", "minLength", "maxLength", "uniqueItems")
+# The policy's end of input: a pattern ending in it ends there, which the host reads as `$` (no multiline flag).
+END_OF_INPUT = "(?![\\s\\S])"
+
+
+def strict_problems(schema):
+    """What makes `schema` fall outside the strict subset (STRICT_*), each line naming its JSON pointer; empty when
+    nothing does. Walked by the schema's structure: names under `properties` and `$defs` are names, and an `enum` or
+    `const` value is data."""
+    problems, totals = [], {"properties": 0, "enum_values": 0, "string_chars": 0}
+    if not isinstance(schema, dict) or schema.get("type") != "object" or "anyOf" in schema:
+        problems.append("STRICT_ROOT at #: the root is an object schema, and not anyOf")
+
+    def walk(node, at, depth):
+        if not isinstance(node, dict):
+            problems.append(f"STRICT_SCHEMA_SHAPE at {at}: a schema of the subset is an object")
+            return
+        if depth > STRICT_LIMITS["depth"]:
+            problems.append(f"STRICT_DEPTH at {at}: more than {STRICT_LIMITS['depth']} levels of nesting")
+        declared = node.get("type")
+        types = [declared] if isinstance(declared, str) else declared if isinstance(declared, list) else []
+        if declared is None and not {"anyOf", "$ref", "enum", "const"} & set(node):
+            problems.append(f"STRICT_TYPE_MISSING at {at}: a schema names its type")
+        for t in types:
+            if t not in STRICT_TYPES:
+                problems.append(f"STRICT_TYPE_UNSUPPORTED {t!r} at {at}")
+        allowed = set(STRICT_COMMON) | ({"$defs"} if at == "#" else set())
+        for t in types:
+            allowed |= STRICT_BY_TYPE.get(t, frozenset())
+        for key in node:
+            if key not in allowed:
+                problems.append(f"STRICT_KEYWORD_UNSUPPORTED {key} at {at}")
+        if "format" in node and node["format"] not in STRICT_FORMATS:
+            problems.append(f"STRICT_FORMAT_UNSUPPORTED {node['format']!r} at {at}")
+        if isinstance(node.get("pattern"), str) and STRICT_PATTERN_UNESTABLISHED.search(node["pattern"]):
+            problems.append(f"STRICT_PATTERN_UNESTABLISHED at {at}: a lookaround or a backreference")
+        if "object" in types:
+            props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+            if node.get("additionalProperties") is not False:
+                problems.append(f"STRICT_ADDITIONAL_PROPERTIES at {at}: every object sets additionalProperties false")
+            required = node.get("required") if isinstance(node.get("required"), list) else []
+            optional = [name for name in props if name not in required]
+            if optional:
+                problems.append(f"STRICT_OPTIONAL_PROPERTY at {at}: {optional} not required; the subset requires every "
+                                "property, and a nullable stand-in would let the host answer null where schema.json "
+                                "refuses it")
+            unknown = [name for name in required if name not in props]
+            if unknown:
+                problems.append(f"STRICT_REQUIRED_UNKNOWN at {at}: {unknown} required and not properties")
+            totals["properties"] += len(props)
+            totals["string_chars"] += sum(len(name) for name in props)
+            for name, sub in props.items():
+                walk(sub, f"{at}/properties/{name}", depth + 1)
+        if "array" in types and "items" in node:
+            walk(node["items"], f"{at}/items", depth + 1)
+        for n, sub in enumerate(node.get("anyOf") if isinstance(node.get("anyOf"), list) else []):
+            walk(sub, f"{at}/anyOf/{n}", depth)
+        if isinstance(node.get("enum"), list):
+            values = node["enum"]
+            chars = sum(len(v) for v in values if isinstance(v, str))
+            totals["enum_values"] += len(values)
+            totals["string_chars"] += chars
+            if len(values) > STRICT_LIMITS["large_enum"] and chars > STRICT_LIMITS["large_enum_chars"]:
+                problems.append(f"STRICT_ENUM_SIZE at {at}: {len(values)} values, {chars} characters")
+        if isinstance(node.get("const"), str):
+            totals["string_chars"] += len(node["const"])
+        for name, sub in (node.get("$defs") if isinstance(node.get("$defs"), dict) else {}).items():
+            totals["string_chars"] += len(name)
+            walk(sub, f"{at}/$defs/{name}", depth)
+    if isinstance(schema, dict):
+        walk(schema, "#", 1)
+    for key, limit in (("properties", "properties"), ("enum_values", "enum_values"), ("string_chars", "string_chars")):
+        if totals[key] > STRICT_LIMITS[limit]:
+            problems.append(f"STRICT_LIMIT {key} at #: {totals[key]} over {STRICT_LIMITS[limit]}")
+    return problems
+
+
+def provider_schema(handed, host):
+    """`(projection, problems)`: what `host` is handed for a schema whose handed form (schema.json's content) is
+    `handed`. A host whose dialect reads schema.json itself gets None, and nothing is projected; for the strict
+    dialect the projection leaves out STRICT_DROPPED and ends a pattern ending at END_OF_INPUT with `$`, and its
+    problems are `strict_problems` of the result. Nothing is made optional, nullable or open that schema.json closes:
+    a schema the subset cannot hold is refused by name, never sent weakened."""
+    if host not in PROVIDER_DIALECTS:
+        return None, [f"PROVIDER_DIALECT_UNKNOWN {host!r}: no dialect is declared for it"]
+    if PROVIDER_DIALECTS[host] is None:
+        return None, []
+
+    def project(node):
+        if not isinstance(node, dict):
+            return node
+        out = {}
+        for key, value in node.items():
+            if key in STRICT_DROPPED:
+                continue
+            if key == "pattern" and isinstance(value, str) and value.endswith(END_OF_INPUT):
+                head = value[:-len(END_OF_INPUT)]
+                escaped = (len(head) - len(head.rstrip("\\"))) % 2  # an escaped "(" opens no lookahead
+                out[key] = value if escaped else head + "$"
+            elif key in ("properties", "$defs") and isinstance(value, dict):
+                out[key] = {name: project(sub) for name, sub in value.items()}
+            elif key == "items" and isinstance(value, dict):
+                out[key] = project(value)
+            elif key == "anyOf" and isinstance(value, list):
+                out[key] = [project(sub) for sub in value]
+            else:
+                out[key] = value
+        return out
+    projected = project(handed)
+    return projected, strict_problems(projected)
+
+
+def provider_schema_bytes(schema_json, host):
+    """The bytes `host` is handed beside schema.json (`schema_json`, its bytes), as canonical JSON, or None when the
+    host reads schema.json itself. A projection outside the dialect raises SchemaPolicyError naming every problem."""
+    projected, problems = provider_schema(json.loads(schema_json), host)
+    if problems:
+        raise validate.SchemaPolicyError("SCHEMA_UNPROJECTABLE " + "; ".join(problems))
+    if projected is None:
+        return None
+    return (json.dumps(projected, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+
+
 def build(call_id, stage, seat, payload, schema=None, repo=REPO):
     """The packet's bytes. `schema` is the bytes of `schema.json`, or None for a schema-less call."""
     block = principles_block(repo)
@@ -566,6 +716,112 @@ def self_test():
     except TemplateError as exc:
         expanded = [f"RAISED {exc}"]
     control("a-field-is-never-read-as-a-template", expanded)
+
+    # D7: every schema a Codex seat can be sent projects into the strict subset. The stages are the ones seats.json
+    # gives a Codex seat, and the schemas each sends are the ones its own module builds, so a Codex seat added to
+    # another stage fails this control until that stage's schemas are named here.
+    try:
+        from runlib import stage_judge as sj, stage_review_korean as s9b, stage_review_proposals as s7b
+        sent_by = {"S6": {"judge": sj.schema, "sweep": sj.sweep_schema, "cross_review": sj.cross_schema,
+                          "reconsider": sj.reconsider_schema},
+                   "S7b": {"s7b": lambda: json.loads(s7b.schema_bytes())},
+                   "S9b": {"s9b": lambda: json.loads(s9b.schema_bytes())}}
+        seats_doc = json.loads((REPO / "session-distill" / "seats.json").read_text(encoding="utf-8"))
+        codex_stages = {stage for stage, held in seats_doc["stage_seats"].items()
+                        if not stage.startswith("$") and any(str(seat).startswith("codex:") for seat in held)}
+        handed = {name: json.loads(schema_bytes(make())) for stage in sent_by for name, make in sent_by[stage].items()}
+        found = {name: provider_schema(held, "codex") for name, held in handed.items()}
+        reached = []
+    except Exception as exc:  # noqa: BLE001 - a module that no longer builds its schema fails the control by name
+        codex_stages, handed, found, reached = set(), {}, {}, [f"RAISED {type(exc).__name__}: {str(exc)[:160]}"]
+    # S7b's contract leaves five properties optional, which the subset cannot hold without letting the host answer
+    # null where s7b.schema.json refuses it: its owner decides the contract (lane L, reported 2026-11-12), and until
+    # then a Codex S7b call is refused before anything is sent. Named here by site, so the declaration lapses with them.
+    unprojectable = {"s7b": {"#", "#/properties/alternative", "#/properties/alternative/properties/destination",
+                             "#/properties/destination_review", "#/properties/disposition_review"}}
+    wrong = list(reached)
+    if codex_stages != set(sent_by) or not handed:
+        wrong.append(f"the stages with a Codex seat are {sorted(codex_stages)}, the ones named here {sorted(sent_by)}")
+    for name, (projected, problems) in sorted(found.items()):
+        sites = {line.split(" at ", 1)[1].split(":", 1)[0] for line in problems if line.startswith("STRICT_OPTIONAL_PROPERTY")}
+        expected = unprojectable.get(name, set())
+        if projected is None or sites != expected or len(problems) != len(expected):
+            wrong.append(f"{name}: {problems[:3]}")
+    control("every-schema-a-codex-seat-can-be-sent-projects-into-the-strict-subset", wrong)
+
+    # the projection weakens nothing schema.json closes: at every pointer the same types, properties, required,
+    # additionalProperties, enum, const, items and bounds; only STRICT_DROPPED goes, and an end of input becomes `$`
+    def weakened(full, sent, at):
+        out = []
+        if not isinstance(full, dict) or not isinstance(sent, dict):
+            return [] if full == sent else [f"{at}: not the same schema"]
+        for key in set(full) | set(sent):
+            if key in STRICT_DROPPED:
+                if key in sent:
+                    out.append(f"{at}: {key} kept")
+            elif key not in full or key not in sent:
+                out.append(f"{at}: {key} only on one side")
+            elif key in ("properties", "$defs"):
+                if set(full[key]) != set(sent[key]):
+                    out.append(f"{at}/{key}: other names")
+                out += [line for name in full[key] for line in weakened(full[key][name], sent[key].get(name), f"{at}/{key}/{name}")]
+            elif key == "items":
+                out += weakened(full[key], sent[key], f"{at}/items")
+            elif key == "anyOf":
+                out += [line for n, (a, b) in enumerate(zip(full[key], sent[key])) for line in weakened(a, b, f"{at}/anyOf/{n}")]
+                if len(full[key]) != len(sent[key]):
+                    out.append(f"{at}/anyOf: another number of branches")
+            elif key == "pattern":
+                if sent[key] not in (full[key], full[key][:-len(END_OF_INPUT)] + "$" if full[key].endswith(END_OF_INPUT) else None):
+                    out.append(f"{at}: pattern {sent[key]!r} is not {full[key]!r}")
+            elif full[key] != sent[key]:
+                out.append(f"{at}: {key} differs")
+        return out
+    control("the-projection-weakens-nothing-schema-json-closes",
+            ([] if found else ["nothing projected"])
+            + [f"{name} {line}" for name, (projected, _p) in sorted(found.items()) for line in weakened(handed[name], projected, "#")])
+
+    # each strict rule refuses by name, each on a schema of its own (so none stops testing when a real schema changes)
+    def closed(**props):
+        return {"type": "object", "additionalProperties": False, "required": sorted(props), "properties": props}
+    text = {"type": "string"}
+    nested = text
+    for _ in range(11):
+        nested = closed(x=nested)
+    planted = (
+        ("a-planted-unsupported-keyword", closed(a={"type": "array", "items": text, "uniqueItems": True}),
+         "STRICT_KEYWORD_UNSUPPORTED uniqueItems at #/properties/a"),
+        ("a-planted-composition-keyword", closed(a={"allOf": [text], "type": "string"}),
+         "STRICT_KEYWORD_UNSUPPORTED allOf at #/properties/a"),
+        ("a-planted-open-object", {**closed(a=text), "additionalProperties": True}, "STRICT_ADDITIONAL_PROPERTIES at #"),
+        ("a-planted-optional-property", {**closed(a=text, b=text), "required": ["a"]}, "STRICT_OPTIONAL_PROPERTY at #"),
+        ("a-planted-anyof-root", {"anyOf": [closed(a=text)]}, "STRICT_ROOT at #"),
+        ("a-planted-lookahead", closed(a={"type": "string", "pattern": "^(?=a)b$"}),
+         "STRICT_PATTERN_UNESTABLISHED at #/properties/a"),
+        ("a-planted-format", closed(a={"type": "string", "format": "uri"}), "STRICT_FORMAT_UNSUPPORTED 'uri' at #/properties/a"),
+        ("a-planted-type", closed(a={"type": "tuple"}), "STRICT_TYPE_UNSUPPORTED 'tuple' at #/properties/a"),
+        ("a-planted-depth", nested, "STRICT_DEPTH at #/properties/x/properties/x/properties/x/properties/x/properties/x/"
+                                    "properties/x/properties/x/properties/x/properties/x/properties/x"),
+        ("a-planted-property-count", closed(**{f"p{n}": text for n in range(5001)}), "STRICT_LIMIT properties at #"),
+        ("a-planted-enum-count", closed(**{f"e{n}": {"type": "string", "enum": [f"v{m}" for m in range(11)]}
+                                           for n in range(100)}), "STRICT_LIMIT enum_values at #"),
+        ("a-planted-large-enum", closed(a={"type": "string", "enum": [f"{n:03d}" + "v" * 60 for n in range(251)]}),
+         "STRICT_ENUM_SIZE at #/properties/a"))
+    for name, schema, needle in planted:
+        control(name, strict_problems(schema), needle)
+    control("a-conforming-schema-is-in-the-subset", strict_problems(closed(a=text, b={"type": ["string", "null"]})))
+    # the end of input becomes `$`, an escaped backslash before it included; Claude reads schema.json itself
+    ended, _ = provider_schema(closed(a={"type": "string", "pattern": "^n[1-9][0-9]*" + END_OF_INPUT},
+                                      b={"type": "string", "pattern": "^a\\\\" + END_OF_INPUT}), "codex")
+    control("an-end-of-input-is-sent-as-dollar",
+            [] if ended and ended["properties"]["a"]["pattern"] == "^n[1-9][0-9]*$"
+            and ended["properties"]["b"]["pattern"] == "^a\\\\$" else [f"{ended}"])
+    control("claude-reads-schema-json-itself", [] if provider_schema(closed(a=text), "claude") == (None, []) else ["projected"])
+    control("an-undeclared-host-has-no-dialect", provider_schema(closed(a=text), "gemini")[1], "PROVIDER_DIALECT_UNKNOWN 'gemini'")
+    control("an-unprojectable-schema-is-refused-with-its-problems",
+            raised(lambda: provider_schema_bytes(b'{"type":"object","properties":{"a":{"type":"string"}},"required":[],'
+                                                 b'"additionalProperties":false}', "codex"),
+                   validate.SchemaPolicyError, "SCHEMA_UNPROJECTABLE STRICT_OPTIONAL_PROPERTY at #"))
 
     for failure in failures:
         print(f"packet --self-test [FAIL] {failure}")

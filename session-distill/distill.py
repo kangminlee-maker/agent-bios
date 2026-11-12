@@ -53,6 +53,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import types
 
 # Before the command's module graph is imported, not inside the functions that load modules by
@@ -1505,7 +1506,11 @@ def self_test():
         # protection of its own, so the only thing standing between those values and a write was
         # that nobody had tried them. Each case runs the real CLI with no `--out` at all.
         def no_out(*argv, **overrides):
-            kept = {name: os.environ.get(name) for name in ("HOME", "XDG_STATE_HOME")}
+            # the variables that move the roots are the case's own: one the caller's environment sets would place the
+            # owner's data root elsewhere, and the case would test that place instead (a fake environment exports them)
+            overrides = {"XDG_DATA_HOME": None, "AGENT_BIOS_STATE_DIR": None, "AGENT_BIOS_SESSION_DISTILL_STATE": None,
+                         **overrides}
+            kept = {name: os.environ.get(name) for name in ("HOME", "XDG_STATE_HOME", *overrides)}
             err = io.StringIO()
             try:
                 for name, value in overrides.items():
@@ -1955,8 +1960,20 @@ def self_test():
             except PermissionError:      # it exists and is not ours to signal
                 return True
 
+        def process_gone(pid, within_s=5.0):
+            """Whether the pid stops standing within `within_s`. A killed orphan stands as a zombie until init reaps
+            it, and under a loaded commit hook that reaping lags, so one look read a killed descendant as living (one
+            hook run, 2026-11-12). The descendant sleeps 90 seconds, so a kill that was removed still leaves it
+            standing past the bound, and this control fails by its name."""
+            deadline = time.monotonic() + within_s
+            while process_alive(pid):
+                if time.monotonic() >= deadline:
+                    return False
+                time.sleep(0.05)
+            return True
+
         control("and the descendant that outlived its leader is gone afterwards",
-                len(descendant) == 1 and not process_alive(descendant[0]),
+                len(descendant) == 1 and process_gone(descendant[0]),
                 f"{descendant} alive={[process_alive(pid) for pid in descendant]} {held_group.stdout!r}")
         control("and that pid was really a process this control could have seen alive",
                 len(descendant) == 1 and descendant[0] > 1, f"{descendant}")

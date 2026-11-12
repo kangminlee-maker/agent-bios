@@ -92,6 +92,7 @@ CALL_SCHEMA = _closed(
     view_window={"type": "boolean"}, realization={"enum": ["live", "replay", "golden"]},
     exit_status={"type": ["integer", "null"]}, wall_ms={"type": ["integer", "null"]},
     contract={"enum": ["required", "none"]}, provider_signals=_strings, input_observed=_int,
+    host_schema_sha256=_str_or_null,
     bound=_closed(("limit", "driver_bytes", "stop_standing"), limit=_int,
                   driver_bytes={"type": ["integer", "null"]}, stop_standing={"type": "boolean"},
                   context_capacity={"type": ["integer", "null"]},
@@ -232,6 +233,46 @@ def auxiliary_models(host, version, live=False, path=SEATS):
     if entry.get("version") != version:
         return set()
     return {aux["model"] for aux in entry.get("auxiliary", []) if aux.get("measured") is True or not live}
+
+
+# The file a host whose provider takes a dialect of schema.json is handed instead (packets.provider_schema_bytes, D7)
+HOST_SCHEMA = "host-schema.json"
+
+
+def host_schema_problems(c):
+    """What the call's record gets wrong about the schema its host was handed: `host_schema_sha256` names the bytes;
+    for a host that reads schema.json itself they are schema.json's, and no host-schema.json is kept; for one whose
+    provider takes a dialect they are host-schema.json's, which must be exactly the projection of this call's
+    schema.json, so a weakened or hand-written schema cannot have been sent in its place. A record written before the
+    field existed carries none, and its host was handed schema.json."""
+    out = []
+    held = c.dir / HOST_SCHEMA
+    present = held.is_file()
+    if "host_schema_sha256" not in c.call:
+        if present:
+            out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: present for a call whose record names no handed schema")
+        return out
+    named = c.call.get("host_schema_sha256")
+    if not c.required:
+        if named is not None or present:
+            out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: a handed schema for a call declared schema-less")
+        return out
+    try:
+        expected = packets.provider_schema_bytes(c.schema_bytes, c.kind) if c.schema_bytes is not None else None
+    except (validate.SchemaPolicyError, ValueError) as exc:
+        return [f"RECORD_INTEGRITY {HOST_SCHEMA}: schema.json has no projection for {c.kind} ({str(exc)[:120]})"]
+    if expected is None:
+        if present or named != c.call.get("schema_sha256"):
+            out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: {c.kind} reads schema.json itself, and the record names "
+                       "other bytes as handed")
+        return out
+    sent = held.read_bytes() if present else None
+    if sent != expected:
+        out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: not the projection of schema.json for {c.kind} "
+                   "(packets.provider_schema_bytes)")
+    if sent is None or hashlib.sha256(sent).hexdigest() != named:
+        out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: not the bytes call.json says the host was handed")
+    return out
 
 
 def seats_problems(doc):
@@ -573,6 +614,7 @@ def call_record(c, errors):
         errors.append("RECORD_INTEGRITY schema.json: not the schema call.json says the driver required")
     if not c.required and c.schema_bytes is not None:
         errors.append("RECORD_INTEGRITY schema.json: present for a call declared schema-less")
+    errors.extend(host_schema_problems(c))
     if c.packet is None or c.result_bytes is None:
         errors.append("RECORD_INTEGRITY packet.md and result.json: the bytes sent and read must both be kept")
     if not isinstance(c.host, dict) or c.host.get("call_id") != c.call.get("call_id") or c.host.get("host") != c.kind:
@@ -1699,6 +1741,30 @@ def self_test():
             jedit(files, "call.json", lambda o: o.update(schema_sha256=hashlib.sha256(files["schema.json"]).hexdigest()))
         return edit
     control("codex-schema-valid-json-result", variant(codex, schema_call(b'{"verdict": "ABSENT", "why": "no section names it"}')))
+    # D7: what the host was handed beside schema.json. A Codex host is handed its provider's projection of it
+    # (packets.provider_schema_bytes), recorded by its own hash; a Claude host reads schema.json itself.
+    def handed(files):
+        sent = packets.provider_schema_bytes(files["schema.json"], "codex")
+        files[HOST_SCHEMA] = sent
+        jedit(files, "call.json", lambda o: o.update(host_schema_sha256=hashlib.sha256(sent).hexdigest()))
+    answered = schema_call(b'{"verdict": "ABSENT", "why": "no section names it"}')
+    control("codex-handed-the-projection-of-its-schema", variant(codex, answered, handed))
+    control("codex-handed-a-schema-that-is-not-the-projection",
+            variant(codex, answered, handed, lambda f: f.update({HOST_SCHEMA: f[HOST_SCHEMA].replace(b'"why"', b'"whz"', 1)})),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: not the projection of schema.json for codex")
+    control("codex-handed-bytes-the-record-does-not-name",
+            variant(codex, answered, handed, lambda f: jedit(f, "call.json", lambda o: o.update(host_schema_sha256="0" * 64))),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: not the bytes call.json says the host was handed")
+    control("codex-recorded-a-handed-schema-it-did-not-keep", variant(codex, answered, handed, lambda f: f.pop(HOST_SCHEMA)),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: not the projection of schema.json for codex")
+    control("a-handed-schema-the-record-does-not-name",
+            variant(codex, answered, lambda f: f.update({HOST_SCHEMA: packets.provider_schema_bytes(f["schema.json"], "codex")})),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: present for a call whose record names no handed schema")
+    control("claude-handed-schema-json-itself",
+            variant(claude, lambda f: jedit(f, "call.json", lambda o: o.update(host_schema_sha256=o["schema_sha256"]))))
+    control("claude-recorded-as-handed-other-bytes",
+            variant(claude, lambda f: jedit(f, "call.json", lambda o: o.update(host_schema_sha256="0" * 64))),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: claude reads schema.json itself")
     control("codex-prose-wrapped-json-is-never-parsed", variant(codex, schema_call(prose)),
             "SCHEMA_INVALID result: not one JSON document")
     # The brace-extraction path is taken from benchmarks/absence.py's own source — its parse_verdict
@@ -2321,6 +2387,8 @@ def self_test():
         "contract scope": "plan WP-02 (A#7): steps 4 and 5 judge a structured output, and only where call.json declares them",
         "bytes kept": "design §3.2 step 1: the hashes are of the bytes the driver sent and read, so both are kept",
         "schema file": "design §3.2 step 1: the schema hash is of the schema required, so the file is that schema",
+        "handed schema": "D7 (2026-11-12): what the host was handed is schema.json, or its provider dialect's projection "
+                         "of it made by packets.provider_schema_bytes, recorded by its own hash",
         "usage record": "design §13.3: every call records its usage, and it is this call's",
         "main request recorded": "design §3.2 step 1: the Claude bindings are of the main request, so one is recorded",
         "result object": "design §3.2 step 1: completion is read from the result, so the host wrote one",
@@ -2371,6 +2439,7 @@ def self_test():
         ("window_bound", "{} {}: {}; a claim is never judged by a weaker rule (usage.json against call.json "
                          "bound.claim)"): ("the window bound",),
         ("call_record", "RECORD_INTEGRITY call.json {}"): ("call record",),
+        ("call_record", "<host_schema_problems>"): ("handed schema",),
         ("call_record", "RECORD_INTEGRITY call.json: absent, unreadable, or without call_id and host"): ("call record",),
         ("call_record", "RECORD_INTEGRITY capture/host.json {}"): ("malformed record is a named verdict",),
         ("call_record", "RECORD_INTEGRITY capture/host.json: absent, or not this call's {} capture"): ("capture",),
