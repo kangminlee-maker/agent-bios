@@ -27,6 +27,7 @@ module performs no effect but its own append, which its suite asserts over its A
 
     journal.py --self-test
 """
+import errno
 import hashlib
 import json
 import os
@@ -40,6 +41,13 @@ from runlib.records import Refused  # noqa: E402
 
 # §10.5's own four, and the three the plan adds. Held against the design sentence below by
 # `fidelity_problems`, which is done-when 12's "the journal record's required set equals §10.5's".
+# Resolved once at import, by attribute access rather than `getattr(os, ...)`: handing the module
+# to `getattr` is what `dispatch.py` refuses, and the platform question is answered the same way.
+try:
+    _NOFOLLOW = os.O_NOFOLLOW
+except AttributeError:          # a platform without it; the lexical check is then the only half
+    _NOFOLLOW = 0
+
 DESIGN_10_5 = (
     "The side-effect journal is write-ahead: before each effect, a `planned` record (durable "
     "operation id, target, expected before-hash, intended after-hash) is written and fsynced; after "
@@ -89,13 +97,44 @@ class Storage:
     file's bytes can be on the device while the name is not.
     """
 
+    def _write_once(self, handle, data):
+        """One write to the device, as its own named seam.
+
+        A seam rather than a patch: a control that swaps `os.write` out hands an executor's module
+        around, which `dispatch.py`'s source-shape rule refuses in a shipped module — rightly, since
+        replacing a module is how an effect hides from a scan. Overriding one method needs nothing
+        global swapped, and it matches this unit's decision that faults arrive through named seams.
+        """
+        return os.write(handle, data)
+
     def append(self, path, data):
         path = pathlib.Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         _seam("before_write")
-        handle = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        # O_NOFOLLOW: `os.open` follows a symlink, so a journal path that is a link under the
+        # declared root appends OUTSIDE it and the containment check cannot see it. The check is
+        # lexical and this is the half it cannot answer.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | _NOFOLLOW
         try:
-            os.write(handle, data)
+            handle = os.open(path, flags, 0o600)
+        except OSError as exc:
+            if exc.errno in (errno.ELOOP, errno.EMLINK):
+                raise Refused(f"JOURNAL_SYMLINK {path}: the journal path is a symlink, so the "
+                              f"append would land wherever it points — outside the declared root "
+                              f"that a lexical check just approved") from exc
+            raise
+        try:
+            # A SHORT write is not a complete record. `os.write` may write fewer bytes than it was
+            # given, and returning then would acknowledge a durable complete record for a line the
+            # reader will see as torn. Loop until every byte is written, and fail by name if the
+            # device stops accepting them.
+            written = 0
+            while written < len(data):
+                held = self._write_once(handle, data[written:])
+                if held <= 0:
+                    raise Refused(f"JOURNAL_SHORT_WRITE {path}: the device accepted {written} of "
+                                  f"{len(data)} bytes and then none, so the record is incomplete")
+                written += held
             _seam("after_write_before_fsync")
             os.fsync(handle)
         finally:
@@ -126,10 +165,19 @@ class LosingStorage(Storage):
         self.unsynced.append((path, data))
         _seam("after_write_before_fsync")
         for held_path, held_data in self.unsynced:
-            with open(held_path, "ab") as handle:
-                handle.write(held_data)
-                handle.flush()
-                os.fsync(handle.fileno())
+            flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | _NOFOLLOW
+            handle = os.open(held_path, flags, 0o600)
+            try:
+                written = 0
+                while written < len(held_data):
+                    held = os.write(handle, held_data[written:])
+                    if held <= 0:
+                        raise Refused(f"JOURNAL_SHORT_WRITE {held_path}: the device accepted "
+                                      f"{written} of {len(held_data)} bytes and then none")
+                    written += held
+                os.fsync(handle)
+            finally:
+                os.close(handle)
         self.unsynced = []
         _seam("after_fsync")
 
@@ -307,6 +355,38 @@ def document():
             "framing": "<payload byte length> <sha256 of the payload> <payload json>"}
 
 
+def _short_write_probe(path, record, root=None):
+    """Append with the device accepting one byte and then zero: the short-write refusal's own case.
+
+    A real short write cannot be arranged on demand, so it arrives through `Storage._write_once`, a
+    named seam. It was `unittest.mock.patch.object(os, "write", ...)` until `dispatch.py`'s
+    source-shape rule refused handing an executor's module to anybody from a shipped module — which
+    is right, and the seam is the better shape anyway: nothing global is swapped.
+    """
+    calls = {"n": 0}
+
+    def short(_handle, data):
+        calls["n"] += 1
+        # The cap is what makes this a control rather than a hang. With the `held <= 0` refusal
+        # reverted, a device returning zero forever spins the loop forever: a revert trial over the
+        # unbounded probe stopped reporting and timed out at fifteen minutes with nothing said. The
+        # cap turns that into a named exception, so the trial reads "the guard is load-bearing"
+        # instead of waiting.
+        if calls["n"] > 64:
+            raise AssertionError("JOURNAL_WRITE_LOOP_UNBOUNDED: the writer accepted a zero-byte "
+                                 "write without refusing, so the loop does not terminate")
+        return 1 if calls["n"] == 1 else 0
+
+    class ShortDevice(Storage):
+        """A device that accepts one byte and then none, through the named seam."""
+
+        def _write_once(self, handle, data):
+            return short(handle, data)
+
+    return append(path, record, root=root or str(pathlib.Path(path).parent),
+                  storage=ShortDevice())
+
+
 # ---- self-test ---------------------------------------------------------------------------------
 
 
@@ -447,6 +527,31 @@ def self_test():
                 refusal(lambda: append(sibling, fx_plan(), root=str(root))), "JOURNAL_OUTSIDE_ROOT")
         clean("and it has no file either",
               [] if not sibling.exists() else ["a journal was written into the name-prefix sibling"])
+        # A symlink under the declared root: lexically inside, and the open is what refuses it.
+        linked = root / "linked.jsonl"
+        linked.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(held_tree / "other" / "escaped.jsonl", linked)
+        control("a journal path that is a SYMLINK is refused by name: the open does not follow it, "
+                "which is the half a lexical containment check cannot answer",
+                refusal(lambda: append(linked, fx_plan(), root=str(root))), "JOURNAL_SYMLINK")
+        clean("and the file it pointed at was never created",
+              [] if not (held_tree / "other" / "escaped.jsonl").exists()
+              else ["the append followed the symlink"])
+        control("the writer opens with O_NOFOLLOW rather than trusting the check",
+                next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                     if "flags = os.O_WRONLY" in line),
+                "_NOFOLLOW")
+        control("and the flag is resolved once at import, by attribute access rather than by "
+                "handing the module to getattr",
+                "resolved" if _NOFOLLOW else "zero on this platform", "resolved")
+        control("and a short write is looped rather than acknowledged as a complete record",
+                next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                     if "while written < len(data)" in line),
+                "while written < len(data)")
+        control("a device that stops accepting bytes mid-record is refused by name",
+                refusal(lambda: _short_write_probe(root / "short.jsonl", fx_plan())),
+                "JOURNAL_SHORT_WRITE")
+
         control("a journal with no declared root at all is refused, not defaulted",
                 refusal(lambda: append(path, fx_plan(), root=None)), "JOURNAL_OUTSIDE_ROOT")
         control("a malformed record is refused before the file is touched",
@@ -494,12 +599,17 @@ def self_test():
         # shows the consequence of the order being wrong.
         import inspect
         storage_src = inspect.getsource(Storage.append)
-        steps = [line.strip() for line in storage_src.splitlines()
-                 if line.strip() in ("os.write(handle, data)", "os.fsync(handle)",
-                                     "os.fsync(directory)")]
+        # The write is now a loop over `os.write(handle, data[written:])`, so the order is read
+        # from the three operations rather than from three exact lines.
+        steps = []
+        for line in storage_src.splitlines():
+            held_line = line.strip()
+            for mark in ("self._write_once(handle,", "os.fsync(handle)",
+                         "os.fsync(directory)"):
+                if held_line.startswith(mark) or held_line.startswith("held = " + mark):
+                    steps.append(mark.rstrip("(,"))
         control("the real storage writes, then fsyncs the file, then fsyncs its directory, in that "
-                "order", " -> ".join(steps),
-                "os.write(handle, data) -> os.fsync(handle) -> os.fsync(directory)")
+                "order", " -> ".join(steps), "self._write_once(handle -> os.fsync(handle) -> os.fsync(directory)")
         control("a seam name the list does not hold is refused, so a misspelled seam cannot test "
                 "nothing", refusal(lambda: inject("after_the_effect")), "FAULT_UNKNOWN")
         clean("and no seam stays armed after its control", sorted(_INJECTED))
