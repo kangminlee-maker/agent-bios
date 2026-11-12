@@ -79,6 +79,25 @@ def returned_lines(text):
     return [line.rstrip() for line in lines if line.strip()]
 
 
+def returned_against(text, known):
+    """A read's returned text as its non-blank lines, each in the form that IS a line of the carrier (`known`).
+
+    The asymmetric rule S2's counts use (`inventory._held_forms`): a unit's line is the file's own bytes and is
+    compared as written; a returned line may have been numbered by the tool that returned it, so it is held both
+    ways - as written first, then with the prefix removed. `returned_lines` stripped only when EVERY line was
+    numbered, so a header line before a numbered body left the body unmatched, and a unit line that itself reads
+    `1\tfoo` was stripped away from itself (the WP-11b review, #11). A line that is the carrier's in neither form
+    is kept as written, for the trimming of what the tool added around the file."""
+    out = []
+    for raw in (text or "").splitlines():
+        if not raw.strip():
+            continue
+        line = raw.rstrip()
+        stripped = PREFIX.sub("", raw, count=1).rstrip()
+        out.append(line if line in known or not stripped.strip() or stripped not in known else stripped)
+    return out
+
+
 def text_lines(text):
     return [line.rstrip() for line in (text or "").splitlines() if line.strip()]
 
@@ -148,7 +167,7 @@ def requirement(req_id, units, reads, session, versions):
     for read in reads:
         if not of_carrier(read, req, session):
             continue
-        got = returned_lines(read["returned"])
+        got = returned_against(read["returned"], known)
         whole = contains(got, want)
         while got and got[0] not in known:      # what the tool added around the file's bytes is not the file
             got = got[1:]
@@ -788,6 +807,24 @@ def self_test():
     expect("a reading tool's line-number prefixes are removed", returned_lines("     1\t- a\n     2→- b\n"), ["- a", "- b"])
     expect("control: a line that begins with a digit is kept when not every line has a prefix",
            returned_lines("12 rules\n- a\n"), ["12 rules", "- a"])
+
+    expect("against a carrier's lines, a returned line is held as written first and then without its prefix: a header "
+           "before a numbered body, a unit line that itself looks numbered, and a line that is neither",
+           [returned_against("header\n     1\tfoo\n", {"foo"}), returned_against("1\tfoo\n", {"1\tfoo", "foo"}),
+            returned_against("     7\tbar\n\n", {"foo"})],
+           [["header", "foo"], ["1\tfoo"], ["     7\tbar"]])
+    mixed_unit = {"unit_id": "u-mx", "path": "claude/guides/mx.md", "version_sha256": "9" * 64, "text": "foo", "n": 0}
+    literal_unit = {**mixed_unit, "unit_id": "u-lit", "path": "claude/guides/lit.md", "text": "1\tfoo"}
+    for label, unit, returned in (
+            ("a read that returned a header and then the numbered line covers the unit", mixed_unit, "header\n1\tfoo\n"),
+            ("a unit whose own line looks numbered is covered by a read that returned it unchanged", literal_unit,
+             "1\tfoo\n")):
+        expect(label, requirement(unit["unit_id"], {unit["unit_id"]: unit},
+                                  [{"path": unit["path"], "returned": returned}], {}, versions_of([unit])),
+               ("met", None))
+    expect("and a numbered line of ANOTHER text does not cover it",
+           requirement("u-lit", {"u-lit": literal_unit}, [{"path": literal_unit["path"], "returned": "2\tfoo\n"}], {},
+                       versions_of([literal_unit]))[0], "unmet")
 
     # ---- done-when 2: the O3 verdicts that rest on delivery evidence, each with its flipped control
     v1, v2 = "1" * 64, "2" * 64
