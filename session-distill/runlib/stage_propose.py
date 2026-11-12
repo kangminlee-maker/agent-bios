@@ -57,6 +57,10 @@ DERIVED_FIELDS = ("kind", "diagnosis")
 # never returned, so `promotion_eligible` was None on every real row and the promotion bar never
 # fired. The suite holds these names against a row the real producer path builds.
 ELIGIBLE_SECTION = "eligible"
+# The admissions that ARE admissions for §7.2: S6's own, and the owner's adjudication (§10.2, "a
+# candidate that becomes admitted goes through S7, S7b"). Lane E's K5 writes the second as
+# `admission: "adjudication"` with derive's own answer kept under `derived` (D-20261112-27f634).
+ADMITTED_BY = ("admitted", "adjudication")
 # S6's test state in release 1, read from the table's domain so this module cannot drift from it.
 TEST_STATE = derive.table()["domains"]["test"][0]
 OUTCOME_SECTIONS = (ELIGIBLE_SECTION, "admission", "kind", "candidate_diagnosis")
@@ -346,7 +350,16 @@ def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
                  # Both read by `placement.py`'s promotion rule and by the legacy `place` condition.
                  # They come from S6's derivation, never from the answer: a proposal that declared
                  # its own eligibility would be judging its own bar.
-                 "admitted": facts["admission"] == "admitted",
+                 # An ADJUDICATED admission is an admission for §7.2's purposes. §10.2: "Code
+                 # recomputes the derivations of §6.4 with the adjudicated values. A candidate that
+                 # BECOMES ADMITTED goes through S7, S7b, and S8 in a second pass of the same run."
+                 # The brake on a core item admitted that way is `awaiting_R`, which the same
+                 # section states separately ("until then it is not eligible for application and
+                 # stays incubating with the reason 'awaiting R'") and which `awaiting_r` below
+                 # reads from the SAME field. Reading only "admitted" here made every adjudicated
+                 # item `admitted: False`, and the legacy row's `place_admitted_and_eligible` then
+                 # refused `place` for exactly the items the owner had just resolved.
+                 "admitted": facts["admission"] in ADMITTED_BY,
                  "promotion_eligible": facts["promotion"],
                  # The contract's own field names, filled from the answer rather than asked for twice:
                  # `reason` is the Korean reason the person reads (§7.3's reason fields), and `harmful`
@@ -1312,6 +1325,49 @@ def self_test():
           [p for p in (said(_answered(destination={"layer": "personal", "carrier": "notes/own.md"}),
                             *_candidate()[:1], ANSWERED, _candidate()[1]) or "").split("; ")
            if "CARRIER" in p])
+
+    # An adjudicated admission is an admission for §7.2 (§10.2: "Code recomputes the derivations of
+    # §6.4 with the adjudicated values. A candidate that BECOMES ADMITTED goes through S7, S7b, and
+    # S8 in a second pass of the same run"), with `awaiting_R` as the separate brake the same section
+    # states. Built on a row in the shape lane E's K5 writes: `admission` is the owner's and derive's
+    # own answer is kept under `derived`.
+    def adjudicated_row(cid="k-adj", derived="disputed"):
+        held = derived_row(cid)
+        held["outcome"]["admission"] = {"admission": "adjudication", "derived": derived,
+                                        "row": derived}
+        return held
+
+    adj_facts = candidate_facts({"candidate_id": "k-adj", "type": "D"}, adjudicated_row())
+    control("S7 reads an adjudicated admission as the admission it is",
+            str(adj_facts["admission"]), "adjudication")
+    control("so the proposal is admitted, which is what the legacy row's `place` condition reads",
+            str(proposal_of(_answered(), {"candidate_id": "k-adj", "type": "D", "kind": "gap",
+                                          "diagnosis": "gap", "admission": "adjudication"},
+                            adjudicated_row())["admitted"]),
+            "True")
+    control("and `awaiting_R` is the brake instead: a core item admitted that way enters no F this "
+            "run",
+            str(awaiting_r(_answered(), adj_facts, adjudicated_row())[0]), "True")
+    control("with the reason §10 gives", awaiting_r(_answered(), adj_facts, adjudicated_row())[1],
+            "awaiting_R")
+    control("a personal item admitted that way proceeds, since §10 says it needs no R",
+            str(awaiting_r(_answered(destination={"layer": "personal", "carrier": "notes/own.md"}),
+                           adj_facts, adjudicated_row())[0]),
+            "False")
+    def disputed_row(cid="k-d"):
+        held = derived_row(cid)
+        held["outcome"]["admission"] = {"admission": "disputed", "row": "disputed"}
+        return held
+
+    control("a DISPUTED admission is still not an admission: the owner has not resolved it. The "
+            "admission is read from the DERIVATION, never from the candidate dict, which is why "
+            "this row carries it there",
+            str(proposal_of(_answered(), {"candidate_id": "k-d", "type": "D", "kind": "gap",
+                                          "diagnosis": "gap"},
+                            disputed_row())["admitted"]),
+            "False")
+    control("and the two admissions that count are named once, where both readers see them",
+            ", ".join(ADMITTED_BY), "admitted, adjudication")
 
     # WP-20's three interface pieces: the Korean regeneration, the subset, and (in the end-to-end
     # block below) both on the golden host.
