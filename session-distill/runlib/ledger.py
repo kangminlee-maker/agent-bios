@@ -54,18 +54,21 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import stagelock, validate
+from runlib import gitread, stagelock, validate
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/
 REPO = HERE.parent
-LEDGER_REL = "design/session-distill/ledger.json"
+# The ledger of an INSTALLED driver, under the private installation's state root — the root that
+# also holds the pins and the receipts. It is the only ledger location shipped code names: the
+# owner's checkout keeps its own under `design/`, which the author-side caller passes with `--ledger`
+# (`gates/check-ledger.py`, the runbook, the preset). A packaged user has no `design/`, so a default
+# pointing there was a path that could not exist on the machine the code ran on.
+STATE_LEDGER_REL = "distill/ledger.json"
 SCHEMA_PATH = HERE / "schemas" / "ledger.schema.json"
 EO_SCHEMA_PATH = HERE / "schemas" / "expected_observation.schema.json"
 TRANSITIONS_PATH = HERE / "tables" / "transitions.json"
 FIXTURES_PATH = HERE / "tables" / "transition_fixtures.json"
 LOCK_ROOT = HERE / "out" / "ledger-lock"  # untracked: `session-distill/out/*/` is ignored
-MIGRATOR = HERE / "migrate-ledger.py"
-GATE_READERS = REPO / "gates" / "check-global-file.py"  # the git readers of design §13.1's gate, reused
 
 SUPPORTED = (1, 2)
 ID_SERIES = re.compile(r"^([A-Z]+[0-9]*)-([0-9]+)$")
@@ -1190,18 +1193,28 @@ def row_violations(base, head, rows, base_rows=None):
     return problems
 
 
-def _migrator():
-    spec = importlib.util.spec_from_file_location("migrate_ledger", MIGRATOR)
-    if spec is None or not MIGRATOR.is_file():
-        raise LedgerError(f"MIGRATOR_UNREADABLE {MIGRATOR}: a schema 1 base cannot be compared with a schema 2 head")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["migrate_ledger"] = module
-    spec.loader.exec_module(module)
-    return module
+def ledger_path(state_root=None, override=None):
+    """The ledger to read: `override` when the caller named one, else the state root's own.
+
+    A caller that has neither names nothing, and gets None rather than a guess — a path this module
+    invented would be read, created and written somewhere nobody asked for.
+    """
+    if override:
+        return pathlib.Path(override).expanduser()
+    if state_root:
+        return pathlib.Path(state_root).expanduser() / STATE_LEDGER_REL
+    return None
 
 
-def check_pair(base, head, allocated=None):
-    """Every violation of design §12.4 between a frozen `base` ledger and a `head` ledger."""
+def check_pair(base, head, allocated=None, migrate=None):
+    """Every violation of design §12.4 between a frozen `base` ledger and a `head` ledger.
+
+    `migrate` is the schema 1 to schema 2 migration, INJECTED: it lives in an author-side script
+    (`session-distill/migrate-ledger.py`, run through `gates/check-ledger.py`) that a packaged user
+    does not have, and loading it from here made shipped code name a file outside the payload. A
+    comparison that needs it without being given it says so by name and migrates nothing — an
+    installed ledger is schema 2 from its first write, so the case belongs to the checkout.
+    """
     problems = validate_ledger(head)
     if problems:
         return problems
@@ -1212,9 +1225,13 @@ def check_pair(base, head, allocated=None):
     if after == 2 and held != head["windows"][:len(held)]:
         problems.append("WINDOWS_REWRITTEN: a window record of the base was changed or removed")
     if before == 1 and after == 2:
-        migrated, _removed = _migrator().migrate(base)
-        if migrated != head:
-            problems.append("MIGRATION_MISMATCH: the schema 2 head is not the migration of the schema 1 base")
+        if migrate is None:
+            problems.append("MIGRATOR_UNAVAILABLE: a schema 1 base against a schema 2 head is judged by equality "
+                            "with the migration, and no migration was given to this comparison")
+        else:
+            migrated, _removed = migrate(base)
+            if migrated != head:
+                problems.append("MIGRATION_MISMATCH: the schema 2 head is not the migration of the schema 1 base")
     elif before == 2 and after == 1:
         problems.append("LEDGER_SCHEMA_REGRESSED: the head is schema 1 and the base schema 2")
     elif before == 2:
@@ -1295,17 +1312,6 @@ def write_atomic(path, ledger, base_sha, lock_root=LOCK_ROOT, before_rename=None
 
 # ---------------------------------------------------------------- the check command
 
-def _gate():
-    """gates/check-global-file.py's git readers: an absent path measures as empty, an unreadable
-    side as None. One implementation of "read a side of a commit", not two. It is this checkout's
-    helper, found beside this module, never a file of the repository being judged."""
-    spec = importlib.util.spec_from_file_location("check_global_file", GATE_READERS)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["check_global_file"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 def allocation(argument):
     """`--allocated` as an allocation: an omitted flag is no allocation at all (`None`), and the flag
     passed empty is the allocation of a run that froze no new id (`[]`) — a correction or a resolution
@@ -1313,11 +1319,14 @@ def allocation(argument):
     return None if argument is None else [i for i in (part.strip() for part in argument.split(",")) if i]
 
 
-def check_command(repo, rel, base, worktree, allocated):
-    """(exit code, lines). 0 holds, 1 a violation, 2 a side that could not be read."""
-    git = _gate()
-    old, old_absent = git.base_blob(repo, base, rel)
-    new, new_absent = git.current_blob(repo, rel, worktree)
+def check_command(repo, rel, base, worktree, allocated, migrate=None):
+    """(exit code, lines). 0 holds, 1 a violation, 2 a side that could not be read.
+
+    `migrate` is passed through to `check_pair`: comparing a schema 1 base with a schema 2 head needs
+    the author-side migration, which `gates/check-ledger.py` supplies.
+    """
+    old, old_absent = gitread.base_blob(repo, base, rel)
+    new, new_absent = gitread.current_blob(repo, rel, worktree)
     where = "worktree" if worktree else "index"
     if old is None:
         return 2, [f"CANNOT JUDGE LEDGER_BASE_UNREADABLE {base}:{rel}"]
@@ -1331,7 +1340,7 @@ def check_command(repo, rel, base, worktree, allocated):
             problems = validate_ledger(head)
             note = f"no ledger at {base}: validated alone"
         else:
-            problems = check_pair(parse(old, f"{base}:{rel}"), head, allocated)
+            problems = check_pair(parse(old, f"{base}:{rel}"), head, allocated, migrate=migrate)
             note = f"against {base}"
     except LedgerError as exc:
         return 1, [str(exc)]
@@ -1697,7 +1706,12 @@ HARD_KILL = (
     "ledger.write_atomic(target, proposed, current, lock_root, before_rename=lambda: os._exit(9))\n")
 
 
-def self_test():
+def self_test(migrate=None, checkout_ledger=None, tiny=None):
+    """The contract legs, plus the two that need a CHECKOUT: the schema 1 migration (an author-side
+    script) and the committed ledger itself. Both are passed in by `gates/check-ledger.py`; without
+    them those legs are reported as skipped BY NAME rather than quietly dropped, which is also what an
+    installed tree gets (WP-24's installed-self-test rule)."""
+    skipped = []
     failures = []
     ran = {"events": {}, "effects": set()}
 
@@ -1954,20 +1968,33 @@ def self_test():
     for label, raw in (("a list at the top", "[1]"), ("text that is not JSON", "{ nope")):
         refuses(label, lambda raw=raw: parse(raw), "LEDGER_UNREADABLE")
 
-    # a schema 1 base against a schema 2 head is judged by equality with the migration
-    migrator = _migrator()
-    legacy_one = migrator.tiny()
-    migrated_one, _ = migrator.migrate(legacy_one)
-    clean("a schema 2 head that is the migration of its schema 1 base", check_pair(legacy_one, migrated_one))
-    tampered_one = copy.deepcopy(migrated_one)
-    tampered_one["entries"][0]["lesson"] = "tampered"
-    expect("a schema 2 head that is not the migration of its base", check_pair(legacy_one, tampered_one), "MIGRATION_MISMATCH")
-    global MIGRATOR
-    kept_migrator, MIGRATOR = MIGRATOR, HERE / "no-such-migrator.py"
-    try:
-        refuses("a missing migrator", lambda: check_pair(legacy_one, migrated_one), "MIGRATOR_UNREADABLE")
-    finally:
-        MIGRATOR = kept_migrator
+    # A schema 1 base against a schema 2 head is judged by equality with the migration, which this
+    # module no longer loads: the legs that need a real migration live with it, in
+    # gates/check-ledger.py --self-test. What belongs here is the answer when none was given.
+    # The path is a parameter, and a caller that names neither a root nor an override gets None
+    # rather than a path this module invented (WP-24).
+    clean("no state root and no override names no ledger", [] if ledger_path() is None else ["it named one"])
+    clean("a state root names the ledger under it",
+          [] if str(ledger_path(state_root="/s")) == "/s/distill/ledger.json" else [str(ledger_path(state_root="/s"))])
+    clean("an override is the ledger, whatever the root",
+          [] if str(ledger_path(state_root="/s", override="/elsewhere/l.json")) == "/elsewhere/l.json"
+          else [str(ledger_path(state_root="/s", override="/elsewhere/l.json"))])
+    expect("a comparison that needs the migration and was given none",
+           check_pair({"schema": 1, "framework": "f", "window": "w", "entries": []},
+                      sample_ledger(sample_entry("S3-1", "placed"))),
+           "MIGRATOR_UNAVAILABLE")
+    if migrate is None or tiny is None:
+        skipped.append("a schema 2 head judged by equality with the migration of its schema 1 base "
+                       "(needs the author-side migrator and its schema 1 sample)")
+    else:
+        legacy_one = tiny()
+        migrated_one, _ = migrate(legacy_one)
+        clean("a schema 2 head that is the migration of its schema 1 base",
+              check_pair(legacy_one, migrated_one, migrate=migrate))
+        tampered_one = copy.deepcopy(migrated_one)
+        tampered_one["entries"][0]["lesson"] = "tampered"
+        expect("a schema 2 head that is not the migration of its base",
+               check_pair(legacy_one, tampered_one, migrate=migrate), "MIGRATION_MISMATCH")
 
     # the id-set check (design §12.4, O10): schema 1 continues a series; schema 2 needs the frozen allocation
     ids = ["S3-1", "S3-2", "S3-3"]
@@ -2437,8 +2464,13 @@ def self_test():
     # the entry design §12.2 migrated with its retirement on the row and no element of its own: a
     # decision that changes nothing records nothing, so its revert restores the status and leaves the
     # retirement where the migration put it (Q#4, over the real migrated ledger)
-    real_migrated, _removed = _migrator().migrate(json.loads((REPO / LEDGER_REL).read_text(encoding="utf-8")))
-    drop_done = accepts("an approved drop over a migrated retirement", lambda: apply_decision(
+    real_migrated = None
+    if migrate is None or checkout_ledger is None:
+        skipped.append("the migrated-retirement legs over the real ledger (needs the checkout's ledger "
+                       "and the author-side migrator)")
+    else:
+        real_migrated, _removed = migrate(json.loads(pathlib.Path(checkout_ledger).read_text(encoding="utf-8")))
+    drop_done = None if real_migrated is None else accepts("an approved drop over a migrated retirement", lambda: apply_decision(
         real_migrated, "S2-19", sample_element("r1", "drop", reason="the unit is covered elsewhere")))
     if drop_done is not None:
         if before_of(_rows(drop_done)["S2-19"]["decisions"][-1]) != EMPTY_BEFORE:
@@ -3039,57 +3071,57 @@ def self_test():
 
     # the check command, end to end over scratch repositories: index against HEAD, then exit codes
     with scratch_git() as (repo, git):
-        path = repo / LEDGER_REL
+        path = repo / STATE_LEDGER_REL
         path.parent.mkdir(parents=True)
         path.write_text(render(base), encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "base")
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", False, None)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", False, None)
         if code != 0 or "OK" not in lines[0]:
             failures.append(f"check: an unchanged ledger was not accepted: {code} {lines}")
         swapped = copy.deepcopy(base)
         swapped["entries"][2] = sample_entry("S3-4", "incubating")
         path.write_text(render(swapped), encoding="utf-8")
-        git("add", LEDGER_REL)
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", False, None)
+        git("add", STATE_LEDGER_REL)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", False, None)
         if code != 1 or "ID_LOST S3-3" not in "\n".join(lines) or "ALLOCATION_REQUIRED" not in "\n".join(lines):
             failures.append(f"check: a staged equal-count deletion plus insertion was not refused naming the lost id and the missing allocation: {code} {lines}")
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", False, ["S3-4"])
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", False, ["S3-4"])
         if code != 1 or "ID_LOST S3-3" not in "\n".join(lines) or "NEW_ROW_WITHOUT_DECISION S3-4" not in "\n".join(lines):
             failures.append(f"check: under its allocation, the swap was not refused naming the lost id and the row with no decision: {code} {lines}")
         path.write_text(render(base), encoding="utf-8")  # restored on disk; the index keeps the swap
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", False, None)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", False, None)
         if code != 1:
             failures.append(f"check: the index was not judged when the disk was restored: {code} {lines}")
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", True, None)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", True, None)
         if code != 0:
             failures.append(f"check: --worktree did not read the disk: {code} {lines}")
-        code, lines = check_command(repo, LEDGER_REL, "no-such-revision", False, None)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "no-such-revision", False, None)
         if code != 2 or "CANNOT JUDGE" not in lines[0]:
             failures.append(f"check: an unresolvable base did not exit 2 naming it: {code} {lines}")
-        git("rm", "-q", "-f", "--cached", LEDGER_REL)
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", False, None)
+        git("rm", "-q", "-f", "--cached", STATE_LEDGER_REL)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", False, None)
         if code != 1 or "LEDGER_ABSENT" not in lines[0]:
             failures.append(f"check: a ledger removed from the index was not refused: {code} {lines}")
-        git("add", LEDGER_REL)
+        git("add", STATE_LEDGER_REL)
         path.unlink()
         path.mkdir()  # a directory where the file should be: the disk cannot answer
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", True, None)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", True, None)
         if code != 2 or "LEDGER_FILE_UNREADABLE" not in lines[0]:
             failures.append(f"check: a side the disk could not read did not exit 2 naming it: {code} {lines}")
         path.rmdir()
         path.write_text("{ not json", encoding="utf-8")
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", True, None)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", True, None)
         if code != 1 or "LEDGER_UNREADABLE" not in lines[0]:
             failures.append(f"check: an unparsable ledger was not refused: {code} {lines}")
     with scratch_git() as (repo, git):
         (repo / "README").write_text("x", encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "no ledger")
-        (repo / LEDGER_REL).parent.mkdir(parents=True)
-        (repo / LEDGER_REL).write_text(render(base), encoding="utf-8")
+        (repo / STATE_LEDGER_REL).parent.mkdir(parents=True)
+        (repo / STATE_LEDGER_REL).write_text(render(base), encoding="utf-8")
         git("add", "-A")
-        code, lines = check_command(repo, LEDGER_REL, "HEAD", False, None)
+        code, lines = check_command(repo, STATE_LEDGER_REL, "HEAD", False, None)
         if code != 0 or "validated alone" not in lines[0]:
             failures.append(f"check: a ledger new in the index was not validated alone: {code} {lines}")
 
@@ -3100,13 +3132,13 @@ def self_test():
         if allocation(argument) != want:
             failures.append(f"allocation: {label} read as {allocation(argument)!r}, expected {want!r}")
     with scratch_git() as (repo, git):
-        path = repo / LEDGER_REL
+        path = repo / STATE_LEDGER_REL
         path.parent.mkdir(parents=True)
         path.write_text(render(base), encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "base")
         path.write_text(render(apply_decision(base, "S3-1", sample_element("r1", "correct"), {"lesson": "a corrected lesson"})), encoding="utf-8")
-        git("add", LEDGER_REL)
+        git("add", STATE_LEDGER_REL)
         kept_repo, globals()["REPO"] = REPO, repo
         try:
             for label, argv, want_code, needle in (
@@ -3126,6 +3158,8 @@ def self_test():
         print(f"ledger --self-test [FAIL] {failure}")
     if failures:
         return 1
+    for name in skipped:
+        print(f"ledger --self-test SKIPPED: {name}")
     print("ledger --self-test: OK (contract fidelity against design §12.1/§12.2/§12.4/§7.2/§7.3 and the record contracting what "
           "schema 2 carries beyond them, validation with the two disposition vocabularies, the two element shapes and the evidence "
           "forms, the id-set check against the frozen allocation a schema 2 transaction carries whether or not it adds a row, changed "
@@ -3145,7 +3179,10 @@ def self_test():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--ledger", default=LEDGER_REL, help="repo-relative path of the ledger")
+    parser.add_argument("--ledger", default=STATE_LEDGER_REL,
+                        help="path of the ledger, relative to the repository for --check; the default is the "
+                             "state-root location an installed driver uses, and a checkout passes its own "
+                             "(gates/check-ledger.py does)")
     parser.add_argument("--base", default="HEAD")
     parser.add_argument("--worktree", action="store_true", help="read the file on disk instead of the index")
     parser.add_argument("--allocated", help="comma-separated ids the run allocated; pass it empty for a "

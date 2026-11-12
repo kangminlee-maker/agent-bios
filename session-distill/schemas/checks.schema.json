@@ -8,12 +8,18 @@
     "constants": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["per_layer", "top_entries", "top_entries_basis", "indexed_class"],
+      "required": ["per_layer", "top_entries", "top_entries_basis", "indexed_class", "declared"],
       "properties": {
         "per_layer": {"type": "integer", "minimum": 1},
         "top_entries": {"type": "integer", "minimum": 1},
         "top_entries_basis": {"type": "string", "minLength": 1},
-        "indexed_class": {"type": "string", "minLength": 1}
+        "indexed_class": {"type": "string", "minLength": 1},
+        "declared": {
+          "$comment": "plan WP-11: whether each count is the run's declaration (run.json retrieval) or S5's own default",
+          "type": "object", "additionalProperties": false, "required": ["per_layer", "top_entries"],
+          "properties": {"per_layer": {"type": "string", "enum": ["declared", "default"]},
+                         "top_entries": {"type": "string", "enum": ["declared", "default"]}}
+        }
       }
     },
     "library": {

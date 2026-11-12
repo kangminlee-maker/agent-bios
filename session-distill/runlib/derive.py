@@ -188,17 +188,21 @@ def eligible(kind, lineages, class_a, class_b, arc_confirmed=False):
     rows = {row["id"]: row for row in table()["promotion"]}
     if isinstance(lineages, bool) or not isinstance(lineages, int) or lineages < 0:
         raise Refused(f"JUDGMENT_INVALID lineages {lineages!r}: a count")
+
+    def verdict(row_id):   # the row's own `eligible` (Codex WP-10 r1 #5: written here as True and False)
+        allowed = rows[row_id].get("allowed_dispositions")
+        return rows[row_id]["eligible"], row_id, list(allowed) if allowed is not None else None
     if kind in rows["type_g"]["types"]:
         g = rows["type_g"]
         if lineages >= g["independent_lineages_at_least"] or (g["or_arc_confirmed"] and arc_confirmed is True):
-            return True, "type_g", None
+            return verdict("type_g")
     else:
         if lineages >= rows["lineages"]["independent_lineages_at_least"]:
-            return True, "lineages", None
+            return verdict("lineages")
         classes = rows["consequence"]["both_judges_class_one_of"]
         if class_a in classes and class_b in classes:
-            return True, "consequence", None
-    return False, "below_bar", list(rows["below_bar"]["allowed_dispositions"])
+            return verdict("consequence")
+    return verdict("below_bar")
 
 
 # ---- the whole derivation -----------------------------------------------------------------------
@@ -295,6 +299,11 @@ def table_problems(held=None):
     read = {o for row in held["kind"] for o in row.get("if_any_outcome", [])}
     problems += [f"TABLE_INVALID kind: outcome {o!r} reaches no kind row"
                  for o in sorted({row["outcome"] for row in held["unit_outcome"]} - read)]
+    # a class no judge can return would make its row unreachable without a word (D-20261111-f3d39c)
+    declared = consequence_classes()
+    problems += [f"CLASS_UNDECLARED promotion/{row['id']}: {c!r} is not a consequence class the judgment schema "
+                 f"declares ({list(declared)})"
+                 for row in held["promotion"] for c in row.get("both_judges_class_one_of") or [] if c not in declared]
     return problems
 
 
@@ -454,6 +463,22 @@ DESIGN_6_4_ABSENT = ((("gap", "gap"), "gap"), (("gap", "covered"), "already reso
 # confirms"; "Below the bar, the allowed dispositions are incubate, keep, and drop."
 DESIGN_6_4_PROMOTION = (2, ("irreversible", "security-relevant", "verification-corrupting"), 3,
                         ("incubate", "keep", "drop"))
+# D-20261112-644ff3: the table's below-bar list adds `none` to the sentence above. §7.2 allows an unclassified candidate
+# only `none`, so as written the two lists were disjoint: a below-bar unclassified candidate had no acceptable answer,
+# and the owner's legacy default `none` (D-20261111-e53a01) was refused below the bar. `none` promotes nothing. The
+# copy keeps the design's words and the fidelity check reads the table through this addition, so the difference is
+# declared here rather than written over.
+DESIGN_BELOW_BAR_ADDED = ("none",)
+# D-20261111-f3d39c (WP-11 D11): §6.4 says "security-relevant" and §7.5 "security" for one class. The judgment
+# schema's enum is the classes' one owner and spells them as §7.5 does; the copy above keeps §6.4's word, and the
+# fidelity check reads it through this rename, so the difference is declared here rather than written over.
+DESIGN_CLASS_RENAMES = {"security-relevant": "security"}
+CLASSES_SCHEMA = HERE / "schemas" / "judge.schema.json"
+
+
+def consequence_classes(path=CLASSES_SCHEMA):
+    """The consequence classes a judge can return: the judgment schema's enum, their one owner (D-20261111-f3d39c)."""
+    return tuple(json.loads(pathlib.Path(path).read_text(encoding="utf-8"))["$defs"]["consequence_class"]["enum"])
 
 
 def render_outcome(row):
@@ -487,7 +512,9 @@ def fidelity_problems(held=None):
     rows = {r["id"]: r for r in held["promotion"]}
     promotion = (rows["lineages"]["independent_lineages_at_least"], tuple(rows["consequence"]["both_judges_class_one_of"]),
                  rows["type_g"]["independent_lineages_at_least"], tuple(rows["below_bar"]["allowed_dispositions"]))
-    if promotion != DESIGN_6_4_PROMOTION:
+    design = (DESIGN_6_4_PROMOTION[0], tuple(DESIGN_CLASS_RENAMES.get(c, c) for c in DESIGN_6_4_PROMOTION[1]),
+              DESIGN_6_4_PROMOTION[2], DESIGN_6_4_PROMOTION[3] + DESIGN_BELOW_BAR_ADDED)
+    if promotion != design:
         problems.append(f"CONTRACT_DRIFT promotion: {promotion}")
     if len(held["requirements"]) != 8:
         problems.append(f"CONTRACT_DRIFT admission: {len(held['requirements'])} requirements, §6.4 names eight")
@@ -542,6 +569,10 @@ def self_test():
     blank = copy.deepcopy(held)
     blank["unit_outcome"][0]["test"] = ""
     named("control: a test column that names nothing", table_problems(blank), "names no test state")
+    respelled = copy.deepcopy(held)
+    next(r for r in respelled["promotion"] if r["id"] == "consequence")["both_judges_class_one_of"][1] = "security-relevant"
+    named("control: a promotion row naming a class outside the judgment schema's enum (D-20261111-f3d39c)",
+          table_problems(respelled), "CLASS_UNDECLARED promotion/consequence")
 
     # done-when 1: the frozen fixtures, the table's rows, and the cases this run executed
     fixtures = json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))["fixtures"]
@@ -715,9 +746,40 @@ def self_test():
            ("admitted", True, "untested: s8_deferred"))
     expect("control: a failing deterministic check leaves it disputed",
            judged({"u1": unit()}, {"u1": [pinned]}, checks_pass=False)["admission"]["admission"], "disputed")
+    flipped = copy.deepcopy(held)
+    for r in flipped["promotion"]:
+        if r["id"] == "lineages":
+            r["eligible"] = False
+    _TABLES["t"] = flipped
+    try:
+        moved = eligible("D", 2, None, None)
+    finally:
+        _TABLES["t"] = held
+    expect("Codex WP-10 r1 #5: two lineages are eligible as the lineages row says, and not once a scratch table says "
+           "that row is not", (eligible("D", 2, None, None)[:2], moved[:2]), ((True, "lineages"), (False, "lineages")))
     expect("one lineage, no grave consequence: below the bar, with the dispositions it allows",
            judged({"u1": unit()}, {"u1": [pinned]}, lineages=1)["eligible"],
-           {"eligible": False, "row": "below_bar", "allowed_dispositions": ["incubate", "keep", "drop"]})
+           {"eligible": False, "row": "below_bar", "allowed_dispositions": ["incubate", "keep", "drop", "none"]})
+    # D-20261112-644ff3, through lane L's own reader: a candidate in the shape release 1 derives (the current point
+    # only, incomplete, no unit matched, one lineage) is below the bar and unclassified, and `none` is the one answer
+    # both §7.2's row and the bar accept - for a new candidate and for a legacy entry the owner's default answers
+    from runlib import placement, stage_propose
+    names = table()["requirements"]
+    for label, lifecycle, legacy in (("a new candidate", None, False), ("a legacy entry", "legacy", True)):
+        given = {"candidate": {"candidate_id": "k-bar", "type": "D", "lifecycle": lifecycle},
+                 "judges": {who: {"requirements": {n: "met" for n in names}, "consequence_class": "quality",
+                                  "no_longer_arises": False} for who in ("A", "B")},
+                 "points": {"current": {"complete": False, "layers": {"native_settings": "unknown"}, "units": {}}},
+                 "checks_pass": True, "lineages": 1, "arc_confirmed": False}
+        outcome = unit_outcome(given, {}, "untested: s8_deferred")
+        row = {"outcome": outcome, "requirements": {}, "lineages": 1}
+        said = {disposition: placement.problems(stage_propose.proposal_of(stage_propose._answered(
+            disposition=disposition, operations=[], destination={"layer": "incubator", "carrier": None}),
+            {"candidate_id": "k-bar", "type": "D"}, row, legacy), {}) for disposition in ("none", "place")}
+        expect(f"{label} below the bar, as release 1 derives it, may be proposed `none` and still not `place`",
+               (outcome["kind"]["kind"], outcome["eligible"]["row"], said["none"],
+                any(line.startswith("PAIR_DISALLOWED") for line in said["place"])),
+               ("unclassified", "below_bar", [], True))
     expect("a type G candidate needs three lineages", judged({"u1": unit()}, {"u1": [pinned]}, kind_type="G")["eligible"]["row"],
            "below_bar")
     refused("a derivation with no test state", lambda: judged({"u1": unit()}, {"u1": [pinned]}, test=""),

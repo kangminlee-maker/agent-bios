@@ -77,6 +77,14 @@ SUBJECTS = [
     "session-distill/runlib/lineage.py",
     "session-distill/runlib/coverage.py",
     "session-distill/runlib/census.py",
+    "session-distill/runlib/placement.py",
+    "session-distill/runlib/destinations.py",
+    "session-distill/runlib/drift.py",
+    "session-distill/runlib/journal.py",
+    "session-distill/runlib/sequencing.py",
+    "session-distill/runlib/ranking.py",
+    "session-distill/runlib/stage_propose.py",
+    "session-distill/runlib/stage_review_proposals.py",
     "session-distill/runlib/ledger.py",
     "session-distill/runlib/ledger_compat.py",
     "session-distill/migrate-ledger.py",
@@ -99,6 +107,13 @@ SUBJECTS = [
     "session-distill/runlib/stage_retrieve.py",
     "session-distill/runlib/stage_delivery.py",
     "session-distill/runlib/controls.py",
+    "session-distill/runlib/stage_judge.py",
+    "session-distill/grammar/owner_lines.py",
+    "session-distill/runlib/stage_render.py",
+    "session-distill/runlib/stage_approvals.py",
+    "session-distill/runlib/stage_review_korean.py",
+    "session-distill/runlib/stage_adjudicate.py",
+    "session-distill/runlib/stage_confirm.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying
@@ -109,10 +124,10 @@ CHECKER_NAME = re.compile(r"(?:^|/)(?:check[-_.]|test-)[^/]*\.(?:py|sh)$")
 # it. `gates/check_parity.py` passes "--self-test" to other scripts and declares none of its
 # own; a substring test calls that a self-test and the disclosure below then reports the
 # opposite of the truth. Only the three shapes that make the flag reachable count: argparse
-# registration, a membership test against argv, and an exact-argv comparison.
+# registration, a membership test against argv (`in` or `not in`), and an exact-argv comparison.
 SELF_TEST_DECL = re.compile(
     r"""add_argument\(\s*["']--self-test["']"""
-    r"""|["']--self-test["']\s+in\s+(?:sys\.)?argv"""
+    r"""|["']--self-test["']\s+(?:not\s+)?in\s+(?:sys\.)?argv"""
     r"""|(?:sys\.)?argv\[1:\]\s*==\s*\[\s*["']--self-test["']"""
 )
 

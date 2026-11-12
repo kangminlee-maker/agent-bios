@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md",
+  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md; retrieval (optional) and judge (optional): design/session-distill/2026-11-11T1545--58ad0cf--a-run-declares-what-s5-retrieves-and-which-candidates-s6-judges.md; sweeps (optional): plan WP-11 J3a, lead decision E2 (2026-11-11)",
   "title": "Run declaration",
   "type": "object",
   "additionalProperties": false,
@@ -8,6 +8,10 @@
                "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
                "declaration_seq", "host_allowance", "output_caps", "destinations"],
   "$defs": {
+    "judged_scope": {
+      "$comment": "plan WP-11: `all` of a source's candidates, or a sample of that many (0 judges none, and is reported as left out)",
+      "type": ["string", "integer"], "pattern": "^all$", "minimum": 0
+    },
     "text": {"type": "string", "minLength": 1},
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "count": {"type": "integer", "minimum": 0},
@@ -89,6 +93,26 @@
     "output_caps": {
       "type": "object", "additionalProperties": false, "required": ["S3"],
       "properties": {"S3": {"type": "integer", "minimum": 1}}
+    },
+    "retrieval": {
+      "$comment": "plan WP-11, lead decision on J0's numbers (2026-11-11): the counts S5 retrieves per candidate, declared so a run's declaration chooses its scope and budget - `per_layer` units of each layer by score and `top_entries` ledger entries, every named unit and entry kept beside them. Absent, S5's own constants (stage_retrieve.PER_LAYER, TOP_ENTRIES), and checks.json says which each count came from.",
+      "type": "object", "additionalProperties": false,
+      "properties": {"per_layer": {"type": "integer", "minimum": 1}, "top_entries": {"type": "integer", "minimum": 1}}
+    },
+    "judge": {
+      "$comment": "plan WP-11, lead decision on J0's numbers (2026-11-11): which candidates S6 judges, per source as S5's population names it - `all`, or a sample of that many drawn by code from the run id. A source the map leaves out is judged not at all, and S6 reports every candidate it did not judge by source and count; absent, every candidate is judged. `formed` is `all` whenever the map is declared (declare: FORMED_SAMPLED), since design §6.5's planted controls take the formed shape and S6 cannot tell them apart (F27, D4).",
+      "type": "object", "additionalProperties": false,
+      "properties": {"candidate_kinds": {
+        "type": "object", "additionalProperties": false, "minProperties": 1,
+        "properties": {"formed": {"$ref": "#/$defs/judged_scope"}, "due_decision": {"$ref": "#/$defs/judged_scope"},
+                       "legacy": {"$ref": "#/$defs/judged_scope"}, "obsolete_hint": {"$ref": "#/$defs/judged_scope"},
+                       "redundancy_hint": {"$ref": "#/$defs/judged_scope"}, "g_cluster": {"$ref": "#/$defs/judged_scope"}}}}
+    },
+    "sweeps": {
+      "$comment": "plan WP-11 done-when 6 and lead decisions D9 and E2 (2026-11-11): how S6's absence sweeps are cut - `shard_units` remaining units per shard, `candidates_per_shard` candidates per group of shards - and the output cap each sweep call declares (`output_cap`). Absent, S6's own constants (stage_judge.SWEEP_DEFAULTS: 100, 5 and 20,000), and judgments/judge.json says which each value came from.",
+      "type": "object", "additionalProperties": false,
+      "properties": {"shard_units": {"type": "integer", "minimum": 1}, "candidates_per_shard": {"type": "integer", "minimum": 1},
+                     "output_cap": {"type": "integer", "minimum": 1}}
     },
     "retry": {
       "$comment": "W review of WP-08e r1, F4 (lead decision): the host's retries one call's 'at most' claim holds (count, default 1) and the error share each carries (margin, default RETRY_ERROR_TOKENS, raised by a larger measured one). A request past the claim stops the run (CLAIM_EXCEEDED), and only a later amendment of this key lifts it.",

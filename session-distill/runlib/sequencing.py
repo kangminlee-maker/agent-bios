@@ -1,0 +1,452 @@
+#!/usr/bin/env python3
+"""The commit-sequencing check (S-14, WP-12 commit 3): can a set of items be applied in SOME order
+whose every intermediate tree passes the gate?
+
+Before the core freeze, S7b asks this of every core item set. A set with no such order — the classic
+being a route and the carrier it points at proposed as two items, where whichever lands first leaves
+a tree with a route to nothing — is re-formed into one item or deferred, before the freeze rather
+than after an apply has already half happened.
+
+**Two gates, and they prove different things.** The suite runs a deterministic stand-in
+(`route_integrity`), which models the one property the ordering exists to protect: no intermediate
+tree holds a route to a path that tree does not have. That proves the SEARCH — that an order is found
+when one exists, that none is reported when none does, and that a subset is judged on its own. It does
+not prove the real hook agrees. The real hook is `--real-hook-check`, a separate command, never a leg
+of the umbrella: the umbrella is itself run by the pre-commit hook, so a leg that ran the hook would
+recurse (this repo has filled a disk that way). That command refuses by name when it detects it is
+running under the hook, and is bounded by a timeout.
+
+    sequencing.py --self-test
+    sequencing.py --real-hook-check [--timeout SECONDS]   # the lead runs this at verification and C4
+"""
+import hashlib
+import itertools
+import json
+import os
+import pathlib
+import sys
+
+if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib.records import Refused  # noqa: E402
+
+HERE = pathlib.Path(__file__).resolve().parents[1]
+# The search is over orders of items, with the reached SET memoised, so the cost is 2^n states and
+# not n!. Beyond this many items the answer is refused rather than computed: a set this large is a
+# formation problem, and a checker that ran for an hour would be routed around.
+SET_LIMIT = 12
+# The real hook's own markers. The pre-commit hook materialises the index into a temp directory and
+# points the gates at it with these, so their spellings are what says "you are inside a commit".
+HOOK_INDEX_PREFIX = "agent-bios-precommit-index"
+HOOK_TREE_PREFIX = "agent-bios-precommit"
+
+
+def under_the_hook(environ=None):
+    """Whether this process is running inside the pre-commit hook, by the hook's own markers.
+
+    Read from the environment the hook exports rather than from a flag a caller passes: a caller that
+    had to remember would be a caller that forgets, and the failure that follows is a recursion."""
+    held = os.environ if environ is None else environ
+    index = pathlib.Path(held.get("GIT_INDEX_FILE") or "").name
+    tree = pathlib.Path(held.get("GIT_WORK_TREE") or "").name
+    reasons = []
+    if index.startswith(HOOK_INDEX_PREFIX):
+        reasons.append(f"GIT_INDEX_FILE names the hook's index snapshot ({index})")
+    if tree.startswith(HOOK_TREE_PREFIX):
+        reasons.append(f"GIT_WORK_TREE names the hook's materialised tree ({tree})")
+    return reasons
+
+
+def set_hash(items):
+    """The identity of a SET of items: its item ids, sorted, with each item's operations.
+
+    Sorted, because the question "does this set admit an order" is about the set, and a hash that
+    changed with the order would make the answer unfindable for the same set presented twice."""
+    rows = sorted(({"item_id": item["item_id"],
+                    "operations": [{k: op.get(k) for k in ("type", "target", "names")}
+                                   for op in item.get("operations") or []]}
+                   for item in items), key=lambda row: row["item_id"])
+    return hashlib.sha256(json.dumps(rows, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def apply_to(tree, item):
+    """The tree after one item's operations. `tree` is {path: "present"} and is not mutated.
+
+    A create or an edit puts its target there; a delete removes it; a merge removes the units it
+    merges and leaves its target; a route adds the route entry and nothing else — which is exactly
+    why a route can precede its carrier and leave a tree that no gate should pass."""
+    held = dict(tree)
+    for op in item.get("operations") or []:
+        kind, target = op.get("type"), op.get("target")
+        if kind in ("create", "edit"):
+            held[target] = "present"
+        elif kind == "delete":
+            held.pop(target, None)
+        elif kind == "merge":
+            for unit in op.get("units") or []:
+                held.pop(unit, None)
+            held[target] = "present"
+        elif kind == "route":
+            held[f"route:{target}->{op.get('names')}"] = "present"
+        else:
+            raise Refused(f"OPERATION_UNKNOWN {kind!r} in {item.get('item_id')}: §7.3's types are "
+                          f"create, edit, delete, merge, route")
+    return held
+
+
+def route_integrity(tree):
+    """The deterministic stand-in: every route in the tree names a path the tree holds.
+
+    This is the property the ordering protects, modelled without running anything: a router entry
+    pointing at a guide that is not there yet. The real hook checks far more, which is what
+    `--real-hook-check` is for; this one is decidable, instant, and cannot recurse."""
+    problems = []
+    for key in sorted(tree):
+        if not key.startswith("route:"):
+            continue
+        named = key.split("->", 1)[1]
+        if named and named not in tree:
+            problems.append(f"ROUTE_TO_NOTHING {key}: the tree holds no {named}")
+    return problems
+
+
+def tree_hash(tree):
+    return hashlib.sha256(json.dumps(sorted(tree), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def sequence(items, gate=route_integrity, base=None, limit=SET_LIMIT):
+    """`{set_hash, order, tree_hashes, gate_results}` for an order whose every tree passes, or Refused.
+
+    The search is depth-first over the items not yet applied, memoised on the frozenset reached, so
+    one dead set is explored once however many orders reach it. The first passing order found is
+    returned: the question is whether one EXISTS, and a run that returned them all would be answering
+    a question nobody asked.
+
+    `items` is whatever set the caller holds — the full core set at the freeze, or, for WP-20 and
+    WP-21, the exact subset the owner approved. The subset is judged on its own evidence, and a full
+    set with a valid order says nothing about it."""
+    rows = list(items)
+    if not rows:
+        raise Refused("SEQUENCE_SET_EMPTY: an order over no item proves nothing about any apply")
+    if len(rows) > limit:
+        raise Refused(f"SEQUENCE_SET_TOO_LARGE {len(rows)} items (limit {limit}): a set this large is a "
+                      f"formation problem, and the search is 2^n states")
+    ids = [item["item_id"] for item in rows]
+    if len(set(ids)) != len(ids):
+        raise Refused(f"SEQUENCE_ITEM_REPEATED {sorted({i for i in ids if ids.count(i) > 1})}: an item "
+                      f"appears twice in one set")
+    by_id = {item["item_id"]: item for item in rows}
+    start = dict(base or {})
+    dead = set()
+    trail = []
+
+    def walk(tree, applied):
+        if len(applied) == len(rows):
+            return True
+        key = frozenset(applied)
+        if key in dead:
+            return False
+        for item_id in sorted(set(ids) - applied):
+            after = apply_to(tree, by_id[item_id])
+            problems = gate(after)
+            if problems:
+                continue
+            trail.append((item_id, after, problems))
+            if walk(after, applied | {item_id}):
+                return True
+            trail.pop()
+        dead.add(key)
+        return False
+
+    if not walk(start, frozenset()):
+        raise Refused(f"SEQUENCE_NONE {set_hash(rows)[:12]} over {len(rows)} item(s) "
+                      f"({', '.join(sorted(ids))}): no order of these items leaves every intermediate "
+                      f"tree passing the gate, so the set is re-formed into one item or deferred "
+                      f"before the freeze")
+    return {"set_hash": set_hash(rows),
+            "order": [item_id for item_id, _tree, _problems in trail],
+            "tree_hashes": [tree_hash(tree) for _item_id, tree, _problems in trail],
+            "hook_results": [{"item_id": item_id, "problems": problems}
+                             for item_id, _tree, problems in trail],
+            "gate": getattr(gate, "__name__", "gate")}
+
+
+def subset_answer(items, gate=route_integrity, base=None):
+    """One `sequencing.json` row for one set, RETURNED rather than raised.
+
+    This is the entry point WP-20 and WP-21 re-run on the exact subset the owner approved. The answer
+    is returned because applying is their caller's decision: a subset with no order comes back as a
+    row saying so, carrying its own set hash, and nothing in this module applies anything."""
+    try:
+        return {**sequence(items, gate, base), "sequenced": True}
+    except Refused as exc:
+        return {"set_hash": set_hash(list(items)), "sequenced": False,
+                "refusal": str(exc).split(":")[0], "reason": str(exc),
+                "order": [], "tree_hashes": [], "hook_results": [],
+                "gate": getattr(gate, "__name__", "gate")}
+
+
+def document(sets, gate=route_integrity, base=None):
+    """`sequencing.json`: one row per item set, each with its order or the refusal that stopped it."""
+    rows = [subset_answer(items, gate, base) for items in sets]
+    return {"stage": "S7b", "sets": rows,
+            "summary": {"sets": len(rows), "sequenced": sum(1 for row in rows if row["sequenced"]),
+                        "unsequenced": sum(1 for row in rows if not row["sequenced"])}}
+
+
+# ---- the real hook: not here, by the dispatch judge's rule ---------------------------------------
+# The real hook runs from `gates/sequencing-real-hook-check.sh`, outside this tree, and consults
+# `--under-the-hook` below for its refusal. Nothing in this module starts a process: `runlib/dispatch.py`
+# judges every program a session-distill file starts, and both shapes tried here - an executor behind a
+# seam, and `bash <path>` - are programs its trace cannot resolve. Keeping the subprocess out is also
+# what makes the suite's controls free: a revert trial that disables the marker check cannot start a
+# five-minute hook, which it did twice before this moved.
+
+# ---- self-test -----------------------------------------------------------------------------------
+
+def self_test():
+    """Positive control first, then one planted violation per rule, each refused BY NAME.
+
+    Every control here uses the deterministic stand-in. The real hook is not run: this suite is a leg
+    of the umbrella, the umbrella is run by the hook, and the recursion is the failure the design of
+    this module is built around. What the suite proves is the SEARCH; `--real-hook-check` proves the
+    hook runs over an intermediate tree at all, and the two are named separately on purpose."""
+    failures, ran = [], []
+    reporting = []
+
+    def control(name, got, want):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}")
+        if not isinstance(got, str):
+            raise TypeError(f"CONTROL_GOT_NOT_STR {name}: {type(got).__name__}")
+        ran.append(name)
+        if want not in got:
+            failures.append((name, f"expected {want!r} in {got!r}"))
+
+    def clean(name, problems):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}")
+        if not isinstance(problems, list):
+            raise TypeError(f"CLEAN_PROBLEMS_NOT_LIST {name}: {type(problems).__name__}")
+        ran.append(name)
+        if problems:
+            failures.append((name, f"expected nothing, got {problems}"))
+
+    def refusal(call):
+        try:
+            call()
+        except Refused as exc:
+            return str(exc)
+        return ""
+
+    def sequenced(name, call):
+        """A positive control's answer, or a named failure when the call refuses.
+
+        Without this, reverting the search's own fix raised a Refused out of the first positive
+        control and the suite died with a traceback: rc!=0, but no control had spoken, which is
+        indistinguishable from a crash. Three rows of the revert trial were silent for exactly
+        that reason."""
+        try:
+            return call()
+        except Refused as exc:
+            if reporting:
+                raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}")
+            ran.append(name)
+            failures.append((name, f"expected an order, got the refusal {exc}"))
+            return {"order": [], "tree_hashes": [], "hook_results": [], "gate": "", "set_hash": ""}
+
+    # The carrier and the route as ONE item: the order exists trivially.
+    together = [{"item_id": "i-together",
+                 "operations": [{"type": "create", "target": "claude/guides/g.md"},
+                                {"type": "route", "target": "router/relevant.md",
+                                 "names": "claude/guides/g.md"}]}]
+    held = sequenced("one item that creates the carrier and its route is sequenced", lambda: sequence(together))
+    control("one item that creates the carrier and its route is sequenced", json.dumps(held["order"]),
+            "i-together")
+    control("and the row records the tree it passed through", str(len(held["tree_hashes"])), "1")
+    control("and names the gate that judged it", held["gate"], "route_integrity")
+
+    # The carrier and the route as TWO items: one order works, the other does not, and the checker
+    # must find the one that does.
+    carrier = {"item_id": "i-carrier", "operations": [{"type": "create", "target": "claude/guides/g.md"}]}
+    route = {"item_id": "i-route", "operations": [{"type": "route", "target": "router/relevant.md",
+                                                   "names": "claude/guides/g.md"}]}
+    pair = sequenced("a route and its carrier as two items are sequenced carrier first, whatever order "
+                     "they arrive in", lambda: sequence([route, carrier]))
+    control("a route and its carrier as two items are sequenced carrier first, whatever order they "
+            "arrive in", json.dumps(pair["order"]), '["i-carrier", "i-route"]')
+    clean("and every intermediate tree of that order passed",
+          [row for row in pair["hook_results"] if row["problems"]])
+
+    # F17 / done-when 7: the route and a carrier NOBODY creates. No order can help, and the set is
+    # named before the freeze rather than after half of it is applied.
+    orphan = {"item_id": "i-route-orphan",
+              "operations": [{"type": "route", "target": "router/relevant.md",
+                              "names": "claude/guides/absent.md"}]}
+    said = refusal(lambda: sequence([orphan, carrier]))
+    control("F17: a route whose carrier no item creates admits no order, and the set is refused by name",
+            said, "SEQUENCE_NONE")
+    control("and the refusal names every item of the set, so the re-formation knows what to merge",
+            said, "i-carrier, i-route-orphan")
+    control("and says what happens to such a set before the freeze", said,
+            "re-formed into one item or deferred")
+
+    # The exported checker on an approved SUBSET: the full set has an order, the subset does not, and
+    # the subset is what is judged (done-when 7's control fixture; WP-20 and WP-21 re-run this).
+    full = [carrier, route]
+    clean("the full set has an order",
+          [row for row in sequenced("the full set has an order", lambda: sequence(full))["hook_results"]
+           if row["problems"]])
+    control("while the approved subset that keeps the route and drops its carrier has none, and it is "
+            "the subset that is answered",
+            refusal(lambda: sequence([route])), "SEQUENCE_NONE")
+    control("and the refusal names the subset's own hash, not the full set's",
+            refusal(lambda: sequence([route])), set_hash([route])[:12])
+    # The exported re-run entry: WP-20 and WP-21 hand it the approved subset and get a ROW, because
+    # whether to apply is their caller's decision and this module applies nothing.
+    answer = subset_answer([route])
+    # `.get`, not `[...]`: a mutation that makes this subset sequence removes the key, and indexing it
+    # killed the suite with a KeyError instead of failing by name. Four rows of the revert trial were
+    # silent for that reason.
+    control("the subset entry WP-20 and WP-21 re-run returns the unsequenced answer instead of raising",
+            str(answer.get("refusal")), "SEQUENCE_NONE")
+    control("and the returned row carries the subset's own hash", str(answer.get("set_hash")),
+            set_hash([route]))
+    clean("and no order, so nothing downstream can read it as appliable",
+          list(answer.get("order") or []) + list(answer.get("tree_hashes") or [])
+          + list(answer.get("hook_results") or []))
+    control("while an approved subset that does have an order comes back sequenced",
+            json.dumps(subset_answer([carrier])["sequenced"]), "true")
+    clean("the two hashes differ, so a reader cannot mistake one answer for the other",
+          [] if set_hash([route]) != set_hash(full) else ["the subset hashes as the full set"])
+
+    # A base tree the carrier is already in: the route alone then sequences, which is the case where
+    # the subset is approved AFTER its carrier has landed in an earlier run.
+    clean("a route alone sequences where the tree already holds its carrier",
+          [row for row in sequenced("a route alone sequences where the tree already holds its carrier",
+                                    lambda: sequence([route], base={"claude/guides/g.md": "present"}))
+           ["hook_results"] if row["problems"]])
+
+    # The guards on the set itself.
+    control("an empty set is refused rather than reported as sequenced",
+            refusal(lambda: sequence([])), "SEQUENCE_SET_EMPTY")
+    control("a set past the search bound is refused rather than computed",
+            refusal(lambda: sequence([{"item_id": f"i-{n}", "operations": []} for n in range(SET_LIMIT + 1)])),
+            "SEQUENCE_SET_TOO_LARGE")
+    control("an item that appears twice in one set is named",
+            refusal(lambda: sequence([carrier, carrier])), "SEQUENCE_ITEM_REPEATED")
+    control("an operation of a type §7.3 does not have is named",
+            refusal(lambda: sequence([{"item_id": "i-x", "operations": [{"type": "rename",
+                                                                         "target": "a"}]}])),
+            "OPERATION_UNKNOWN")
+
+    # The stand-in gate itself, in both directions.
+    clean("the stand-in passes a tree whose every route names a path it holds",
+          route_integrity({"claude/guides/g.md": "present",
+                           "route:router/relevant.md->claude/guides/g.md": "present"}))
+    control("and names a route to nothing",
+            "; ".join(route_integrity({"route:router/relevant.md->claude/guides/g.md": "present"})),
+            "ROUTE_TO_NOTHING")
+
+    # The document, and what it says about a set with no order.
+    doc = document([together, [orphan, carrier]])
+    control("the document carries one row per set", str(doc["summary"]["sets"]), "2")
+    control("and counts the ones with no order", str(doc["summary"]["unsequenced"]), "1")
+    control("the unsequenced row carries the refusal's name",
+            json.dumps([row for row in doc["sets"] if not row["sequenced"]]), "SEQUENCE_NONE")
+    clean("and no row carries a tree's contents, only its hash",
+          [key for row in doc["sets"] for key in row if key in ("tree", "trees", "contents")])
+
+    # The predicate the real-hook script consults, by the hook's own markers. It is pure, so these
+    # controls cost nothing and cannot start anything - which is the point: when the marker check lived
+    # beside the subprocess, the revert trial ran the real hook twice in scratch worktrees, once to a
+    # 600-second timeout, and left both worktrees behind.
+    control("the hook's index snapshot is read as being under the hook",
+            "; ".join(under_the_hook({"GIT_INDEX_FILE": f"/tmp/{HOOK_INDEX_PREFIX}.AbCdEf"})),
+            "GIT_INDEX_FILE names the hook's index snapshot")
+    control("and its materialised tree too",
+            "; ".join(under_the_hook({"GIT_WORK_TREE": f"/tmp/{HOOK_TREE_PREFIX}.AbCdEf"})),
+            "GIT_WORK_TREE names the hook's materialised tree")
+    control("both markers at once give both reasons, so a caller knows which one fired",
+            str(len(under_the_hook({"GIT_INDEX_FILE": f"/tmp/{HOOK_INDEX_PREFIX}.A",
+                                    "GIT_WORK_TREE": f"/tmp/{HOOK_TREE_PREFIX}.B"}))), "2")
+    clean("while an environment with neither marker is not read as under the hook",
+          under_the_hook({"GIT_INDEX_FILE": "/tmp/some-other-index", "GIT_WORK_TREE": "/srv/tree"}))
+    clean("and an empty environment is not either", under_the_hook({}))
+
+    # That this module starts NOTHING is a property of its source, asserted here because the dispatch
+    # judge and this suite are checking two different things: dispatch asks whether a program it finds
+    # is declared, and this asks that there be none to find. The first form of this control compared a
+    # string with itself and could not fail.
+    import ast
+    own_text = pathlib.Path(__file__).read_text(encoding="utf-8")
+    own = ast.parse(own_text)
+    starters = {"subprocess", "tempfile", "multiprocessing", "pty", "runpy"}
+    imported = sorted({name.name.split(".")[0] for node in ast.walk(own)
+                       if isinstance(node, ast.Import) for name in node.names}
+                      | {(node.module or "").split(".")[0] for node in ast.walk(own)
+                         if isinstance(node, ast.ImportFrom)})
+    clean("this module imports nothing that can start a process or make a scratch directory, so the "
+          "real hook cannot be reached from here at all",
+          sorted(starters.intersection(imported)))
+    calls = sorted({ast.unparse(node.func) for node in ast.walk(own) if isinstance(node, ast.Call)
+                    and ast.unparse(node.func).split(".")[0] in starters})
+    clean("and makes no call into one under another name", calls)
+    control("while the suite can still see such a call when there is one, so this pair is not vacuous",
+            ", ".join(sorted({ast.unparse(node.func) for node in ast.walk(ast.parse(
+                "import subprocess\nsubprocess.run(['git', 'status'])"))
+                if isinstance(node, ast.Call)})), "subprocess.run")
+    # The script that does run the hook, and the two properties that are its alone to prove.
+    script = HERE.parent / "gates" / "sequencing-real-hook-check.sh"
+    control("the real-hook check lives outside session-distill, as a script the lead runs explicitly",
+            "present" if script.is_file() else f"absent at {script}", "present")
+    # The script's EXECUTABLE lines, with its comments removed: the first form of these two controls
+    # read the whole file and was satisfied by the prose at its top, so removing the real line left
+    # them green. A check that a comment can satisfy is a check about comments.
+    held = "\n".join(line for line in (script.read_text(encoding="utf-8") if script.is_file() else "")
+                     .splitlines() if not line.lstrip().startswith("#"))
+    control("and it asks this module whether it is under the hook rather than re-deriving the markers",
+            "asks" if any("sequencing.py" in line and "--under-the-hook" in line
+                          for line in held.splitlines()) else "re-derives or does not ask", "asks")
+    control("and bounds the hook run by a timeout",
+            # "bounded" / "unbounded" was the first pair here, and `control` asks whether the wanted
+            # text is IN the got text: "bounded" is a substring of "unbounded", so the control passed
+            # over a script with no bound at all. Opposites, not a word and its negation.
+            "alarm bounds the hook" if any("alarm" in line and "$HOOK" in line
+                                           for line in held.splitlines())
+            else "the hook runs with no time bound", "alarm bounds the hook")
+    control("and it is not a leg of the umbrella, which the hook itself runs",
+            "not a leg" if "sequencing-real-hook-check" not in
+            (HERE.parent / "gates" / "check-parity.sh").read_text(encoding="utf-8") else "a leg",
+            "not a leg")
+
+    reporting.append(True)
+    if failures:
+        for name, detail in failures:
+            print(f"sequencing --self-test [FAIL] {name}: {detail}", file=sys.stderr)
+        print(f"sequencing --self-test: FAILED ({len(failures)} of {len(ran)} controls)", file=sys.stderr)
+        return 1
+    print(f"sequencing --self-test: OK ({len(ran)} controls: the search over a set's orders with the "
+          f"deterministic stand-in - a route and its carrier in either arrival order, a set no order "
+          f"helps refused by name before the freeze, an approved subset judged on its own hash, the "
+          f"guards on the set, and the real-hook command's refusal under the hook's own markers; the "
+          f"real hook is never run here)")
+    return 0
+
+
+if __name__ == "__main__":
+    argv = sys.argv[1:]
+    if argv[:1] == ["--self-test"]:
+        sys.exit(self_test())
+    if argv[:1] == ["--under-the-hook"]:
+        # The one owner of the question, read by `gates/sequencing-real-hook-check.sh`: exit 1 and say
+        # why when this process is inside a commit, exit 0 when it is not.
+        said = under_the_hook()
+        if said:
+            sys.exit(f"REAL_HOOK_UNDER_HOOK: {'; '.join(said)} - the umbrella is itself run by the "
+                     f"pre-commit hook, so running the hook from under it recurses; run the check on "
+                     f"its own")
+        print("not under the hook")
+        sys.exit(0)
+    sys.exit("usage: sequencing.py --self-test | --under-the-hook\n"
+             "the real hook check: gates/sequencing-real-hook-check.sh")

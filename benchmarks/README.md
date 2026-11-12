@@ -79,7 +79,13 @@ documented isolator for attributing a flag to the instructions rather than the r
 The manifest declares every response the run owes — one cell per (item, obligation,
 scenario role, arm, host, repetition) — and is written once. Afterwards the receipts
 are held against it by identity, so a cell that never ran is a named failure rather
-than a smaller number nobody compares. Each receipt carries the sha256 of the exact
+than a smaller number nobody compares.
+
+That manifest identity is `BenchManifest/v1` (`manifest.py`), and it is what this instrument
+runs on. The session-distill redesign defines a v2 whose cell is (configuration, case, stratum)
+and whose episodes are its repetitions; it arrives with S8 in release 2 (plan WP-19) and **is not
+implemented here**. The schema is versioned rather than edited because a run already recorded
+stays readable while being unable to satisfy v2's acceptance rules. Each receipt carries the sha256 of the exact
 request, the host-returned session id, the seat **the host reported**, the instructions and
 fixture hashes, and the load-canary verdicts. Only `status: ok` is data — a response
 that never reached a seat is `defect:auth`, kept as evidence and excluded from
@@ -133,6 +139,20 @@ Five things the variant does that a hand-copied config home does not:
   manifest is read at **file** granularity: collapsing `skills/repo-charter/SKILL.md`
   to `skills` drags the operator's own skills into the experiment.
 
+## What stays as it is
+
+Two parts of this instrument are deliberately retained rather than carried forward, and both
+are named here so a reader does not take them for the redesign's:
+
+- **The tier experiments** (`benchmarks/tier/`) — bounds, budget, cards, levels and their
+  fixture generator. They answer which tier a role needs, a question the instruction-behavior
+  benchmark does not ask, and they keep their own shape.
+- **The v1 manifest reader** (`manifest.py`, `BenchManifest/v1`). Runs already recorded stay
+  readable, and the acceptance rules a v1 artifact was written under are the ones it is judged by.
+
+Every measurement in this file is dated evidence of the day it was taken, including the baseline
+below. Re-measure before relying on one; a figure here is not a current claim.
+
 ## The pieces
 
 | File | Owns |
@@ -174,7 +194,9 @@ the instructions and the item id, judges against `expect` versus `naive_miss`, a
 call is receipted. It is trusted for a batch only when every calibration case in
 `calibration.toml` is labelled correctly — four per item, and the two that matter are
 a *near miss* that reuses the right vocabulary while taking the wrong action, and a
-*mention* that names the wrong action while taking the right one. A judge scoring on
+*mention* that names the wrong action while taking the right one. That barrier is **batch-wide**
+today: one item's bad calibration withdraws trust for the whole batch. Release 2's WP-19 narrows
+it to the case, so a bad calibration stops that case instead. A judge scoring on
 vocabulary passes the first and fails the second. **An item with no calibration block
 is refused, never judged**, so a missing oracle cannot become an unvalidated verdict.
 

@@ -94,7 +94,10 @@ def subcommands(source: str | None = None) -> dict:
 
 
 def payload_files() -> list[str]:
-    return json.loads(read(REPO / "package.json"))["files"]
+    """The payload's PATHS. A negated entry is npm's exclusion rule, not a path it ships, and
+    counting one as payload made this figure disagree with every other reader of files[]."""
+    return [entry for entry in json.loads(read(REPO / "package.json"))["files"]
+            if not (isinstance(entry, str) and entry.startswith("!"))]
 
 
 def runtime_authorities(repo: pathlib.Path | None = None) -> dict:

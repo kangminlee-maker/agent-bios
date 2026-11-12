@@ -30,9 +30,11 @@ schema 1 ledger: a revert of the first run decision on the entry restores that s
 """
 import argparse
 import ast
+import contextlib
 import copy
 import datetime
 import importlib.util
+import io
 import json
 import pathlib
 import re
@@ -45,7 +47,10 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 from runlib import ledger as ledger_lib  # noqa: E402
 
-LEDGER = REPO / ledger_lib.LEDGER_REL
+# The owner's ledger, in this checkout. Named here rather than in `runlib/ledger.py`: this script is
+# author-side (the payload excludes it), and shipped code may not name a path under `design/` (WP-24).
+LEDGER_REL = "design/session-distill/ledger.json"
+LEDGER = REPO / LEDGER_REL
 READERS = HERE / "tables" / "ledger_readers.json"
 
 # The mapping itself (design §12.2's prefix table, the field table, `migrate_entry`, `migrate`) lives in
@@ -83,6 +88,14 @@ def lost_values(legacy, migrated, removed):
                 ok = there["window"] == value
             elif field == "classification":
                 ok = there["classification"] == ({**value, "type": "G"} if entry["status"] == "incubating-G" else value)
+            elif field == "keep":
+                # The record travels whole and gains the rationale the entry carried beside it (F-34).
+                rationale = {"reason": entry["reason"]} if entry.get("reason") is not None else {}
+                ok = (there.get("keep") or {}) == {**value, **rationale}
+            elif field == "reason":
+                # A keep row's rationale is found INSIDE the keep record, never on the entry: schema 2
+                # forbids an entry-level field, and an entry carrying one with no keep is refused.
+                ok = (there.get("keep") or {}).get("reason") == value
             elif field in KEPT_FIELDS and field not in ("absorbed_by", "retired", "retire_reason"):
                 ok = there.get(field) == value
             elif field in DECISION_FIELDS or field in EVENT_FIELDS:
@@ -291,8 +304,10 @@ def reader_problems(found, inventory, sources, repo=REPO):
 
 # ---------------------------------------------------------------- the check and the self-test
 
-def check_ledger(legacy):
-    """Every problem of migrating `legacy`: the design's own self-test rules over its migration."""
+def check_ledger(legacy, expected=EXPECTED_ROWS):
+    """Every problem of migrating `legacy`: the design's own self-test rules over its migration.
+    `expected` is the curated rows of THIS repo's ledger, so another file is judged by the
+    universal rules alone — a row of our ledger is not a rule about someone else's."""
     if legacy.get("schema") == 2:
         migrated, _ = migrate(legacy)
         return ([] if migrated == legacy else ["MIGRATION_NOT_IDEMPOTENT: a schema 2 ledger changed under the migration"]) + ledger_lib.validate_ledger(legacy)
@@ -300,7 +315,8 @@ def check_ledger(legacy):
         migrated, removed = migrate(legacy)
     except MigrationError as exc:
         return [str(exc)]
-    return leftover_fields(migrated) + lost_values(legacy, migrated, removed) + row_problems(migrated, CHAIN.search(legacy["window"]).group(2))
+    return leftover_fields(migrated) + lost_values(legacy, migrated, removed) \
+        + row_problems(migrated, CHAIN.search(legacy["window"]).group(2), expected=expected)
 
 
 def history(migrated, index=0):
@@ -537,11 +553,14 @@ def self_test():
             row["status"] = "placed" if rid == "S2-19" else row["status"]
             if not any(p.startswith(f"EXPECTED_RECORD_MISMATCH {rid}") for p in row_problems(broken, real_at)):
                 failures.append(f"a mishandled {rid} was not named by row id")
-        if ledger_lib.check_pair(legacy, real):
-            failures.append(f"the schema 1 ledger and its migration are not accepted by the id-set check: {ledger_lib.check_pair(legacy, real)[:3]}")
+        # This script IS the migration the comparison needs, and shipped code no longer loads it, so
+        # it passes itself (WP-24).
+        if ledger_lib.check_pair(legacy, real, migrate=migrate):
+            failures.append("the schema 1 ledger and its migration are not accepted by the id-set check: "
+                            f"{ledger_lib.check_pair(legacy, real, migrate=migrate)[:3]}")
         tampered = copy.deepcopy(real)
         tampered["entries"][0]["lesson"] = "tampered"
-        if not any("MIGRATION_MISMATCH" in p for p in ledger_lib.check_pair(legacy, tampered)):
+        if not any("MIGRATION_MISMATCH" in p for p in ledger_lib.check_pair(legacy, tampered, migrate=migrate)):
             failures.append("a schema 2 head that is not the migration of its schema 1 base was accepted")
         # a revert of the first run decision on a migrated entry restores the schema 1 status, and says it cannot without the element
         # (a decision that leaves the status as it was pins the earlier status by itself, so only the status-changing ones depend on the element)
@@ -603,7 +622,7 @@ def self_test():
         status_vocabulary = set(ledger_lib.schema()["$defs"]["entry"]["properties"]["status"]["enum"])
         with tempfile.TemporaryDirectory() as td:
             (pathlib.Path(td) / "design" / "session-distill").mkdir(parents=True)
-            (pathlib.Path(td) / ledger_lib.LEDGER_REL).write_text(ledger_lib.render(real), encoding="utf-8")
+            (pathlib.Path(td) / LEDGER_REL).write_text(ledger_lib.render(real), encoding="utf-8")
             summary = instructions_state().ledger_summary(pathlib.Path(td))
             if summary["entries"] != len(real["entries"]) or sum(summary["by_status"].values()) != len(real["entries"]) \
                     or not set(summary["by_status"]) <= status_vocabulary or sum(summary["placed_by_layer"].values()) != summary["by_status"].get("placed"):
@@ -630,8 +649,9 @@ def self_test():
             again = subprocess.run(command, capture_output=True, text=True)
             if again.returncode != 2 or "already merged" not in again.stderr:
                 failures.append(f"the documented invocation did not refuse a second apply for one window (exit {again.returncode})")
-            if ledger_lib.check_pair(legacy, merged):
-                failures.append(f"the schema 1 ledger after a legacy merge fails the id-set check: {ledger_lib.check_pair(legacy, merged)[:3]}")
+            if ledger_lib.check_pair(legacy, merged, migrate=migrate):
+                failures.append("the schema 1 ledger after a legacy merge fails the id-set check: "
+                                f"{ledger_lib.check_pair(legacy, merged, migrate=migrate)[:3]}")
 
     # the reader inventory: what the three layers find against what the inventory lists
     inventory = json.loads(READERS.read_text(encoding="utf-8"))
@@ -642,7 +662,7 @@ def self_test():
     if problems:
         failures.append(f"the reader inventory disagrees with the tree: {problems[:3]}")
     for path, layer in (("learn/build-promotions.py", "ast"), ("learn/ingest-learnings-export.py", "ast"), ("compose/instructions-state.py", "text"),
-                        ("session-distill/consolidate.js", "argument"), ("launch/agent-launch.toml", "text")):
+                        ("launch/agent-launch.toml", "text")):
         if layer not in found.get(path, {}):
             failures.append(f"{path} is found by the {layer} layer in the tree and discovery did not find it there")
 
@@ -678,13 +698,33 @@ def self_test():
     doc_sources = {**sources, "learn/doc.py": '"""reads design/session-distill/ledger.json"""\nX = 1\n'}
     if reader_problems(discover_readers(doc_sources, patterns), cleared, doc_sources):
         failures.append(f"a mention listed with its reason was still named: {reader_problems(discover_readers(doc_sources, patterns), cleared, doc_sources)}")
-    without = {**inventory, "readers": [r for r in inventory["readers"] if r["path"] != "session-distill/consolidate.js"]}
-    named = reader_problems(found, without, sources)
-    if not any(p.startswith("READER_UNLISTED session-distill/consolidate.js") and "argument" in p for p in named):
-        failures.append(f"consolidate.js dropped from the inventory was not named: {named}")
-    unwitnessed = {**sources, "session-distill/consolidate.js": sources["session-distill/consolidate.js"].replace("args.ledger", "args.rows")}
-    named = reader_problems(discover_readers(unwitnessed, patterns), inventory, unwitnessed)
-    if not any(p.startswith("READER_STALE session-distill/consolidate.js") for p in named):
+    # `consolidate.js`, the tree's only argument reader, was deleted at the WP-22 cutover, so the
+    # two argument-layer controls below are judged on a PLANTED reader instead of a live one. A
+    # control that indexes a live subject stops testing when that subject is deleted, and says
+    # nothing when it does; this pair carries its own subject and cannot go quiet.
+    arg_rel = "session-distill/planted-consolidator.js"
+    arg_row = {"path": arg_rel, "reads": ["id", "lesson"], "via": "the rows `args.ledger` carries",
+               "path_built": "argument", "witness": r"\bargs\.ledger\b"}
+    arg_sources = {**sources, arg_rel: "const rows = args.ledger || []\n"}
+    arg_found = discover_readers(arg_sources, patterns)
+    listed = {**inventory, "readers": inventory["readers"] + [arg_row]}
+    if "argument" not in arg_found.get(arg_rel, {}):
+        failures.append(f"the planted argument reader was not found by the argument layer: {sorted(arg_found.get(arg_rel, {}))}")
+    # The planted reader lives in the sources map, not in the tree, so the existence check names it;
+    # that row is the subject of the `learn/gone.py` control below. Asserted here, then set aside, so
+    # setting it aside cannot hide a different problem.
+    listed_problems = reader_problems(arg_found, listed, arg_sources)
+    if not any(p.startswith(f"READER_MISSING {arg_rel}") for p in listed_problems):
+        failures.append(f"a listed reader that is not a file of the tree was not named: {listed_problems}")
+    other = [p for p in listed_problems if not p.startswith(f"READER_MISSING {arg_rel}")]
+    if other:
+        failures.append(f"an argument reader the inventory lists was named anyway: {other}")
+    named = reader_problems(arg_found, inventory, arg_sources)
+    if not any(p.startswith(f"READER_UNLISTED {arg_rel}") and "argument" in p for p in named):
+        failures.append(f"an argument reader missing from the inventory was not named: {named}")
+    unwitnessed = {**arg_sources, arg_rel: "const rows = args.rows || []\n"}
+    named = reader_problems(discover_readers(unwitnessed, patterns), listed, unwitnessed)
+    if not any(p.startswith(f"READER_STALE {arg_rel}") for p in named):
         failures.append(f"an argument reader that stopped naming the rows was not named stale: {named}")
     stale = {"readers": inventory["readers"] + [{"path": "learn/gone.py", "reads": ["status"], "via": "direct", "path_built": "literal"}],
              "mentions_only": inventory["mentions_only"] + [{"path": "learn/also-gone.py", "reason": "x"}]}
@@ -701,22 +741,196 @@ def self_test():
         if "READERS_UNDISCOVERABLE" not in str(exc):
             failures.append(f"reader discovery refused without its code: {exc}")
 
+    # --apply, the one-time move of a ledger FILE. Every control here reads the bytes on disk,
+    # because what this path owes is the file: a refusal that has already written half of one is
+    # worse than no migration, and "nothing was written" is only checkable against the bytes.
+    def applied(target, removed_file):
+        """`--apply`'s exit code with its own report kept out of this suite's output: a refusal
+        message printed here reads as a failure of the suite that is testing for it."""
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return apply_migration(target, removed_file)
+
+    with tempfile.TemporaryDirectory(prefix="apply-", dir=tempfile.gettempdir()) as td:
+        area = pathlib.Path(td)
+        target, gone = area / "ledger.json", area / "removed.json"
+        before = ledger_lib.render(full)
+        target.write_text(before, encoding="utf-8")
+        if applied(target, None) != 2 or target.read_text(encoding="utf-8") != before or gone.exists():
+            failures.append("--apply without a place for the removed values was not refused, or wrote anyway")
+        if applied(target, gone) != 0:
+            failures.append("--apply refused a ledger --check accepts")
+        written = json.loads(target.read_text(encoding="utf-8"))
+        if written != ok_migrated or target.read_text(encoding="utf-8") != ledger_lib.render(ok_migrated):
+            failures.append("--apply wrote something other than the migration, or in other bytes")
+        # Read defensively: a mutation that leaves this file unwritten must leave the suite able to
+        # PRINT the failure above. It died here instead, and a control whose text never reaches the
+        # reader is a control they cannot act on.
+        if not gone.is_file():
+            failures.append("--apply reported success and wrote no removed-value file")
+        elif json.loads(gone.read_text(encoding="utf-8")) != ok_removed:
+            failures.append(f"--apply did not write the removed values the migration returns: {gone.read_text(encoding='utf-8')[:120]}")
+        after = target.read_text(encoding="utf-8")
+        second = area / "removed-2.json"
+        if applied(target, second) != 0 or target.read_text(encoding="utf-8") != after or second.exists():
+            failures.append("a second --apply was not a no-op: it rewrote the file or wrote a second removed-value file")
+        refused = area / "refused.json"
+        broken = copy.deepcopy(full)
+        broken["entries"][0]["decision1"] = "a sentence no prefix of the table matches"
+        raw = ledger_lib.render(broken)
+        refused.write_text(raw, encoding="utf-8")
+        if applied(refused, area / "removed-3.json") != 1 or refused.read_text(encoding="utf-8") != raw:
+            failures.append("--apply migrated a ledger whose decision text no prefix maps, or changed the file while refusing")
+        # The CHECK is what stands between a problem and the write, and a refusal the migration
+        # raises by itself does not test it: the write never starts. So the check is made to fail
+        # over a ledger that migrates cleanly, and the file must come out byte-identical.
+        clean_in = area / "check-fails.json"
+        clean_raw = ledger_lib.render(full)
+        clean_in.write_text(clean_raw, encoding="utf-8")
+        kept_check = globals()["check_ledger"]
+        try:
+            globals()["check_ledger"] = lambda *_args, **_kw: ["PLANTED_PROBLEM: the check speaks"]
+            code = applied(clean_in, area / "removed-4.json")
+        finally:
+            globals()["check_ledger"] = kept_check
+        if code != 1 or clean_in.read_text(encoding="utf-8") != clean_raw or (area / "removed-4.json").exists():
+            failures.append(f"--apply wrote a ledger its own check refused (exit {code}); the check runs "
+                            f"BEFORE the write, and a problem it reports stops the file being touched")
+
+    # The `keep` layer of THIS repo's ledger is empty — 0 rows under schema 1 and 0 under schema 2 —
+    # so the real file cannot witness that the migration preserves it, and a census taken over it
+    # would agree for the reason that there is nothing to disagree about. The pair below carries its
+    # own keep records, and the layer's reader is the shipped one, not a copy of its rule.
+    from runlib import inventory as inventory_lib
+    pair = tiny(status="placed", keep={"units": ["unit-1"]})
+    pair["entries"].append({"id": "S3-2", "lesson": "l2", "status": "incubating", "window": "2026-08-25",
+                            "surfaced": "2026-08-25", "classification": None, "keep": {"units": ["unit-2"]}})
+    pair["entries"].append({"id": "S3-3", "lesson": "l3", "status": "retired", "window": "2026-08-25",
+                            "surfaced": "2026-08-25", "classification": None, "retired": "2026-08-25",
+                            "retire_reason": "superseded", "keep": {"units": ["unit-3"]}})
+    pair_migrated, pair_removed = migrate(pair)
+    if ledger_lib.validate_ledger(pair_migrated) or lost_values(pair, pair_migrated, pair_removed):
+        failures.append(f"a ledger carrying keep records did not migrate to a valid record: "
+                        f"{ledger_lib.validate_ledger(pair_migrated) + lost_values(pair, pair_migrated, pair_removed)}")
+    # S3-1 is carried; S3-2 (incubating) and S3-3 (retired) are held back for different reasons, so
+    # the pair is judged on a carried record and on two held-back ones.
+    for layer, expect_refs in (("ledger_keep", {"S3-1"}), ("ledger_incubating", {"S3-2"})):
+        one, two = {}, {}
+        before = inventory_lib.ledger_carriers(pair, layer, one)
+        after = inventory_lib.ledger_carriers(pair_migrated, layer, two)
+        if {row["item_ref"] for row in before} != expect_refs:
+            failures.append(f"the {layer} layer of the schema 1 fixture is not its planted subject: "
+                            f"{sorted(row['item_ref'] for row in before)}")
+        if [(row["item_ref"], row["text"], row["provenance"]) for row in before] != \
+                [(row["item_ref"], row["text"], row["provenance"]) for row in after]:
+            failures.append(f"the {layer} layer read the migrated ledger differently: "
+                            f"{[(r['item_ref'], r['provenance']) for r in before]} vs "
+                            f"{[(r['item_ref'], r['provenance']) for r in after]}")
+        if one.get("ledger_keep_held_back") != two.get("ledger_keep_held_back"):
+            failures.append(f"the {layer} layer held different entries back on the two schemas: "
+                            f"{one.get('ledger_keep_held_back')} vs {two.get('ledger_keep_held_back')}")
+    # `reason`, which schema 1 keep rows carry as their rationale, is not a property schema 2 allows on
+    # an entry (`ledger.schema.json`, additionalProperties false), so the migration must keep refusing
+    # it by name rather than pass it through into a record the validator rejects. Its home is open.
+    # F-34 states one asymmetry out loud: the reader takes a keep's rationale from the keep RECORD
+    # and never from the entry, so a schema 1 ledger's entry-level rationale is not in the carrier
+    # until the migration moves it. That is the decision, not a loss — an entry-level `reason` is a
+    # field schema 2 refuses, and reading it for one schema only is how the reader came to answer
+    # null for every schema 2 ledger.
+    rationed = tiny(status="placed", keep={"units": ["u"]}, reason="still delivered")
+    migrated_rationed, _ = migrate(rationed)
+
+    def first_keep_reason(doc):
+        """The one keep carrier's rationale, or why there is none to read.
+
+        Indexed blindly, this control crashed instead of reporting: a revert that drops the keep
+        record leaves the layer with no carrier at all, and `[0]` then ended the run with an
+        IndexError before any failure was printed (WP-22a's revert trial). A control a reader
+        cannot act on is not a control, so the absence is a value this assertion compares."""
+        rows = inventory_lib.ledger_carriers(doc, "ledger_keep", {})
+        if not rows:
+            return "no keep carrier in the layer"
+        return rows[0]["provenance"].get("keep_reason")
+
+    seen = [first_keep_reason(doc) for doc in (rationed, migrated_rationed)]
+    if seen != [None, "still delivered"]:
+        failures.append(f"the keep rationale's visibility did not move with the field: {seen}")
+    migrated_pair, _ = migrate(tiny(status="placed", keep={"units": ["u"]}, reason="still delivered"))
+    if (migrated_pair["entries"][0]["keep"] or {}) != {"units": ["u"], "reason": "still delivered"}:
+        failures.append(f"a keep row's rationale did not migrate into the keep record: "
+                        f"{migrated_pair['entries'][0]['keep']}")
+    try:
+        migrate(tiny(status="placed", reason="a rationale with no keep record to hold it"))
+        failures.append("an entry carrying a rationale and no keep record was migrated anyway")
+    except MigrationError as exc:
+        if "FIELD_UNMAPPED" not in str(exc) or "reason" not in str(exc):
+            failures.append(f"a rationale with nowhere to go was refused without naming the field: {exc}")
+
     for failure in failures:
         print(f"migrate-ledger --self-test [FAIL] {failure}")
     if failures:
         return 1
-    print(f"migrate-ledger --self-test: OK (fixtures for every mapping rule and refusal, {note}, the reader inventory against a text, AST and argument discovery)")
+    print(f"migrate-ledger --self-test: OK (fixtures for every mapping rule and refusal, {note}, the reader inventory against a text, AST and argument discovery, the one-time --apply over a file)")
+    return 0
+
+
+def apply_migration(path, removed_path):
+    """Move one ledger file from schema 1 to schema 2, once. The migration drops `verdict`,
+    `strength`, `criteria` and the window chain, and this module is their only source, so a run
+    that cannot write them down is refused rather than performed: the values would exist nowhere
+    after it. Every problem `--check` reports stops the write, the bytes come from
+    `runlib/ledger.py`'s own renderer, and a schema 2 file is left exactly as it is, so a second
+    run is a no-op rather than a second migration."""
+    legacy = json.loads(path.read_text(encoding="utf-8"))
+    expected = EXPECTED_ROWS if path.resolve() == LEDGER.resolve() else {}
+    if legacy.get("schema") == 2:
+        problems = check_ledger(legacy, expected)
+        if problems:
+            print("\n".join(problems), file=sys.stderr)
+            return 1
+        print(f"migrate-ledger --apply: already schema 2 ({len(legacy['entries'])} entries); nothing written")
+        return 0
+    if removed_path is None:
+        print("migrate-ledger --apply: refused — --removed FILE is required, because the migration "
+              "drops values (verdict, strength, criteria, the window chain) this module is the only "
+              "source of; they belong in the dated migration record", file=sys.stderr)
+        return 2
+    problems = check_ledger(legacy, expected)
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 1
+    try:
+        migrated, removed = migrate(legacy)
+    except MigrationError as exc:
+        # Unreachable while the check above runs first. A named refusal rather than a traceback is
+        # what a caller can act on, and it is what keeps a control's own failure printable.
+        print(f"migrate-ledger --apply: refused — {exc}", file=sys.stderr)
+        return 1
+    # One row per entry, plus `_ledger` for the window chain: the unit the dated migration record
+    # carries. The value count is reported beside it so neither figure stands in for the other.
+    rows = len(removed)
+    values = sum(1 for fields in removed.values() for value in fields.values() if value not in (None, []))
+    removed_path.write_text(json.dumps(removed, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    scratch = path.with_suffix(path.suffix + ".migrating")
+    scratch.write_text(ledger_lib.render(migrated), encoding="utf-8")
+    scratch.replace(path)
+    print(f"migrate-ledger --apply: schema 1 -> 2, {len(migrated['entries'])} entries, "
+          f"{len(migrated['windows'])} windows, {rows} removed-value rows holding {values} values "
+          f"in {removed_path}")
     return 0
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--removed", help="where --apply writes the values the schema removes")
     parser.add_argument("--ledger", default=str(LEDGER))
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test()
+    if args.apply:
+        return apply_migration(pathlib.Path(args.ledger), args.removed and pathlib.Path(args.removed))
     if not args.check:
         parser.print_usage()
         return 2

@@ -92,6 +92,82 @@ URL_EXEMPT_STATIC = (
      frozenset({"www.w3.org"}), 1, "the SVG XML namespace is a format identifier, not a network endpoint"),
     ("learn/learning.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
      "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    # The schemas S5 and S6 added on the other history: each carries the same dialect pointer as its
+    # siblings, and the merge of the two branches is where they first meet this list.
+    ("session-distill/schemas/checks.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/cross_review.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/judge.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/sweep.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/reconsider.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/propose.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/approval.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/adjudication.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/confirmation.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/s9b.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/s7b.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/census.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/claim.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/coverage.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/event.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/evidence.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/expected_observation.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/form.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/intake.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/inventory.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/ledger.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/observation.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/read.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/run.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/stitch.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/runlib/validate.py", '"$schema": "https://json-schema.org/draft/2020-12/schema"',
+     frozenset({"json-schema.org"}), 1,
+     "the same dialect pointer inside the validator's own fixture document"),
+    # S5b's fixture check compiles one definition of a schema as a schema of its own, which names the dialect the
+    # file names; the merge of wp/11b-delivery with wp/20-review is where the line first meets this list
+    ("session-distill/runlib/stage_delivery.py", 'held["$schema"] = "https://json-schema.org/draft/2020-12/schema"',
+     frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer a compiled definition names, a namespace and not an endpoint"),
+    ("session-distill/runlib/validate.py", '"https://example.invalid/schema.json"',
+     frozenset({"example.invalid"}), 1,
+     "a planted unresolvable $ref: the control asserts the validator refuses a remote reference "
+     "rather than fetching it, and `.invalid` is reserved (RFC 2606) so nothing can answer"),
+    ("session-distill/runlib/dispatch.py", "subprocess.run(['curl', 'https://example.invalid/'])",
+     frozenset({"example.invalid"}), 1,
+     "the egress primitive this suite plants in a generated script to prove the closure refuses "
+     "it; a reserved name nothing can answer"),
+    ("session-distill/runlib/inventory.py", 'f"https://x-access-token:{github_token}@forge.test/',
+     frozenset({"x-access-token:{github_token}@forge.test"}), 1,
+     "a userinfo-bearing `.test` fixture remote. The host IS a reserved fixture label, but the "
+     "fixture regex's host class excludes `:` on purpose, so it cannot see one behind userinfo"),
+    ("session-distill/runlib/inventory.py", '"https://user:shortpass@fixture.test/',
+     frozenset({"user:shortpass@fixture.test"}), 1,
+     "the same shape with a password-looking userinfo: the unit under test is that neither the "
+     "userinfo nor the token reaches any artifact"),
     ("claude/guides/cli-multi-model-workflow.md", "Official basis",
      frozenset({"developers.openai.com", "learn.chatgpt.com", "code.claude.com"}),
      None, "provider documentation links on the guide's evidence line"),
@@ -137,8 +213,17 @@ def shipped_files(root):
     Returns (subjects, problems) — a derivation problem is a failure to report,
     never a smaller denominator."""
     package = json.loads((root / "package.json").read_text(encoding="utf-8"))
+    # Compiled bytecode is not shipped and is not a subject. `.npmignore` excludes
+    # `**/__pycache__/` and `*.pyc`, and the private installer skips them when it expands a
+    # directory entry, so a `.pyc` in the worktree is a local artifact of running the code — which
+    # this repo does constantly, `session-distill/runlib/` most of all. Scanning one read its
+    # compiled constants as shipped prose and reported URLs inside a cache file, and because the
+    # `urls` leg then failed in EVERY mutated copy, fourteen of this gate's own planted violations
+    # stopped proving what they declare. The exclusion is derived from the two places that already
+    # agree, not invented here.
     tracked = sorted(str(p.relative_to(root)) for p in root.rglob("*")
-                     if p.is_file() and ".git/" not in str(p.relative_to(root)))
+                     if p.is_file() and ".git/" not in str(p.relative_to(root))
+                     and p.suffix != ".pyc" and "__pycache__" not in p.parts)
     return _load_hygiene().derive_subjects(root, package, tracked)
 
 

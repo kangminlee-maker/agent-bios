@@ -92,6 +92,7 @@ CALL_SCHEMA = _closed(
     view_window={"type": "boolean"}, realization={"enum": ["live", "replay", "golden"]},
     exit_status={"type": ["integer", "null"]}, wall_ms={"type": ["integer", "null"]},
     contract={"enum": ["required", "none"]}, provider_signals=_strings, input_observed=_int,
+    host_schema_sha256=_str_or_null,
     bound=_closed(("limit", "driver_bytes", "stop_standing"), limit=_int,
                   driver_bytes={"type": ["integer", "null"]}, stop_standing={"type": "boolean"},
                   context_capacity={"type": ["integer", "null"]},
@@ -232,6 +233,97 @@ def auxiliary_models(host, version, live=False, path=SEATS):
     if entry.get("version") != version:
         return set()
     return {aux["model"] for aux in entry.get("auxiliary", []) if aux.get("measured") is True or not live}
+
+
+# The file a host whose provider takes a dialect of schema.json is handed instead (packets.provider_schema_bytes, D7)
+HOST_SCHEMA = "host-schema.json"
+
+
+def host_schema_problems(c):
+    """What the call's record gets wrong about the schema its host was handed: `host_schema_sha256` names the bytes;
+    for a host that reads schema.json itself they are schema.json's, and no host-schema.json is kept; for one whose
+    provider takes a dialect they are host-schema.json's, which must be exactly the projection of this call's
+    schema.json, so a weakened or hand-written schema cannot have been sent in its place. A record written before the
+    field existed carries none, and its host was handed schema.json."""
+    out = []
+    held = c.dir / HOST_SCHEMA
+    present = held.is_file()
+    if "host_schema_sha256" not in c.call:
+        if present:
+            out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: present for a call whose record names no handed schema")
+        return out
+    named = c.call.get("host_schema_sha256")
+    if not c.required:
+        if named is not None or present:
+            out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: a handed schema for a call declared schema-less")
+        return out
+    try:
+        expected = packets.provider_schema_bytes(c.schema_bytes, c.kind) if c.schema_bytes is not None else None
+    except (validate.SchemaPolicyError, ValueError) as exc:
+        return [f"RECORD_INTEGRITY {HOST_SCHEMA}: schema.json has no projection for {c.kind} ({str(exc)[:120]})"]
+    if expected is None:
+        if present or named != c.call.get("schema_sha256"):
+            out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: {c.kind} reads schema.json itself, and the record names "
+                       "other bytes as handed")
+        return out
+    sent = held.read_bytes() if present else None
+    if sent != expected:
+        out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: not the projection of schema.json for {c.kind} "
+                   "(packets.provider_schema_bytes)")
+    if sent is None or hashlib.sha256(sent).hexdigest() != named:
+        out.append(f"RECORD_INTEGRITY {HOST_SCHEMA}: not the bytes call.json says the host was handed")
+    return out
+
+
+def seats_problems(doc):
+    """What makes seats.json's pins disagree with the version each was established at, by name (`PIN_PATH_VERSION`,
+    `PIN_STALE`); empty when none does. A host's pinned binary is the versioned file (plan P2), so its path names the
+    pinned version as one of its parts. Everything measured or observed for a host is valid at the version it was
+    established at and says which: a measured host allowance its `measured_version`, a profile's built-in `context` its
+    `observed_version` unless it is declared `carried` with a basis, a measured auxiliary role its
+    `measured_version`, and a seat capacity its `host_version`. So a version move that leaves any of them at the old
+    version is named here, and the re-pin takes each with it: re-measured, marked unmeasured, or declared carried."""
+    out = []
+    hosts = (doc or {}).get("hosts") or {}
+    for host, entry in sorted(hosts.items()):
+        version, path = entry.get("version"), str(entry.get("path") or "")
+        if not isinstance(version, str) or not version or version not in pathlib.PurePosixPath(path).parts:
+            out.append(f"PIN_PATH_VERSION {host}: the pinned path {path!r} does not name version {version!r} as one of "
+                       "its parts, so it is no versioned file of that version")
+        for profile, slot in sorted((entry.get("host_allowance") or {}).items()):
+            if isinstance(slot, dict) and slot.get("measured") is True and slot.get("measured_version") != version:
+                out.append(f"PIN_STALE {host}.host_allowance.{profile}: measured at {slot.get('measured_version')!r}, "
+                           f"and the pin is {version!r}; re-measure it, or mark it unmeasured")
+        for profile, held in sorted((entry.get("context") or {}).items()):
+            if not isinstance(held, dict) or held.get("observed_version") == version:
+                continue
+            if held.get("carried") is not True or not str(held.get("basis") or "").strip():
+                out.append(f"PIN_STALE {host}.context.{profile}: observed at {held.get('observed_version')!r}, and the "
+                           f"pin is {version!r}; observe it again, or declare it carried with the basis for carrying it")
+        for aux in entry.get("auxiliary") or []:
+            if isinstance(aux, dict) and aux.get("measured") is True and aux.get("measured_version") != version:
+                out.append(f"PIN_STALE {host}.auxiliary.{aux.get('model')}: measured at "
+                           f"{aux.get('measured_version')!r}, and the pin is {version!r}")
+    for seat, held in sorted(((doc or {}).get("seat_capacity") or {}).items()):
+        if seat.startswith("$") or not isinstance(held, dict):
+            continue
+        pinned = (hosts.get(seat.partition(":")[0]) or {}).get("version")
+        if held.get("host_version") != pinned:
+            out.append(f"PIN_STALE seat_capacity.{seat}: reported at host {held.get('host_version')!r}, and the pin is "
+                       f"{pinned!r}; report it again at the pinned version, or remove it")
+    return out
+
+
+def builtin_context(entry, profile, host_version):
+    """What the host loads by itself under `profile` at `host_version`, as seats.json declares it for a call's
+    manifest: the declaration's own fields, its version and basis left out; nothing when the pin is another version."""
+    if entry.get("version") != host_version:
+        return {}
+    held = (entry.get("context") or {}).get(profile) or {}
+    return {k: v for k, v in held.items() if k not in CONTEXT_PROVENANCE}
+
+
+CONTEXT_PROVENANCE = ("observed_version", "carried", "basis")
 
 
 def capture_sha256(call_dir):
@@ -522,6 +614,7 @@ def call_record(c, errors):
         errors.append("RECORD_INTEGRITY schema.json: not the schema call.json says the driver required")
     if not c.required and c.schema_bytes is not None:
         errors.append("RECORD_INTEGRITY schema.json: present for a call declared schema-less")
+    errors.extend(host_schema_problems(c))
     if c.packet is None or c.result_bytes is None:
         errors.append("RECORD_INTEGRITY packet.md and result.json: the bytes sent and read must both be kept")
     if not isinstance(c.host, dict) or c.host.get("call_id") != c.call.get("call_id") or c.host.get("host") != c.kind:
@@ -1105,6 +1198,9 @@ def self_test():
                                   "exit_status": facts["exit_status"], "wall_ms": None, "stopped": None, "contract": "none"})
         return seal(files)
 
+    # a replayed Codex capture is judged under the version seats.json pins now, as a replayed Claude one is
+    codex_version = seats()["hosts"]["codex"]["version"]
+
     def codex_case(probe, case, seat=None):
         """A replayed Codex capture: codex-accounting frames inside a golden envelope, or a
         codex-runner capture with its own packet, result, schema and context."""
@@ -1126,7 +1222,7 @@ def self_test():
             files["packet.md"] = packets.build(call_id, "S6", seat, "Reply with the single word OK.\n")
             files["result.json"] = b"OK"
             jput(files, "capture/host.json", {"host": "codex", "call_id": call_id, "profile": "hermetic",
-                                              "profile_flags_sha256": pinned_flags_sha256("codex", "0.163.0", "hermetic"),
+                                              "profile_flags_sha256": pinned_flags_sha256("codex", codex_version, "hermetic"),
                                               "cwd": workdir, "session_id": root, "workdir_files": [],
                                               "context": {"instructions": [], "appended_prompts": [], "skills": [],
                                                           "agents": [], "hooks": []}})
@@ -1136,7 +1232,7 @@ def self_test():
                                    "seat_observed": {}, "requests": rows, "wall_ms": None, "attempts": len(rows),
                                    "reconciled": bool(rows)})
         jput(files, "call.json", {"schema": "DistillCall/v1", "call_id": call_id, "stage": "S6", "item": case,
-                                  "attempt": 1, "host": "codex", "host_version": "0.163.0", "seat": seat,
+                                  "attempt": 1, "host": "codex", "host_version": codex_version, "seat": seat,
                                   "child_seat": None, "profile": "hermetic", "manifest": manifest(workdir, skills=skills),
                                   "schema_sha256": schema_sha, "view_window": False, "realization": "replay",
                                   "exit_status": facts["exit_status"], "wall_ms": None, "stopped": None, "contract": "none"})
@@ -1645,6 +1741,30 @@ def self_test():
             jedit(files, "call.json", lambda o: o.update(schema_sha256=hashlib.sha256(files["schema.json"]).hexdigest()))
         return edit
     control("codex-schema-valid-json-result", variant(codex, schema_call(b'{"verdict": "ABSENT", "why": "no section names it"}')))
+    # D7: what the host was handed beside schema.json. A Codex host is handed its provider's projection of it
+    # (packets.provider_schema_bytes), recorded by its own hash; a Claude host reads schema.json itself.
+    def handed(files):
+        sent = packets.provider_schema_bytes(files["schema.json"], "codex")
+        files[HOST_SCHEMA] = sent
+        jedit(files, "call.json", lambda o: o.update(host_schema_sha256=hashlib.sha256(sent).hexdigest()))
+    answered = schema_call(b'{"verdict": "ABSENT", "why": "no section names it"}')
+    control("codex-handed-the-projection-of-its-schema", variant(codex, answered, handed))
+    control("codex-handed-a-schema-that-is-not-the-projection",
+            variant(codex, answered, handed, lambda f: f.update({HOST_SCHEMA: f[HOST_SCHEMA].replace(b'"why"', b'"whz"', 1)})),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: not the projection of schema.json for codex")
+    control("codex-handed-bytes-the-record-does-not-name",
+            variant(codex, answered, handed, lambda f: jedit(f, "call.json", lambda o: o.update(host_schema_sha256="0" * 64))),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: not the bytes call.json says the host was handed")
+    control("codex-recorded-a-handed-schema-it-did-not-keep", variant(codex, answered, handed, lambda f: f.pop(HOST_SCHEMA)),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: not the projection of schema.json for codex")
+    control("a-handed-schema-the-record-does-not-name",
+            variant(codex, answered, lambda f: f.update({HOST_SCHEMA: packets.provider_schema_bytes(f["schema.json"], "codex")})),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: present for a call whose record names no handed schema")
+    control("claude-handed-schema-json-itself",
+            variant(claude, lambda f: jedit(f, "call.json", lambda o: o.update(host_schema_sha256=o["schema_sha256"]))))
+    control("claude-recorded-as-handed-other-bytes",
+            variant(claude, lambda f: jedit(f, "call.json", lambda o: o.update(host_schema_sha256="0" * 64))),
+            f"RECORD_INTEGRITY {HOST_SCHEMA}: claude reads schema.json itself")
     control("codex-prose-wrapped-json-is-never-parsed", variant(codex, schema_call(prose)),
             "SCHEMA_INVALID result: not one JSON document")
     # The brace-extraction path is taken from benchmarks/absence.py's own source — its parse_verdict
@@ -2267,6 +2387,8 @@ def self_test():
         "contract scope": "plan WP-02 (A#7): steps 4 and 5 judge a structured output, and only where call.json declares them",
         "bytes kept": "design §3.2 step 1: the hashes are of the bytes the driver sent and read, so both are kept",
         "schema file": "design §3.2 step 1: the schema hash is of the schema required, so the file is that schema",
+        "handed schema": "D7 (2026-11-12): what the host was handed is schema.json, or its provider dialect's projection "
+                         "of it made by packets.provider_schema_bytes, recorded by its own hash",
         "usage record": "design §13.3: every call records its usage, and it is this call's",
         "main request recorded": "design §3.2 step 1: the Claude bindings are of the main request, so one is recorded",
         "result object": "design §3.2 step 1: completion is read from the result, so the host wrote one",
@@ -2317,6 +2439,7 @@ def self_test():
         ("window_bound", "{} {}: {}; a claim is never judged by a weaker rule (usage.json against call.json "
                          "bound.claim)"): ("the window bound",),
         ("call_record", "RECORD_INTEGRITY call.json {}"): ("call record",),
+        ("call_record", "<host_schema_problems>"): ("handed schema",),
         ("call_record", "RECORD_INTEGRITY call.json: absent, unreadable, or without call_id and host"): ("call record",),
         ("call_record", "RECORD_INTEGRITY capture/host.json {}"): ("malformed record is a named verdict",),
         ("call_record", "RECORD_INTEGRITY capture/host.json: absent, or not this call's {} capture"): ("capture",),
@@ -2499,6 +2622,53 @@ def self_test():
     exercised.add("RETRY_EXHAUSTED") if not twice["ok"] else None
     if plan_codes - exercised:
         failures.append(f"codes no control exercises: {sorted(plan_codes - exercised)}")
+    # seats.json's pins against the version each value was established at: the real file first, then one planted
+    # break per rule, each on rows of its own, so the controls keep testing after the next re-pin
+    held_seats = json.loads(SEATS.read_text(encoding="utf-8"))
+    ran.append("seats-pins-agree-with-their-versions")
+    if seats_problems(held_seats) or not held_seats.get("hosts"):
+        failures.append(f"seats-pins-agree-with-their-versions: {seats_problems(held_seats) or 'no hosts'}")
+
+    def other_context(carried, basis):
+        return lambda d: d["hosts"]["codex"].setdefault("context", {}).update(
+            planted={"skills": [], "observed_version": "0.0.1", "carried": carried, "basis": basis})
+    for name, bend, want in (
+            ("a-version-moved-without-its-path", lambda d: d["hosts"]["codex"].update(version="9.9.9"),
+             "PIN_PATH_VERSION codex"),
+            ("a-measured-allowance-left-at-the-old-version",
+             lambda d: d["hosts"]["claude"]["host_allowance"].update(
+                 planted={"allowance_tokens": 1, "measured": True, "measured_version": "0.0.1", "basis": "b"}),
+             "PIN_STALE claude.host_allowance.planted"),
+            ("a-measured-allowance-naming-no-version",
+             lambda d: d["hosts"]["claude"]["host_allowance"].update(
+                 planted={"allowance_tokens": 1, "measured": True, "basis": "b"}),
+             "PIN_STALE claude.host_allowance.planted"),
+            ("a-context-observed-at-another-version-not-carried", other_context(False, "b"),
+             "PIN_STALE codex.context.planted"),
+            ("a-carried-context-without-its-basis", other_context(True, " "), "PIN_STALE codex.context.planted"),
+            ("a-measured-auxiliary-at-another-version",
+             lambda d: d["hosts"]["claude"].setdefault("auxiliary", []).append(
+                 {"model": "planted", "measured": True, "measured_version": "0.0.1"}),
+             "PIN_STALE claude.auxiliary.planted"),
+            ("a-seat-capacity-at-another-version",
+             lambda d: d.setdefault("seat_capacity", {}).update(
+                 {"claude:planted/high": {"context_capacity": 1, "host_version": "0.0.1", "basis": "b"}}),
+             "PIN_STALE seat_capacity.claude:planted/high")):
+        ran.append(name)
+        bent = copy.deepcopy(held_seats)
+        bend(bent)
+        got = seats_problems(bent)
+        if not any(line.startswith(want) for line in got):
+            failures.append(f"{name}: expected a line starting {want!r}, got {got}")
+    # a call's manifest declares the built-in context without the declaration's provenance, and none at another version
+    ran.append("builtin-context-is-the-declaration-without-its-provenance")
+    codex_entry = held_seats["hosts"]["codex"]
+    declared = (codex_entry.get("context") or {}).get("hermetic") or {}
+    got = builtin_context(codex_entry, "hermetic", codex_entry["version"])
+    if (not declared.get("skills") or got != {k: v for k, v in declared.items() if k not in CONTEXT_PROVENANCE}
+            or set(got) & set(CONTEXT_PROVENANCE) or builtin_context(codex_entry, "hermetic", "0.0.1") != {}):
+        failures.append(f"builtin-context-is-the-declaration-without-its-provenance: {got}")
+
     # The port of claude-runner/proto/mutation_audit.py, at the grain of a check rather than of a
     # code (the plan's codes are coarser than the probe's): drop one check from the gate, re-judge
     # the same artifacts, and require some control to notice — an asserted line of a control that

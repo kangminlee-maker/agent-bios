@@ -1,17 +1,18 @@
 {
-  "$comment": "design §6.5 and §3.2 as data (plan WP-10 done-when 4): the population planted in every run, each kind with its count, the stage that checks it and the verdict it must receive. runlib/controls.py plants the §6.5 kinds into S5's population under ordinary ids, borrowing a natural formed candidate's events and quotes, and writes their expected verdicts to controls.json, a file no packet carries and S6 never reads. The §3.2 gate controls are judged by the gate over planted call directories of the stage that dispatches calls; a run that lacks any kind's verdict is CONTROLS_INCOMPLETE.",
+  "$comment": "design §6.5 and §3.2 as data (plan WP-10 done-when 4): the population planted in every run, each kind with its count, the stage that checks it and the verdict it must receive: per stage, the design's words (`text`) and the rule runlib/controls.py's evaluators apply (`rule`; S5: `retrieved`, `problem`/`of`/`in`, `fields`; S6: `unit_diagnosis`, `admission`, `requirements`), so the verdict a run is held to is this table's. runlib/controls.py plants the §6.5 kinds into S5's population under ordinary ids, borrowing a natural formed candidate's events and quotes, and writes their expected verdicts to controls.json, a file no packet carries and S6 never reads. The §3.2 gate controls are judged by the gate over planted call directories of the stage that dispatches calls; a run that lacks any kind's verdict is CONTROLS_INCOMPLETE.",
   "planted": [
     {"kind": "paraphrase_covered", "count": 2, "design": "two paraphrases of covered units (must match their unit)",
      "checked_at": ["S5", "S6"],
-     "expected": {"S5": "its unit is among the units retrieved for it", "S6": "its unit diagnosis at the current point is covers"}},
+     "expected": {"S5": {"text": "its unit is among the units retrieved for it", "rule": {"retrieved": "unit_id"}},
+                  "S6": {"text": "its unit diagnosis at the current point is covers", "rule": {"unit_diagnosis": {"of": "unit_id", "is": "covers"}}}}},
     {"kind": "temporal_order_cause", "count": 1, "design": "an admission failure: cause by temporal order only",
-     "checked_at": ["S6"], "expected": {"S6": "rejected, both judges marking causal_support unmet"}},
+     "checked_at": ["S6"], "expected": {"S6": {"text": "rejected, both judges marking causal_support unmet", "rule": {"admission": "rejected", "requirements": {"causal_support": "unmet"}}}}},
     {"kind": "task_specific_requirement", "count": 1, "design": "an admission failure: a task-specific requirement",
-     "checked_at": ["S6"], "expected": {"S6": "rejected"}},
+     "checked_at": ["S6"], "expected": {"S6": {"text": "rejected", "rule": {"admission": "rejected"}}}},
     {"kind": "altered_quote", "count": 1, "design": "one altered quote",
-     "checked_at": ["S5"], "expected": {"S5": "QUOTE_MISMATCH on the altered quote"}},
+     "checked_at": ["S5"], "expected": {"S5": {"text": "QUOTE_MISMATCH on the altered quote", "rule": {"problem": "QUOTE_MISMATCH", "of": "evidence_id", "in": "quote_problems", "fields": {"quote_ok": false}}}}},
     {"kind": "fabricated_session", "count": 1, "design": "one fabricated session id",
-     "checked_at": ["S5"], "expected": {"S5": "SESSION_UNKNOWN on the fabricated session"}}
+     "checked_at": ["S5"], "expected": {"S5": {"text": "SESSION_UNKNOWN on the fabricated session", "rule": {"problem": "SESSION_UNKNOWN", "of": "session", "in": "session_problems"}}}}
   ],
   "gate": [
     {"kind": "truncated_output", "design": "a truncated output (Claude, a small CLAUDE_CODE_MAX_OUTPUT_TOKENS)", "code": "COMPLETION_INCOMPLETE"},

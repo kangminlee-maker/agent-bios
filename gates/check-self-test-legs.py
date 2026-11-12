@@ -9,7 +9,11 @@ The subjects are the Python files under session-distill/ whose argv handling acc
 syntax tree: an argparse registration (`add_argument("--self-test", ...)`), or a comparison that holds the flag
 (`sys.argv[1:] == ["--self-test"]`, `"--self-test" not in sys.argv[1:]`, `sys.argv[1] == "--self-test"`). A file that
 only names the flag in prose or a comment (runlib/entry.py) offers no such route and is no subject. A leg is a
-`python3 [flags] <path> --self-test` line of gates/check-parity.sh. Excluded paths carry their reasons (EXCLUDED).
+`python3 [flags] <path> --self-test` command gates/check-parity.sh's shell would run, read as shell rather than as
+text (`commands`): comments are dropped, a heredoc's body is data, quoted text is one word, and a backslash-continued
+line is one command. So a leg that is commented out, an `echo` of the command, or the command inside a payload is no
+leg (Codex WP-10 X r1 #8: a text match counted a commented-out leg). A literally dead branch (`if false`) is not read
+here; the umbrella's reachability scan owns that. Excluded paths carry their reasons (EXCLUDED).
 
   check-self-test-legs.py              the tree it runs in: SELF_TEST_UNLEGGED <path> for each file with no leg,
                                        SELF_TEST_UNPARSED for a file the tree cannot be read from, SUBJECTS_EMPTY when
@@ -19,6 +23,7 @@ only names the flag in prose or a comment (runlib/entry.py) offers no such route
 import ast
 import pathlib
 import re
+import shlex
 import shutil
 import sys
 import tempfile
@@ -30,7 +35,9 @@ FLAG = "--self-test"
 EXCLUDED = {
     "session-distill/out/": "regenerable pipeline snapshots (AGENTS.md, What goes where): run output, not code the umbrella runs",
 }
-LEG = re.compile(r"python3\s+(?:-\S+\s+)*(\S+\.py)\s+--self-test\b")
+# what ends one simple command, and the words that may stand before a command's own first word
+SEPARATORS = {";", "&&", "||", "|", "&", "(", ")", ";;", "|&"}
+OPENERS = {"then", "do", "else", "elif", "if", "while", "until", "!", "{", "}", "time"}
 
 
 def holds_flag(node):
@@ -71,8 +78,63 @@ def subjects(root, excluded=None):
     return found, unparsed
 
 
+def commands(text):
+    """`(commands, unparsed)`: the simple commands of shell `text`, each its words, and what is left unread at the end
+    (an open quote). A backslash continues a line; a quoted string may run over lines; a comment is dropped; a heredoc's
+    body (`<<'EOF'`, `<<"EOF"`, `<<\\EOF`, `<<-EOF`, bare; never `<<<`) is skipped to its terminator; leading reserved
+    words and variable assignments are not the command's first word."""
+    out, buf, end = [], "", None
+    for raw in text.split("\n"):
+        if end is not None:
+            if raw.strip() == end:
+                end = None
+            continue
+        buf = f"{buf}\n{raw}" if buf else raw
+        if buf.endswith("\\"):
+            buf = buf[:-1] + " "
+            continue
+        try:
+            lex = shlex.shlex(buf, posix=True, punctuation_chars=True)
+            lex.whitespace_split = True
+            tokens = list(lex)
+        except ValueError:
+            continue   # an open quote: the command goes on to the next line
+        buf = ""
+        for n, tok in enumerate(tokens):
+            if tok in ("<<", "<<-") and n + 1 < len(tokens):
+                end = tokens[n + 1].lstrip("-")
+                break
+        words = []
+        for tok in tokens + [";"]:
+            if tok in SEPARATORS:
+                if words:
+                    out.append(words)
+                words = []
+            elif not words and (tok in OPENERS or re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*=.*", tok)):
+                continue
+            else:
+                words.append(tok)
+    return out, buf
+
+
 def legs(root):
-    return set(LEG.findall((pathlib.Path(root) / UMBRELLA).read_text(encoding="utf-8")))
+    """The paths the umbrella runs `python3 [flags] <path> --self-test` on: as a `leg [-q|-e|-a|-l PREFIX] MESSAGE
+    COMMAND...` registration, or as the command itself."""
+    found = set()
+    for words in commands((pathlib.Path(root) / UMBRELLA).read_text(encoding="utf-8"))[0]:
+        if words[0] == "leg":
+            at = 1
+            while at < len(words) and words[at] in ("-q", "-e", "-a", "-l"):
+                at += 2 if words[at] == "-l" else 1
+            words = words[at + 1:]
+        if not words or words[0] != "python3":
+            continue
+        at = 1
+        while at < len(words) and words[at].startswith("-") and words[at] != FLAG:
+            at += 1
+        if at + 1 < len(words) and words[at].endswith(".py") and words[at + 1] == FLAG:
+            found.add(words[at])
+    return found
 
 
 def problems(root, excluded=None):
@@ -138,6 +200,29 @@ def self_test():
         control("negative: an argparse --self-test with its leg gone fails by name",
                 any(p.startswith("SELF_TEST_UNLEGGED session-distill/tool.py") for p in problems(unlegged_argparse)[0]),
                 f"{problems(unlegged_argparse)[0]}")
+        # Codex WP-10 X r1 #8: what is not run is no leg, though its text is all there
+        member_leg = ('  leg -q "FAIL: session-distill/runlib/member.py" \\\n'
+                      '    python3 session-distill/runlib/member.py --self-test\n')
+        assert member_leg in umbrella
+        not_run = {
+            "commented": umbrella.replace(member_leg, "".join(f"# {line}\n" for line in member_leg.splitlines())),
+            "echoed": umbrella.replace(member_leg, 'echo "python3 session-distill/runlib/member.py --self-test"\n'),
+            "heredoc": umbrella.replace(member_leg, "cat <<'EOF'\npython3 session-distill/runlib/member.py --self-test\nEOF\n"),
+            "inline-comment": umbrella.replace(member_leg, "true  # python3 session-distill/runlib/member.py --self-test\n"),
+            "comment-with-separator": umbrella.replace(
+                member_leg, "# retired: true; python3 session-distill/runlib/member.py --self-test\n"),
+        }
+        said = {name: problems(tree(f"not-run-{name}", files, text))[0] for name, text in not_run.items()}
+        control("Codex WP-10 X r1 #8: a leg commented out line by line, echoed, fed as a heredoc's body, or written "
+                "after a comment's # (behind a `;` too), keeps its command text and runs nothing: SELF_TEST_UNLEGGED by "
+                "name",
+                all(got == ["SELF_TEST_UNLEGGED session-distill/runlib/member.py: it accepts --self-test, and "
+                            "gates/check-parity.sh declares no `python3 session-distill/runlib/member.py --self-test` "
+                            "leg"] for got in said.values()), f"{said}")
+        guarded_leg = umbrella.replace(member_leg, "if [ -f session-distill/runlib/member.py ]; then\n" + member_leg
+                                       + "fi\nX=1 python3 session-distill/runlib/member.py --self-test >/dev/null || fail=1\n")
+        control("a leg inside an if block, and a run with an assignment before it, are legs",
+                problems(tree("guarded", files, guarded_leg))[0] == [], f"{problems(tree('guarded', files, guarded_leg))[0]}")
         empty = tree("empty", {"session-distill/runlib/prose.py": files["session-distill/runlib/prose.py"]}, "")
         control("an empty subject set is SUBJECTS_EMPTY, never a pass", problems(empty)[0][:1] and
                 problems(empty)[0][0].startswith("SUBJECTS_EMPTY"), f"{problems(empty)[0]}")

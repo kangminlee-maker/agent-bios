@@ -71,7 +71,7 @@ Refused by name: RESERVATION_MISSING, CAP_MISSING, PROVIDER_DEFERRED, PACKET_REF
 linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED, BUDGET_EXHAUSTED
 (the item recorded not_done), INPUT_BOUND_EXCEEDED, CLAIM_EXCEEDED and RUN_STOPPED, DRIVER_PART_UNCOUNTED,
 DRIVER_PART_LENGTH_CONFLICT, APPENDED_PROMPT_PATH_FORM, APPENDED_PROMPT_UNDELIVERABLE,
-CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS,
+CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS, SCHEMA_UNPROJECTABLE,
 USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
 WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED, RESUME_HOST_UNVERIFIED,
 EPISODE_CAP_ZERO (a per-episode token cap below 1, refused before anything is reserved: of the per-episode caps only
@@ -138,11 +138,22 @@ USES = ("judge", "producing", "authoring")  # claude-run's call profiles (plan W
 # and its overrides; claude-run's pinned host, its cell and its read root), and claude-run's unreadable
 # transcript (exit 70). The self-test derives each set from the adapter's own source and holds this to it.
 ADAPTER_CODES = {"codex": ("HOST_VERSION_MISMATCH", "CONTEXT_EVIDENCE_MISSING", "CODEX_PROFILE_UNSUPPORTED",
-                           "CODEX_INSTRUCTION_OVERRIDE_UNSUPPORTED", "CODEX_INSTRUCTION_OVERRIDE_REPEATED"),
+                           "CODEX_INSTRUCTION_OVERRIDE_UNSUPPORTED", "CODEX_INSTRUCTION_OVERRIDE_REPEATED",
+                           "ADAPTER_ARGUMENT_INVALID", "CAPTURE_HELPER_MISSING", "CALL_ID_MISSING",
+                           "CAPTURE_DIR_NOT_EMPTY", "HOST_BINARY_UNPINNED", "HOST_VERSION_UNPINNED"),
                  "claude": ("HOST_VERSION_MISMATCH", "HOST_BINARY_UNPINNED", "CELL_UNDER_HOME", "CELL_OUTSIDE_ROOT",
                             "CELL_ROOT_OWNER", "CELL_ROOT_MODE", "CELL_ANCESTOR_SURFACE", "CELL_CWD_MISSING",
                             "READ_ROOT_MISMATCH", "TRANSCRIPT_UNREADABLE", "RECORD_KIND_UNKNOWN",
-                            "ATTACHMENT_TYPE_UNKNOWN", "RECORD_VERSION_UNKNOWN")}
+                            "ATTACHMENT_TYPE_UNKNOWN", "RECORD_VERSION_UNKNOWN", "ADAPTER_ARGUMENT_INVALID",
+                            "CALL_ID_MISSING", "HOST_VERSION_UNPINNED", "CAPTURE_HELPER_MISSING", "CELL_LAYOUT_INVALID",
+                            "CELL_EXISTS", "TOKEN_MISSING")}
+# The codes an adapter names only after the host has run (claude-run's transcript reading). Every other code is a
+# refusal made before anything is sent, so a call refused by one with no request seen spent nothing, and is settled
+# at zero rather than left unreconciled (D7: two Judge B reservations of a call that never reached its host).
+ADAPTER_AFTER_SEND = {"codex": (), "claude": ("TRANSCRIPT_UNREADABLE", "RECORD_KIND_UNKNOWN", "ATTACHMENT_TYPE_UNKNOWN",
+                                              "RECORD_VERSION_UNKNOWN")}
+ADAPTER_PRE_SEND = {host: tuple(c for c in codes if c not in ADAPTER_AFTER_SEND[host])
+                    for host, codes in ADAPTER_CODES.items()}
 ADAPTER_REFUSAL = {host: re.compile(rb"^" + host.encode() + rb"-run: (" + "|".join(codes).encode() + rb")\b[^\n]{0,400}")
                    for host, codes in ADAPTER_CODES.items()}
 # the channels monitor.CodexFeed reads; the retry warnings are what HTTPS attempt coverage reconciles (design §3.2)
@@ -183,8 +194,6 @@ SEEDS = {
 }
 # Executors outside the redesign: the closure may import none of them (plan WP-02 done-when 6).
 OUT_OF_SCOPE = (
-    {"path": "session-distill/screen-codex.py", "reason": "the legacy screening pass, which starts codex-run itself",
-     "retires": "deleted at the WP-22 cutover"},
     {"path": "benchmarks/tier/live.py", "reason": "tier experiments, outside the redesign",
      "retires": "when tier experiments move under this supervisor or are deleted"},
 )
@@ -235,30 +244,12 @@ DYNAMIC_LOADS = (
     {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
      "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
                "never copied; it imports re and sys only and runs nothing"},
-    {"site": "session-distill/runlib/ledger.py", "path": "session-distill/migrate-ledger.py", "trace": True,
-     "reason": "the schema-1 migrator, loaded by its literal path beside the module (MIGRATOR) to compare a schema-1 "
-               "base with a schema-2 head; its one executor is git ls-files"},
-    {"site": "session-distill/runlib/ledger.py", "path": "gates/check-global-file.py", "trace": False,
-     "reason": "design §13.1's author-side gate, loaded by its literal repo path (GATE_READERS) for its git readers, "
-               "one implementation of reading a commit side; read, not traced: its executors are git (:50-:159, :396) "
-               "and, in its own self-test, itself (:411), which the trace cannot name by __file__"},
-    {"site": "session-distill/migrate-ledger.py", "path": "learn/build-promotions.py", "trace": True,
-     "reason": "loaded by the migrator's self-test (build_promotions) by its literal repo path; it runs nothing"},
-    {"site": "session-distill/migrate-ledger.py", "path": "compose/instructions-state.py", "trace": False,
-     "reason": "loaded by the migrator's self-test (instructions_state) by its literal repo path for ledger_summary; "
-               "read, not traced: its executors are git, compose/assemble.py (the installer's assembler) and itself "
-               "(:81-:959), none of them a host"},
 )
 # Python scripts a closure site runs, each with its reason; a declared script joins the closure,
-# so its own sites are judged like any module's.
+# so its own sites are judged like any module's. A row admits a run only when the script argument is
+# proven to be the repository's own file at `path` (`_proven_path`: constants joined onto the site's own
+# `pathlib.Path(__file__).resolve()` directory); a value that merely ends with `path` is another program.
 SCRIPT_RUNS = (
-    {"site": "session-distill/runlib/census.py", "path": "session-distill/census.py",
-     "reason": "the self-test runs the legacy census on a fixture HOME (the runbook's census-to-digest handoff, "
-               "retired at the WP-22 cutover); it reads history and transcript files"},
-    {"site": "session-distill/runlib/census.py", "path": "session-distill/digest.py",
-     "reason": "the same handoff's second step, run by the same self-test: it digests the census's sessions"},
-    {"site": "session-distill/migrate-ledger.py", "path": "session-distill/merge-ledger.py",
-     "reason": "the migrator's self-test runs the documented merge-ledger.py --window-end invocation on a fixture ledger"},
     {"site": "session-distill/runlib/stage_read.py", "path": "session-distill/runlib/stage_read.py",
      "reason": "S3's self-test runs its own `--fixture-driver` as a child it kills while the golden host holds a window, "
                "then resumes the run in-process (WP-08 commit 5a); the child's host is the golden one, it starts no model"},
@@ -269,6 +260,32 @@ SCRIPT_RUNS = (
     {"site": "session-distill/runlib/stage_retrieve.py", "path": "session-distill/distill.py",
      "reason": "S5's self-test runs the driver's `retrieve` command as a child over a golden run through S4 it made, so the "
                "command a person runs is held as a process runs it (WP-10 commit W3); S5 makes no call and starts no model"},
+    {"site": "session-distill/runlib/stage_render.py", "path": "session-distill/distill.py",
+     "reason": "S9's self-test runs the driver's `render` command as a child over a copy of a golden run through S7 it "
+               "made, so the command a person runs is held as a process runs it (WP-20 K2); S9 makes no call and starts "
+               "no model"},
+    {"site": "session-distill/runlib/stage_approvals.py", "path": "session-distill/distill.py",
+     "reason": "S10's self-test runs the driver's `parse-decisions` command as a child over a copy of a golden run it "
+               "rendered and the owner's copy it decided, so the command a person runs is held as a process runs it "
+               "(WP-20 K3); S10 makes no call and starts no model"},
+    {"site": "session-distill/runlib/stage_adjudicate.py", "path": "session-distill/distill.py",
+     "reason": "S10 adjudicate's self-test runs the driver's `adjudicate` command as a child over a copy of a golden "
+               "run whose owner's copy it parsed, with the answers it supplies and without, so the command a person "
+               "runs is held as a process runs it (WP-20 K5); the second pass's calls are not wired and the command "
+               "starts no model"},
+    {"site": "session-distill/runlib/stage_confirm.py", "path": "session-distill/distill.py",
+     "reason": "S10b's self-test runs the driver's `confirm` command as a child, building and then deciding, over "
+               "copies of a run carried through S10's real parse of the owner's copy, so the command a person runs "
+               "is held as a process runs it (WP-20 K6); S10b makes no call and starts no model"},
+    {"site": "session-distill/runlib/stage_review_korean.py", "path": "session-distill/distill.py",
+     "reason": "S9b's self-test runs the driver's `review-korean` command as a child over a copy of a golden run it "
+               "rendered, with the reviews it supplies and without, so the command a person runs is held as a "
+               "process runs it (WP-20 K4); the call is not wired and the command starts no model"},
+    {"site": "session-distill/runlib/stage_propose.py", "path": "session-distill/distill.py",
+     "reason": "S7's self-test runs the driver's `propose` and `review-proposals` commands as children over a golden run "
+               "through S6 it made, with answers and reviews it supplies, because 25 direct-call controls once passed "
+               "while the command itself crashed (WP-12 commit B4); neither command starts a model - both refuse "
+               "CALL_NOT_WIRED without the files - and the golden host is the only one in reach"},
 )
 # Sites that run a closure file FROM A COPY of this checkout. The program is computed, so the trace
 # cannot name it; what admits it is that the copy is this tree's own, made by
@@ -421,6 +438,9 @@ LITERAL_PROGRAMS_DECLARED = (
      "reason": "`tracked_paths` lists a source tree through git when the tree has a .git of its own"},
     {"site": "session-distill/runlib/ledger.py", "program": "git",
      "reason": "a ledger entry carries the commit it was recorded at"},
+    {"site": "session-distill/runlib/gitread.py", "program": "git",
+     "reason": "reading one side of a commit is this module's whole subject: the blob, the revision and the "
+               "index or working tree, for the ledger check and for the author-side global-file gate alike"},
     {"site": "session-distill/runlib/census.py", "program": "zstd",
      "reason": "a compressed transcript is read through the zstd the run declares; `checked_zstd` "
                "refuses a declared path whose resolved file is not named zstd"},
@@ -1041,12 +1061,13 @@ def stop_detail(offered):
             + ("" if offered.get("kept", True) else "; an earlier stop stands in the run ledger"))
 
 
-def reconcile_codex(call_dir, ledger, clock=time.time):
+def reconcile_codex(call_dir, ledger, clock=time.time, rejected=0):
     """A Codex call's live ledger against the gate's strict join over its final capture (design
     §3.2, §13.3): what the live ledger measured from otel alone gives way — a row otel opened is
     dropped, a sent request otel measured before its frame arrived returns to what it was —; a
     completion no frame response joins is spent (frames_blind: unknown kind, usage from otel);
-    every interrupted attempt, a failed post the retry warnings show among them, keeps a row.
+    every interrupted attempt, a failed post the retry warnings show among them, keeps a row, except the `rejected`
+    sends the provider refused before answering (`rejected_sends`), whose attempts ended at zero and are measured.
     Returns whether everything reconciled — never while any thread's attempt coverage is unknown."""
     c = gate.Call(call_dir)
     unjoined, ambiguous, _leftover = gate.join_completions(c, gate.codex_responses(c))
@@ -1063,12 +1084,44 @@ def reconcile_codex(call_dir, ledger, clock=time.time):
         row = ledger.open(f"otel-{comp.get('ts')}", "unknown", comp.get("conversation.id"), clock())
         ledger.measure(row, monitors.codex_tokens(monitors.otel_usage(comp)))
     attempts = gate.codex_attempts(c)
-    interrupted = sum(t["interrupted"] for t in attempts.values())
+    interrupted = max(0, sum(t["interrupted"] for t in attempts.values()) - rejected)
     unmeasured = sum(1 for r in ledger.requests if r["state"] != "measured")
     for n in range(max(0, interrupted - unmeasured)):
         ledger.open(f"interrupted-{n + 1}", "unknown", None, clock())
     return bool(ledger.requests) and all(r["state"] == "measured" for r in ledger.requests) \
         and not unjoined and not ambiguous and interrupted == 0 and all(t["coverage"] == "complete" for t in attempts.values())
+
+
+def rejected_sends(frames, ledger):
+    """The live ledger's rows of the sends a Codex provider refused before answering them (breaker.REQUEST_REJECTIONS,
+    D7), each measured at zero: in the capture's frames, an error frame with status 400 and a rejection code, when
+    exactly one send is then waiting for any response frame; that send's row is the one unmeasured row of the same
+    thread and key with no response. A rejection while two sends wait names neither, and nothing is measured for it."""
+    waiting, rows = [], []
+    for r in frames or []:
+        if r.get("dir") == "send" and r.get("type") == "response.create":
+            waiting.append((r.get("thread_id"), r.get("prompt_cache_key"), r.get("previous_response_id")))
+        elif r.get("dir") == "recv" and isinstance(r.get("response"), dict):
+            key = (r["response"].get("prompt_cache_key"), r["response"].get("previous_response_id"))
+            match = next((w for w in waiting if w[1:] == key), None)
+            if match is not None:
+                waiting.remove(match)
+        elif r.get("dir") == "recv" and r.get("type") == "error":
+            detail = r.get("detail") or {}
+            code = (detail.get("error") or {}).get("code")
+            if breakers.status_of(detail.get("status")) != 400 or code not in breakers.REQUEST_REJECTIONS:
+                continue
+            if len(waiting) != 1:
+                return []
+            thread, cache_key, previous = waiting.pop()
+            row = [x for x in ledger.requests if x.get("send_seen") and x["state"] != "measured" and not x.get("response_id")
+                   and not x.get("interrupted") and x.get("agent") == thread and x.get("key") == (cache_key, previous)]
+            if len(row) != 1:
+                return []
+            rows.append(row[0])
+    for row in rows:
+        ledger.measure(row, {key: 0 for key in usages.TOKEN_KEYS})
+    return rows
 
 
 def zero_tokens(caps):
@@ -1590,6 +1643,12 @@ class Supervisor:
             self._stopped(call_id)
             if problems:
                 raise Refused(f"PACKET_REFUSED {call_id}: " + "; ".join(problems))
+            # what the host is handed beside schema.json in its provider's dialect (packets.provider_schema_bytes, D7):
+            # a schema the dialect cannot hold is refused here, never sent for the provider to refuse
+            try:
+                host_schema = packets.provider_schema_bytes(schema_bytes, host) if schema_bytes is not None else None
+            except packets.validate.SchemaPolicyError as exc:
+                raise Refused(f"SCHEMA_UNPROJECTABLE {call_id}: {str(exc).partition(' ')[2]}") from None
             admitted = self._admit_seat(stage, seat, call_id, host, host_version, profile, view_window, packet,
                                         schema_bytes, manifest, max_output_tokens, runner_profile)
             if context_capacity is not None and not view_window:
@@ -1633,8 +1692,9 @@ class Supervisor:
                 for part in ("home", "config", "cwd"):
                     (cell / part).mkdir()
                 pinned = gate.seats(self.seats_path)["hosts"][host]
-                # what the host loads by itself under the profile, declared per host version (seats.json `context`)
-                builtin = (pinned.get("context") or {}).get(profile, {}) if pinned.get("version") == host_version else {}
+                # what the host loads by itself under the profile, declared per host version (seats.json `context`),
+                # without the declaration's own provenance (the version it was observed at, and whether it is carried)
+                builtin = gate.builtin_context(pinned, profile, host_version)
                 manifest = {"workdir_path": str(cell / "cwd"), "workdir_files": [], "instructions": [],
                             "appended_prompts": [], "skills": [], "agents": [], "hooks": [], "mcp_servers": [], **builtin,
                             **(admitted["declared"] or {})}
@@ -1655,12 +1715,18 @@ class Supervisor:
                                       "sha256": snapshot["sha256"], "bytes": snapshot["bytes"]})
                 if schema_bytes is not None:
                     (call_dir / "schema.json").write_bytes(schema_bytes)
+                if host_schema is not None:
+                    (call_dir / gate.HOST_SCHEMA).write_bytes(host_schema)
                 if contract is not None:
                     records.write_json(self.run_dir, call_dir / "contract.json", contract)
                 call = {"schema": "DistillCall/v1", "call_id": call_id, "stage": stage, "item": held["item"],
                         "attempt": int(call_id.rpartition("-a")[2]), "host": host, "host_version": host_version,
                         "seat": seat, "child_seat": child_seat, "profile": profile, "manifest": manifest,
                         "schema_sha256": packets.sha256_bytes(schema_bytes) if schema_bytes is not None else None,
+                        # the bytes the host itself was handed: schema.json's own for a host that reads it, the
+                        # projection's for one whose provider takes a dialect of it (gate.host_schema_problems)
+                        "host_schema_sha256": packets.sha256_bytes(host_schema if host_schema is not None else schema_bytes)
+                        if schema_bytes is not None else None,
                         "view_window": bool(view_window), "realization": self.realization, "exit_status": None,
                         # what the boundary decided for this call, so the gate judges the bound from the
                         # call directory alone rather than reaching for the run (the seam record 2026-10-22)
@@ -1678,7 +1744,8 @@ class Supervisor:
                 spec = {"call_id": call_id, "stage": stage, "seat": seat, "model": provider_model, "effort": effort,
                         "host_version": host_version, "profile": runner_profile, "call_profile": profile,
                         "host_bin": os.path.expanduser(pinned["path"]), "workdir": manifest["workdir_path"],
-                        "schema_path": str(call_dir / "schema.json") if schema_bytes is not None else None,
+                        "schema_path": str(call_dir / (gate.HOST_SCHEMA if host_schema is not None else "schema.json"))
+                        if schema_bytes is not None else None,
                         "cell": str(cell), "capture": str(capture), "caps": caps, "use": use,
                         "read_root": manifest["workdir_path"] if use == "producing" else None, "max_output_tokens": max_output_tokens,
                         "view_window": bool(view_window), "appended_prompts": delivered,
@@ -1736,6 +1803,11 @@ class Supervisor:
             result = gate.Call(call_dir).result
             reconciled = self._reconcile(call_dir, call, mon, result if isinstance(result, dict) else {},
                                          stopped, exit_status)
+            # a refusal the adapter names before sending, with no request seen, spent nothing: the call is settled
+            # at zero, measured, rather than left unreconciled with its reservation's spend unknown
+            if refused is not None and not mon.ledger.requests \
+                    and refused.group(1).decode("utf-8", "replace") in ADAPTER_PRE_SEND[host]:
+                reconciled = True
             # HC#2: reconciliation can MEASURE a row that was still pending when the rows were first read -
             # a compaction measured from the aggregate - so the excess may exist only now. The offer is made
             # here, before the seat projection, the usage record and everything after them.
@@ -2075,7 +2147,10 @@ class Supervisor:
                 reconciled = settled and all(v >= 0 for v in residual.values()) \
                     and all(r["state"] == "measured" for r in ledger.requests)
         else:
-            reconciled = reconcile_codex(call_dir, ledger, self.clock) and ended
+            # a send the provider refused before answering spent nothing (D7): measured at zero, and the host's
+            # nonzero exit is that refusal's, so the call reconciles when everything else does
+            rejected = rejected_sends(gate.Call(call_dir).frames, ledger) if not stopped else []
+            reconciled = reconcile_codex(call_dir, ledger, self.clock, len(rejected)) and (ended or bool(rejected))
         return reconciled
 
     def _usage(self, call_dir, call, mon, reconciled, wall_ms):
@@ -2178,9 +2253,14 @@ class Supervisor:
             if call["runner_refused"]:  # the adapter refused before sending: a retry meets the same host
                 return {"item": item, "outcome": "failed", "why": call["runner_refused"],
                         "codes": [call["runner_refused"].split()[0]], "attempts": [str(d) for d in dirs]}
-            if call["provider_signals"]:  # recorded deferred by call(), never retried here; a stop's boundary travels too
+            rejected = [line for line in call["provider_signals"] if line.split(" ", 1)[0] in breakers.REJECTION_CODES]
+            if len(rejected) < len(call["provider_signals"]):  # recorded deferred by call(), never retried here; a
+                # stop's boundary travels too
                 return {"item": item, "outcome": "deferred", "why": "; ".join(call["provider_signals"]),
                         "boundary": (call["stopped"] or {}).get("boundary"), "attempts": [str(d) for d in dirs]}
+            if rejected:  # the provider refused this request itself (D7): a retry sends it again, so the item fails
+                return {"item": item, "outcome": "failed", "why": "; ".join(rejected),
+                        "codes": sorted({line.split(" ", 1)[0] for line in rejected}), "attempts": [str(d) for d in dirs]}
             if call["stopped"]:  # the boundary verdict travels with the outcome (design §8.7's re-run reads it, WP-18)
                 return {"item": item, "outcome": "budget_stopped" if call["stopped"]["outcome"] == "budget_stopped" else "failed",
                         "why": call["stopped"]["why"], "boundary": call["stopped"]["boundary"],
@@ -2475,6 +2555,76 @@ def _names(path, text):
     return tail.startswith("/") and bool(tail.strip("/")) and path.endswith(tail)
 
 
+def _file_root(mod, node):
+    """The repository-relative directory `node` is proven to name, or None: `pathlib.Path(__file__).resolve()`
+    followed by `.parent`s, or by one `.parents[n]`, of THIS module's file - the only expression whose value the trace
+    can know without reading anything but the module's own place in the checkout."""
+    ups = 0
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Attribute) and node.value.attr == "parents" \
+            and isinstance(node.slice, ast.Constant) and type(node.slice.value) is int and node.slice.value >= 0:
+        ups, node = node.slice.value + 1, node.value.value
+    else:
+        while isinstance(node, ast.Attribute) and node.attr == "parent":
+            ups, node = ups + 1, node.value
+    if not (isinstance(node, ast.Call) and not node.args and not node.keywords
+            and isinstance(node.func, ast.Attribute) and node.func.attr == "resolve"):
+        return None
+    made = node.func.value
+    if not (isinstance(made, ast.Call) and mod.dotted(made.func) == "pathlib.Path" and len(made.args) == 1
+            and not made.keywords and isinstance(made.args[0], ast.Name) and made.args[0].id == "__file__"):
+        return None
+    parts = pathlib.PurePosixPath(str(mod.rel)).parts
+    if not 1 <= ups <= len(parts):
+        return None
+    return "/".join(parts[:len(parts) - ups])
+
+
+def _bound_once(mod, name):
+    """The value `name` is bound to when this module binds it exactly once, at module level, as the sole target of a
+    plain assignment, and nowhere else - no other store, argument, import, `global` or definition of that name."""
+    sites = []
+    for node in ast.walk(mod.tree):
+        if isinstance(node, ast.Name) and node.id == name and not isinstance(node.ctx, ast.Load):
+            sites.append(node)
+        elif isinstance(node, ast.arg) and node.arg == name:
+            sites.append(node)
+        elif isinstance(node, ast.Global) and name in node.names:
+            sites.append(node)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)) and any((a.asname or a.name.split(".")[0]) == name
+                                                                    for a in node.names):
+            sites.append(node)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+            sites.append(node)
+    held = [n for n in mod.tree.body if isinstance(n, ast.Assign) and len(n.targets) == 1
+            and isinstance(n.targets[0], ast.Name) and n.targets[0].id == name]
+    if len(sites) != 1 or len(held) != 1 or sites[0] is not held[0].targets[0]:
+        return None
+    return held[0].value
+
+
+def _proven_path(mod, node, depth=0):
+    """The repository-relative path a script argument is proven to name, or None (Codex WP-10 X r1 #6: a value that
+    merely ENDED with the declared path was admitted, so `/tmp/scratch/session-distill/distill.py`, or a head the trace
+    could not read followed by the declared tail, passed for the repository's driver). Proven means: `str(...)` or
+    `os.fspath(...)` of string constants joined by `/` onto a name this module binds once to its own file's directory
+    (`_file_root`), or onto that expression itself."""
+    if depth > 8:
+        return None
+    if isinstance(node, ast.Call) and mod.dotted(node.func) in ("str", "os.fspath") and len(node.args) == 1 \
+            and not node.keywords:
+        return _proven_path(mod, node.args[0], depth + 1)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div) and isinstance(node.right, ast.Constant) \
+            and isinstance(node.right.value, str):
+        head, tail = _proven_path(mod, node.left, depth + 1), node.right.value
+        if head is None or not tail or tail.startswith("/") or any(p in ("", ".", "..") for p in tail.split("/")):
+            return None
+        return f"{head}/{tail}" if head else tail
+    if isinstance(node, ast.Name):
+        bound = _bound_once(mod, node.id)
+        return None if bound is None else _proven_path(mod, bound, depth + 1)
+    return _file_root(mod, node)
+
+
 def _spelling(mod, spellings=None):
     """The one spelling of the admitted forms this file declares, or None when it declares none.
 
@@ -2639,7 +2789,9 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
         flag = words[0] if words else [UNKNOWN]
         flag_node = nodes[0] if nodes else None
         nxt = words[1] if len(words) > 1 else [UNKNOWN]
-        declared = [[e for e in runs if e["site"] == str(mod.rel) and _names(e["path"], s)] for s in flag]
+        proven = _proven_path(mod, flag_node) if flag_node is not None else None
+        declared = [[e for e in runs if e["site"] == str(mod.rel) and _names(e["path"], s) and proven == e["path"]]
+                    for s in flag]
         if flag == ["-c"]:
             # The program is admitted as DATA, by declaration, and its insides are not read. The
             # recursion that used to read them judged shapes, and a shape rule over a program that
@@ -3239,7 +3391,7 @@ call_id = packet.splitlines()[0].split(": ", 1)[1]
 capture, cell = pathlib.Path(os.environ["REVIEW_CAPTURE_DIR"]), pathlib.Path(os.environ["DISTILL_CELL"])
 schema = json.loads(pathlib.Path(spec["schema_path"]).read_text()) if spec.get("schema_path") else None
 model, effort = spec["model"], spec["effort"]
-# codex-cli 0.163.0 loads its four built-in skills under any profile, and its capture names them
+# codex-cli loads its built-in skills under any profile, and its capture names them (seats.json `context`)
 context = {"instructions": [], "appended_prompts": [], "agents": [], "hooks": [],
            "skills": ["imagegen", "openai-docs", "skill-creator", "skill-installer"] if host == "codex" else []}
 # the appended system prompts the adapter was handed: reported by the sha256 of the bytes THIS process
@@ -3417,6 +3569,9 @@ else:
             {"dir": "warn", "type": "responses_retry", "ts": iso(time.time())},
             {"dir": "recv", "type": "response.refusal.done", "ts": iso(time.time())})))
     deflate, prev = zlib.compressobj(wbits=-15), None
+    # a provider taking only the strict subset refuses a schema that holds what the subset leaves out (D7)
+    handed_text = pathlib.Path(spec["schema_path"]).read_text() if spec.get("schema_path") else ""
+    beyond_strict = any(word in handed_text for word in ('"minLength"', '"$comment"', '"uniqueItems"', '"title"', "(?!"))
     def failed():
         events.write(json.dumps({"type": "turn.failed", "error": {"message": "usage limit"}}) + "\n")
         record({"session_id": root})
@@ -3461,6 +3616,10 @@ else:
         if mode == "ws-limit" and kind == "turn":
             received({"type": "error", "status": 429, "error": {"type": "usage_limit_reached", "code": "usage_limit_reached"}})
             failed()
+        if kind == "turn" and (mode == "schema-rejected" or (mode == "strict-provider" and beyond_strict)):
+            received({"type": "error", "status": 400, "error": {"type": "invalid_request_error", "code": "invalid_json_schema",
+                                                               "message": "BODY-CANARY-schema-message"}})
+            failed()
         resp = {"id": "resp_%d" % n, "model": model, "previous_response_id": prev, "prompt_cache_key": root,
                 "reasoning": {"effort": effort}, "usage": None}
         received({"type": "response.created", "response": {**resp, "status": "in_progress"}})
@@ -3499,7 +3658,7 @@ else:
             line(text)
     events.write(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 0, "output_tokens": 0}}) + "\n")
     record({"session_id": root})
-    sys.stdout.write("OK")
+    sys.stdout.write(json.dumps(spec["answer"]) if spec.get("answer") is not None else "OK")
 '''
 
 
@@ -3630,7 +3789,9 @@ def self_test(scratch=None):
                 for got, code in zip(quoted, ("PRINCIPLES_MISSING", "SCHEMA_REFERENCE_MISSING"))), f"{quoted!r}")
 
     astra = "codex:gpt-6-astra/xhigh"
-    codex_flags = gate.pinned_flags_sha256("codex", "0.163.0", "hermetic")
+    # the Codex host version is read from seats.json, as the Claude one is below, so a re-pin moves this suite with it
+    pinned_codex = gate.seats()["hosts"]["codex"]["version"]
+    codex_flags = gate.pinned_flags_sha256("codex", pinned_codex, "hermetic")
     pinned_launcher = receipts.LAUNCHER        # one control points the receipt writer at a failing script
     # Every view-window control below runs on a CLAUDE seat, because a view-window call is admitted only on
     # a host whose adapter can convey the cap check (d) reserves, and codex-run conveys none (BB#4). S3's
@@ -3650,7 +3811,8 @@ def self_test(scratch=None):
         # the self-test's seats, declared as a run declares its seats (design §4 pins the others)
         run["seats"].update({"S6.judge": judge, "S6.luna": luna, "S7": judge, "S8": judge, "S9": judge})
         if allowance is not None:
-            run["host_allowance"][astra] = {"allowance_tokens": allowance, "host_version": "0.163.0", "flag_set_sha256": codex_flags}
+            run["host_allowance"][astra] = {"allowance_tokens": allowance, "host_version": pinned_codex,
+                                            "flag_set_sha256": codex_flags}
         run["host_allowance"][vseat] = {"allowance_tokens": claude_allowance if window_allowance is None else window_allowance,
                                         "host_version": pinned_claude, "flag_set_sha256": claude_flags}
         declare.create(directory, run)
@@ -3659,12 +3821,13 @@ def self_test(scratch=None):
     clock = [1_800_000_000.0]
     measured_seats = scratch / "seats-measured.json"
     held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
-    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=True)
+    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=True,
+                                                                measured_version=pinned_codex)
     # BA#1: the self-test's own seat capacity for the Codex seat it dispatches view windows on. The
     # checkout's seats.json leaves every Codex seat undeclared because no capture reports one, which is
     # what `a-view-window-call-on-a-seat-with-no-declared-capacity-is-refused` reads against the real file.
     held["seat_capacity"] = {**(held.get("seat_capacity") or {}),
-                             astra: {"context_capacity": 200_000, "host_version": "0.163.0",
+                             astra: {"context_capacity": 200_000, "host_version": pinned_codex,
                                      "basis": "the self-test's own declaration, not a measurement"}}
     measured_seats.write_text(json.dumps(held), encoding="utf-8")
 
@@ -5083,7 +5246,7 @@ def self_test(scratch=None):
             any(row.startswith("PARSE_CACHE_DIVERGES closure") and "planted-stale-parse" in row for row in stale),
             f"{stale}")
     tree = scratch / "tree"
-    for rel in ["session-distill/distill.py", "session-distill/seats.json", "session-distill/screen-codex.py", "launch/agent-launch.py"] \
+    for rel in ["session-distill/distill.py", "session-distill/seats.json", "launch/agent-launch.py"] \
             + [str(p.relative_to(REPO)) for p in (REPO / "session-distill" / "runlib").glob("*.py")] \
             + [str(p.relative_to(REPO)) for p in (REPO / "benchmarks").rglob("*.py")] \
             + sorted({e[k] for e in DYNAMIC_LOADS + SCRIPT_RUNS for k in ("site", "path")}):
@@ -5252,9 +5415,9 @@ def self_test(scratch=None):
                 for row in stale), f"{stale}")
     planted("direct-dispatch-in-a-closure-module", "session-distill/runlib/records.py",
             "import subprocess\ndef _planted():\n    subprocess.run(['codex', 'exec', '-'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}:", 2)
-    planted("screen-codex-loaded-by-the-driver", "session-distill/distill.py",
-            "import importlib.util\nSC = importlib.util.spec_from_file_location('sc', REPO / 'session-distill' / 'screen-codex.py')",
-            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: loads session-distill/screen-codex.py", 1)
+    planted("an-out-of-scope-executor-loaded-by-the-driver", "session-distill/distill.py",
+            "import importlib.util\nSC = importlib.util.spec_from_file_location('sc', REPO / 'benchmarks' / 'tier' / 'live.py')",
+            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: loads benchmarks/tier/live.py", 1)
     planted("shell-command-line", "session-distill/runlib/claims.py", "import os\nos.system('claude -p hello')",
             "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'claude'", 1)
     # ---- r4 R5: the tail of the program judge is DEFAULT DENY, and every command of a shell line is
@@ -5422,8 +5585,8 @@ def self_test(scratch=None):
     planted("unresolved-python-c", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run([sys.executable, '-c', CODE])",
             UNDECLARED_INLINE, 1)
     planted("python-runs-an-out-of-scope-executor", "session-distill/runlib/claims.py",
-            "import subprocess\nsubprocess.run([sys.executable, 'session-distill/screen-codex.py'])",
-            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: runs 'session-distill/screen-codex.py'", 1)
+            "import subprocess\nsubprocess.run([sys.executable, 'benchmarks/tier/live.py'])",
+            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: runs 'benchmarks/tier/live.py'", 1)
     planted("python-runs-a-script-not-followed", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, 'tool.py'])", "DISPATCH_UNRESOLVED {at}: python runs ['tool.py']", 1)
     planted("shell-starts-a-host", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run(['bash', '-c', 'codex exec -'])",
@@ -5465,10 +5628,15 @@ def self_test(scratch=None):
     planted("python-flags-then-an-undeclared-script", "session-distill/runlib/census.py",
             "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'other.py')])",
             "DISPATCH_UNRESOLVED {at}: python runs ['<?>/other.py']", 1)
+    # Retargeted at the WP-22 cutover: this row named `census.py`, declared by the v1
+    # census-to-digest handoff, and the cutover retired that declaration — leaving a row whose name
+    # says "a DECLARED script" over a script nothing declared any more. It passed either way, which
+    # is how a control goes quiet without saying so. `distill.py` is declared by `stage_form.py`'s
+    # SCRIPT_RUNS row, which the cutover does not touch.
     planted("a-declared-script-run-from-another-site", "session-distill/runlib/claims.py",
-            "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'census.py')])",
-            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/census.py']", 1)
-    planted("a-declared-script-is-traced", "session-distill/digest.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'distill.py')])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/distill.py']", 1)
+    planted("a-declared-script-is-traced", "session-distill/distill.py",
             "import subprocess\nsubprocess.run(['claude', '-p'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts 'claude'", 1)
     # A copy-run is admitted by THE CALL: the program expression has to be a call of the entry's
     # owner, which is a function that refuses every root this process did not copy and every member
@@ -5477,8 +5645,8 @@ def self_test(scratch=None):
     # (R2#5 — every one of these was admitted while the rule was about guard text in the file).
     for name, code, needle in (
             ("a-copy-run-of-a-script-that-is-not-the-driver",
-             "subprocess.run([sys.executable, str(COPY / 'session-distill' / 'digest.py')])",
-             "python runs ['<?>/session-distill/digest.py']"),
+             "subprocess.run([sys.executable, str(COPY / 'session-distill' / 'census.py')])",
+             "python runs ['<?>/session-distill/census.py']"),
             ("a-program-the-environment-selects",
              "subprocess.run([sys.executable, os.environ['OTHER_SCRIPT']])",
              "python runs ['<?>']"),
@@ -5514,6 +5682,23 @@ def self_test(scratch=None):
             "import subprocess\nsubprocess.run([sys.executable, '-c', "
             "'import runpy, sys\\nscript = sys.argv[1]\\nrunpy.run_path(script)', OTHER])",
             UNDECLARED_INLINE, 1)
+    # Codex WP-10 X r1 #6: a declared script run is the repository's own file only when the path is proven from this
+    # module's own place (`_proven_path`); the whole declared suffix behind any other head is another program
+    planted("a-scratch-driver-with-the-whole-declared-suffix", "session-distill/runlib/stage_form.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-I', '/tmp/review-scratch/session-distill/distill.py', 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 1)
+    planted("an-unread-head-before-the-declared-tail", "session-distill/runlib/stage_form.py",
+            "import os, pathlib, subprocess\n"
+            "subprocess.run([sys.executable, '-I', str(pathlib.Path(os.environ['SCRATCH']) / 'distill.py'), 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 1)
+    planted("a-resolved-root-that-is-not-this-file", "session-distill/runlib/stage_form.py",
+            "import os, pathlib, subprocess\nELSEWHERE = pathlib.Path(os.environ['SCRATCH']).resolve().parents[1]\n"
+            "subprocess.run([sys.executable, '-I', str(ELSEWHERE / 'distill.py'), 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 2)
+    planted("a-local-rebinding-of-the-proven-root", "session-distill/runlib/stage_form.py",
+            "def _planted_scratch_run():\n    HERE = pathlib.Path('/tmp/review-scratch/session-distill')\n"
+            "    subprocess.run([sys.executable, '-I', str(HERE / 'distill.py'), 'form'])",
+            "DISPATCH_UNRESOLVED {at}: python runs", 2)
     planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
             scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
@@ -5844,7 +6029,7 @@ def self_test(scratch=None):
 
     found, _at = plant("session-distill/runlib/dispatch.py", "import subprocess\nsubprocess.run(['claude', '-p'])")
     control("supervisor-own-sites-are-not-failures", not found, f"{found}")
-    found, _at = plant("session-distill/screen-codex.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")
+    found, _at = plant("benchmarks/tier/live.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")
     control("a-mention-outside-the-closure-is-not-a-failure", not found, f"{found}")
 
     # the adapters' own sources, as they ship (the tree's file, and only once it states the final
@@ -6001,7 +6186,7 @@ def self_test(scratch=None):
     # Every code the adapters' own sources name is driven, READ_ROOT_MISMATCH among them.
     refusing = [(judge if host == "claude" else luna, 70 if code == "TRANSCRIPT_UNREADABLE" else 3 if host == "codex" else 2,
                  f"{host}-run: {code} named by the adapter") for host in sorted(derived) for code in sorted(derived[host])]
-    wrong = []
+    wrong, settled_ = [], []
     for n, (seat, status, line) in enumerate(refusing):
         code = line.split(": ", 1)[1].split()[0]
         dr_ = run_dir(f"run-adapter-{n}", {"S6": 400_000})
@@ -6012,8 +6197,51 @@ def self_test(scratch=None):
         if not (out["outcome"] == "failed" and out.get("codes") == [code] and out.get("why") == line.split(": ", 1)[1]
                 and len(out["attempts"]) == 1 and refused_call.get("runner_refused") == line.split(": ", 1)[1]):
             wrong.append((code, out, refused_call.get("runner_refused")))
+        host_ = "claude" if seat == judge else "codex"
+        spent_ = [r.get("spent") for r in sr_.ledger()["stages"].get("S6", {}).get("reservations", {}).values()]
+        settled_.append((code, host_, [s_.get("complete") if s_ else None for s_ in spent_],
+                         [s_.get("measured") if s_ else None for s_ in spent_]))
     control("every-adapter-refusal-is-the-item-outcome", refusing and not wrong
             and "claude-run: READ_ROOT_MISMATCH named by the adapter" in [line for _, _, line in refusing], f"{wrong}")
+    # D7: a refusal made before anything is sent, with no request seen, is one reservation settled at zero, measured;
+    # one an adapter names after its host ran stays unreconciled, since what the host spent is not known
+    # The expectation is the control's own, never ADAPTER_PRE_SEND's: the four codes claude-run names from the
+    # transcript it reads after its host ran; every other code is a refusal made before anything is sent
+    after_send = {("claude", c) for c in ("TRANSCRIPT_UNREADABLE", "RECORD_KIND_UNKNOWN", "ATTACHMENT_TYPE_UNKNOWN",
+                                          "RECORD_VERSION_UNKNOWN")}
+    unsettled = [row for row in settled_ if row[2] != [(row[1], row[0]) not in after_send]
+                 or ((row[1], row[0]) not in after_send and row[3] != [0])]
+    control("a-pre-send-refusal-is-one-reservation-settled-at-zero", settled_ and not unsettled
+            and {(h, c) for c, h, _c, _m in settled_} >= after_send
+            and any(code == "HOST_BINARY_UNPINNED" and h == "codex" for code, h, _c, _m in settled_)
+            and {(h, c) for h, codes in ADAPTER_AFTER_SEND.items() for c in codes} == after_send, f"{unsettled}")
+    # D7: every nonzero exit an adapter takes before it starts its host names a code dispatch reads; one that names
+    # none would leave the call's runner_refused empty and its item retried against the same host
+    def unnamed_exits(text, host):
+        lines = text.split("\n")
+        found = []
+        for n, line in enumerate(lines):
+            if line.lstrip().startswith("#") or not re.search(r"\bexit [1-9]", line):
+                continue
+            # the statement the exit ends: its own line and the lines before it back to the previous exit, at most three
+            start = n
+            while start > max(0, n - 3) and not re.search(r"\bexit\b", lines[start - 1]):
+                start -= 1
+            window = "\n".join(lines[start:n + 1])
+            named = any(code in ADAPTER_CODES[host]
+                        for code in re.findall(host + r"-run: ([A-Z][A-Z0-9_]*[A-Z0-9])\b", window))
+            if not named and '"$helper"' not in window:
+                found.append(f"line {n + 1}: {line.strip()[:80]}")
+        return found
+    loose = {h: unnamed_exits(sources[h][0] or "", h) for h in sources}
+    planted_exits = unnamed_exits('  echo "codex-run: the binary is gone" >&2; exit 2\n'
+                                  '  python3 "$helper" check --x || exit 2\n'
+                                  '  echo "codex-run: HOST_BINARY_UNPINNED gone" >&2; exit 2\n'
+                                  '  echo "codex-run: the next one names nothing" >&2; exit 2\n', "codex")
+    control("every-pre-send-adapter-exit-names-a-code", all(sources[h][0] for h in sources) and not any(loose.values())
+            and planted_exits == ["line 1: echo \"codex-run: the binary is gone\" >&2; exit 2",
+                                  "line 4: echo \"codex-run: the next one names nothing\" >&2; exit 2"],
+            f"{loose} {planted_exits}")
     # the same named line from the other adapter, or on a zero exit, is no refusal
     dr_ = run_dir("run-adapter-not-ours", {"S6": 400_000})
     sr_ = supervisor(dr_, "adapter-refuses", refusal="claude-run: CONTEXT_EVIDENCE_MISSING x", exit=3)
@@ -6022,12 +6250,86 @@ def self_test(scratch=None):
     control("another-adapters-code-is-no-refusal", "CONTEXT_EVIDENCE_MISSING" not in out.get("codes", [])
             and records.read_json(pathlib.Path(out["attempts"][0]) / "call.json")["runner_refused"] is None, f"{out}")
 
+    # D7: a Codex call's host is handed the provider's projection of schema.json, recorded by its own hash, and a
+    # provider that refuses what the strict subset leaves out answers it; the gate still judges schema.json
+    strict_like = {"type": "object", "additionalProperties": False, "required": ["verdict", "why", "ids"], "$comment": "c",
+                   "properties": {"verdict": {"type": "string", "enum": ["PRESENT", "ABSENT"]},
+                                  "why": {"type": "string", "minLength": 1},
+                                  "ids": {"type": "array", "uniqueItems": True,
+                                          "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}}}}
+    strict_answer = {"verdict": "ABSENT", "why": "no section names it", "ids": ["q1"]}
+
+    def handed_of(out):
+        where = pathlib.Path(out["attempts"][-1]) if out.get("attempts") else None
+        if where is None or not (where / "call.json").is_file():
+            return None, {}, None, None
+        held = where / gate.HOST_SCHEMA
+        return where, records.read_json(where / "call.json"), held.read_bytes() if held.is_file() else None, \
+            (where / "schema.json").read_bytes() if (where / "schema.json").is_file() else None
+    dsp = run_dir("run-strict-provider", {"S6": 400_000})
+    ssp = supervisor(dsp, "strict-provider", answer=strict_answer)
+    ssp.seed_from(calibrated)
+    took = ssp.item("S6", "projected", luna, "Reply.\n", strict_like, case_type="judge", caps=caps, view_window=False)
+    _w, took_call, took_host, took_schema = handed_of(took)
+    control("a-strict-provider-is-handed-the-projection-and-answers", took["outcome"] == "accepted" and took_host is not None
+            and took_schema is not None and took_host == packets.provider_schema_bytes(took_schema, "codex")
+            and took_call.get("host_schema_sha256") == packets.sha256_bytes(took_host)
+            and took_call.get("schema_sha256") == packets.sha256_bytes(took_schema) and b"minLength" in took_schema,
+            f"{took.get('outcome')} {took.get('codes')}")
+    claude_took = ssp.item("S6", "claude-reads-it", judge, "Is the rule present?\n", verdict_schema, case_type="judge",
+                           caps=caps, view_window=False)
+    _w, claude_call, claude_host, claude_schema = handed_of(claude_took)
+    control("a-claude-call-is-handed-schema-json-itself", claude_took["outcome"] == "accepted" and claude_host is None
+            and claude_schema is not None and claude_call.get("host_schema_sha256") == claude_call.get("schema_sha256")
+            == packets.sha256_bytes(claude_schema), f"{claude_took.get('outcome')} {claude_call.get('host_schema_sha256')}")
+    # a schema the strict subset cannot hold is refused before anything is sent, and nothing is spent on it
+    loose = {"type": "object", "additionalProperties": False, "required": ["verdict"],
+             "properties": {"verdict": {"type": "string"}, "why": {"type": "string"}}}
+    launched = len(list((dsp / "calls").glob("*"))) if (dsp / "calls").is_dir() else 0
+    unsent = refusal(ssp.item, "S6", "unprojectable", luna, "Reply.\n", loose, case_type="judge", caps=caps,
+                     view_window=False) or ""
+    control("an-unprojectable-schema-is-refused-before-anything-is-sent",
+            unsent.startswith("SCHEMA_UNPROJECTABLE") and "STRICT_OPTIONAL_PROPERTY at #" in unsent
+            and len(list((dsp / "calls").glob("*"))) == launched, f"{unsent[:200]}")
+    # the provider refusing the request itself: the item fails once by that name, the send is settled at zero, the
+    # provider stays open for its other work, and the error's message is never kept
+    dsr = run_dir("run-schema-rejected", {"S6": 400_000})
+    ssr = supervisor(dsr, "schema-rejected", answer=strict_answer)
+    ssr.seed_from(calibrated)
+    refused_out = ssr.item("S6", "rejected", luna, "Reply.\n", strict_like, case_type="judge", caps=caps, view_window=False)
+    where, refused_call, _h, _s = handed_of(refused_out)
+    refused_usage = records.read_json(where / "usage.json") if where is not None and (where / "usage.json").is_file() else {}
+    ssr.mode = "strict-provider"
+    next_out = ssr.item("S6", "next", luna, "Reply.\n", strict_like, case_type="judge", caps=caps, view_window=False)
+    control("a-schema-rejection-fails-its-item-once-and-stops-nothing", refused_out["outcome"] == "failed"
+            and refused_out.get("codes") == ["SCHEMA_REJECTED_BY_PROVIDER"] and len(refused_out["attempts"]) == 1
+            and not ssr.breaker.is_open("codex", 10 ** 12) and next_out["outcome"] == "accepted"
+            and [line.split(" ", 1)[0] for line in refused_call.get("provider_signals") or []] == ["SCHEMA_REJECTED_BY_PROVIDER"],
+            f"{refused_out.get('outcome')} {refused_out.get('codes')} {next_out.get('outcome')}")
+    spent_rej = [r.get("spent") or {} for cid, r in ssr.ledger()["stages"].get("S6", {}).get("reservations", {}).items()
+                 if refused_call and cid == refused_call.get("call_id")]
+    control("a-rejected-send-is-settled-at-zero", refused_usage.get("reconciled") is True
+            and [(r["role"], r["state"]) for r in refused_usage.get("requests") or []] == [("warmup", "measured"), ("main", "measured")]
+            and all((refused_usage["requests"][1].get(k) or 0) == 0 for k in usages.TOKEN_KEYS)
+            and [s_.get("complete") for s_ in spent_rej] == [True],
+            f"{refused_usage.get('reconciled')} {[(r['role'], r['state']) for r in refused_usage.get('requests') or []]} {spent_rej}")
+    kept_canary = [str(f) for f in (where.rglob("*") if where is not None else []) if f.is_file()
+                   and b"BODY-CANARY-schema-message" in f.read_bytes()]
+    control("a-provider-error-message-is-not-kept", where is not None and not kept_canary, f"{kept_canary}")
+
     # a refusal frame read from the raw trace reaches the gate through the dispatcher's own capture:
     # the clean call is accepted, the refusing one rejected by its completion code and retried once
     dg_ = run_dir("run-refusal-frame", {"S6": 400_000})
     sg_ = supervisor(dg_)
     sg_.seed_from(calibrated)
     clean = sg_.item("S6", "clean", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    # the built-in context a Codex call's manifest declares is seats.json's declaration without its provenance
+    clean_manifest = (records.read_json(pathlib.Path(clean["accepted"]) / "call.json").get("manifest") or {}) \
+        if clean.get("accepted") else {}
+    declared_builtin = gate.builtin_context(gate.seats()["hosts"]["codex"], "hermetic", pinned_codex)
+    control("a-codex-call-declares-its-built-in-context-without-its-provenance", bool(declared_builtin.get("skills"))
+            and clean_manifest.get("skills") == declared_builtin["skills"]
+            and not set(clean_manifest) & set(gate.CONTEXT_PROVENANCE), f"{sorted(clean_manifest)}")
     sg_.mode = "refusal-frame"
     refused_item = sg_.item("S6", "refused", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
     first = gate.accept(refused_item["attempts"][0]) if refused_item["attempts"] else {"failures": []}
@@ -6095,18 +6397,18 @@ def self_test(scratch=None):
                   reservation=rc2, caps=caps, view_window=False)
     control("a-non-window-call-on-the-same-seat-needs-no-capacity", got is None, f"{got}")
     for row, entry, why in (
-            ("without a basis", {"context_capacity": 1_000_000, "host_version": "0.163.0"}, "no basis"),
-            ("with a blank basis", {"context_capacity": 1_000_000, "host_version": "0.163.0", "basis": "  "},
+            ("without a basis", {"context_capacity": 1_000_000, "host_version": pinned_codex}, "no basis"),
+            ("with a blank basis", {"context_capacity": 1_000_000, "host_version": pinned_codex, "basis": "  "},
              "no basis"),
-            ("that is not a number", {"context_capacity": "big", "host_version": "0.163.0", "basis": "b"},
+            ("that is not a number", {"context_capacity": "big", "host_version": pinned_codex, "basis": "b"},
              "not a positive integer"),
             ("at another host version", {"context_capacity": 1_000_000, "host_version": "0.1.0", "basis": "b"},
-             "not '0.163.0'")):
+             f"not {pinned_codex!r}")):
         bad = scratch / f"seats-capacity-{row.replace(' ', '-')}.json"
         bad_held = json.loads(measured_seats.read_text(encoding="utf-8"))
         bad_held["seat_capacity"][astra] = entry
         bad.write_text(json.dumps(bad_held), encoding="utf-8")
-        found, reason = gate.seat_capacity(astra, "0.163.0", path=bad)
+        found, reason = gate.seat_capacity(astra, pinned_codex, path=bad)
         control(f"a-seat-capacity-{row.replace(' ', '-')}-is-no-capacity", found is None and why in (reason or ""),
                 f"{found} {reason}")
     found, basis = gate.seat_capacity(vseat, pinned_claude)
@@ -7445,7 +7747,9 @@ def self_test(scratch=None):
         "EPISODE_CAP_ZERO",
         # WP-09 (W review r2, F1): a stage's own admitted capacity, recorded for a call without a view window, is a
         # positive integer, or the host's reported window would be compared with nothing
-        "CAPACITY_INVALID"}
+        "CAPACITY_INVALID",
+        # D7 (2026-11-12): a schema the host's provider dialect cannot hold is refused before anything is sent
+        "SCHEMA_UNPROJECTABLE"}
     # design §3.2 (accepted, failed with every attempt kept) and §13.2 (deferred, not done, budget_stopped)
     outcomes = {"accepted", "failed", "deferred", "not_done", "budget_stopped"}
     source = pathlib.Path(__file__).read_text(encoding="utf-8")
