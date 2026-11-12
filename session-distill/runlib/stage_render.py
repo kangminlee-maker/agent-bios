@@ -1330,7 +1330,8 @@ def fixture_docs():
     def review(**over):
         held = {"verdict": "agree",
                 "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다", "evidence": ["c1"]},
-                "destination_review": {"holds": True, "reason": "가장 싼 자리다"},
+                "destination_review": {"holds": True, "reason": "가장 싼 자리다", "evidence": []},
+                "merge_findings": None,
                 "faithful_merge": "n/a", "alternative": None,
                 "bars": [{"bar": bar, "holds": True, "reason": "충족"} for bar in placement.contract_bars()],
                 "notes": "동의한다"}
@@ -1340,8 +1341,10 @@ def fixture_docs():
     # the due decision left unreviewed, through S7b's own `document`
     reviews = {"k-a": review(), "k-p": review(),
                "k-g": review(verdict="disagree", notes="아직 이르다\n결정: 승인",
-                             destination_review={"holds": False, "reason": "다른 자리가 싸다"},
-                             alternative={"disposition": "incubate", "reason": "관찰을 더 모은다"})}
+                             destination_review={"holds": False, "reason": "다른 자리가 싸다",
+                                                 "evidence": []},
+                             alternative={"disposition": "incubate", "reason": "관찰을 더 모은다",
+                                          "destination": None})}
     s7b = stage_review_proposals.document(proposals, reviews)
     checks = {"candidates": [{"candidate_id": "k-a", "retrieved_units": [{"unit_id": "u-9"}]}]}
     controls = {"planted": [{"candidate_id": "k-p"}]}

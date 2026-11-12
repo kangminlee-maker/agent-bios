@@ -340,15 +340,33 @@ def _self_test_body(failures, ran):
             failures.append((name, f"expected nothing, got {problems}"))
 
     def review(**over):
+        # Every property the strict provider dialect requires is present, which is now every
+        # property: `merge_findings: None` is "this candidate has no merge to review" (what absence
+        # used to mean) and each judgment carries its `evidence` list, empty where the review rests
+        # on nothing.
         held = {"verdict": "agree",
                 "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다",
                                        "evidence": ["c1"]},
-                "destination_review": {"holds": True, "reason": "가장 싼 자리다"},
+                "destination_review": {"holds": True, "reason": "가장 싼 자리다",
+                                       "evidence": []},
+                "merge_findings": None,
                 "faithful_merge": "n/a", "alternative": None,
                 "bars": [{"bar": bar, "holds": True, "reason": "충족"} 
                          for bar in placement.contract_bars()],
                 "notes": "동의한다"}
         held.update(over)
+        # An override that names a judgment without its `evidence` gets the empty list, because the
+        # overrides here are about the judgment's VERDICT and every one of them would otherwise have
+        # to restate a field it does not care about. The rule itself is not softened: a review that
+        # really omits `evidence` is refused by name, which the control below plants.
+        for name in ("disposition_review", "destination_review"):
+            if isinstance(held.get(name), dict):
+                held[name] = {"evidence": [], **held[name]}
+        # The same for an alternative an override names: `destination: None` is "this alternative
+        # names no destination", which is what its absence meant, and an override about the
+        # DISPOSITION should not have to say so.
+        if isinstance(held.get("alternative"), dict):
+            held["alternative"] = {"destination": None, **held["alternative"]}
         return held
 
     def row(**over):
@@ -620,6 +638,71 @@ def _self_test_body(failures, ran):
               review(verdict="disagree", disposition_review={"holds": False, "reason": "r"},
                      alternative={"disposition": "drop", "reason": "r"}), row())
            if "VERDICT_CONTRADICTS" in problem])
+
+    # ---- the provider's strict dialect: every property required, absence given a name ------------
+    #
+    # The first live Codex S7b call was refused by the provider with `invalid_json_schema`. The
+    # strict subset a provider-hosted structured answer must fit requires EVERY property to be in
+    # `required`, so a field whose absence carried a meaning cannot exist: five of this contract's
+    # properties were optional, and lane E's projection refused the call before sending rather than
+    # letting a nullable stand-in admit a null this schema would then reject.
+    #
+    # Each of the five was decided on what its absence MEANT, so no reader gains a third case:
+    # `merge_findings` is nullable (null = no merge to review, [] = a merge reviewed with nothing
+    # found — two different answers), `alternative.destination` is nullable (null = the alternative
+    # names no destination), its `carrier` was already nullable and is now required, and both
+    # judgments' `evidence` is required outright because [] was already what absence said and is
+    # the finding the field exists to make visible.
+    held_schema = json.loads(packet.schema_bytes(json.loads(schema_bytes())))
+    held_projected, held_strict = packet.provider_schema(held_schema, "codex")
+    clean("the contract projects into the provider's strict subset with nothing left over, which "
+          "is what lets a Codex seat be sent this call at all", held_strict)
+    control("and the projection is produced rather than refused",
+            "produced" if held_projected is not None else "refused", "produced")
+    control("every property is required, which is the subset's rule and now this contract's shape",
+            json.dumps(sorted(set(held_schema["properties"]) - set(held_schema["required"]))), "[]")
+    control("a null `merge_findings` reads exactly as its absence did: no merge to review",
+            json.dumps(review_problems(review(merge_findings=None), row())), "[]")
+    control("while [] is a merge reviewed with nothing found, which is a different answer and is "
+            "held to the proposal's own operations",
+            "; ".join(review_problems(
+                review(faithful_merge="yes", merge_findings=[]),
+                row(proposal={"disposition": "reduce",
+                              "operations": [{"type": "merge",
+                                              "target": "claude/guides/g.md#one"}]}))),
+            "MERGE_FINDING_ABSENT claude/guides/g.md#one")
+    control("a review that really omits `evidence` is still refused by name, so requiring it is a "
+            "rule and not a default the fixture hands out",
+            "; ".join(review_problems({**review(),
+                                       "disposition_review": {"holds": True, "reason": "r"}},
+                                      row())),
+            "REVIEW_INVALID disposition_review")
+    control("and one that omits the whole `merge_findings` property is refused too, since absence "
+            "is no longer a value this contract has",
+            "; ".join(review_problems({k: v for k, v in review().items()
+                                       if k != "merge_findings"}, row())),
+            "REVIEW_INVALID <root>: 'merge_findings' is a required property")
+    control("a null alternative destination is the alternative naming none",
+            "; ".join(review_problems(
+                review(verdict="disagree",
+                       disposition_review={"holds": False, "reason": "r"},
+                       alternative={"disposition": "none", "reason": "r", "destination": None}),
+                row())),
+            "")
+    control("and an omitted one is refused, so the host must say which it means",
+            # Built past the fixture helper on purpose: the helper fills `destination: None` for
+            # every override, which is right for a fixture about a disposition and would hide the
+            # omission this control is about.
+            "; ".join(review_problems(
+                {**review(verdict="disagree",
+                          disposition_review={"holds": False, "reason": "r"}),
+                 "alternative": {"disposition": "drop", "reason": "r"}},
+                row())),
+            "REVIEW_INVALID alternative: 'destination' is a required property")
+    control("the duplicate `alternative` definition is gone: `alternative_or_null` is what the "
+            "contract refers to, and two copies of one contract is the defect this unit keeps "
+            "finding", json.dumps(sorted(json.loads(schema_bytes())["$defs"])),
+            '["alternative_or_null", "bar_judgment", "judgment", "merge_finding", "text"]')
 
     # ---- a scalar review is a named row, not a traceback -----------------------------------------
     def guarded(call):

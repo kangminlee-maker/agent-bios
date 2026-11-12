@@ -2048,8 +2048,11 @@ def _self_test_body(failures, ran):
             # S7b on the document S7 just wrote, which is the interface between them.
             held = {row["candidate_id"]: {
                 "verdict": "agree",
-                "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다"},
-                "destination_review": {"holds": True, "reason": "가장 싼 자리다"},
+                "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다",
+                                       "evidence": ["c1"]},
+                "destination_review": {"holds": True, "reason": "가장 싼 자리다",
+                                       "evidence": []},
+                "merge_findings": None,
                 "faithful_merge": "n/a", "alternative": None,
                 "bars": [{"bar": bar, "holds": True, "reason": "충족"}
                          for bar in placement.contract_bars()],
