@@ -5146,8 +5146,10 @@ def self_test(scratch=None):
         "S6": ["claude:claude-opus-5-5/high", "codex:gpt-6-astra/xhigh", "claude:claude-sonnet-5-5/medium", "codex:gpt-6-luna/medium"],
         "S7": ["claude:claude-opus-5-5/high"], "S7b": ["codex:gpt-6-astra/xhigh"], "S9b": ["codex:gpt-6-astra/high"]}
     # the owner's departures from that table, each named with its date: approving the C3 run (2026-11-12) the owner
-    # seated gpt-6.1-sol as S6's Judge B in place of gpt-6-astra. A seat that differs from §4 and is not listed here fails.
-    owner_departures = {("S6", 1): "codex:gpt-6.1-sol/xhigh"}
+    # seated gpt-6.1-sol as S6's Judge B in place of gpt-6-astra, and on 2026-11-13 seated the same model for S7b and
+    # S9b. A seat that differs from §4 and is not listed here fails.
+    owner_departures = {("S6", 1): "codex:gpt-6.1-sol/xhigh", ("S7b", 0): "codex:gpt-6.1-sol/xhigh",
+                        ("S9b", 0): "codex:gpt-6.1-sol/high"}
     expected_seats = {stage: [owner_departures.get((stage, n), seat) for n, seat in enumerate(row)] for stage, row in design_4.items()}
     pinned = {k: v for k, v in gate.seats().get("stage_seats", {}).items() if not k.startswith("$")}
     control("stage-seats-are-design-section-4", pinned == expected_seats, f"{pinned}")
