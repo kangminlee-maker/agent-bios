@@ -36,6 +36,22 @@ the layer it moves into admits it. A reformulation that generalizes past the evi
 and so is one that moves into a layer whose own bar it does not meet.
 
 **The enforcement bar.** All four of its conditions hold, or the learning does not go to enforcement.
+Enforcement removes a choice from everyone who uses the package, so a learning that fails one
+condition goes to a weaker layer rather than to a weaker enforcement.
+
+1. **Near-universal superiority within our values.** There is no normal situation in which the
+   enforced way is the worse one; one such situation ends it. Absence of a counterexample cannot be
+   shown, so the proposal names the situations it examined as possible counterexamples and says why
+   each is not one, and the bar is judged on whether that list is the list a careful reader would
+   have made. A proposal that names none has not met this condition.
+2. **A deterministically decidable violation.** Whether the rule was broken is decided without
+   semantic judgment.
+3. **An enforcement point we own.** The place that enforces is a capability surface of this
+   package - a wrapper, the installer, the launcher - not a host's own behavior or the user's shell.
+4. **Loud failure.** A refused action fails by name where the user sees it, and nothing changes
+   behavior silently. This is a property of the implementation, which this review does not see, so
+   the proposal states what the user sees when the rule refuses, and the bar is judged on that
+   statement.
 
 **The gate bar.** A blocking gate is deterministic, has low false positives, and has a natural run
 point. A semantic check discloses and never blocks.

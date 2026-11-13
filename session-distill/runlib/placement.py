@@ -271,12 +271,10 @@ def contract_bars():
     return tuple(bars)
 
 
-# A bar whose text names a COUNT of conditions must enumerate that many. `The enforcement bar`
-# says only "All four of its conditions hold", and neither the placement table nor either rendered
-# packet supplies those four: an enforcement proposal was reviewed against a bar nobody can read,
-# and the contract check passed because it only asked whether the heading was present (the WP-12
-# review). What the four conditions ARE is a decision, not a derivation — it is not written in the
-# design either — so this reports the gap by name rather than inventing them.
+# A bar whose text names a COUNT of conditions must enumerate that many. `The enforcement bar` once
+# said only "All four of its conditions hold" with the four nowhere in the table or either packet, so
+# a proposal was reviewed against a bar nobody could read while the contract check, which asked only
+# for the heading, passed (the WP-12 review). `contract_problems` now refuses that shape by name.
 _COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 
 
@@ -707,8 +705,9 @@ def contract_headings():
     return tuple(line[3:].strip() for line in contract_text().splitlines() if line.startswith("## "))
 
 
-def contract_problems():
+def contract_problems(text=None):
     """§7.4's list against its two authorities: the table's rules and the text's bars and sections.
+    `text` stands in for the canonical text in the count check only, so a control can plant a bar.
 
     Both directions. An item whose owner does not exist is a bar nobody carries; a rule or bar that
     is nobody's owner is an authority the design does not ask for. Either way the contract has drifted
@@ -729,7 +728,7 @@ def contract_problems():
         problems.append("CONTRACT_EMPTY: a bijection over no items says nothing")
     if not bars:
         problems.append("CONTRACT_NO_BARS: the canonical text states no bar, so S7b would judge nothing")
-    return problems
+    return problems + bar_condition_problems(text)
 
 
 def render_pair_row(row):
@@ -1086,19 +1085,18 @@ def _self_test_body(failures, ran):
 
     # ---- a bar that names a count of conditions must enumerate them ------------------------------
     #
-    # `The enforcement bar` says only "All four of its conditions hold", and neither the placement
-    # table nor either rendered packet supplies those four: an enforcement proposal is reviewed
-    # against a bar nobody can read, and the contract check passed because it only asked whether the
-    # heading was there (the WP-12 review). What those four conditions ARE is a decision — the
-    # design says "the enforcement bar (all four conditions)" and never lists them either — so this
-    # reports the gap by name instead of inventing them, and the refusal is NOT wired into
-    # `problems()` until the owner states them.
-    control("the live contract's enforcement bar is reported as unstated, by name",
-            "; ".join(bar_condition_problems()),
+    # `The enforcement bar` once said only "All four of its conditions hold", and neither the
+    # placement table nor either rendered packet supplied those four: an enforcement proposal was
+    # reviewed against a bar nobody could read, and the contract check passed because it only asked
+    # whether the heading was there (the WP-12 review). The four are the placement framework's, which
+    # the design says it retains; the owner confirmed them on 2026-11-13, and an unenumerated count is
+    # now one of `contract_problems`' refusals. The rows below build their own text, so they keep
+    # testing now that the live contract is clean.
+    clean("the live contract enumerates every count of conditions a bar names", bar_condition_problems())
+    control("and a contract whose bar names a count without the list is refused by the contract check",
+            "; ".join(contract_problems(
+                "## The bars\n\n**The enforcement bar.** All four of its conditions hold.\n")),
             "BAR_CONDITIONS_UNSTATED The enforcement bar")
-    clean("and it is the ONLY bar in that state, so the report names a gap rather than a style",
-          [problem for problem in bar_condition_problems()
-           if "The enforcement bar" not in problem])
     enumerated = ("## The bars\n\n"
                   "**The enforcement bar.** All four of its conditions hold, or the learning does "
                   "not go to enforcement: the violation is deterministically detectable; the check "
