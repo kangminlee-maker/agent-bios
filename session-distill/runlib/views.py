@@ -716,6 +716,29 @@ def overlap_manifest(window, seq):
     return rows
 
 
+# The longest tail an omission's line can take in a read packet: S3 marks a forced omission with the
+# reason it must be expanded, and the reasons are these two (`stage_read.searched`, the pending events).
+OMISSION_FORCED_TAIL = max(len(f", must expand ({why})") for why in ("search_match", "pending_event"))
+
+
+def omission_reserve(window):
+    """The bytes the read packet's omission list can take for this window, at most.
+
+    A read packet carries, beside the window's text, one line per omission of the window's OWN records
+    (`stage_read.omissions_text`). The packet's fixed overhead leaves a few hundred bytes of room, which a
+    long list overruns: on the first run over three days of sessions thirty windows cut to the bound were
+    refused at S3 by up to 717 bytes, each for its list. So the window's measure counts the list, by an
+    upper bound S2 can compute before S3 labels anything: each line under the widest labels, with the
+    numbers it will print and the longest reason it can be forced by. S3 measures the packet it really
+    builds, which is never larger than this for the list's part."""
+    rows = [m for m in window["omission_manifest"] if m.get("origin") != "overlap"]
+    if not rows:
+        return len("none")
+    widest = f"o{len(rows)}"
+    return sum(len(f"- {widest}: in {LABEL_BOUND}, {m['omitted_span']['end'] - m['omitted_span']['start']} of "
+                   f"{m['size']} characters omitted") + OMISSION_FORCED_TAIL + 1 for m in rows)
+
+
 def make_window(base, number, seq, i, j, limits, overlap=True):
     owned = [{k: v for k, v in e.items() if k != "owned"} for e in seq[i:j]]
     prev, prev_out, following, next_out = [], [], [], []
@@ -726,7 +749,8 @@ def make_window(base, number, seq, i, j, limits, overlap=True):
               "overlap": {"prev": prev, "next": following, "omitted": {"prev": prev_out, "next": next_out}},
               "span_map": span_map_of(owned), "omission_manifest": manifest_of(owned), "host_allowance": limits["allowance"]}
     window["omission_manifest"] = window["omission_manifest"] + overlap_manifest(window, seq)
-    window["driver_bytes"] = limits["overhead"] + len(render_window(window).encode("utf-8"))
+    window["driver_bytes"] = (limits["overhead"] + len(render_window(window).encode("utf-8"))
+                              + omission_reserve(window))
     window["bound_ok"] = not bound.check_bound(window["driver_bytes"], limits)
     return window
 
@@ -3086,6 +3110,22 @@ def self_test():
                                 tighter["manifest"]["totals"]["windows"] > manifest["totals"]["windows"]), (True, True))
         expect("WP-08: S2 cuts every window reserving the output cap run.json declares for S3",
                golden(root, "cap48", reservation=48_000)["manifest"]["limits"]["reservation"], 48_000)
+        # the omission list a read packet carries is part of what a window is cut against (the first three-day run:
+        # thirty windows over the bound at S3, each by its list). Rows built here, so the control needs no corpus.
+        fx_omitted = [{"record_id": f"r{k}", "size": 5000 + k, "omitted_span": {"start": 100, "end": 4000 + k},
+                       "forced_by": "none"} for k in range(12)]
+        fx_line = lambda m: (len(f"- o12: in {LABEL_BOUND}, {m['omitted_span']['end'] - m['omitted_span']['start']} of "  # noqa: E731
+                                 f"{m['size']} characters omitted") + len(", must expand (pending_event)") + 1)
+        expect("a window's measure counts one line per omission of its own records at the line's longest, and none of "
+               "the overlap's", (omission_reserve({"omission_manifest": fx_omitted + [{**fx_omitted[0], "origin": "overlap"}]}),
+                                 omission_reserve({"omission_manifest": [{**fx_omitted[0], "origin": "overlap"}]})),
+               (sum(fx_line(m) for m in fx_omitted), len("none")))
+        fx_sized = make_window({"transcript": "t", "version": 0, "version_sha": "ab" * 32, "redaction_version": projection.CURRENT},
+                               1, [make_entry({"pointer": "/message/content", "kind": "human", "text": "x" * 100}, 1, "in_window", 0)],
+                               0, 1, limits, overlap=False)
+        expect("and that count is in the bytes the window is held to the bound by",
+               fx_sized["driver_bytes"], limits["overhead"] + len(render_window(fx_sized).encode("utf-8"))
+               + omission_reserve(fx_sized))
         one = make_entry({"pointer": "/message/content", "kind": "human", "text": "x" * 100}, 1, "in_window", 0)
         refused("control, unbounded: a packet that leaves no room for an entry is refused, never cut away",
                 lambda: cut_windows({"transcript": "t", "version": 0, "version_sha": "ab" * 32, "redaction_version": projection.CURRENT},

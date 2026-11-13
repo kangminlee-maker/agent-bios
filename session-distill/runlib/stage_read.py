@@ -3121,7 +3121,8 @@ def self_test():
                 "measured for it are its overhead and its text as rendered with those labels",
                 wide and overhead_la is not None
                 and all(entry_lines(views.render_window(doc)) == [f"e{k}" for k in range(1, len(views.entry_labels(doc)) + 1)]
-                        and doc["driver_bytes"] == overhead_la + len(views.render_window(doc).encode("utf-8"))
+                        and doc["driver_bytes"] == (overhead_la + len(views.render_window(doc).encode("utf-8"))
+                                                    + views.omission_reserve(doc))
                         and entry_lines(window_packets("apart").get(n, "")) == entry_lines(views.render_window(doc))
                         for n, doc in wide),
                 f"{[(n, len(views.entry_labels(d))) for n, d in wide]} {overhead_la}")
@@ -4066,6 +4067,13 @@ def self_test():
             control("4b row 10: a pending event's forcing is kept when the search matches the same record",
                     searched([{**own_rows(holding)[0], "forced_by": "pending_event", "record_id": term_rid}],
                              {term_rid: "search_match"})[0]["forced_by"] == "pending_event")
+            # S2 cuts a window against a measure that counts the omission list S3 will write, before S3 has labelled
+            # anything: the reserve is at least the list in its longest form (every omission forced, by the longer reason)
+            forced_h = [{**m, "forced_by": "pending_event"} for m in own_rows(holding)]
+            listed_h = len(omissions_text(Labels(holding, forced_h)).encode("utf-8"))
+            control("the measure a window was cut against holds its omission list at the list's longest",
+                    bool(forced_h) and 0 < listed_h <= views.omission_reserve(holding),
+                    f"list {listed_h} reserve {views.omission_reserve(holding)} rows {len(forced_h)}")
             twice = copy.deepcopy(skipping)
             entry_h = holding["records"][0]
             twice["observations"] = [{"expected_id": "N-1@r0", "occasion_locator": views.eid(entry_h), "exposure": "eligible",

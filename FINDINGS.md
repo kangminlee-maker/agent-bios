@@ -201,3 +201,23 @@ Alternatives:
    references. Keeps the id form; adds a step someone must run.
 3. **Accept it.** One owner, one checkout, one close at a time is release 1's actual use; the collision is caught
    by the ledger's own validation at merge.
+
+## F-36 — a read packet's call id and due list are outside the measure a window is cut against
+
+Found by the first three-day run of 2026-11-14 (S3's dry measure). S2 holds a window to the bound by
+`views.make_window`'s measure: the packet's fixed overhead, the window's text, and the omission list at its
+longest. Two parts of the packet S3 really builds are still not in it: the call id, whose length follows the run
+id and the view's file name, and the list of expected observations due (`stage_read.expected_text`), which S2
+cannot know. Both fit only in what the fixed overhead leaves over (`packet.py --self-test` prints the room; 449
+bytes for a read packet with a 13-character call id).
+
+Reach: a window cut to within that room of the bound, in a run with long view names or with observations due.
+S3 measures the packet before any call and refuses it by name (`WINDOW_OVER_BOUND`), so nothing is sent and
+nothing is spent; the run stops until S2 is run again. On the run that found this, the due list was empty and the
+longest view name was 144 characters.
+
+Alternatives:
+
+- S2 measures the call id it can derive (the run id and the view's name are known when the window is cut), and
+  the declaration states a reserve for the due list that S3 holds its list to.
+- S3 splits a window that its own additions push over the bound, instead of refusing it.
