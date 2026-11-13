@@ -750,21 +750,7 @@ def build_parser():
     sub.add_argument("--self-test", action="store_true", help="the declaration's controls")
     sub.set_defaults(handler=cmd_declare)
     for name, stage in STAGE_COMMANDS.items():
-        helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
-                 "form": f"{stage}: candidate formation and the lifecycle intake",
-                 "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
-                 "deliver": f"{stage}: the delivery evidence of each candidate's units, from the run's own records",
-                 "judge": f"{stage}: the judges A and B",
-                 "render": f"{stage}: the review, the owner's decision copy and the rows",
-                 "parse-decisions": f"{stage}: the owner's decision copy into approvals and adjudications",
-                 "review-korean": f"{stage}: the review's Korean against its English payload, one regeneration",
-                 "adjudicate": f"{stage}: the owner's adjudications recomputed, the newly admitted through S7 and S7b",
-                 "confirm": f"{stage}: the final set built for the owner's confirmation, or (--decide) the owner's 확인",
-                 "apply": f"{stage}: the confirmed final set written into files of the declared checkout; runs no git "
-                          f"and no installer, and names the two commands the owner runs",
-                 "close": f"{stage}: the run's decisions and window recorded in the checkout's ledger and a periodic "
-                          f"run's coverage promoted; names the commands the owner runs"}
-        sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
+        sub = commands.add_parser(name, help=f"{stage}: " + COMMAND_HELP.get(name, "not implemented yet"))
         common(sub)
         if name == "close":
             sub.add_argument("--recovery", action="store_true", help="the recovery close (reserved)")
@@ -857,6 +843,32 @@ def build_parser():
             sub.add_argument("--golden-plan", help="a golden host's plan: the calls are answered from it and start no model")
         sub.set_defaults(handler=HANDLERS.get(name, cmd_stage))
     return parser
+
+
+# What each implemented command's --help line says. A command with a handler and no line here would read
+# "not implemented yet" in the help while it runs (read, propose and review-proposals did), so the suite
+# holds this table against the dispatch table.
+COMMAND_HELP = {
+    "census": "the census",
+    "views": "the reading views, the search index and the evidence store",
+    "inventory": "every delivered unit of each reference point, with its edges",
+    "read": "the density reading of each window, one call per window",
+    "form": "candidate formation and the lifecycle intake",
+    "retrieve": "retrieval, quote and session checks, and recurrence",
+    "deliver": "the delivery evidence of each candidate's units, from the run's own records",
+    "judge": "the judges A and B",
+    "propose": "one proposal per candidate; code derives everything but the disposition and its reasons",
+    "review-proposals": "a second seat reviews each proposal; it shows disagreement and never decides",
+    "render": "the review, the owner's decision copy and the rows",
+    "review-korean": "the review's Korean against its English payload, one regeneration",
+    "parse-decisions": "the owner's decision copy into approvals and adjudications",
+    "adjudicate": "the owner's adjudications recomputed, the newly admitted through S7 and S7b",
+    "confirm": "the final set built for the owner's confirmation, or (--decide) the owner's 확인",
+    "apply": ("the confirmed final set written into files of the declared checkout; runs no git and no "
+        "installer, and names the two commands the owner runs"),
+    "close": ("the run's decisions and window recorded in the checkout's ledger and a periodic run's coverage "
+        "promoted; names the commands the owner runs"),
+}
 
 
 def main(argv=None):
@@ -1127,6 +1139,10 @@ def self_test():
                 not (own - set(HANDLERS)), f"undispatched: {sorted(own - set(HANDLERS))}")
         control("and every dispatched command has one", not (set(HANDLERS) - own),
                 f"dispatched to nothing of its own: {sorted(set(HANDLERS) - own)}")
+        control("every dispatched command's help line says what it does, and no other command has one",
+                set(COMMAND_HELP) == set(HANDLERS),
+                f"help without a handler: {sorted(set(COMMAND_HELP) - set(HANDLERS))}; "
+                f"handler without help: {sorted(set(HANDLERS) - set(COMMAND_HELP))}")
         control("the implemented list is the dispatch table, so neither can drift from the other",
                 set(implemented) == set(HANDLERS),
                 f"implemented={sorted(implemented)} dispatched={sorted(HANDLERS)}")
