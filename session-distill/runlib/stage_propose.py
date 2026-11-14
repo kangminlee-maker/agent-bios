@@ -759,6 +759,11 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
         if answer is None and cid in legacy_ids and legacy_entries[cid] is not None:
             entry = legacy_entries[cid]
             if call_spent_on(entry):
+                if cid in (not_asked or {}):
+                    # The caller named why no call was made for it (an entry S6's sample left out
+                    # has no kind to propose under): named, as every other candidate not asked is.
+                    unasked[cid] = not_asked[cid]
+                    continue
                 # A block exists, so a call was owed and no answer came back. Code does not answer
                 # for an entry the owner's decision says the model must read.
                 returned.append({"candidate_id": cid, "problems": [
@@ -768,6 +773,13 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
             answer = legacy_answer(entry)
             defaulted.append(cid)
             default_groups[decision1_kind(entry)] += 1
+            if cid not in verdicts:
+                # The owner's default for an entry S6 did not judge is the owner's rule and not a
+                # proposal: with no derivation it has no kind, and §7.2's pair check - which holds a
+                # PROPOSAL to its kind - refused all 118 of them on the first live run, so the review
+                # showed 118 failed items where the owner had asked for three groups. It is counted
+                # in `legacy.defaulted`, and S9 groups it from the ledger entry itself.
+                continue
         if answer is None and cid in (not_asked or {}):
             # Not asked is not unanswered. A candidate S6 rejected, disputed, left out of its judged
             # scope or planted as a control is owed no proposal, and reporting it ANSWER_ABSENT
@@ -2326,6 +2338,23 @@ def _self_test_body(failures, ran):
     # lane E's `placement.BELOW_BAR`, which is the §6.4 table's `below_bar` row and now carries
     # `none`, so here is the clean row. The assertion on `BELOW_BAR` is what makes a reversal say
     # so: without it, this row would go back to a refusal nobody expected.
+    # The same entries as a real run holds them: S6's sample left them out, so NO verdict exists.
+    # The fixtures above give every legacy entry a derived row, which no run did for more than its
+    # sample; the first live S7 returned all 118 defaulted entries (VALUE_UNKNOWN kind None) and the
+    # 24 with a block (LEGACY_CALL_UNANSWERED), and the review showed 141 failed items.
+    unjudged_cands = {"candidates": [{"candidate_id": "legacy:plain", "source": "legacy"},
+                                     {"candidate_id": "legacy:block", "source": "legacy"}]}
+    unjudged_entries = {"legacy:plain": legacy_entry,
+                        "legacy:block": {**legacy_entry, "classification": {"type": "D"}}}
+    unjudged_asked, unjudged_not = asked_of(unjudged_cands, {"verdicts": {}, "not_derived": []}, set(),
+                                            unjudged_entries)
+    unjudged_doc = document({"verdicts": {}, "not_derived": [], **ANSWERED}, unjudged_cands, {}, None,
+                            unjudged_entries, not_asked=unjudged_not)
+    control("a legacy entry S6 did not judge is nobody's failed item: the one without a block is the owner's "
+            "default, the one with a block is named not asked, and neither is returned or asked",
+            json.dumps([unjudged_doc["returned"], unjudged_doc["legacy"]["defaulted"],
+                        unjudged_doc["not_asked"]["candidates"], unjudged_asked, unjudged_doc["counts"]["proposed"]]),
+            json.dumps([[], ["legacy:plain"], {"legacy:block": LEGACY_UNJUDGED}, {}, 0]))
     clean("a legacy entry with no answer and no classification block reaches the contract from the "
           "owner's default and PASSES it, which is the row this control was written to become",
           [row for row in legacy_doc["returned"]
