@@ -54,8 +54,21 @@ def payload_for(candidate, proposal_row, units=()):
                                ensure_ascii=False, indent=1),
         "units": json.dumps(list(units), ensure_ascii=False, indent=1),
         "placement_contract": f"sha256:{placement.contract_digest()}\n\n{placement.contract_text()}",
-        "returns": "Return one JSON object in the schema of this call.",
+        "returns": returns_text(),
     }, template_dir=HERE / "packets")
+
+
+def returns_text():
+    """What the packet asks back, with the bars by name.
+
+    `review_problems` holds a review's `bars` to the contract text's own list in both directions, and
+    the list is a parse of that text (`placement.contract_bars`): the bolded lead-ins of two
+    sections. A reviewer reading the text cannot know which of its headings and paragraphs that parse
+    takes - the first live S7b got five first answers refused for bars named after other paragraphs,
+    and lost one review to it. So the packet spells the names it will be held to."""
+    names = "; ".join(f"`{bar}`" for bar in placement.contract_bars())
+    return ("Return one JSON object in the schema of this call. `bars` holds exactly one entry for each of these, "
+            f"its `bar` spelled exactly as here and no other: {names}.")
 
 
 def merge_targets(proposal):
@@ -643,6 +656,13 @@ def _self_test_body(failures, ran):
             said(review(bars=[*({"bar": b, "holds": True, "reason": "r"} for b in placement.contract_bars()),
                               {"bar": "The brevity bar", "holds": True, "reason": "r"}])),
             "BAR_UNKNOWN")
+    control("the packet names every bar a review is held to, spelled as the contract check reads it, so a "
+            "reviewer need not guess which paragraphs of the text are bars",
+            "missing: " + "; ".join(bar for bar in placement.contract_bars() if f"`{bar}`" not in returns_text())
+            + " | named: " + str(len(placement.contract_bars())),
+            f"missing:  | named: {len(placement.contract_bars())}")
+    control("and the payload a call is handed carries that sentence",
+            payload_for({"candidate_id": "k"}, {"judgments": {}}), returns_text())
     control("the bars come from the text, so the review's set is the text's set",
             ", ".join(placement.contract_bars()), "Leftward reformulation")
     clean("a failing bar is a complete review, and the row carries which ones failed",
