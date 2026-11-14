@@ -99,12 +99,34 @@ def item_of(candidate_id):
 
 # ---- the run's documents ------------------------------------------------------------------------------------------
 
+def s9b_reviewed_an_earlier_document(run_dir, rec):
+    """Whether S9b read, from a stage before S9, an output that stage has since written again.
+
+    S9's own outputs are not asked: S9 renders again over S9b's review by design, so they differ after every
+    overlay and say nothing about what S9b reviewed."""
+    held = records.stage_records(run_dir)
+    for read in rec.get("inputs") or []:
+        producer = read.get("producer_stage")
+        if producer in (None, STAGE):
+            continue
+        now = {o["artifact"]: o["sha256"] for o in (held.get(producer) or {}).get("outputs") or []}
+        if read["artifact"] in now and now[read["artifact"]] != read["sha256"]:
+            return True
+    return False
+
+
 def s9b_inputs(run_dir):
     """S9b's outputs as S9's inputs when S9b has run (overlay decision (a), K4b): its review and its regenerated
     proposals, each through the shared record checks. A record that is not complete is refused (S9B_UNSETTLED), since
     the review it would overlay is not there to read; a run S9b never reviewed renders as before."""
     rec = records.stage_records(pathlib.Path(run_dir)).get("S9b")
     if rec is None:
+        return ()
+    if s9b_reviewed_an_earlier_document(pathlib.Path(run_dir), rec):
+        # S9b's review is of documents that have since been made again (S7 or S7b was run again). Its overlay is
+        # not carried: this render is of what is there now, and S9b then reviews this render. Refusing instead
+        # left the run with no next step - S9 refused the stale S9b and S9b refused the stale S9, each asking
+        # for the other to be run again (the first live run, after S7 was fixed and run again).
         return ()
     if rec.get("status") != "complete":
         raise Refused(f"S9B_UNSETTLED: S9b's record is {rec.get('status')!r}, so the review it would overlay is not "
@@ -2256,6 +2278,15 @@ def self_test():
             unsettled = str(exc)
         control("a render over an S9b record that is not complete is refused by name", unsettled, "S9B_UNSETTLED")
         records.write_json(run_dir, run_dir / "stages" / "S9b" / "record.json", held)
+        # S9b's review of documents a stage before S9 has since written again (the first live run: S7 was fixed
+        # and run again after S9b, and S9 and S9b each refused the other as stale, with no next step)
+        upstream = [i for i in held["inputs"] if i.get("producer_stage") not in (None, STAGE)]
+        records.write_json(run_dir, run_dir / "stages" / "S9b" / "record.json",
+                           {**held, "inputs": [{**i, "sha256": "0" * 64} if i in upstream else i for i in held["inputs"]]})
+        equal("an S9b review of documents made again since is not overlaid, and the render is not refused for it",
+              (bool(upstream), s9b_inputs(run_dir)), (True, ()))
+        records.write_json(run_dir, run_dir / "stages" / "S9b" / "record.json", held)
+        equal("while a review of what is there now is taken as before", len(s9b_inputs(run_dir)), 2)
         (run_dir / "stages" / "S7b" / "record.json").unlink(missing_ok=True)
         try:
             without = f"written {run(run_dir).get('version')}"
