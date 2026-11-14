@@ -259,3 +259,27 @@ Alternatives:
 - Read `error.type == "usage_limit_reached"` as a limit (a structured field, not message text), and give the
   breaker's reset a driver command that names the provider and records who reset it.
 - Keep the frame unrecognised, and add only the command.
+
+## F-39 — the owner's review page does not say what a non-proposal row is about, and most of its bytes are unit comparisons
+
+Found by the first three-hour live run of 2026-11-14, when the owner opened the review (54 rows, 656 KB) and could
+not review it. Two things in `stage_render`'s page:
+
+- A row that carries no proposal (a disputed row, a rejected row, a legacy entry, a cluster of ledger entries)
+  prints only the generic sentence for its state ("the two judges differed on requirements …"). The candidate's
+  own lesson, situation and action - in `candidates.json`, in the lifecycle intake's `lessons`, or in the checkout
+  ledger's entry - are not on the page, so the owner is asked to settle `met` or `unmet` for a requirement of a
+  candidate the page never states. The judges' reasons for the disputed requirement are not printed either; only
+  their marks are.
+- Each judged row prints both judges' comparison against every retrieved unit (about ninety per row) and the list
+  of related unit ids with their delivery state. On this run that is nearly all of the page.
+
+Reach: every review a run renders. The owner's decisions are still parsed correctly; what fails is that a person
+can read the page at all. On this run the lead wrote a summary by hand from the run's own files.
+
+Alternatives:
+
+- Print for every row what the candidate says (lesson, situation, action, exception; for a cluster or a legacy
+  entry, the ledger's lesson text) and, for a disputed requirement, each judge's reason; move the per-unit
+  comparisons and the id lists to the appendix or to a second file the page names.
+- Keep the page as the complete record and render a second, short page for reading, with the same item numbers.
