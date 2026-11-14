@@ -221,3 +221,23 @@ Alternatives:
 - S2 measures the call id it can derive (the run id and the view's name are known when the window is cut), and
   the declaration states a reserve for the due list that S3 holds its list to.
 - S3 splits a window that its own additions push over the bound, instead of refusing it.
+
+## F-37 — a window cut to the bound cannot be retried: the retry's correction is outside the measure
+
+Found by the first three-hour live run of 2026-11-14 (S3). When the gate or the stage's check fails a window's
+answer, the dispatcher sends the window once more with the failure's lines appended (`gate.correction`, which the
+dispatcher's own docstring calls unbounded). The second packet is measured against the same bound as the first,
+and S2 cut the window against the first. A window within the correction's size of the bound is therefore refused
+on its retry (`WINDOW_OVER_BOUND`, the `-a2` call id): on that run one window of 116,205 allowed bytes came to
+116,549 with its correction.
+
+Reach: any window near the bound whose first answer is refused; most windows of a dense session are near the
+bound, since S2 fills them. Nothing is sent and nothing is spent for the refused attempt. Under the production
+posture the unit is quarantined by name and its session is handed back as failed, so the run goes on without that
+session's reading; under the other postures the stage stops.
+
+Alternatives:
+
+- S2 reserves a declared number of bytes for a correction, and `gate.correction` holds its text to that number
+  (the first lines that fit, and a line saying how many were left out).
+- The retry is measured against its own bound: the first attempt's bound plus the declared correction reserve.
