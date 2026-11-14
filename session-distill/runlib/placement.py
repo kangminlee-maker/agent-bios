@@ -407,7 +407,9 @@ def placement_problems(proposal):
                 problems.append(f"{code} {proposal.get('item_id')}: the always-loaded global file receives "
                                 f"deletions and merges only, so it is no home for a new learning")
         elif rid == "c_route":
-            if proposal.get("typology") == "C":
+            # the rule's declared scope decides whether it applies, as `input_problems` reads it: a C
+            # principle that carries no operation is routed nowhere, so there is no route to judge
+            if proposal.get("typology") == "C" and SCOPES[rule["scope"]](proposal):
                 layer = _layer(proposal)
                 if layer not in rule["allowed_layers"]:
                     problems.append(f"{code} {proposal.get('item_id')}: a recognition principle goes to the "
@@ -1061,6 +1063,10 @@ def _self_test_body(failures, ran):
     clean("and one in session-level injection, where it concerns only the owner",
           problems({**c_rule, "destination": {"layer": "session_injection", "carrier": "session"},
                     "names_situation_of_guide": None, "owner_only": True}))
+    clean("a C principle whose proposal carries no operation is routed nowhere, so the route rule does not judge "
+          "the layer it happens to name (the first live S7: a complete `none` refused for it)",
+          [p for p in problems({**fx_proposal("unclassified", "covered", "none"), "typology": "C",
+                                "destination": {"layer": "incubator", "carrier": None}}) if p.startswith("C_ROUTE")])
     control("F-O5-17: a C principle routed anywhere else is refused by name",
             said({**c_rule, "destination": {"layer": "skills", "carrier": "claude/skills/s"}}),
             "C_ROUTE")

@@ -241,3 +241,21 @@ Alternatives:
 - S2 reserves a declared number of bytes for a correction, and `gate.correction` holds its text to that number
   (the first lines that fit, and a line saying how many were left out).
 - The retry is measured against its own bound: the first attempt's bound plus the declared correction reserve.
+
+## F-38 — a Codex usage limit is read as an unrecognised stop, and no command ends that stop
+
+Found by the first three-hour live run of 2026-11-14 (S6's Judge B). The Codex host answered a call with an error
+frame whose detail is `{"error": {"type": "usage_limit_reached"}}` and no reset time. `breaker.codex_signals`
+reads that frame as `unrecognised`, so the provider's breaker opens with `resets_at: null`, and an unrecognised stop
+"stays stopped until the operator resets it" (`Breaker.reset`). Nothing in `distill.py` calls that reset: the run's
+operator has to import the module and call it. Until then every Codex call of the run is deferred without being
+sent, including after the limit has lifted - the first resume on that run made no call at all.
+
+Reach: any run with a Codex seat that meets the account's limit. Nothing is sent and nothing is spent while the
+breaker is open; the stage ends `partial`, and the next stage refuses it by name.
+
+Alternatives:
+
+- Read `error.type == "usage_limit_reached"` as a limit (a structured field, not message text), and give the
+  breaker's reset a driver command that names the provider and records who reset it.
+- Keep the frame unrecognised, and add only the command.

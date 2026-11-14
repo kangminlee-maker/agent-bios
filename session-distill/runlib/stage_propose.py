@@ -428,6 +428,11 @@ def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
                  # The candidate's own type, from the candidate. §7.4's C-route rule keys on it, and
                  # an answer that carried it would give the field two sources.
                  "typology": candidate.get("type")})
+    # A `none` proposes no change, so it has no destination: whatever layer the answer wrote is not
+    # carried, and §7.4's destination rules have nothing of it to judge. The first live S7 refused
+    # two complete `none` answers for the layer their model had written beside them.
+    if answer.get("disposition") == "none":
+        held["destination"] = None
     unexpected = sorted(set(answer) - set(FROM_ANSWER) - {"placement", "keep_record_named"}
                         - set(DERIVED_FIELDS))
     if unexpected:
@@ -872,7 +877,13 @@ LIVE_INPUTS = INPUTS + ({"artifact": "checks.json", "producer_stage": "S5"},
 CALLS = "propose/calls.json"
 DRY_RECORD = "propose/dry.json"
 ASKED_ADMITTED = "S6 admitted it"
-ASKED_LEGACY = "a legacy entry with a classification block (D-20261111-e53a01)"
+# A legacy entry with a classification block is the model's to answer (D-20261111-e53a01) once S6 has
+# judged it: the proposal's kind and diagnosis are S6's, and an entry S6's sample left out has
+# neither, so every answer about it is refused whatever it says. The first live S7 asked 23 such
+# entries twice each and accepted none; they are named instead, and the owner's default does not
+# answer them, because the owner kept that default for entries WITHOUT a block.
+LEGACY_UNJUDGED = ("a legacy entry with a classification block that S6's sample left out, so it has no "
+                   "kind or diagnosis to propose under (D-20261111-e53a01 asks the model once S6 has judged it)")
 
 
 def item_of(candidate_id):
@@ -911,7 +922,7 @@ def asked_of(candidates, derivations, planted, legacy):
             not_asked[cid] = "S6 did not derive it"
         elif cid in legacy:
             if legacy[cid] is not None and call_spent_on(legacy[cid]):
-                asked[cid] = ASKED_LEGACY
+                not_asked[cid] = LEGACY_UNJUDGED
             # else: the owner's default, answered by `document` in code
         else:
             not_asked[cid] = "S6 left its source out of the judged scope"
@@ -972,6 +983,23 @@ def with_before_states(answer, checkout):
     return {**answer, "operations": operations}, problems
 
 
+def with_named_states(answer, derivation):
+    """The answer with every state the derivation named carried in `unknowns`, by CODE.
+
+    The rows are `named_states`' own: the field, the state as the derivation spells it, and the
+    effect this module states for the field. A model can only copy them, and the first live S7
+    refused two answers for a row their model left out - of a field the proposal did not rest on -
+    while nothing in the row was the model's to write. So a missing row is added here, and a row the
+    answer does carry is left as it is: its state is still held to the derivation's
+    (UNKNOWN_STATE_REWRITTEN), and a field nobody declared is still refused."""
+    if not isinstance(answer, dict):
+        return answer
+    held = answer.get("unknowns") if isinstance(answer.get("unknowns"), list) else []
+    carried = {row.get("field") for row in held if isinstance(row, dict)}
+    added = [row for row in named_states(derivation) if row["field"] not in carried]
+    return {**answer, "unknowns": list(held) + added}
+
+
 def unit_rows(check_row, current_units, checkout=None):
     """The units S5 retrieved for one candidate, as S7 is shown them: where each lives and what it
     says, in S5's order. The label is the packet's own; a store id is not shown."""
@@ -1029,6 +1057,7 @@ def live_check(candidate, derivations, verdict, legacy_incubating, checkout, cap
             raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record "
                           f"carries the capacity {held!r}, and S7 was admitted against {capacity!r}")
         answer, problems = with_before_states(stage_read.answer_of(call_dir), checkout)
+        answer = with_named_states(answer, derivations)
         problems = problems + answer_problems(answer, candidate, derivations, verdict, None, legacy_incubating)
         # asked only of an answer the contract otherwise accepts: a refused target has no state to apply to
         return problems or applicability_problems(answer, checkout)
@@ -1132,6 +1161,7 @@ def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calib
                 call_dir = pathlib.Path(out["accepted"])
                 held["call_id"] = records.read_json(call_dir / "call.json")["call_id"]
                 answers[cid], _checked = with_before_states(gate.accepted(call_dir, judged=True), checkout)
+                answers[cid] = with_named_states(answers[cid], derivations)
             calls.append(held)
         unanswered = {c["candidate_id"]: f"CALL_NOT_ACCEPTED {c['candidate_id']}: S7's call ended "
                                          f"{c['outcome']}" + (f" ({', '.join(c['codes'])})" if c["codes"] else "")
@@ -2397,14 +2427,41 @@ def _self_test_body(failures, ran):
     asked_legacy = {"legacy:block": {"id": "B", "classification": {"type": "D"}},
                     "legacy:plain": {"id": "P"}, "legacy:judged": {"id": "J"}}
     held_asked, held_not = asked_of(asked_population, asked_derivations, {"k-planted"}, asked_legacy)
-    control("a proposal is asked for a candidate S6 admitted and for a legacy entry with a "
-            "classification block, and for nobody else",
+    control("a proposal is asked for a candidate S6 admitted, a legacy entry among them, and for nobody else",
             json.dumps(held_asked, sort_keys=True),
-            json.dumps({"k-admitted": ASKED_ADMITTED, "legacy:block": ASKED_LEGACY,
-                        "legacy:judged": ASKED_ADMITTED}, sort_keys=True))
+            json.dumps({"k-admitted": ASKED_ADMITTED, "legacy:judged": ASKED_ADMITTED}, sort_keys=True))
+    # What the first live S7 refused and no answer could have fixed, each case built here.
+    none_cand, none_row = _candidate(cid="k-none", kind="unclassified", diagnosis="covered", ctype="C")
+    none_answer = _answered(disposition="none", operations=[],
+                            destination={"layer": "ledger", "carrier": None, "situation": "s"})
+    clean("a `none` carries no destination, whatever layer its answer wrote beside it",
+          [] if proposal_of(none_answer, none_cand, none_row)["destination"] is None
+          else [f"carried {proposal_of(none_answer, none_cand, none_row)['destination']}"])
+    clean("so a complete `none` is accepted whole: no layer outside the vocabulary and no C principle's route is "
+          "judged for it", [line for line in said(none_answer, none_cand, None, none_row).split("; ") if line])
+    control("while a placement that writes such a layer is still refused by name",
+            said(_answered(destination={"layer": "ledger", "carrier": "claude/guides/g.md", "situation": "s"})),
+            "LAYER_UNKNOWN")
+    named_fx = {"unit_outcomes": {"state": "none"}, "delivery": {"state": "assembled"},
+                "arc_confirmation": {"state": "undetermined"}, "points": {"release": {"state": "judged"}}}
+    partly = _answered(unknowns=[{"field": "unit_outcomes", "state": "none", "effect": "the model's own words"}])
+    control("the states the derivation named are carried by code: a missing row is added with the derivation's "
+            "state, and a row the answer carries is left as written",
+            json.dumps(with_named_states(partly, named_fx)["unknowns"], sort_keys=True),
+            json.dumps([{"field": "unit_outcomes", "state": "none", "effect": "the model's own words"},
+                        {"field": "arc_confirmation", "state": "undetermined",
+                         "effect": "whether a type G candidate's arc is confirmed"}], sort_keys=True))
+    clean("so an answer that left a named state out is not refused for it",
+          [line for line in said(with_named_states(partly, named_fx), derivation=named_fx).split("; ")
+           if line.startswith("UNKNOWN_")])
+    control("and a row whose state the answer rewrote is still refused, since code adds and never corrects",
+            said(with_named_states(_answered(unknowns=[{"field": "arc_confirmation", "state": "confirmed",
+                                                        "effect": "x"}]), named_fx), derivation=named_fx),
+            "UNKNOWN_STATE_REWRITTEN")
     control("everyone not asked is named with the reason, a planted control before its admission",
             json.dumps(held_not, sort_keys=True),
             json.dumps({"k-disputed": "S6's admission is disputed", "k-planted": "a control S5 planted",
+                        "legacy:block": LEGACY_UNJUDGED,
                         "k-rejected": "S6's admission is rejected", "k-underived": "S6 did not derive it",
                         "redundancy_hint:left": "S6 left its source out of the judged scope"},
                        sort_keys=True))
