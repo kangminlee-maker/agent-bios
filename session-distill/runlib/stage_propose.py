@@ -533,7 +533,7 @@ def _non_prose_values(answer):
         if isinstance(observation.get("counter"), dict) and \
                 isinstance(observation["counter"].get("name"), str):
             held.append(("expected_observation.counter.name", observation["counter"]["name"]))
-    destination = answer.get("destination") or {}
+    destination = carried_destination(answer) or {}     # a `none` carries none: nothing of it is a value to judge
     if isinstance(destination, dict):
         for field in ("consumer", "carrier", "layer"):
             if isinstance(destination.get(field), str):
@@ -2476,6 +2476,9 @@ def _self_test_body(failures, ran):
     clean("a `none` carries no destination, whatever layer its answer wrote beside it",
           [] if proposal_of(none_answer, none_cand, none_row)["destination"] is None
           else [f"carried {proposal_of(none_answer, none_cand, none_row)['destination']}"])
+    stray = {**none_answer, "destination": {"layer": "ledger", "carrier": "../../elsewhere"}}
+    clean("a `none` whose answer wrote a path beside it is not refused for that path, which it does not carry",
+          [line for line in said(stray, none_cand, None, none_row).split("; ") if line])
     equal_dest = [carried_destination(none_answer), carried_destination(_answered())]
     clean("and every reader's destination of a proposal is that one: None for a `none`, the answer's for any other",
           [] if equal_dest == [None, _answered()["destination"]] and _answered()["destination"] is not None

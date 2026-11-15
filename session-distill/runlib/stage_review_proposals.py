@@ -206,7 +206,7 @@ def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incu
         # a carrier carrying a newline and a decision-shaped line could forge an owner's line; the
         # render escapes, and the producer refuses at the source.
         problems.extend(placement.destination_problems(
-            alternative.get("destination"), where="alternative.destination",
+            stage_propose.carried_destination(alternative), where="alternative.destination",
             item=f"{proposal_row.get('candidate_id')}: "))
     return problems
 
@@ -926,6 +926,17 @@ def _self_test_body(failures, ran):
                        alternative={"disposition": "none", "reason": "r", "destination": None}),
                 row())),
             "")
+    none_alt = lambda dest: "; ".join(review_problems(  # noqa: E731
+        review(verdict="disagree", disposition_review={"holds": False, "reason": "r"},
+               alternative={"disposition": "none", "reason": "r", "destination": dest}), row()))
+    control("a `none` alternative carries no destination, so a layer written beside it is not judged, while the same "
+            "layer on any other alternative is",
+            json.dumps(["LAYER_UNKNOWN" in none_alt({"layer": "no-such-layer", "carrier": None}),
+                        "LAYER_UNKNOWN" in "; ".join(review_problems(
+                            review(verdict="disagree", disposition_review={"holds": False, "reason": "r"},
+                                   alternative={"disposition": "incubate", "reason": "r",
+                                                "destination": {"layer": "no-such-layer", "carrier": None}}), row()))]),
+            json.dumps([False, True]))
     control("and an omitted one is refused, so the host must say which it means",
             # Built past the fixture helper on purpose: the helper fills `destination: None` for
             # every override, which is right for a fixture about a disposition and would hide the

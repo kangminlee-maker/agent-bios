@@ -382,14 +382,16 @@ def run(run_dir, reviews=None, regenerations=None, second=None, *, supervisor=No
     version = latest_version(run_dir)
     review_rel, regen_rel = outputs_of(version)
     adjudicated_specs = stage_adjudicate.adjudicated_inputs(run_dir)
-    # Before the stage opens: a refusal inside it would replace the complete record of the review that is there
-    # with a failed one, and S9 then refuses to render over an S9b that is not complete while S9b refuses to
-    # review a version it has reviewed - neither command has a next step (the review of the first live run's fixes).
-    for rel in (review_rel, regen_rel):
-        if (run_dir / rel).exists():
-            raise Refused(f"S9B_VERSION_REVIEWED {rel}: a version's Korean is reviewed once; render the next "
-                          f"version (S9) and review that")
-    with records.run_stage(run_dir, STAGE, inputs_of(version) + adjudicated_specs) as stage:
+    def reviewed_once():
+        # Under the stage's lock and before its record is replaced (`records.run_stage`'s `admit`). Inside the
+        # stage, the refusal replaced the complete record of the review that is there with a failed one, and S9
+        # then refused the unsettled S9b while S9b refused the reviewed version; before the lock, two
+        # invocations could each pass it in turn and the second overwrote the first's review.
+        for rel in (review_rel, regen_rel):
+            if (run_dir / rel).exists():
+                raise Refused(f"S9B_VERSION_REVIEWED {rel}: a version's Korean is reviewed once; render the next "
+                              f"version (S9) and review that")
+    with records.run_stage(run_dir, STAGE, inputs_of(version) + adjudicated_specs, admit=reviewed_once) as stage:
         read = lambda rel: records.read_json(run_dir / rel)  # noqa: E731
         previous, previous_regenerated = previous_of(run_dir, version)
         # S10's adjudication laid over S6's derivations and S7's proposals (K5), so a row admitted by adjudication
@@ -652,6 +654,38 @@ def self_test():
         equal("and that refusal leaves the review's own record as it was: complete, naming the same outputs",
               (after.get("status"), sorted(o["artifact"] for o in after.get("outputs") or [])),
               ("complete", ["regenerated-reasons.v1.json", "review-s9b.v1.json"]))
+        # two invocations in turn: the other one finishes its review after this one was started and before this one
+        # holds the stage's lock. Stood in for by taking the review away, and putting it back as the stage opens.
+        # (both outputs: the check refuses on either, so one left in place would refuse before the lock too)
+        both = ("review-s9b.v1.json", "regenerated-reasons.v1.json")
+        held_outputs = {rel: (run_dir / rel).read_bytes() for rel in both}
+        held_review = held_outputs["review-s9b.v1.json"]
+        real_stage = records.run_stage
+
+        def other_finishes_first(*args, **kwargs):
+            for rel, data in held_outputs.items():
+                (run_dir / rel).write_bytes(data)
+            return real_stage(*args, **kwargs)
+        for rel in both:
+            (run_dir / rel).unlink()
+        records.run_stage = other_finishes_first
+        try:
+            late = f"written {run(run_dir, {})}"
+        except Refused as exc:
+            late = str(exc).split(" ", 1)[0]
+        except Exception as exc:  # noqa: BLE001 - a second review that got past the lock fails here by name
+            late = f"{type(exc).__name__} past the lock"
+        finally:
+            records.run_stage = real_stage
+        untouched = all((run_dir / rel).is_file() and (run_dir / rel).read_bytes() == data
+                        for rel, data in held_outputs.items())
+        for rel, data in held_outputs.items():
+            (run_dir / rel).write_bytes(data)
+        after = records.stage_records(run_dir).get(STAGE) or {}
+        equal("an invocation that reaches the stage's lock after another one reviewed the version is refused there, "
+              "with that review and its record untouched",
+              (late, untouched and bool(held_review), after.get("status")),
+              ("S9B_VERSION_REVIEWED", True, "complete"))
         (cli_out / "reviews.json").write_text("{}", encoding="utf-8")
         done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "review-korean", "--run-id",
                                run_dir.name, "--out", str(cli_out), "--reviews", str(cli_out / "reviews.json")],

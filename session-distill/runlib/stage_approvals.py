@@ -227,7 +227,8 @@ def measures_of(rows_doc, current_doc, frozen, approvals, at):
             continue
         decided.append(item_id)
         proposal = (current.get(item_id) or {}).get("proposal") or {}
-        if choice == "reject" or (proposal and stage_render.material_of(proposal) != held["material"]):
+        if choice == "reject" or (proposal and not stage_render.same_material(stage_render.material_of(proposal),
+                                                                              held["material"])):
             overturned.append(item_id)
         elif proposal and sha256_of({"reasons": proposal.get("reasons"), "artifact_set": proposal.get("artifact_set")}) \
                 != held["wording_sha256"]:

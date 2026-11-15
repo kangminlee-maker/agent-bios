@@ -579,7 +579,7 @@ def provenance_problems(stage, pinned, records):
 
 
 @contextlib.contextmanager
-def run_stage(run_dir, stage, inputs=(), part=None):
+def run_stage(run_dir, stage, inputs=(), part=None, admit=None):
     """Hold the stage's lock, refuse to start on a stale, partial or invalid input or a
     declaration edited outside `declare`, write the record as `running`, and finish it as
     `complete` (or as `partial` when the stage said so, or `failed` on an exception).
@@ -617,6 +617,11 @@ def run_stage(run_dir, stage, inputs=(), part=None):
             errors.extend(provenance_problems(stage, pinned, records))
             if errors:
                 raise Refused("\n".join(errors))
+            if admit is not None:
+                # the stage's own last refusal, under the stage's lock and before the record that is there is
+                # replaced: a check made before the lock can be passed by two invocations in turn, and one
+                # made after the record is written has already replaced a complete record with a running one
+                admit()
             record = {"stage": stage, "run_json_sha256": digest, "declaration_seq": seq, "started": now(),
                       "ended": None, "status": "running", "inputs": pinned, "outputs": [], "calls": [],
                       "quarantined": [], "usage": {"measured": 0, "provisional": 0, "unresolved": 0, "complete": False}}

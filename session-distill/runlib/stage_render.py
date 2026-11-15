@@ -196,7 +196,8 @@ def judges_of(judgments, verdict):
                     "consequence_class": j.get("consequence_class"),
                     "reasons": {n: v.get("reason") for n, v in sorted((j.get("requirements") or {}).items())
                                 if isinstance(v, dict) and v.get("reason")},
-                    "units": [{"unit": u.get("unit"), "situation": u.get("situation"), "action": u.get("action"),
+                    # S6 stores each comparison under `unit_id` (`stage_judge.JudgeLabels.resolve`)
+                    "units": [{"unit": u.get("unit_id"), "situation": u.get("situation"), "action": u.get("action"),
                                "reason": u.get("reason"), "quote": u.get("quote")} for u in j.get("units") or []],
                     # the rest of what the judge wrote, carried whole so the page's appendix can print it
                     "no_longer_arises": j.get("no_longer_arises"),
@@ -991,7 +992,7 @@ def s7b_lines(state):
         out.append(f"- S7b 메모: {inline(state.get('notes'))}")
         alt = state.get("alternative")
         if alt:
-            where = alt.get("destination") or {}
+            where = stage_propose.carried_destination(alt) or {}
             out.append(f"- S7b 대안 {ALTERNATIVE_ID}: 처분 {inline(alt.get('disposition'))} · 위치 "
                        f"{inline(where.get('layer') or '-')}/{inline(where.get('carrier') or '-')} · 이유 "
                        f"{inline(alt.get('reason'))} "
@@ -1297,6 +1298,14 @@ def material_of(answer):
             "behavior_contract": answer.get("behavior_contract")}
 
 
+def same_material(now, frozen):
+    """Whether a proposal's material is what was frozen. Both sides are read with the destination a proposal
+    carries: a `none` frozen before `carried_destination` holds the layer its answer wrote, and that is no change."""
+    def carried(m):
+        return {**m, "destination": stage_propose.carried_destination(m)} if isinstance(m, dict) else m
+    return carried(now) == carried(frozen)
+
+
 def frozen_after(held, rows, version, rendered_at):
     """§13.4's frozen proposals after this render: each item's proposal as it was the first time it was rendered as
     proposed (release 1 has no "tested", lead decision E7), never replaced by a later version."""
@@ -1451,8 +1460,8 @@ def fixture_docs():
                                         "requirements": dict(met),
                                         # every field a judge writes, each with text only this candidate and
                                         # this judge carry, so a line that lost one is seen
-                                        "units": [{"unit": "u-9", "situation": "yes", "action": "no", "reason": "r"},
-                                                  {"unit": "u-8", "situation": "no", "action": "no",
+                                        "units": [{"unit_id": "u-9", "situation": "yes", "action": "no", "reason": "r"},
+                                                  {"unit_id": "u-8", "situation": "no", "action": "no",
                                                    "reason": f"unit {c}/{who}", "quote": f"quote {c}/{who}"}],
                                         "no_longer_arises": {"value": False, "reason": f"arises {c}/{who}",
                                                              "evidence_ids": [f"ev-n {c}/{who}"]},
@@ -1806,6 +1815,25 @@ def self_test():
           "unit comparison with its quote, whether the situation still arises, the matched units and the ledger "
           "relations, for every judged row and both judges",
           (len(judged_rows) >= 5, lost), (True, []))
+    equal("each comparison names the unit it is of, as S6 stores it, and none is printed without one",
+          ([cid for cid in judged_rows for who in JUDGES
+            if sum(f"u-8 상황 no 행동 no: unit {cid}/{who}" in line for line in appendix_of(cid)) != 1],
+           "None 상황" in text), ([], False))
+    equal("an S7b alternative that changes nothing prints no destination, whatever its answer wrote beside it",
+          [line.split(" · ")[1] for line in s7b_lines({
+              "state": "reviewed", "verdict": "disagree", "disposition_holds": False, "destination_holds": True,
+              "faithful_merge": "n/a", "bars_failing": [], "owner_resolves": True, "notes": "n",
+              "alternative": {"disposition": "none", "reason": "r",
+                              "destination": {"layer": "guides", "carrier": "claude/guides/a.md"}}})
+           if line.startswith("- S7b 대안")], ["위치 -/-"])
+    old_frozen = {"disposition": "none", "destination": {"layer": "ledger", "carrier": None}, "x": 1}
+    equal("a `none` frozen with the layer its answer wrote is the same material as that proposal read now, and a "
+          "changed disposition or a changed destination of any other proposal is not",
+          [same_material({**old_frozen, "destination": None}, old_frozen),
+           same_material({**old_frozen, "disposition": "keep"}, old_frozen),
+           same_material({"disposition": "keep", "destination": {"layer": "guides", "carrier": "a"}},
+                         {"disposition": "keep", "destination": {"layer": "guides", "carrier": "b"}})],
+          [True, False, False])
     equal("and the row itself holds the counts, not the comparisons: two per judge, and one related unit",
           ([line.rsplit("; ", 1)[-1] for line in section("k-a") if line.startswith("- 판정자")],
            [line for line in section("k-a") if line.startswith("- 관련 단위")],
