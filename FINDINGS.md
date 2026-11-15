@@ -263,8 +263,10 @@ Alternatives:
 ## F-39 — the review states a non-proposal row's candidate in English, and a group row states none of its members
 
 Found by the first three-hour live run of 2026-11-14, when the owner opened the review (54 rows, 656 KB) and could
-not review it. The page now prints what each row's candidate says and each judge's reason for a disputed or
-rejected requirement, and keeps the per-unit comparisons in its appendix. Two things remain:
+not review it. The page now prints what each row's candidate says (a row whose candidate has no text of its own
+says that; an obsolete hint names its unit by id, without the unit's text) and each judge's reason for a disputed
+or rejected requirement, and keeps the rest of what the judges wrote in its appendix. S7b's per-item reasons are
+not in S7b's document, so the page names where they are instead of printing them. Two things remain:
 
 - The candidate's words are its source's, which are English (S4's candidates, the ledger's lessons); only a
   proposal's reasons are written in Korean, by S7. A Korean reader gets the subject of 49 of that run's 54 rows in

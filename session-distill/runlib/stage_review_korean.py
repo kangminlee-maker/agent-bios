@@ -382,10 +382,14 @@ def run(run_dir, reviews=None, regenerations=None, second=None, *, supervisor=No
     version = latest_version(run_dir)
     review_rel, regen_rel = outputs_of(version)
     adjudicated_specs = stage_adjudicate.adjudicated_inputs(run_dir)
+    # Before the stage opens: a refusal inside it would replace the complete record of the review that is there
+    # with a failed one, and S9 then refuses to render over an S9b that is not complete while S9b refuses to
+    # review a version it has reviewed - neither command has a next step (the review of the first live run's fixes).
+    for rel in (review_rel, regen_rel):
+        if (run_dir / rel).exists():
+            raise Refused(f"S9B_VERSION_REVIEWED {rel}: a version's Korean is reviewed once; render the next "
+                          f"version (S9) and review that")
     with records.run_stage(run_dir, STAGE, inputs_of(version) + adjudicated_specs) as stage:
-        for rel in (review_rel, regen_rel):
-            if (run_dir / rel).exists():
-                raise Refused(f"S9B_VERSION_REVIEWED {rel}: a version's Korean is reviewed once")
         read = lambda rel: records.read_json(run_dir / rel)  # noqa: E731
         previous, previous_regenerated = previous_of(run_dir, version)
         # S10's adjudication laid over S6's derivations and S7's proposals (K5), so a row admitted by adjudication
@@ -644,6 +648,10 @@ def self_test():
         except Refused as exc:
             again = str(exc)
         control("a version's Korean is reviewed once", again, "S9B_VERSION_REVIEWED")
+        after = records.stage_records(run_dir).get(STAGE) or {}
+        equal("and that refusal leaves the review's own record as it was: complete, naming the same outputs",
+              (after.get("status"), sorted(o["artifact"] for o in after.get("outputs") or [])),
+              ("complete", ["regenerated-reasons.v1.json", "review-s9b.v1.json"]))
         (cli_out / "reviews.json").write_text("{}", encoding="utf-8")
         done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "review-korean", "--run-id",
                                run_dir.name, "--out", str(cli_out), "--reviews", str(cli_out / "reviews.json")],

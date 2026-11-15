@@ -386,6 +386,17 @@ def regenerate_reasons(answer, regenerated, candidate, derivation, derivation_ro
     return held
 
 
+def carried_destination(answer):
+    """The destination a proposal carries: the answer's, and None for a `none`, which proposes no change.
+
+    The stored proposal is the answer as the model wrote it and the schema accepted it, so a `none` may hold a
+    layer its model wrote beside it. No rule judged that layer, so no reader may take it for a destination: every
+    reader of a proposal's destination (the placement checks, S7b's packet, the review page, the close) asks here."""
+    if not isinstance(answer, dict) or answer.get("disposition") == "none":
+        return None
+    return answer.get("destination")
+
+
 def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
     """The flat proposal `placement.py` and `ranking.py` read, assembled from the answer and S6.
 
@@ -431,8 +442,7 @@ def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
     # A `none` proposes no change, so it has no destination: whatever layer the answer wrote is not
     # carried, and §7.4's destination rules have nothing of it to judge. The first live S7 refused
     # two complete `none` answers for the layer their model had written beside them.
-    if answer.get("disposition") == "none":
-        held["destination"] = None
+    held["destination"] = carried_destination(answer)
     unexpected = sorted(set(answer) - set(FROM_ANSWER) - {"placement", "keep_record_named"}
                         - set(DERIVED_FIELDS))
     if unexpected:
@@ -2466,6 +2476,10 @@ def _self_test_body(failures, ran):
     clean("a `none` carries no destination, whatever layer its answer wrote beside it",
           [] if proposal_of(none_answer, none_cand, none_row)["destination"] is None
           else [f"carried {proposal_of(none_answer, none_cand, none_row)['destination']}"])
+    equal_dest = [carried_destination(none_answer), carried_destination(_answered())]
+    clean("and every reader's destination of a proposal is that one: None for a `none`, the answer's for any other",
+          [] if equal_dest == [None, _answered()["destination"]] and _answered()["destination"] is not None
+          else [f"carried {equal_dest}"])
     clean("so a complete `none` is accepted whole: no layer outside the vocabulary and no C principle's route is "
           "judged for it", [line for line in said(none_answer, none_cand, None, none_row).split("; ") if line])
     control("while a placement that writes such a layer is still refused by name",

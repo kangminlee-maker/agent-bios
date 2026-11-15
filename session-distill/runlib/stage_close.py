@@ -53,7 +53,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
-from runlib import (census, coverage, ledger, records, stage_apply, stage_approvals, stagelock,  # noqa: E402
+from runlib import (census, coverage, ledger, records, stage_apply, stage_approvals, stage_propose, stagelock,  # noqa: E402
                     stage_confirm, targets)
 from runlib.records import Refused  # noqa: E402
 
@@ -168,8 +168,16 @@ def element_of(run_id, item, confirmation_id, adjudication_id, resolves):
     return element
 
 
+def _destination(item):
+    """The destination the item's proposal carries (`stage_propose.carried_destination`: none for a `none`)."""
+    proposal = item["proposal"] or {}
+    if "disposition" not in proposal:           # a group member or an adopted alternative: the item's own disposition
+        proposal = {**proposal, "disposition": item.get("disposition")}
+    return stage_propose.carried_destination(proposal) or {}
+
+
 def destination_of(item):
-    held = (item["proposal"] or {}).get("destination") or {}
+    held = _destination(item)
     carrier = held.get("carrier")
     return {"implementation": carrier, "anchor": None, "package_id": None} if carrier else None
 
@@ -177,7 +185,7 @@ def destination_of(item):
 def keep_of(item):
     units = [u for u in ((item["row"].get("units") or []) + (item["row"].get("guarded_keeps") or []))
              if isinstance(u, str) and u]
-    carrier = ((item["proposal"] or {}).get("destination") or {}).get("carrier")
+    carrier = _destination(item).get("carrier")
     units = units or ([carrier] if carrier else [])
     return {"units": units, "reason": reason_of(item)} if units else None
 
@@ -781,6 +789,40 @@ def _self_test_body(failures, ran, reporting):
             control("and a coverage reference names a coverage.json",
                     code(lambda: close_run(run_dir, coverage_ref="state/other.json")), "COVERAGE_REF_INVALID")
         section('a confirmed set S11 has not applied (section)', scenario_0)
+
+        def scenario_coverage_paths():
+            # The stage's own call site with a coverage state to promote, on its first pass and on the re-run after
+            # a stop between the ledger and the coverage write. What the state is and how it is written have their
+            # own controls below; here the two are stood in for, so the paths `run` hands the owner are what is read.
+            real = (globals()["coverage_after"], globals()["promote_coverage"])
+            stops = []
+
+            def promoting(tree, coverage_rel, state, pinned_sha):
+                if stops:
+                    raise Refused(f"COVERAGE_BASE_STALE {coverage_rel}: {stops.pop()}")
+                return True
+            globals()["coverage_after"] = lambda run_dir, declaration: (coverage.new_state(), None)
+            globals()["promote_coverage"] = promoting
+            try:
+                _root, first_run, first_checkout = applied("coverage-first")
+                stage_apply.run(first_run)
+                first = close_run(first_run, coverage_ref=COVERAGE_AT)
+                _root, second_run, _checkout = applied("coverage-resumed")
+                stage_apply.run(second_run)
+                stops.append("a stop planted between the ledger and the coverage write")
+                stopped = code(lambda: close_run(second_run, coverage_ref=COVERAGE_AT))
+                resumed = close_run(second_run, coverage_ref=COVERAGE_AT)
+            finally:
+                globals()["coverage_after"], globals()["promote_coverage"] = real
+            for label, doc in (("its first pass", first), ("the re-run after a stop between its two writes", resumed)):
+                control(f"a close that promotes coverage names it local state and leaves it out of the commit on {label}",
+                        [doc["coverage"]["promoted"], doc["local_state"], COVERAGE_AT in doc["paths"],
+                         LEDGER_AT in doc["paths"], f"'{COVERAGE_AT}'" in doc["owner_commands"]["commit"],
+                         f"'{LEDGER_AT}'" in doc["owner_commands"]["commit"]],
+                        [True, [COVERAGE_AT], False, True, False, True])
+            control("and the planted stop was the coverage write's, after the ledger was written",
+                    [stopped, resumed["ledger"]["written_by_this_call"]], ["COVERAGE_BASE_STALE", False])
+        section('a close that promotes coverage (section)', scenario_coverage_paths)
 
         def scenario_1():
             root, run_dir, checkout = applied("closed")

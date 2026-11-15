@@ -16,6 +16,7 @@ bar left out of a review is not a bar that holds.
 import collections
 import json
 import pathlib
+import re
 import sys
 import tempfile
 
@@ -50,12 +51,20 @@ def payload_for(candidate, proposal_row, units=()):
     return packet.render(TEMPLATE, {
         "candidate": json.dumps(candidate, ensure_ascii=False, indent=1),
         "judgments": json.dumps((proposal_row.get("judgments") or {}), ensure_ascii=False, indent=1),
-        "proposal": json.dumps({k: v for k, v in proposal_row.items() if k != "judgments"},
-                               ensure_ascii=False, indent=1),
+        "proposal": json.dumps(shown_proposal(proposal_row), ensure_ascii=False, indent=1),
         "units": json.dumps(list(units), ensure_ascii=False, indent=1),
         "placement_contract": f"sha256:{placement.contract_digest()}\n\n{placement.contract_text()}",
         "returns": returns_text(),
     }, template_dir=HERE / "packets")
+
+
+def shown_proposal(proposal_row):
+    """The proposal as the reviewer is shown it: without the judgments (their own slot), and with the destination
+    the proposal carries (`stage_propose.carried_destination`): a `none` shows none, whatever its answer wrote."""
+    held = {k: v for k, v in proposal_row.items() if k != "judgments"}
+    if isinstance(held.get("proposal"), dict):
+        held["proposal"] = {**held["proposal"], "destination": stage_propose.carried_destination(held["proposal"])}
+    return held
 
 
 def returns_text():
@@ -173,6 +182,10 @@ def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incu
         problems.append(f"BAR_UNJUDGED {bar!r}: a bar left out of a review is not a bar that holds")
     for bar in sorted(answered - stated):
         problems.append(f"BAR_UNKNOWN {bar!r}: the contract text states no such bar")
+    named = [row["bar"] for row in review["bars"]]
+    for bar in sorted({b for b in named if named.count(b) > 1}):
+        problems.append(f"BAR_REPEATED {bar!r}: {named.count(bar)} entries judge one bar, and a review holds "
+                        f"exactly one for each")
     # The alternative, held to the same table as the proposal.
     alternative = review.get("alternative")
     if review["verdict"] == "agree" and alternative is not None:
@@ -656,13 +669,28 @@ def _self_test_body(failures, ran):
             said(review(bars=[*({"bar": b, "holds": True, "reason": "r"} for b in placement.contract_bars()),
                               {"bar": "The brevity bar", "holds": True, "reason": "r"}])),
             "BAR_UNKNOWN")
-    control("the packet names every bar a review is held to, spelled as the contract check reads it, so a "
+    # the names the sentence asks for, read back out of the sentence: its backticked list after the colon
+    asked_bars = re.findall(r"`([^`]+)`", returns_text().split("no other:", 1)[-1])
+    control("the packet names exactly the bars a review is held to, each once and in the contract's order, so a "
             "reviewer need not guess which paragraphs of the text are bars",
-            "missing: " + "; ".join(bar for bar in placement.contract_bars() if f"`{bar}`" not in returns_text())
-            + " | named: " + str(len(placement.contract_bars())),
-            f"missing:  | named: {len(placement.contract_bars())}")
-    control("and the payload a call is handed carries that sentence",
-            payload_for({"candidate_id": "k"}, {"judgments": {}}), returns_text())
+            f"[{len(asked_bars)}] <{' | '.join(asked_bars)}>",
+            f"[{len(placement.contract_bars())}] <{' | '.join(placement.contract_bars())}>")
+    control("and that list is not empty", str(len(asked_bars) >= 4), "True")
+    held_payload = payload_for({"candidate_id": "k"}, {"judgments": {}})
+    control("and the payload a call is handed asks for each of them by name",
+            str([f"`{bar}`" in held_payload for bar in placement.contract_bars()]),
+            str([True] * len(placement.contract_bars())))
+    control("two entries for one bar are refused by name",
+            said(review(bars=[*({"bar": b, "holds": True, "reason": "r"} for b in placement.contract_bars()),
+                              {"bar": placement.contract_bars()[0], "holds": False, "reason": "r"}])),
+            "BAR_REPEATED")
+    none_row = {"candidate_id": "k", "judgments": {}, "proposal": {"disposition": "none", "destination": {"layer": "ledger", "carrier": None}}}
+    control("the reviewer is shown no destination for a `none`, whatever layer its answer wrote, and the answer's "
+            "for any other disposition",
+            json.dumps([shown_proposal(none_row)["proposal"]["destination"],
+                        shown_proposal({**none_row, "proposal": {"disposition": "keep", "destination": {"layer": "incubator", "carrier": None}}})["proposal"]["destination"],
+                        "judgments" in shown_proposal(none_row)]),
+            json.dumps([None, {"layer": "incubator", "carrier": None}, False]))
     control("the bars come from the text, so the review's set is the text's set",
             ", ".join(placement.contract_bars()), "Leftward reformulation")
     clean("a failing bar is a complete review, and the row carries which ones failed",

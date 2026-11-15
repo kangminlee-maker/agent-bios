@@ -197,7 +197,11 @@ def judges_of(judgments, verdict):
                     "reasons": {n: v.get("reason") for n, v in sorted((j.get("requirements") or {}).items())
                                 if isinstance(v, dict) and v.get("reason")},
                     "units": [{"unit": u.get("unit"), "situation": u.get("situation"), "action": u.get("action"),
-                               "reason": u.get("reason")} for u in j.get("units") or []]}
+                               "reason": u.get("reason"), "quote": u.get("quote")} for u in j.get("units") or []],
+                    # the rest of what the judge wrote, carried whole so the page's appendix can print it
+                    "no_longer_arises": j.get("no_longer_arises"),
+                    "matching_units": list(j.get("matching_units") or []),
+                    "ledger_relations": list(j.get("ledger_relations") or [])}
     return out
 
 
@@ -251,6 +255,8 @@ def subject_of(said=None, entry=None, finding=None):
         add("member_lesson", lesson)
     if entry is not None:
         add("ledger_lesson", entry.get("lesson"))
+    if lifecycle.get("target_unit"):
+        add("hinted_unit", str(lifecycle["target_unit"]))
     if lifecycle.get("target_units"):
         add("similar_units", f"{', '.join(str(u) for u in lifecycle['target_units'])} "
                              f"(match {lifecycle.get('match')}, similarity {lifecycle.get('similarity')})")
@@ -423,8 +429,12 @@ def rows_of(docs):
     for cand in pop["candidates"]:
         cid, source = cand["candidate_id"], cand["source"]
         events = list(cand.get("event_ids") or [])
-        subject = subject_of(said.get(cid), entries.get((intake.get(cid) or {}).get("target_entry"))
-                             if source == "legacy" else None)
+        # the entry a candidate is about, whatever its source: a legacy entry's own, a due decision's target
+        target = ((intake.get(cid) or {}).get("target_entry")
+                  or ((said.get(cid) or {}).get("lifecycle") or {}).get("target_entry"))
+        subject = subject_of(said.get(cid), entries.get(target)) or [
+            {"part": "no_source", "text": f"a {source} candidate with no text of its own in checked-candidates.json, "
+                                          f"intake.json or the pinned ledger"}]
         if cid in check_failed:
             rows.append(_row(cid, "candidate", FAILED, test_state, o6_failed("S5", check_failed[cid]),
                              source=source, events=events, subject=subject, failure={"stage": "S5", "codes": list(check_failed[cid])}))
@@ -888,14 +898,44 @@ def judge_line(who, judge):
 def judge_units_line(who, judge):
     """One judge's comparison of the candidate with every retrieved unit: the appendix's line, so a row stays short
     and nothing a judge wrote is left off the page."""
-    return (f"  - 판정자 {who}: " + "; ".join(
+    return (f"  - 판정자 {who} · 단위 비교: " + "; ".join(
         f"{inline(u['unit'])} 상황 {inline(u['situation'])} 행동 {inline(u['action'])}: {inline(u['reason'])}"
-        for u in judge["units"]))
+        + (f" (인용: {inline(u['quote'])})" if u.get("quote") else "") for u in judge["units"]))
+
+
+def judge_record_lines(who, judge):
+    """Everything else one judge wrote, for the appendix: the reason for every requirement (the row prints only the
+    disputed and the jointly unmet ones), whether the situation no longer arises, the units it matched and its
+    relations to ledger entries. With `judge_units_line`, no field of an accepted judgment is on no line of the page."""
+    out = []
+    reasons = judge.get("reasons") or {}
+    if reasons:
+        out.append(f"  - 판정자 {who} · 요구 사항별 이유: " + "; ".join(
+            f"{inline(n)}={inline((judge.get('requirements') or {}).get(n))}: {inline(r)}" for n, r in reasons.items()))
+    gone = judge.get("no_longer_arises")
+    if isinstance(gone, dict):
+        out.append(f"  - 판정자 {who} · 더는 생기지 않는 상황인가: {inline(gone.get('value'))}"
+                   + (f": {inline(gone.get('reason'))}" if gone.get("reason") else "")
+                   + (f" (근거 {', '.join(inline(e) for e in gone.get('evidence_ids') or [])})"
+                      if gone.get("evidence_ids") else ""))
+    if judge.get("matching_units"):
+        out.append(f"  - 판정자 {who} · 일치한 단위: " + "; ".join(
+            f"{inline(m.get('unit_id'))} 기여 {inline(m.get('contribution'))}"
+            f" (근거 {', '.join(inline(e) for e in m.get('contribution_evidence_ids') or []) or '없음'})"
+            f" 따름 {inline(m.get('following'))}"
+            f" (근거 {', '.join(inline(e) for e in m.get('following_evidence_ids') or []) or '없음'})"
+            for m in judge["matching_units"]))
+    if judge.get("ledger_relations"):
+        out.append(f"  - 판정자 {who} · 대장 항목과의 관계: " + "; ".join(
+            f"{inline(r.get('entry_id'))} {inline(r.get('relation'))}: {inline(r.get('reason'))}"
+            for r in judge["ledger_relations"]))
+    return out
 
 
 SUBJECT_LABELS = {"lesson": "교훈", "situation": "상황", "action": "행동", "exception": "예외",
                   "member_lesson": "묶인 교훈", "ledger_lesson": "대장에 적힌 교훈", "similar_units": "비슷한 두 단위",
-                  "finding": "발견", "rejection_reason": "형성 단계의 거부 이유"}
+                  "finding": "발견", "rejection_reason": "형성 단계의 거부 이유", "hinted_unit": "가리키는 단위",
+                  "no_source": "원문 없음"}
 
 
 def reason_lines(row, name):
@@ -908,8 +948,9 @@ def proposal_lines(answer):
     """The proposal's own parts, beyond its O6 reasons: destination, operations, contract, observation, artifacts and
     the unknowns it carries."""
     out = []
-    dest = answer.get("destination") or {}
-    out.append(f"- 대상: layer {inline(dest.get('layer'))}, carrier {inline(dest.get('carrier'))}")
+    dest = stage_propose.carried_destination(answer)
+    out.append(f"- 대상: layer {inline(dest.get('layer'))}, carrier {inline(dest.get('carrier'))}" if dest
+               else "- 대상: 없음 (바꾸지 않는 제안은 대상을 갖지 않습니다)")
     for n, op in enumerate(answer.get("operations") or [], 1):
         out.append(f"- 연산 {n}: {inline(op['type'])} {inline(op['target'])} "
                    f"(before {inline(str(op['before_state_sha256'])[:12])})")
@@ -1097,12 +1138,20 @@ def appendix_lines(doc, locators):
         out.append(f"- `{ident}` ({len(members)}개): " + ", ".join(f"`{m}`" for m in members))
     if not doc["appendix"]["group_members"]:
         out.append("- 없음")
-    out += ["", "### 행별 단위 비교와 관련 단위", ""]
-    held = [r for r in doc["rows"] if r.get("units") or any((j or {}).get("units") for j in (r.get("judges") or {}).values())]
+    out += ["", "### 행별 판정 기록과 관련 단위", "",
+            "- 각 행에는 갈린 요구 사항과 함께 미충족으로 본 요구 사항의 이유만 있고, 판정자가 쓴 나머지는 모두 여기에 "
+            "있습니다. S7b가 항목마다 쓴 세부 사유(처분과 위치 검토의 이유, 기준별 이유, 병합 소견)는 S7b의 문서에 "
+            "실리지 않아 이 화면에도 없으며, 실행 폴더의 review-proposals 호출 기록에 있습니다.", ""]
+    held = [r for r in doc["rows"] if r.get("units") or any(j for j in (r.get("judges") or {}).values())]
     for row in held:
         out.append(f"- `{row['item_id']}`")
-        out += [judge_units_line(who, row["judges"][who]) for who in JUDGES
-                if ((row.get("judges") or {}).get(who) or {}).get("units")]
+        for who in JUDGES:
+            judge = (row.get("judges") or {}).get(who)
+            if not judge:
+                continue
+            out += judge_record_lines(who, judge)
+            if judge.get("units"):
+                out.append(judge_units_line(who, judge))
         if row.get("units"):
             out.append("  - 관련 단위: " + ", ".join(f"{inline(u['unit_id'])} (전달 증거: {inline(u['delivery'])})"
                                                  for u in row["units"]))
@@ -1243,7 +1292,7 @@ def frozen_name(version):
 def material_of(answer):
     """What §13.4 calls a material change of a proposal, as data: its disposition, destination, operation targets and
     behavior contract. Anything else that differs (its reasons, its artifacts' wording) is wording."""
-    return {"disposition": answer.get("disposition"), "destination": answer.get("destination"),
+    return {"disposition": answer.get("disposition"), "destination": stage_propose.carried_destination(answer),
             "targets": sorted([op.get("type"), op.get("target")] for op in answer.get("operations") or []),
             "behavior_contract": answer.get("behavior_contract")}
 
@@ -1369,7 +1418,8 @@ def fixture_docs():
                    "non_findings": {"duplicate_of_another_event": 1, "routine_step": 1}}}
     intake = {"candidates": [{"candidate_id": f"legacy:L-{i}", "source": "legacy", "target_entry": f"L-{i}"}
                              for i in range(1, 6)]
-              + [{"candidate_id": "due_decision:P-1@r1", "source": "due_decision", "pending_intervention": True}]}
+              + [{"candidate_id": "due_decision:P-1@r1", "source": "due_decision", "pending_intervention": True,
+                  "target_entry": "L-5"}]}
 
     def entry(ident, word, classification=None):
         return {"id": ident, "status": "incubating", "classification": classification, "lesson": f"lesson of {ident}",
@@ -1399,13 +1449,24 @@ def fixture_docs():
     judgments = {c: {who: {"seat": f"seat-{who}", "call_id": f"{c}-{who}",
                            "judgment": {"consequence_class": "quality" if who == "A" else "security-relevant",
                                         "requirements": dict(met),
-                                        "units": [{"unit": "u-9", "situation": "yes", "action": "no", "reason": "r"}]}}
+                                        # every field a judge writes, each with text only this candidate and
+                                        # this judge carry, so a line that lost one is seen
+                                        "units": [{"unit": "u-9", "situation": "yes", "action": "no", "reason": "r"},
+                                                  {"unit": "u-8", "situation": "no", "action": "no",
+                                                   "reason": f"unit {c}/{who}", "quote": f"quote {c}/{who}"}],
+                                        "no_longer_arises": {"value": False, "reason": f"arises {c}/{who}",
+                                                             "evidence_ids": [f"ev-n {c}/{who}"]},
+                                        "matching_units": [{"unit_id": "u-9", "contribution": "partial",
+                                                            "contribution_evidence_ids": [f"ev-c {c}/{who}"],
+                                                            "following": "unknown", "following_evidence_ids": []}],
+                                        "ledger_relations": [{"entry_id": "L-1", "relation": "same",
+                                                              "reason": f"relation {c}/{who}"}]}}
                      for who in JUDGES} for c in judged}
     # the two judges' own reasons on the disputed and the rejected candidate, as S6's judgment files hold them
     for cid, name in (("k-b", "bounded"), ("k-c", "actionable")):
         for who in JUDGES:
             judgments[cid][who]["judgment"]["requirements"] = {
-                **{n: {"mark": "met", "reason": ""} for n in req},
+                **{n: {"mark": "met", "reason": f"{who} agrees {cid} is {n}"} for n in req},
                 name: {"mark": "unmet", "reason": f"{who} says {cid} is not {name}"}}
     # what each candidate says: a formed candidate's four parts, a cluster's lessons, a hint's two units
     said = {"k-b": {"candidate_id": "k-b", "source": "formed", "lesson": "Quote the glob", "situation": "An unquoted star",
@@ -1721,19 +1782,52 @@ def self_test():
            ["- 후보 원문 · 대장에 적힌 교훈: lesson of L-1"]))
     equal("each disputed requirement is followed by both judges' own reasons for it",
           [line for line in section("k-b") if "의 이유:" in line],
-          ["  - 판정자 A의 이유: A says k-b is not bounded", "  - 판정자 B의 이유: B says k-b is not bounded"])
+          ["  - 판정자 A의 이유: A says k-b is not bounded", "  - 판정자 B의 이유: B says k-b is not bounded",
+           "  - 판정자 A의 이유: A agrees k-b is positioned", "  - 판정자 B의 이유: B agrees k-b is positioned"])
     equal("a rejected row names each requirement both judges marked unmet, with their reasons",
           [line for line in section("k-c") if "미충족으로 본" in line or "의 이유:" in line],
           ["- 함께 미충족으로 본 요구 사항: actionable", "  - 판정자 A의 이유: A says k-c is not actionable",
            "  - 판정자 B의 이유: B says k-c is not actionable"])
-    appendix_at = text.find("### 행별 단위 비교와 관련 단위")
-    equal("a judge's unit comparisons and the related units are in the appendix under the row's id, and the row itself "
-          "holds their counts",
-          ([line for line in section("k-a") if line.startswith(("- 판정자", "- 관련 단위"))],
-           "상황 yes 행동 no: r" in text[:appendix_at], text[appendix_at:].count("상황 yes 행동 no: r") > 0,
-           "u-9 (전달 증거: delivery_assembly_waiting)" in text[appendix_at:]),
-          ([line for line in section("k-a") if line.startswith("- 판정자")] + ["- 관련 단위: 1개 (부록의 `k-a`)"],
-           False, True, True))
+    appendix_at = text.find("### 행별 판정 기록과 관련 단위")
+
+    def appendix_of(item_id):
+        """The appendix lines under one row's id: from the line that names it to the next row's."""
+        lines = text[appendix_at:].split("\n")
+        start = next((n for n, line in enumerate(lines) if line == f"- `{item_id}`"), None)
+        if start is None:
+            return []
+        end = next((n for n in range(start + 1, len(lines)) if lines[n].startswith("- `")), len(lines))
+        return lines[start + 1:end]
+    judged_rows = [r["item_id"] for r in good["rows"] if r.get("judges")]
+    lost = [f"{cid}/{who}: {field}" for cid in judged_rows for who in JUDGES
+            for field in ("unit", "quote", "arises", "ev-n", "ev-c", "relation")
+            if sum(f"{field} {cid}/{who}" in line for line in appendix_of(cid)) != 1]
+    equal("everything a judge wrote for a row is on exactly one line of the appendix under that row's id: each "
+          "unit comparison with its quote, whether the situation still arises, the matched units and the ledger "
+          "relations, for every judged row and both judges",
+          (len(judged_rows) >= 5, lost), (True, []))
+    equal("and the row itself holds the counts, not the comparisons: two per judge, and one related unit",
+          ([line.rsplit("; ", 1)[-1] for line in section("k-a") if line.startswith("- 판정자")],
+           [line for line in section("k-a") if line.startswith("- 관련 단위")],
+           [cid for cid in judged_rows if any("unit " + cid in line for line in section(cid))],
+           "u-9 (전달 증거: delivery_assembly_waiting)" in "\n".join(appendix_of("k-a"))),
+          (["단위 비교 2개는 부록에 있습니다", "단위 비교 2개는 부록에 있습니다"], ["- 관련 단위: 1개 (부록의 `k-a`)"], [], True))
+    equal("a reason for a requirement both judges marked met is in the appendix and not in the row",
+          ([who for who in JUDGES if sum(f"actionable=met: {who} agrees k-b is actionable" in line
+                                         for line in appendix_of("k-b")) == 1],
+           any("agrees k-b is actionable" in line for line in section("k-b"))), (["A", "B"], False))
+    equal("a `none` prints no destination, whatever layer its answer wrote beside it, and any other disposition its own",
+          [proposal_lines({"disposition": "none", "destination": {"layer": "ledger", "carrier": None}})[0],
+           proposal_lines({"disposition": "keep", "destination": {"layer": "incubator", "carrier": None}})[0]],
+          ["- 대상: 없음 (바꾸지 않는 제안은 대상을 갖지 않습니다)", "- 대상: layer incubator, carrier None"])
+    equal("a candidate with no text of its own says so on its row instead of printing no subject",
+          sorted({(r["source"], r["subject"][0]["part"]) for r in good["rows"]
+                  if r["row_kind"] == "candidate" and r["subject"] and r["subject"][0]["part"] == "no_source"})[:1]
+          + [[r["item_id"] for r in good["rows"] if r["row_kind"] in ("candidate", "legacy") and not r["subject"]]],
+          [("formed", "no_source"), []])
+    equal("a due decision's row states the lesson of the entry it is about",
+          [line for line in section("due_decision:P-1@r1") if line.startswith("- 후보 원문")],
+          ["- 후보 원문 · 대장에 적힌 교훈: lesson of L-5"])
     try:   # a render copy_of refuses is this section's controls failing by name, not the suite dying
         owner_copy = owner_lines.copy_of(text, "review.ko.v1.md") if text else ""
     except Refused as exc:
@@ -1843,7 +1937,12 @@ def self_test():
         row["subject"] = [{"part": "x", "text": "x"}]
         row["judges"] = {who: {"seat": "x", "requirements": {"bounded": "x"}, "consequence_class": "x",
                                "reasons": {"bounded": "x"},
-                               "units": [{"unit": "x", "situation": "x", "action": "x", "reason": "x"}]}
+                               "no_longer_arises": {"value": "x", "reason": "x", "evidence_ids": ["x"]},
+                               "matching_units": [{"unit_id": "x", "contribution": "x", "following": "x",
+                                                   "contribution_evidence_ids": ["x"],
+                                                   "following_evidence_ids": ["x"]}],
+                               "ledger_relations": [{"entry_id": "x", "relation": "x", "reason": "x"}],
+                               "units": [{"unit": "x", "situation": "x", "action": "x", "reason": "x", "quote": "x"}]}
                          for who in JUDGES}
         row["disputed"] = [{"label": "1", "ref": "x", "A": "x", "B": "x", "values": ["x"]},
                            # the requirement the planted reasons are for, so their lines are on the page
@@ -1893,6 +1992,14 @@ def self_test():
                      ("a judged unit's situation", at("judges", "A", "units", 0, "situation")),
                      ("a judged unit's action", at("judges", "A", "units", 0, "action")),
                      ("a judged unit's reason", at("judges", "A", "units", 0, "reason")),
+                     ("a judged unit's quote", at("judges", "A", "units", 0, "quote")),
+                     ("a judge's reason on whether it still arises", at("judges", "A", "no_longer_arises", "reason")),
+                     ("a judge's evidence on whether it still arises", at("judges", "A", "no_longer_arises", "evidence_ids", 0)),
+                     ("a matched unit's id", at("judges", "A", "matching_units", 0, "unit_id")),
+                     ("a matched unit's contribution", at("judges", "A", "matching_units", 0, "contribution")),
+                     ("a matched unit's evidence", at("judges", "A", "matching_units", 0, "contribution_evidence_ids", 0)),
+                     ("a ledger relation's entry", at("judges", "A", "ledger_relations", 0, "entry_id")),
+                     ("a ledger relation's reason", at("judges", "A", "ledger_relations", 0, "reason")),
                      ("a disputed judgment's reference", at("disputed", 0, "ref")),
                      ("a disputed judgment's side A", at("disputed", 0, "A")),
                      ("a disputed judgment's side B", at("disputed", 0, "B")),
@@ -2423,6 +2530,23 @@ def self_test():
               (bool(upstream), s9b_inputs(run_dir)), (True, ()))
         records.write_json(run_dir, run_dir / "stages" / "S9b" / "record.json", held)
         equal("while a review of what is there now is taken as before", len(s9b_inputs(run_dir)), 2)
+        # S7b alone run again after S9b reviewed the current version: S9b is not owed a second review of that
+        # version and S9 is owed a new render. Neither may leave the other with no next step, in either order.
+        try:
+            s9b_stage.run(run_dir, {})                                   # S9b reviews version 4
+            stage_review_proposals.run(run_dir, {})                      # S7b alone, again
+            try:
+                first = f"reviewed {s9b_stage.run(run_dir, {})}"         # the operator tries S9b first
+            except Refused as exc:
+                first = str(exc).split(" ", 1)[0]
+            kept = (records.stage_records(run_dir).get("S9b") or {}).get("status")
+            v5 = run(run_dir)["version"]                                 # then S9
+            again = s9b_stage.run(run_dir, {}).get("version")            # and S9b has a version to review
+        except Refused as exc:
+            first, kept, v5, again = str(exc), None, None, None
+        equal("after S7b alone is run again, S9b refuses the version it reviewed and keeps its record, S9 renders "
+              "the next version, and S9b reviews that one", (first, kept, v5, again),
+              ("S9B_VERSION_REVIEWED", "complete", 5, 5))
         (run_dir / "stages" / "S7b" / "record.json").unlink(missing_ok=True)
         try:
             without = f"written {run(run_dir).get('version')}"
