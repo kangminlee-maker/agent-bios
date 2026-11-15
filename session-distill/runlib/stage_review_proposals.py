@@ -1143,6 +1143,30 @@ def _self_test_body(failures, ran):
         live_run = None
         try:
             live_run = stage_propose.fx_through_s6(live_root)
+            # each candidate's judges' marks made different from every other's (Codex WP-12 r3 F8), before S7 reads
+            # them, with S6's record sealed over the new bytes: a packet given another candidate's marks then fails
+            deriv_path = live_run / "judgments" / "derivations.json"
+            deriv = records.read_json(deriv_path)
+            marks = ("met", "unmet", "uncertain")
+            for n, cid in enumerate(sorted(deriv.get("verdicts") or {})):
+                names = sorted(deriv["verdicts"][cid]["requirements"]["A"])[:3]
+                for k, name in enumerate(names):
+                    deriv["verdicts"][cid]["requirements"]["A"][name] = marks[(n // 3 ** k) % 3]
+            deriv_path.write_text(json.dumps(deriv), encoding="utf-8")
+            s6_record = records.record_path(live_run, "S6")
+            held_record = json.loads(s6_record.read_text(encoding="utf-8"))
+
+            def resealed(node):
+                if isinstance(node, dict):
+                    if node.get("artifact") == "judgments/derivations.json" and "sha256" in node:
+                        node["sha256"] = records.sha256_file(deriv_path)
+                    for value in node.values():
+                        resealed(value)
+                elif isinstance(node, list):
+                    for value in node:
+                        resealed(value)
+            resealed(held_record)
+            s6_record.write_text(json.dumps(held_record), encoding="utf-8")
             live_cands = records.read_json(live_run / "checked-candidates.json")["candidates"]
             stage_propose.run(live_run, {r["candidate_id"]: stage_propose._answered(
                 disposition="none", operations=[], destination={"layer": "incubator", "carrier": None})
@@ -1188,14 +1212,27 @@ def _self_test_body(failures, ran):
                     json.dumps(["partial", True, True]))
             # Codex WP-12 r2 F2: each packet carries S6's marks on its candidate's requirements, read from the
             # derivation S6 wrote, not the empty slot S7's proposal row never fills
+            # Codex WP-12 r3 F8: each candidate's OWN packet, by its call's item, holds exactly its own marks in the
+            # judgments slot, read from the derivation S6 wrote; a search of every packet passed a swap
             held_verdicts = records.read_json(live_run / "judgments" / "derivations.json").get("verdicts") or {}
-            sent = [p.read_text(encoding="utf-8") for p in (live_run / "calls").glob("*/packet.md")
-                    if f"-{STAGE}-" in p.parent.name]
-            carried = {cid: bool((held_verdicts.get(cid) or {}).get("requirements")) and any(
-                json.dumps(held_verdicts[cid]["requirements"], ensure_ascii=False, indent=1) in t for t in sent)
-                for cid in proposed}
-            clean("every packet sent carries its candidate's two judges' marks from S6's derivation",
-                  [cid for cid, ok in carried.items() if not ok] if sent else ["no S7b packet was found under the run's calls"])
+
+            def slot_of(text):
+                inside = text.split("<judgments>\n", 1)[1].split("\n</judgments>", 1)[0] if "<judgments>\n" in text else None
+                return inside
+
+            own_packets = {cid: [slot_of(pk.read_text(encoding="utf-8"))
+                                 for pk in sorted((live_run / "calls").glob(f"*-{STAGE}-{item_of(cid)}-a*/packet.md"))]
+                           for cid in proposed}
+            expected_slots = {cid: json.dumps((held_verdicts.get(cid) or {}).get("requirements") or {},
+                                              ensure_ascii=False, indent=1) for cid in proposed}
+            clean("every candidate's own packets carry exactly its two judges' marks from S6's derivation",
+                  [f"{cid}: {len(held)} packets, slots {[x == expected_slots[cid] for x in held]}"
+                   for cid, held in own_packets.items()
+                   if not held or any(x != expected_slots[cid] for x in held)])
+            # the fixture's candidates are given marks that differ, so a swap between two packets is visible here
+            clean("and the fixture's candidates carry marks that differ, so a swap between packets would fail above",
+                  [] if len(set(expected_slots.values())) == len(expected_slots) > 1
+                  else [f"{len(set(expected_slots.values()))} distinct of {len(expected_slots)}"])
             again_summary, _doc = live(live_run, supervisor(live_run, live_root / "cells", plan_path))
             control("a re-run reuses every accepted attempt",
                     json.dumps(again_summary["counts"]["reused"]), json.dumps(len(proposed) - 1))

@@ -453,6 +453,9 @@ READERS = {
     ("runlib/stage_propose.py", "live"): "S7 reads which candidates S5 planted, so no proposal call is spent on a "
                                          "control; S7 runs after S6, whose judges are the only readers the file is "
                                          "sealed against, and what it reads is the ids, never a verdict",
+    ("runlib/stage_propose.py", "run"): "S7 over answers in hand with the pinned legacy entries decides who is owed "
+                                        "an answer as the live stage does, so it reads which candidates S5 planted - "
+                                        "the ids, never a verdict - after S6 (Codex WP-12 r3 F7)",
 }
 TEST_CODE = ("self_test", "_self_test", "fx_")
 

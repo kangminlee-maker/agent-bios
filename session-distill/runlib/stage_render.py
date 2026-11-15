@@ -978,6 +978,13 @@ def reason_lines(row, name):
             for who in JUDGES if ((row.get("judges") or {}).get(who) or {}).get("reasons", {}).get(name)]
 
 
+# The operation fields S11 reads besides type, target and before-state, in the owner's words (`schemas/propose.schema
+# .json`), and which of them are model text shown in a fence; `content` and `diff` follow them as before.
+OPERATION_SHOWN = (("anchor", "기준 문장(anchor)"), ("units", "병합하는 단위(units)"), ("names", "가리키는 경로(names)"),
+                   ("entry", "추가할 줄(entry)"))
+OPERATION_FENCED = ("anchor", "entry")
+
+
 def proposal_lines(answer):
     """The proposal's own parts, beyond its O6 reasons: destination, operations, contract, observation, artifacts and
     the unknowns it carries."""
@@ -988,6 +995,23 @@ def proposal_lines(answer):
     for n, op in enumerate(answer.get("operations") or [], 1):
         out.append(f"- 연산 {n}: {inline(op['type'])} {inline(op['target'])} "
                    f"(before {inline(str(op['before_state_sha256'])[:12])})")
+        # every field S11 writes or removes by, so the owner approves what will happen (Codex WP-12 r3 F6: a route's
+        # entry, a merge's units and an anchor were not shown, and two answers differing only there read the same)
+        for field, label in OPERATION_SHOWN:
+            value = op.get(field)
+            if value in (None, "", []):
+                continue
+            if isinstance(value, list):
+                out.append(f"  - {label}: " + ", ".join(inline(str(v)) for v in value))
+            elif field in OPERATION_FENCED:
+                out.append(f"  - {label}:")
+                out += fenced(value)
+            else:
+                out.append(f"  - {label}: {inline(str(value))}")
+        for held in op.get("unit_states") or []:
+            if isinstance(held, dict):
+                out.append(f"  - 다른 파일 상태: {inline(str(held.get('unit')))} "
+                           f"(before {inline(str(held.get('state'))[:12])})")
         for field in ("content", "diff"):
             if op.get(field):
                 out += fenced(op[field])
@@ -1891,6 +1915,26 @@ def self_test():
           [proposal_lines({"disposition": "none", "destination": {"layer": "ledger", "carrier": None}})[0],
            proposal_lines({"disposition": "keep", "destination": {"layer": "incubator", "carrier": None}})[0]],
           ["- 대상: 없음 (바꾸지 않는 제안은 대상을 갖지 않습니다)", "- 대상: layer incubator, carrier None"])
+    # Codex WP-12 r3 F6: the owner sees every field S11 writes by
+    schema_fields = set(json.loads(stage_propose.schema_bytes().decode("utf-8"))["$defs"]["operation"]["properties"])
+    shown_fields = {"type", "target", "before_state_sha256", "unit_states", "content", "diff"} | {f for f, _l in OPERATION_SHOWN}
+    equal("every operation field the proposal schema declares is shown on the owner's page, and nothing else is named",
+          (sorted(schema_fields - shown_fields), sorted(shown_fields - schema_fields)), ([], []))
+    route_of = lambda entry: {"disposition": "re-deliver", "destination": {"layer": "guides", "carrier": "r.md"},  # noqa: E731
+                              "operations": [{"type": "route", "target": "r.md", "names": "g.md", "entry": entry,
+                                              "before_state_sha256": "a" * 64}]}
+    merge_of = lambda units, anchor: {"disposition": "reduce", "destination": {"layer": "guides", "carrier": "g.md"},  # noqa: E731
+                                      "operations": [{"type": "merge", "target": "g.md", "units": units,
+                                                      "anchor": anchor, "content": "x\n", "before_state_sha256": "a" * 64,
+                                                      "unit_states": [{"unit": "h.md", "state": "b" * 64}]}]}
+    equal("two answers that differ only in a route's entry, a merge's units or an anchor read differently to the owner",
+          [proposal_lines(route_of("- SAFE_ROUTE")) != proposal_lines(route_of("- UNDISCLOSED_ROUTE")),
+           proposal_lines(merge_of(["g.md#One"], None)) != proposal_lines(merge_of(["g.md#Two"], None)),
+           proposal_lines(merge_of(["g.md#One"], "first")) != proposal_lines(merge_of(["g.md#One"], "second"))],
+          [True, True, True])
+    equal("and the route's entry is on the page as it will be written, in a fence",
+          [line for line in proposal_lines(route_of("- UNDISCLOSED_ROUTE")) if "UNDISCLOSED_ROUTE" in line or "entry" in line],
+          ["  - 추가할 줄(entry):", "- UNDISCLOSED_ROUTE"])
     equal("a candidate with no text of its own says so on its row instead of printing no subject",
           sorted({(r["source"], r["subject"][0]["part"]) for r in good["rows"]
                   if r["row_kind"] == "candidate" and r["subject"] and r["subject"][0]["part"] == "no_source"})[:1]

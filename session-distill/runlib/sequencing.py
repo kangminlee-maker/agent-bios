@@ -30,7 +30,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import targets  # noqa: E402
+from runlib import operations, targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -129,7 +129,10 @@ def apply_to(tree, item):
         # text and leaves the file. Modelled as the file's removal, a valid set - an anchored
         # deletion beside a route to the same file - came back with no order (the S11 review).
         target = _path(op.get("target"))
-        in_file = bool(op.get("anchor")) or "#" in str(op.get("target") or "")
+        # a section as S11 reads one (`operations.split_target`): an empty or blank suffix (`g.md#`) names no section,
+        # so the operation is the whole file's (Codex WP-12 r3 F5: the `#` alone read as a section, and a route to a
+        # file S11 deletes was certified)
+        in_file = bool(op.get("anchor")) or operations.split_target(op.get("target") or "")[1] is not None
         if kind in ("create", "edit"):
             held[target] = "present"
         elif kind == "delete":
@@ -139,7 +142,7 @@ def apply_to(tree, item):
             # a unit that names a section is that section's removal and leaves its file, as a delete of a
             # section does (`operations.removed`); only a unit naming a whole file removes it (Codex WP-12 r2 F11)
             for unit in op.get("units") or []:
-                if "#" not in str(unit):
+                if operations.split_target(str(unit))[1] is None:
                     held.pop(_path(unit), None)
             held[target] = "present"
         elif kind == "route":
@@ -606,6 +609,12 @@ def _self_test_body(failures, ran):
             json.dumps(subset_answer([{**section_merge[0], "operations": [{"type": "merge", "target": "out.md",
                                                                            "units": ["g.md"]}]}, section_merge[1]],
                                      base={"g.md": "present", "out.md": "present"}).get("sequenced")), "false")
+    # Codex WP-12 r3 F5: an empty or blank section suffix names no section, as S11 reads it
+    for suffix in ("g.md#", "g.md#   "):
+        for kind, extra in (("merge", {"target": "out.md", "units": [suffix]}), ("delete", {"target": suffix})):
+            control(f"a {kind} of {suffix!r} is the whole file's, as S11 reads it, so the route to it points at nothing",
+                    json.dumps(subset_answer([{"item_id": "m", "operations": [{"type": kind, **extra}]}, section_merge[1]],
+                                             base={"g.md": "present", "out.md": "present"}).get("sequenced")), "false")
 
     # The exported checker on an approved SUBSET: the full set has an order, the subset does not, and
     # the subset is what is judged (done-when 7's control fixture; WP-20 and WP-21 re-run this).

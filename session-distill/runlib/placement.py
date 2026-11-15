@@ -191,33 +191,45 @@ def _library_ops(proposal):
     return _operations(proposal, set(table("rules")["operations"]["library"]))
 
 
-def touches(proposal, path, heading):
-    """Whether one of the proposal's operations may reach the unit at `path` under `heading`: an operation's target,
-    or a merge's unit, names the unit's file and either no section (the whole file) or a section the unit lies in.
+def touches(proposal, path):
+    """Whether one of the proposal's operations may reach a unit that lives in the file at `path`: an operation's
+    target, or a merge's unit, names that file, whatever section it names. The file is read as S11 reads it
+    (`operations.split_target`), so a spelling S11 resolves to the same file is the same file.
 
-    `heading` is the inventory's chain of the headings open above the unit, outermost first (`A > B`), so a section
-    reaches the unit when it is ANY heading of that chain: S11 writes a section from its heading to the next heading
-    of its level or above (`operations.section_span`), which holds every unit below it. Both sides are read as S11
-    reads a heading (`operations.split_target`, `operations.heading_key`), so a spelling S11 resolves to the same
-    section is the same section here (a review of 7a7752e8: the raw text compared `One` with `A > One` and
-    ` One `, and a keep under a nested heading was not guarded). A title S11 would refuse as ambiguous is matched
-    anyway: this answers "may it reach", and a guard errs towards refusing.
-
-    A unit whose place is not known (no path) is reached by every proposal that touches anything: a keep the
-    inventory cannot place is guarded, not skipped, as a bare record id is."""
+    The FILE, not the section (Codex WP-12 r3 F1). The inventory's `heading` is the chain of titles open above a
+    unit, and that is not a lossless picture of the sections S11 resolves: a title holding ` > ` splits into two, a
+    title that begins with marks loses them, and an indented or tab-separated heading the inventory leaves unnamed is
+    a section S11 still finds and deletes. No comparison of those strings can show that a section operation misses a
+    kept unit, so a guard that must err towards refusing treats every operation on the unit's file as reaching it.
+    A keep a proposal reaches only by this rule is released by the owner's `keep 해제`, or named by the proposal.
+    A unit with no known place is reached by every operation (`keep_places`)."""
     if not path:
         return True
-    own = targets.identity(path)
-    chain = {operations.heading_key(title)[1] for title in str(heading or "").split(" > ") if title.strip()}
+    own = operations.split_target(path)[0]
     for op in _operations(proposal):
         names = [op.get("target")] + [u for u in (op.get("units") if isinstance(op.get("units"), list) else [])]
         for name in names:
-            if not isinstance(name, str) or not name:
-                continue
-            file_identity, section = operations.split_target(name)
-            if file_identity == own and (section is None or operations.heading_key(section)[1] in chain):
+            if isinstance(name, str) and name and operations.split_target(name)[0] == own:
                 return True
     return False
+
+
+def keep_places(held):
+    """The places a keep record's unit lives in, or None for a bare record id (guarded whatever is touched). A unit
+    id the inventory gives more than once is every one of its places (Codex WP-12 r3 F2: a map by id kept the last),
+    and an empty list is a unit the inventory does not place, which every touching operation reaches."""
+    if not isinstance(held, dict):
+        return None
+    if "places" in held:
+        return [p for p in held.get("places") or [] if isinstance(p, dict)]
+    return [{"path": held.get("path"), "heading": held.get("heading")}]
+
+
+def keep_reached(proposal, held):
+    """Whether the proposal's operations reach the unit a keep record stands over: a bare id and a unit with no place
+    are reached by any touching proposal; otherwise any of its places in the file an operation names."""
+    places = keep_places(held)
+    return places is None or not places or any(touches(proposal, place.get("path")) for place in places)
 
 
 def structural_problems(proposal, active_keep=None):
@@ -262,8 +274,7 @@ def structural_problems(proposal, active_keep=None):
                 guarded = sorted({unit: (held["record"] if isinstance(held, dict) else held)
                                   for unit, held in active_keep.items()
                                   if (held["record"] if isinstance(held, dict) else held) not in named
-                                  and (not isinstance(held, dict)
-                                       or touches(proposal, held.get("path"), held.get("heading")))}.items())
+                                  and keep_reached(proposal, held)}.items())
                 problems += [f"{code} {unit}: an active keep record ({record}) stands over it, and the "
                              f"proposal does not name it; the owner's `keep 해제` comes first"
                              for unit, record in guarded]
@@ -1022,9 +1033,27 @@ def _self_test_body(failures, ran):
                                                    "before_sha256": "a" * 64}]}, nested), "KEEP_GUARDED u-5")
     control("a keep the inventory cannot place is guarded, not skipped",
             said(section_merge, {"u-6": {"record": "kr-6", "path": None, "heading": None}}), "KEEP_GUARDED u-6")
-    clean("nor one over another section of the merged file",
-          [x for x in said(section_merge, {"u-4": {"record": "kr-4", "path": "claude/guides/g.md",
-                                                   "heading": "Four"}}).split("; ") if x.startswith("KEEP_GUARDED")])
+    # Codex WP-12 r3 F1: a section of the kept unit's file reaches it, whatever the headings say, because the
+    # inventory's heading chain cannot show that S11's section misses the unit
+    control("a keep over another section of the merged file is guarded too: the file is what decides",
+            said(section_merge, {"u-4": {"record": "kr-4", "path": "claude/guides/g.md", "heading": "Four"}}),
+            "KEEP_GUARDED u-4")
+    for label, title in (("a title holding the chain's separator", "A > B"), ("a title beginning with marks", "# B"),
+                         ("a heading the inventory left unnamed", "")):
+        control(f"and so is one under {label}, which no heading comparison can place (Codex WP-12 r3 F1)",
+                said({**section_merge, "operations": [{"type": "delete", "target": f"claude/guides/g.md#{title or 'X'}",
+                                                       "before_sha256": "a" * 64}]},
+                     {"u-7": {"record": "kr-7", "path": "claude/guides/g.md", "heading": title}}), "KEEP_GUARDED u-7")
+    # Codex WP-12 r3 F2: a unit id the inventory gives twice keeps both places
+    twice = {"u-8": {"record": "kr-8", "places": [{"path": "claude/guides/other.md", "heading": "B"},
+                                                  {"path": "claude/guides/g.md", "heading": "A"}]}}
+    control("a unit id given at two places is reached through either of them",
+            said(section_merge, twice), "KEEP_GUARDED u-8")
+    clean("and one whose places all lie in files the proposal does not touch is not",
+          [x for x in said(section_merge, {"u-9": {"record": "kr-9", "places": [
+              {"path": "claude/guides/other.md", "heading": "B"}]}}).split("; ") if x.startswith("KEEP_GUARDED")])
+    control("a unit the inventory gives no place at all is guarded",
+            said(section_merge, {"u-10": {"record": "kr-10", "places": []}}), "KEEP_GUARDED u-10")
     control("a merge of the whole file reaches every section of it",
             said({**section_merge, "operations": [{"type": "merge", "target": "claude/guides/g.md",
                                                    "before_sha256": "a" * 64}]},
