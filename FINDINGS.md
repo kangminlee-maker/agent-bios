@@ -283,3 +283,37 @@ Alternatives:
   entry, the ledger's lesson text) and, for a disputed requirement, each judge's reason; move the per-unit
   comparisons and the id lists to the appendix or to a second file the page names.
 - Keep the page as the complete record and render a second, short page for reading, with the same item numbers.
+
+## F-40 — the close says an approved `none` was recorded in the ledger, and the ledger holds no row for it
+
+Found by the first three-hour live run of 2026-11-14 at S12. The owner approved five formed candidates whose
+disposition is `none`. `stage_close.report_lines` printed "5 decided items recorded in
+design/session-distill/ledger.json (… 5 ledger-only, 0 new entries: none)", and the review had told the owner the
+item "is recorded in the ledger only". The checkout's ledger gained one thing: the window row. `target_of` gives a
+formed candidate the kind `new`, and a `none` allocates no entry, so the decision exists in the run's `close.json`
+and nowhere in the checkout.
+
+Reach: every approved `none` on a candidate that has no ledger entry - in release 1, every approval of a formed
+candidate. Nothing wrong is written; the report and the review's sentence say more than happened, and a later
+window has no ledger row telling it this lesson was already seen and left alone.
+
+Alternatives:
+
+- Say what happened: the report counts such items as decided with no ledger row, and the review's sentence for
+  `none` on a new candidate says the decision is kept in the run's record.
+- Give an approved `none` on a new candidate a ledger entry in a state that names it as seen and left alone.
+
+## F-41 — a periodic close promotes a coverage state of thousands of transcript ids into a tracked checkout file
+
+Found by the same run at S12. `promote_coverage` wrote `session-distill/coverage.json` in the checkout: 3.2 MB,
+7,398 transcript keys with their versions, 21 backlog rows and 28 pending events, where the tracked file held four
+empty containers. The close then prints a `git add` of that file as the owner's command. The keys are session
+identifiers of the owner's own records, and the file is tracked in a repository that is pushed.
+
+Reach: every periodic run that closes with `--checkout-coverage`. Nothing is committed by the stage; the owner's
+printed command would commit it.
+
+Alternatives:
+
+- Keep the coverage state outside the checkout (the state root), and record in the checkout only the window row.
+- Keep it in the checkout and decide by record that session identifiers are acceptable there, with the size named.
