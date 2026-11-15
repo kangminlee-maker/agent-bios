@@ -1815,10 +1815,15 @@ def self_test():
           "unit comparison with its quote, whether the situation still arises, the matched units and the ledger "
           "relations, for every judged row and both judges",
           (len(judged_rows) >= 5, lost), (True, []))
-    equal("each comparison names the unit it is of, as S6 stores it, and none is printed without one",
-          ([cid for cid in judged_rows for who in JUDGES
-            if sum(f"u-8 상황 no 행동 no: unit {cid}/{who}" in line for line in appendix_of(cid)) != 1],
-           "None 상황" in text), ([], False))
+    equal("each comparison names the unit it is of, as S6 stores it: the whole comparison line of every judged row "
+          "and judge, both units with their own marks, reason and quote",
+          ({(cid, who): [line for line in appendix_of(cid) if line.startswith(f"  - 판정자 {who} · 단위 비교: ")]
+            for cid in judged_rows for who in JUDGES},
+           len(judged_rows) >= 5, "None 상황" in text),
+          ({(cid, who): [f"  - 판정자 {who} · 단위 비교: u-9 상황 yes 행동 no: r; "
+                         f"u-8 상황 no 행동 no: unit {cid}/{who} (인용: quote {cid}/{who})"]
+            for cid in ("k-a", "k-b", "k-c", "k-d", "k-g", "due_decision:P-1@r1", "k-p")
+            for who in ("A", "B") if cid in judged_rows}, True, False))
     equal("an S7b alternative that changes nothing prints no destination, whatever its answer wrote beside it",
           [line.split(" · ")[1] for line in s7b_lines({
               "state": "reviewed", "verdict": "disagree", "disposition_holds": False, "destination_holds": True,

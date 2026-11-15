@@ -316,19 +316,3 @@ Alternatives:
 - Move the coverage state out of the checkout to the state root, with S0, S1 and S12 reading one declared place,
   and drop the tracked empty file from the package.
 - Keep it in the checkout, make the ignored path the default of S0, S1 and S12, and drop the tracked empty file.
-
-## F-42 — the last answers to the review of the live run's fixes have had no cross-family review
-
-The fixes RR-1 forced were reviewed in two capped rounds (2026-11-15; the lead's `work/lead/rr1fix-x-r1-review.json`
-and `rr1fix-x-r2-review.json`), and both returned rework. The answers to round 2 - S9b's once-per-version check
-moved under the stage's lock through `records.run_stage`'s `admit`, the unit id of a judge's comparison read from
-the key S6 stores, the three remaining readers of a `none`'s destination, and frozen material compared with the
-destination a proposal carries - are held by their own controls and by eight revert trials, and by no reviewer.
-
-Reach: `runlib/records.py` (`admit` is a new argument of the shared stage mechanism), `stage_review_korean`,
-`stage_render`, `stage_propose`, `stage_review_proposals`, `stage_approvals`.
-
-Alternatives:
-
-- A third round on that one commit, as an exception to the two-round cap the owner may grant.
-- Ship with this entry, and include the commit in the first review of release 2.
