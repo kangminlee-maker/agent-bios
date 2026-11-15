@@ -520,9 +520,14 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
 
 def report_lines(doc):
     counts = doc["counts"]
-    lines = [f"S12 close: {counts['items']} decided items recorded in {doc['ledger']['path']} "
+    # an approved `none` on a candidate with no entry makes no ledger row: said, never counted as recorded there
+    unrecorded = sum(1 for r in doc.get("items") or [] if r.get("entry") is None)
+    lines = [f"S12 close: {counts['items']} decided items closed, {counts['items'] - unrecorded} recorded in "
+             f"{doc['ledger']['path']} "
              f"({counts['applied']} applied by S11, {counts['ledger_only']} ledger-only, {counts['new_entries']} new "
-             f"entries: {', '.join(doc['ledger']['allocated']) or 'none'}); the window "
+             f"entries: {', '.join(doc['ledger']['allocated']) or 'none'})"
+             + (f"; {unrecorded} approved `none` on a candidate with no entry make no ledger row and are kept in "
+                f"this run's {OUTPUT} alone" if unrecorded else "") + "; the window "
              f"{doc['ledger']['window']['start']}..{doc['ledger']['window']['end']} is appended with no commit yet",
              ("coverage promoted to " + str(doc["coverage"]["path"])) if doc["coverage"]["promoted"]
              else f"coverage not promoted: {doc['coverage']['why']}",
@@ -791,6 +796,15 @@ def _self_test_body(failures, ran, reporting):
                      (checkout / COVERAGE_AT).exists()],
                     [False, True, ["dated_run_record", "delivery_verification", "launcher_state",
                                    "observation_resolutions", "occasion_index", "version_registry"], False])
+            said = {**doc, "items": [{"item_id": "k-1", "entry": None, "disposition": "none"},
+                                     {"item_id": "legacy:L-1", "entry": "L-1", "disposition": "none"}],
+                    "counts": {"items": 2, "new_entries": 0, "applied": 0, "ledger_only": 2}}
+            control("the report counts an approved none on a candidate with no entry as kept in the run alone, and "
+                    "only the other as recorded in the ledger",
+                    [report_lines(said)[0].split(" (")[0],
+                     "1 approved `none` on a candidate with no entry make no ledger row" in report_lines(said)[0],
+                     "make no ledger row" in report_lines(doc)[0]],
+                    [f"S12 close: 2 decided items closed, 1 recorded in {doc['ledger']['path']}", True, False])
             control("the commit command names every file S11 and the close changed, the ledger among them",
                     [sorted(doc["paths"]), all(f"'{p}'" in doc["owner_commands"]["commit"] for p in doc["paths"])],
                     [sorted(["claude/guides/g.md", "claude/guides/k.md", LEDGER_AT]), True])

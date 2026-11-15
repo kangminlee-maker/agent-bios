@@ -280,24 +280,21 @@ Alternatives:
   kept beside it, and print each group member's lesson in the appendix.
 - Keep the subject in English and say so on the page; print the members' lessons only.
 
-## F-40 — the close says an approved `none` was recorded in the ledger, and the ledger holds no row for it
+## F-40 — an approved `none` on a candidate with no entry leaves no ledger row, and the review says it is recorded there
 
 Found by the first three-hour live run of 2026-11-14 at S12. The owner approved five formed candidates whose
-disposition is `none`. `stage_close.report_lines` printed "5 decided items recorded in
-design/session-distill/ledger.json (… 5 ledger-only, 0 new entries: none)", and the review had told the owner the
-item "is recorded in the ledger only". The checkout's ledger gained one thing: the window row. `target_of` gives a
-formed candidate the kind `new`, and a `none` allocates no entry, so the decision exists in the run's `close.json`
-and nowhere in the checkout.
+disposition is `none`. `closed_ledger` gives such an item no entry (`target_of` is `new`, and a `none` allocates
+none), so the decision exists in the run's `close.json` and nowhere in the checkout; the close's report now says
+so. Two things remain: S7's Korean reason for such a proposal told the owner the item "is recorded in the ledger
+only", and a later window has no ledger row telling it this lesson was already seen and left alone.
 
 Reach: every approved `none` on a candidate that has no ledger entry - in release 1, every approval of a formed
-candidate. Nothing wrong is written; the report and the review's sentence say more than happened, and a later
-window has no ledger row telling it this lesson was already seen and left alone.
+candidate. Nothing wrong is written.
 
 Alternatives:
 
-- Say what happened: the report counts such items as decided with no ledger row, and the review's sentence for
-  `none` on a new candidate says the decision is kept in the run's record.
 - Give an approved `none` on a new candidate a ledger entry in a state that names it as seen and left alone.
+- Keep it out of the ledger, and have S7's packet say that a `none` on a new candidate is kept in the run's record.
 
 ## F-41 — a periodic close promotes a coverage state of thousands of transcript ids into a tracked checkout file
 
