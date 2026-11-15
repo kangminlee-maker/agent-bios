@@ -1053,7 +1053,8 @@ def with_before_states(answer, checkout):
 def active_keeps_of(ledger, units):
     """`{unit id: {record, path, heading}}`: every keep record standing in the pinned ledger (§10.1, an entry whose
     `keep` is not null), with each unit's place in the current inventory so `placement` guards only the units a
-    proposal reaches (Codex WP-12 r2 F5). A unit the inventory no longer holds has no place, and nothing reaches it."""
+    proposal reaches (Codex WP-12 r2 F5). A unit the inventory no longer holds has no place, and is guarded whatever a
+    proposal touches (`placement.touches`): the owner releases the keep, rather than the guard assuming it away."""
     out = {}
     for entry in (ledger or {}).get("entries") or []:
         for unit in ((entry.get("keep") or {}).get("units") or []):

@@ -22,7 +22,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import targets  # noqa: E402
+from runlib import operations, targets  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -192,19 +192,30 @@ def _library_ops(proposal):
 
 
 def touches(proposal, path, heading):
-    """Whether one of the proposal's operations reaches the unit at `path` (and `heading`): an operation's target, or
-    a merge's unit, names its file and either no section (the whole file) or that unit's heading. The file is asked
-    of `targets` by identity, as the global rule asks it. A unit with no known path is reached by nothing."""
+    """Whether one of the proposal's operations may reach the unit at `path` under `heading`: an operation's target,
+    or a merge's unit, names the unit's file and either no section (the whole file) or a section the unit lies in.
+
+    `heading` is the inventory's chain of the headings open above the unit, outermost first (`A > B`), so a section
+    reaches the unit when it is ANY heading of that chain: S11 writes a section from its heading to the next heading
+    of its level or above (`operations.section_span`), which holds every unit below it. Both sides are read as S11
+    reads a heading (`operations.split_target`, `operations.heading_key`), so a spelling S11 resolves to the same
+    section is the same section here (a review of 7a7752e8: the raw text compared `One` with `A > One` and
+    ` One `, and a keep under a nested heading was not guarded). A title S11 would refuse as ambiguous is matched
+    anyway: this answers "may it reach", and a guard errs towards refusing.
+
+    A unit whose place is not known (no path) is reached by every proposal that touches anything: a keep the
+    inventory cannot place is guarded, not skipped, as a bare record id is."""
     if not path:
-        return False
+        return True
     own = targets.identity(path)
+    chain = {operations.heading_key(title)[1] for title in str(heading or "").split(" > ") if title.strip()}
     for op in _operations(proposal):
         names = [op.get("target")] + [u for u in (op.get("units") if isinstance(op.get("units"), list) else [])]
         for name in names:
             if not isinstance(name, str) or not name:
                 continue
-            section = name.split("#", 1)[1] if "#" in name else None
-            if targets.identity(targets.file_of(name)) == own and (section is None or section == heading):
+            file_identity, section = operations.split_target(name)
+            if file_identity == own and (section is None or operations.heading_key(section)[1] in chain):
                 return True
     return False
 
@@ -1000,6 +1011,17 @@ def _self_test_body(failures, ran):
             said(section_merge, reached), "KEEP_GUARDED u-1")
     clean("and a keep over a unit in a file the merge does not reach is not",
           [x for x in said(section_merge, reached).split("; ") if x.startswith("KEEP_GUARDED u-3")])
+    nested = {"u-5": {"record": "kr-5", "path": "claude/guides/g.md", "heading": "Parent > One"}}
+    control("a keep under a nested heading is reached by a merge of a section in its chain (review of 7a7752e8)",
+            said(section_merge, nested), "KEEP_GUARDED u-5")
+    control("and by a spelling S11 resolves to the same section: marks and spaces",
+            said({**section_merge, "operations": [{"type": "merge", "target": "claude/guides/g.md#  ## One ",
+                                                   "before_sha256": "a" * 64}]}, nested), "KEEP_GUARDED u-5")
+    control("and by an edit of the parent section, whose span holds it",
+            said({**section_merge, "operations": [{"type": "merge", "target": "claude/guides/g.md#Parent",
+                                                   "before_sha256": "a" * 64}]}, nested), "KEEP_GUARDED u-5")
+    control("a keep the inventory cannot place is guarded, not skipped",
+            said(section_merge, {"u-6": {"record": "kr-6", "path": None, "heading": None}}), "KEEP_GUARDED u-6")
     clean("nor one over another section of the merged file",
           [x for x in said(section_merge, {"u-4": {"record": "kr-4", "path": "claude/guides/g.md",
                                                    "heading": "Four"}}).split("; ") if x.startswith("KEEP_GUARDED")])

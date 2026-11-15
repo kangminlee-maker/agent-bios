@@ -6787,13 +6787,24 @@ def history_of(ctx, records):
     return ref, why
 
 
+def history_routed(record):
+    """Whether a session's pin-derived rows come from the selection history rather than its own pin: an unpinned
+    session, or a Codex rollout whose pin was not read. A Codex rollout whose pin was found and read is read under
+    that pin like a Claude session (`session_pin`), so its selection and its baseline are its own (Codex WP-11b r2
+    F12: every Codex record took the history route, and a read selection's reason `None` became an overlays row
+    whose reasons were `[None]`, which S2's own release export then refused)."""
+    status = (record.get("selection") or {}).get("status")
+    return status == "unpinned" or (record.get("host") == "codex" and status != "read")
+
+
 def static_rows(record, published, answer=None):
     """A main owner's pin-derived rows (step 0 S-17, S-24, S-16, S-25): catalog and adopted packages from the
     release inventory of the baseline its own snapshot names, overlays from its own selection inventory, each
     with that inventory row's status and its reasons left in the inventory (lead, D2), under the basis `pin`. A
-    Codex rollout or an unpinned session: catalog and adopted packages from the release inventory of the baseline
-    `answer` (`history_of`) names, under the basis `selection_history`, or unknown by its reason, and its
-    selection's reason for overlays. A broken pin chain: its one reason for all three."""
+    Codex rollout whose pin was not read, or an unpinned session (`history_routed`): catalog and adopted packages
+    from the release inventory of the baseline `answer` (`history_of`) names, under the basis `selection_history`,
+    or unknown by its reason, and its selection's reason for overlays. A Codex rollout whose pin was read is a main
+    owner like any other. A broken pin chain: its one reason for all three."""
     selection, baseline = record["selection"], record["pin"]["baseline_ref"]
 
     def pointed(layer, identity, basis="pin"):
@@ -6801,7 +6812,7 @@ def static_rows(record, published, answer=None):
         return {"layer": layer, "status": held[0] if len(held) == 1 else "unknown", "reasons": [],
                 "source": {"inventory_ref": identity, "layer": layer, "basis": basis}}
 
-    if record["host"] == "codex" or selection["status"] == "unpinned":
+    if history_routed(record):
         ref, why = answer or (None, reason("input_failed"))
         return {**{layer: pointed(layer, inventory_id("release", ref), "selection_history") if ref
                    else unknown_row(layer, why) for layer in SHARED_RELEASE_LAYERS},
@@ -6891,7 +6902,7 @@ def renames_base(ctx):
     if not records:
         return None, reason("no_census_session"), None
     record = records[0]
-    if record["host"] == "codex" or record["selection"]["status"] == "unpinned":
+    if history_routed(record):
         ref, why = history_of(ctx, records)
         return (inventory_id("release", ref), None, "selection_history") if ref else (None, why, None)
     if record["selection"]["status"] != "read":
@@ -6931,7 +6942,7 @@ def release_cross_problems(index, sessions, shared, store):
     for entry in index.get("sessions") or []:
         ref = entry.get("session_ref")
         record = records.get(ref) or {}
-        historied = record.get("host") == "codex" or (record.get("selection") or {}).get("status") == "unpinned"
+        historied = history_routed(record)
         own = sorted(row.get("segment_id") for row in sessions.get("segments") or [] if row.get("session_ref") == ref)
         if sorted(segment.get("segment_ref") for segment in entry.get("segments") or []) != own:
             problems.append(f"RELEASE_SEGMENTS_DIFFER {ref}: not every segment of the session, each once")
@@ -7367,13 +7378,13 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         # the `--pin` session's selection is evidence about its pin only: no transcript of it is read (S-15)
         notes["pin_delivery"] = reason("no_census_session")
     ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins, findings["sessions"])
-    # An unpinned Claude session and every Codex session have no pin of their own to name their release: each is
-    # answered from the baseline-selection history at its own instants (D-20261110-9c60bc), and the baseline answered
-    # is published as a pinned session's is.
+    # An unpinned Claude session and a Codex session whose pin was not read have no pin of their own to name their
+    # release (`history_routed`): each is answered from the baseline-selection history at its own instants
+    # (D-20261110-9c60bc), and the baseline answered is published as a pinned session's is.
     ctx["session_instants"] = {ref: (row.get("first_at"), row.get("last_at")) for ref, row in findings["timelines"].items()}
     ctx["session_opened"] = {ref: tuple(row.get("opens") or (False, False)) for ref, row in findings["timelines"].items()}
     ctx["history_answers"] = {record["session_ref"]: history_of(ctx, [record]) for record in findings["sessions"]
-                              if record["host"] == "codex" or record["selection"]["status"] == "unpinned"}
+                              if history_routed(record)}
     # A delivery is confirmed only by a usable RECORDED occurrence the session's main owner holds in its own
     # transcript (step 0 S-13): a sidechain's copy, and a match whose bytes could not be recovered, are not.
     delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")
@@ -11429,6 +11440,32 @@ def self_test():
             shared_clean = published_shared("clean", shared_rows, shared_state)
             check("the shared inventories were published and crossed clean", "refused" not in shared_clean,
                   f"{shared_clean.get('refused')} {str(shared_clean.get('message'))[:200]}")
+            # Codex WP-11b r2 F12: a Codex rollout whose pin is found and read, through the whole producer that
+            # writes release.json. Every Codex record took the history route, and its read selection's reason None
+            # became an overlays row whose reasons were [None], which the release export refused.
+            cj_state = scratch / "p24b" / "codex-joined-state"
+            cj_ref = plant_snapshot(cj_state, "# Session\n\n- a joined Codex activation\n", baseline_ref="ref-cj",
+                                    items=[catalog_item("rule-cj", "rule", "- rule cj")])
+            plant_baseline(cj_state, "ref-cj", [catalog_item("rule-cj", "rule", "- rule cj")])
+            plant_codex_pin(cj_state, "thread-cj", cj_ref, rollout_id="roll-cj",
+                            rollout_path="/s/rollout-roll-cj.jsonl", rollout_method="index")
+            cj_run = published_shared("codex-joined-release", [codex_row("roll-cj", cj_ref)], cj_state)
+            cj_rows = sorted((row.get("layer"), row.get("status"), tuple(row.get("reasons") or ()),
+                              (row.get("source") or {}).get("basis"), (row.get("source") or {}).get("inventory_ref"))
+                             for entry in (cj_run.get("release") or {}).get("sessions") or []
+                             for block in (entry.get("segments") or []) + ([entry["unsegmented"]] if entry.get("unsegmented") else [])
+                             for row in block.get("layers") or []
+                             if row.get("layer") in SHARED_RELEASE_LAYERS + ("overlays",))
+            check("a Codex rollout whose pin is read is published through release.json, its overlays from its own "
+                  "selection and its release layers from its own baseline, under the basis pin (Codex WP-11b r2 F12)",
+                  "refused" not in cj_run and len((cj_run.get("release") or {}).get("sessions") or []) == 1 and bool(cj_rows)
+                  and all(basis == "pin" and None not in reasons for _l, _s, reasons, basis, _r in cj_rows)
+                  and {ref for layer, _s, _r, _b, ref in cj_rows if layer == "overlays"}
+                  == {inventory_id("selection", cj_ref)}
+                  and {ref for layer, _s, _r, _b, ref in cj_rows if layer != "overlays"}
+                  == {inventory_id("release", "ref-cj")},
+                  f"{cj_run.get('refused')} {str(cj_run.get('message'))[:200]} {cj_rows} "
+                  f"{len((cj_run.get('release') or {}).get('sessions') or [])} sessions")
             shared_docs = shared_clean.get("shared") or {}
             a_selection = shared_docs.get(f"selection-{inventory_id('selection', a_ref)}") or {}
             b_selection = shared_docs.get(f"selection-{inventory_id('selection', b_ref)}") or {}
