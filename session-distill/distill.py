@@ -577,7 +577,8 @@ def cmd_parse_decisions(args):
     out = stage_approvals.run(run_dir_of(args), args.version, args.copy)
     say(f"S10 parse-decisions: version {out['version']} (current {out['current_version']}): {out['decided']} decided, "
         f"{out['undecided']} undecided, {out['stale']} stale; {out['approval_rows']} approval rows, "
-        f"{out['adjudications']} adjudications" + ("; resumed a parse cut short" if out["resumed"] else ""))
+        f"{out['adjudications']} adjudications; the review is {out['review_state']}"
+        + ("; resumed a parse cut short" if out["resumed"] else ""))
 
 
 def cmd_confirm(args):

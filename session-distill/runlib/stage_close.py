@@ -111,17 +111,9 @@ def decided_items(manifest, current, approvals, apply_doc):
 
 
 def target_of(item, candidates):
-    """`(kind, entry id | None, resolves | None)`: `entry` for an item decided on an existing ledger
-    entry (a legacy entry, a due decision), `new` for a candidate with no entry."""
-    cid = item["item_id"]
-    cand = candidates.get(cid) or {}
-    lifecycle = cand.get("lifecycle") or {}
-    source = cand.get("source") or (cid.split(":", 1)[0] if ":" in cid else "formed")
-    if source == "legacy":
-        return "entry", lifecycle.get("target_entry") or cid.split(":", 1)[1], None
-    if source == "due_decision":
-        return "entry", lifecycle.get("target_entry") or cid.split(":", 1)[1].split("@", 1)[0], lifecycle.get("resolves")
-    return "new", None, None
+    """`(kind, entry id | None, resolves | None)`, by S10b's rule (`stage_confirm.target_of`), whose page says where
+    an item without a file change is kept."""
+    return stage_confirm.target_of(item, candidates)
 
 
 def observation_of(proposal):

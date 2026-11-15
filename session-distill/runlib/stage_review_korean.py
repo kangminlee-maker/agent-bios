@@ -71,6 +71,25 @@ def korean_of(answer):
     return {name: (answer.get("reasons") or {}).get(name) for name in FIELDS}
 
 
+def korean_sha256_of(answer):
+    """The sha256 of the six Korean fields of `answer`, the text S9b judges (Codex WP-20 r1 F3: the English payload's
+    hash leaves them out by design, so a verdict is bound to both)."""
+    return stage_render.sha256_of(korean_of(answer or {}))
+
+
+def carried_ids(by_id, before):
+    """The rows an earlier S9b run judged whose English payload AND Korean are what it judged: only those carry its
+    verdict. A row whose Korean moved is judged again (its regeneration, once used, is not given again)."""
+    return {i for i, row in by_id.items()
+            if (before.get(i) or {}).get("payload_sha256") == row["payload_sha256"]
+            and (before.get(i) or {}).get("korean_sha256") == korean_sha256_of(row.get("proposal"))}
+
+
+def regeneration_used(before):
+    """The rows whose one regeneration an earlier version already used: a row is regenerated once, across versions."""
+    return {i for i, e in before.items() if e.get("regenerated") or e.get("regeneration_used")}
+
+
 def payload_sha256_of(row, answer):
     """The English payload's sha256 of `row` carrying `answer`: equal to the row's own when only Korean moved."""
     return stage_render.keyed({**row, "proposal": answer})["payload_sha256"]
@@ -132,13 +151,13 @@ def document(rows_doc, proposals, candidates, derivations, reviews, regeneration
     regenerations, second = dict(regenerations or {}), dict(second or {})
     by_id = {r["item_id"]: r for r in reviewable(rows_doc)}
     before = {e["item_id"]: e for e in (previous or {}).get("rows") or []}
-    carried = {i for i, row in by_id.items() if (before.get(i) or {}).get("payload_sha256") == row["payload_sha256"]}
+    carried, used = carried_ids(by_id, before), regeneration_used(before)
     answers = {p["candidate_id"]: p for p in (proposals or {}).get("proposals") or []}
     cands = {c["candidate_id"]: c for c in (candidates or {}).get("candidates") or []}
     verdicts = (derivations or {}).get("verdicts") or {}
     problems = [f"S9B_UNACCOUNTED {i}: a review for a row S9b was not asked about" for i in sorted(set(reviews) - set(by_id))]
-    problems += [f"REVIEW_CARRIED {i}: S9b judged it at v{previous['version']} and its English payload has not moved"
-                 for i in sorted(set(reviews) & carried)]
+    problems += [f"REVIEW_CARRIED {i}: S9b judged it at v{previous['version']} and neither its English payload nor "
+                 "its Korean has moved" for i in sorted(set(reviews) & carried)]
     rows, unreviewed, returned, regenerated, asked = [], [], [], {}, set()
     for ident, row in by_id.items():
         if ident in carried:
@@ -160,14 +179,21 @@ def document(rows_doc, proposals, candidates, derivations, reviews, regeneration
         if found:
             returned.append({"item_id": ident, "pass": "first", "codes": [code_of(x) for x in found]})
             continue
-        held = {"item_id": ident, "payload_sha256": row["payload_sha256"], "verdict": review["verdict"],
-                "failing": failing_of(review), "regenerated": False,
+        held = {"item_id": ident, "payload_sha256": row["payload_sha256"],
+                "korean_sha256": korean_sha256_of(row.get("proposal")), "verdict": review["verdict"],
+                "failing": failing_of(review), "regenerated": False, "regeneration_used": ident in used,
                 "regeneration": None, "second": None, "mark": False, "notes": review["notes"]}
-        if review["verdict"] == "fail":
+        if review["verdict"] == "fail" and ident in used:
+            # its one regeneration was used at an earlier version: the row is marked, never regenerated again
+            held.update({"regeneration": {"state": "used_before"}, "mark": True})
+        elif review["verdict"] == "fail":
             asked.add(ident)
             held.update(failure_after_retry(row, answers.get(ident), cands.get(ident), derivations,
                                             verdicts.get(ident), regenerations.get(ident), second.get(ident),
                                             regenerated))
+            if held["regenerated"]:
+                # the Korean the next render shows is the regenerated text, so that is what a carried verdict binds
+                held.update({"regeneration_used": True, "korean_sha256": korean_sha256_of(regenerated[ident])})
         rows.append(held)
     problems += [f"REGENERATION_UNASKED {i}: a regeneration for a row S9b did not fail"
                  for i in sorted(set(regenerations) - asked)]
@@ -287,8 +313,8 @@ def collect(run_dir, declaration, supervisor, rows_doc, proposals, candidates, d
         raise Refused(f"SEAT_UNDECLARED {SEAT_KEY}: S9b's seat is named by run.json's seats")
     by_id = {r["item_id"]: r for r in reviewable(rows_doc)}
     before = {e["item_id"]: e for e in (previous or {}).get("rows") or []}
-    asked = [i for i, row in by_id.items()
-             if (before.get(i) or {}).get("payload_sha256") != row["payload_sha256"]]
+    carried, used = carried_ids(by_id, before), regeneration_used(before)
+    asked = [i for i in by_id if i not in carried]
     answers = {p["candidate_id"]: p for p in (proposals or {}).get("proposals") or []}
     cands = {c["candidate_id"]: c for c in (candidates or {}).get("candidates") or []}
     verdicts = (derivations or {}).get("verdicts") or {}
@@ -326,8 +352,8 @@ def collect(run_dir, declaration, supervisor, rows_doc, proposals, candidates, d
         if first is None:
             continue
         reviews[ident] = first
-        if first["verdict"] != "fail":
-            continue
+        if first["verdict"] != "fail" or ident in used:
+            continue   # a pass, or a fail whose one regeneration an earlier version used (`document` marks it)
         if not regen_seat:
             raise Refused(f"SEAT_UNDECLARED {REGENERATE_SEAT_KEY}: a failing row is regenerated by S7's seat, which "
                           f"run.json declares for this stage under that key")
@@ -387,10 +413,12 @@ def run(run_dir, reviews=None, regenerations=None, second=None, *, supervisor=No
         # stage, the refusal replaced the complete record of the review that is there with a failed one, and S9
         # then refused the unsettled S9b while S9b refused the reviewed version; before the lock, two
         # invocations could each pass it in turn and the second overwrote the first's review.
-        for rel in (review_rel, regen_rel):
-            if (run_dir / rel).exists():
-                raise Refused(f"S9B_VERSION_REVIEWED {rel}: a version's Korean is reviewed once; render the next "
-                              f"version (S9) and review that")
+        # The review file is the version's commit and is written last: the regenerated proposals and the calls
+        # before it may be there from a run cut short between its writes, and that run is finished by running again
+        # (its accepted calls are reused, `resume=True`), not refused (Codex WP-20 r1 F4).
+        if (run_dir / review_rel).exists():
+            raise Refused(f"S9B_VERSION_REVIEWED {review_rel}: a version's Korean is reviewed once; render the next "
+                          f"version (S9) and review that")
     with records.run_stage(run_dir, STAGE, inputs_of(version) + adjudicated_specs, admit=reviewed_once) as stage:
         read = lambda rel: records.read_json(run_dir / rel)  # noqa: E731
         previous, previous_regenerated = previous_of(run_dir, version)
@@ -412,17 +440,18 @@ def run(run_dir, reviews=None, regenerations=None, second=None, *, supervisor=No
                                                    reviews, regenerations, second, previous, previous_regenerated)
         if problems:
             raise Refused("\n".join(problems))
-        # the regenerated proposals first, so the review can bind them by sha256 and a later run can hold them to it
+        # the regenerated proposals first, so the review can bind them by sha256 and a later run can hold them to it;
+        # the calls next; the review last, since its presence is what says the version was reviewed
         records.write_json(run_dir, run_dir / regen_rel, regen_doc)
-        review_doc["regenerated_sha256"] = records.sha256_file(run_dir / regen_rel)
-        records.write_json(run_dir, run_dir / review_rel, review_doc)
-        for rel in (regen_rel, review_rel):
-            stage.output(rel)
+        stage.output(regen_rel)
         if held_calls is not None:
             outcomes = [c["outcome"] for c in held_calls["calls"]]
             held_calls["counts"] = {o: outcomes.count(o) for o in sorted(set(outcomes))}
             records.write_json(run_dir, run_dir / calls_rel(version), {"stage": STAGE, "version": version, **held_calls})
             stage.output(calls_rel(version))
+        review_doc["regenerated_sha256"] = records.sha256_file(run_dir / regen_rel)
+        records.write_json(run_dir, run_dir / review_rel, review_doc)
+        stage.output(review_rel)
         return {"version": version, **review_doc["counts"],
                 **({"calls": held_calls["counts"], "asked": held_calls["asked"]} if held_calls is not None else {})}
 
@@ -553,7 +582,12 @@ def self_test():
     # ---- a later version: what S9b judged is carried, so a row is regenerated once across versions ---------------
     _o, regen_once, _p = doc({**{i: verdict() for i in ids}, "k-g": verdict(failing=["what_happened"])},
                              {"k-g": better}, {"k-g": verdict()})
-    later_rows = {**rows_doc, "version": 2}
+    later_rows = copy.deepcopy({**rows_doc, "version": 2})
+    # S9 lays a regenerated proposal over S7's in the next render (decision (a), K4b), so the later version's k-g
+    # carries the regenerated Korean, the text its second review judged
+    for r in later_rows["rows"]:
+        if r["item_id"] in regen_once["proposals"]:
+            r["proposal"] = copy.deepcopy(regen_once["proposals"][r["item_id"]])
 
     def later(reviews, previous=once, previous_regenerated=None, rows=None):
         return document(rows or later_rows, docs["proposals"], docs["candidates"], docs["derivations"], reviews,
@@ -571,6 +605,30 @@ def self_test():
     fresh, _r, _p = later({}, rows=moved_rows)
     equal("a row whose English payload moved since is asked again", [u["item_id"] for u in fresh["unreviewed"]],
           ["k-a"])
+    # Codex WP-20 r1 F3: the English payload's hash leaves the Korean out, so a verdict is bound to the Korean too
+    korean_moved = copy.deepcopy(later_rows)
+    k_a = next(r for r in korean_moved["rows"] if r["item_id"] == "k-a")
+    k_a["proposal"]["reasons"] = {**k_a["proposal"]["reasons"],
+                                  FIELDS[0]: (k_a["proposal"]["reasons"].get(FIELDS[0]) or "") + " 바뀐 문장"}
+    fresh_ko, _r, _p = later({}, rows=korean_moved)
+    equal("a row whose Korean moved since, its English payload unchanged, is asked again and not carried",
+          ([u["item_id"] for u in fresh_ko["unreviewed"]], "k-a" in {r["item_id"] for r in fresh_ko["rows"]}),
+          (["k-a"], False))
+    regen_moved = copy.deepcopy(later_rows)
+    k_g = next(r for r in regen_moved["rows"] if r["item_id"] == "k-g")
+    k_g["proposal"]["reasons"] = {**k_g["proposal"]["reasons"],
+                                  FIELDS[0]: (k_g["proposal"]["reasons"].get(FIELDS[0]) or "") + " 바뀐 문장"}
+    used_doc, used_regen, used_problems = document(regen_moved, docs["proposals"], docs["candidates"],
+                                                   docs["derivations"], {"k-g": verdict(failing=["what_happened"])},
+                                                   None, None, once, regen_once)
+    equal("a row regenerated at an earlier version whose Korean moved is judged again, and failing it is marked "
+          "without a second regeneration", (row_in(used_doc, "k-g").get("regeneration"),
+                                            row_in(used_doc, "k-g").get("mark"), sorted(used_regen["proposals"]),
+                                            used_problems), ({"state": "used_before"}, True, [], []))
+    control("and a regeneration given for it is refused, since its one regeneration was used",
+            "\n".join(document(regen_moved, docs["proposals"], docs["candidates"], docs["derivations"],
+                               {"k-g": verdict(failing=["what_happened"])}, {"k-g": better}, None, once,
+                               regen_once)[2]), "REGENERATION_UNASKED k-g")
     control("a carried regeneration its file does not hold is named",
             "\n".join(later({}, previous_regenerated={"proposals": {}})[2]), "CARRY_INCOMPLETE k-g")
     import tempfile as _tempfile
@@ -636,6 +694,7 @@ def self_test():
             raise SectionStopped from exc
         cli_out = root / "cli"
         shutil.copytree(run_dir.parent, cli_out)
+        cut_dir = shutil.copytree(run_dir.parent, root / "cut") / run_dir.name
         try:
             out, said = run(run_dir, {}), None
         except Refused as exc:
@@ -656,7 +715,7 @@ def self_test():
               ("complete", ["regenerated-reasons.v1.json", "review-s9b.v1.json"]))
         # two invocations in turn: the other one finishes its review after this one was started and before this one
         # holds the stage's lock. Stood in for by taking the review away, and putting it back as the stage opens.
-        # (both outputs: the check refuses on either, so one left in place would refuse before the lock too)
+        # (both outputs: the check refuses on the review, and the regenerated proposals go with it)
         both = ("review-s9b.v1.json", "regenerated-reasons.v1.json")
         record_rel = f"stages/{STAGE}/record.json"
         held_record = (run_dir / record_rel).read_bytes()
@@ -691,6 +750,33 @@ def self_test():
               "with both outputs and the record's own bytes untouched",
               (late, untouched and bool(held_review), after.get("status")),
               ("S9B_VERSION_REVIEWED", True, "complete"))
+        # Codex WP-20 r1 F4: a run cut short after the regenerated proposals are written and before the review is.
+        # The review is the version's commit, so running again finishes it instead of refusing the version.
+        real_write, cut = records.write_json, []
+
+        def dies_at_review(run_dir_, path, doc, *args, **kwargs):
+            if pathlib.Path(path).name == outputs_of(1)[0] and not cut:
+                cut.append(True)
+                raise RuntimeError("cut short before the review is written")
+            return real_write(run_dir_, path, doc, *args, **kwargs)
+        records.write_json = dies_at_review
+        try:
+            first_try = f"written {run(cut_dir, {})}"
+        except RuntimeError as exc:
+            first_try = str(exc)
+        finally:
+            records.write_json = real_write
+        left = sorted(p.name for p in cut_dir.glob("re*-*.v1.json"))
+        try:
+            second_try = run(cut_dir, {})
+        except Refused as exc:
+            second_try = str(exc).split(" ", 1)[0]
+        cut_rec = records.stage_records(cut_dir).get(STAGE) or {}
+        equal("a review cut short before its review file leaves only the regenerated proposals, and running again "
+              "finishes the version", (first_try, left, getattr(second_try, "get", lambda k: second_try)("version"),
+                                       cut_rec.get("status"), sorted(o["artifact"] for o in cut_rec.get("outputs") or [])),
+              ("cut short before the review is written", ["regenerated-reasons.v1.json"], 1, "complete",
+               ["regenerated-reasons.v1.json", "review-s9b.v1.json"]))
         (cli_out / "reviews.json").write_text("{}", encoding="utf-8")
         done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "review-korean", "--run-id",
                                run_dir.name, "--out", str(cli_out), "--reviews", str(cli_out / "reviews.json")],

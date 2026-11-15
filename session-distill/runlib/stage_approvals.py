@@ -274,9 +274,17 @@ def parse_document(declaration, render_text, rows_doc, current, frozen, copy_tex
               "counts": {"items": len(items), "decided": states["decided"], "undecided": states["undecided"],
                          "stale": states["stale"], "approval_rows": len(approvals), "adjudications": len(adjudications),
                          "decision": dict(sorted(collections.Counter(i["decision"] for i in decided).items()))},
+              # the owner's review apart from the stage's parts (Codex WP-20 r1 F6): `complete` only when the copy
+              # left no row undecided and none stale; an undecided row is never applied, whatever this says
+              "review_state": review_state_of(states),
               "measures": measures_of(rows_doc, current, frozen, list(prior_approvals) + approvals, at),
               "approvals": approvals, "adjudications": adjudications}
     return approvals, adjudications, parsed, []
+
+
+def review_state_of(states):
+    """`partial` when any row of the version is undecided or stale, `complete` otherwise."""
+    return "partial" if states["undecided"] or states["stale"] else "complete"
 
 
 def rows_in(path):
@@ -299,11 +307,19 @@ def run(run_dir, version=None, copy_path=None):
     if not 1 <= version <= latest:
         raise Refused(f"VERSION_UNKNOWN v{version}: the reviews are v1 to v{latest}")
     marker = run_dir / f"parsed.v{version}.json"
-    resumed = marker.is_file()
-    if resumed and parse_part(run_dir).get("status") == "complete":
-        raise Refused(f"VERSION_PARSED_ALREADY v{version}: a version's decisions are parsed once; a changed decision "
-                      "is made in a new review version")
-    with records.run_stage(run_dir, STAGE, inputs_of(latest), part=PART) as stage:
+    state = {}
+
+    def once():
+        # Under the stage's lock too, before its record is replaced (`records.run_stage`'s `admit`): checked only
+        # before it, a second invocation passed while the first was committing and then overwrote the first's
+        # decisions (Codex WP-20 r1 F2). A committed parse whose publication was cut short is finished, never redone.
+        state["resumed"] = marker.is_file()
+        if state["resumed"] and parse_part(run_dir).get("status") == "complete":
+            raise Refused(f"VERSION_PARSED_ALREADY v{version}: a version's decisions are parsed once; a changed "
+                          "decision is made in a new review version")
+    once()
+    with records.run_stage(run_dir, STAGE, inputs_of(latest), part=PART, admit=once) as stage:
+        resumed = state["resumed"]
         if not resumed:
             current = records.read_json(run_dir / f"review.v{latest}.json")
             frozen = records.read_json(run_dir / stage_render.frozen_name(latest))
@@ -332,7 +348,8 @@ def run(run_dir, version=None, copy_path=None):
         for rel in [APPROVALS, ADJUDICATIONS] + [f"parsed.v{p['version']}.json" for p in committed]:
             stage.output(rel)
         mine = next(p for p in committed if p["version"] == version)
-        return {"version": version, "current_version": mine["current_version"], "resumed": resumed, **mine["counts"]}
+        return {"version": version, "current_version": mine["current_version"], "resumed": resumed,
+                "review_state": mine.get("review_state"), **mine["counts"]}
 
 
 # ---- self-test ----------------------------------------------------------------------------------------------------
@@ -615,6 +632,7 @@ def self_test():
             (run_dir / "decisions.ko.v1.md").write_text(decide(copy1, {ids[0]: "결정: 보류", ids[1]: "결정: 기각"}),
                                                         encoding="utf-8")
             shutil.copytree(run_dir.parent, cli_out)
+            shutil.copytree(run_dir.parent, root / "race")
         got = attempt(run, run_dir, 1)
         equal("an older version's copy parses against the current rows: its two decisions, v2 current",
               (getattr(got, "get", lambda k: got)("approval_rows"), getattr(got, "get", lambda k: None)("current_version")),
@@ -630,6 +648,40 @@ def self_test():
               ("complete", sorted([APPROVALS, ADJUDICATIONS, "parsed.v1.json"])))
         control("a version parsed under a complete record is never parsed again", str(attempt(run, run_dir, 1)),
                 "VERSION_PARSED_ALREADY v1")
+        equal("the parse says the owner's review of the version is partial while a row is undecided (Codex WP-20 r1 "
+              "F6)", (getattr(got, "get", lambda k: got)("review_state"),
+                      (records.read_json(run_dir / "parsed.v1.json") if (run_dir / "parsed.v1.json").is_file()
+                       else {}).get("review_state")), ("partial", "partial"))
+        equal("and complete only when no row is undecided or stale",
+              [review_state_of(collections.Counter(c)) for c in
+               ({"decided": 3}, {"decided": 2, "undecided": 1}, {"decided": 2, "stale": 1})],
+              ["complete", "partial", "partial"])
+        # Codex WP-20 r1 F2: another invocation commits its parse of v1 after this one's first check and before its
+        # lock; the stand-in runs that parse as the lock is about to be taken, so only the check under it can see it
+        race_dir = root / "race" / run_dir.name
+        if race_dir.is_dir() and copy1:
+            other = root / "race-other.ko.md"
+            other.write_text(decide(copy1, {ids[0]: "결정: 기각"}), encoding="utf-8")
+            real_run_stage, raced = records.run_stage, []
+
+            def racing(run_dir_, stage_, *args, **kwargs):
+                if stage_ == STAGE and not raced:
+                    raced.append("started")   # before the inner parse, whose own lock passes through here
+                    raced.append(attempt(run, race_dir, 1, other))
+                return real_run_stage(run_dir_, stage_, *args, **kwargs)
+            records.run_stage = racing
+            try:
+                lost = str(attempt(run, race_dir, 1))
+            finally:
+                records.run_stage = real_run_stage
+            control("a parse committed after this one's first check is seen under the stage's lock", lost,
+                    "VERSION_PARSED_ALREADY v1")
+            kept = records.read_json(race_dir / "parsed.v1.json") if (race_dir / "parsed.v1.json").is_file() else {}
+            equal("and the committed parse is the first one's, not overwritten",
+                  ([i.get("decision") for i in kept.get("items") or [] if i.get("state") == "decided"],
+                   [r["decision"] for r in rows_in(race_dir / APPROVALS)]), (["reject"], ["reject"]))
+        else:
+            equal("the race copy of the golden run is made", race_dir.is_dir(), True)
         copy2 = (run_dir / "decisions.ko.v2.md").read_text(encoding="utf-8") if isinstance(v2, dict) else ""
         if copy2:
             (run_dir / "decisions.ko.v2.md").write_text(decide(copy2, {ids[2]: "결정: 보류"}), encoding="utf-8")

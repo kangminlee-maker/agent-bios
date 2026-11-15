@@ -60,8 +60,9 @@ JUDGES = ("A", "B")
 FIELDS = {"review": ("item", "sha"), "confirm": ("set",)}
 # What approving does in release 1, in the owner's words (D-20261113-f22b7d and its dated record): S11 edits files
 # and nothing else, and the commit and the install are the owner's. S9's review page and S10b's confirmation page both say this sentence.
-APPROVAL_EFFECT = ("승인하면 선언된 체크아웃의 파일이 바뀝니다. 커밋과 설치는 소유자가 직접 합니다 — 적용이 끝나면 "
-                   "실행할 명령을 그대로 보여 드립니다.")
+APPROVAL_EFFECT = ("파일을 바꾸는 제안을 승인하면 선언된 체크아웃의 파일이 바뀝니다. `none`(바꾸지 않음)과 대장에만 "
+                   "남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 소유자가 직접 합니다 — 적용이 "
+                   "끝나면 실행할 명령을 그대로 보여 드립니다.")
 CLOSE = "<!-- /owner-block -->"
 _VALUE = r"[^\s=<>]+"
 OPEN = re.compile(rf"^<!-- owner-block (review|confirm)((?: [a-z]+={_VALUE})+) -->$")
@@ -612,7 +613,7 @@ def self_test():
           ("approve", [("R-1", "사용자가 직접 줄이기로 했다.")]))
     copy = fill("k-ccc", "결정: 승인", "메모:", "keep 해제: R-1 근거")
     equal("and the release's line is the copy's own line number",
-          item_of(copy, "k-ccc").get("keep_releases", [{}])[0].get("line"), number(copy, "keep 해제: R-1 근거"))
+          [k.get("line") for k in item_of(copy, "k-ccc").get("keep_releases") or []], [number(copy, "keep 해제: R-1 근거")])
     got = item_of(fill("k-aaa", "결정： 승인"), "k-aaa")
     equal("a full-width colon reads as the colon", got.get("decision"), "approve")
     got = item_of(fill("k-aaa", unicodedata.normalize("NFD", "결정: 승인")), "k-aaa")

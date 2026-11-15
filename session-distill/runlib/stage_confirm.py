@@ -48,7 +48,7 @@ import sys
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from grammar import owner_lines  # noqa: E402
-from runlib import records, sequencing, stage_approvals, stage_review_proposals, validate  # noqa: E402
+from runlib import records, sequencing, stage_adjudicate, stage_approvals, stage_review_proposals, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -82,13 +82,36 @@ def returned_rel(version):
 
 
 def inputs_of(run_dir):
-    """What both parts read, every one through the shared record checks."""
+    """What both parts read, every one through the shared record checks: S10's adjudicated versions among them, since
+    S9 rendered S7b's review with their second-pass reviews laid over it and an adopted alternative is held to that."""
     return ([{"artifact": f"review.v{stage_approvals.latest_version(run_dir)}.json", "producer_stage": "S9"},
              {"artifact": stage_approvals.APPROVALS, "producer_stage": "S10"},
              {"artifact": stage_review_proposals.OUTPUT, "producer_stage": "S7b"},
              {"artifact": INVENTORY, "producer_stage": "S2"}]
             + [{"artifact": f"parsed.v{p['version']}.json", "producer_stage": "S10"}
-               for p in stage_approvals.parsed_in(run_dir)])
+               for p in stage_approvals.parsed_in(run_dir)]
+            + list(stage_adjudicate.adjudicated_inputs(run_dir)))
+
+
+def target_of(item, candidates):
+    """`(kind, entry id | None, resolves | None)`: `entry` for an item decided on an existing ledger
+    entry (a legacy entry, a due decision), `new` for a candidate with no entry. S12 records by it, and S10b's page
+    says by it where an item without a file change is kept."""
+    cid = item["item_id"]
+    cand = candidates.get(cid) or {}
+    lifecycle = cand.get("lifecycle") or {}
+    source = cand.get("source") or (cid.split(":", 1)[0] if ":" in cid else "formed")
+    if source == "legacy":
+        return "entry", lifecycle.get("target_entry") or cid.split(":", 1)[1], None
+    if source == "due_decision":
+        return "entry", lifecycle.get("target_entry") or cid.split(":", 1)[1].split("@", 1)[0], lifecycle.get("resolves")
+    return "new", None, None
+
+
+def kept_in_run_only(item):
+    """An item S12 gives no ledger row: a `none` on a candidate with no entry stays in the run's close record alone
+    (F-40)."""
+    return item.get("disposition") == "none" and target_of(item, {})[0] == "new"
 
 
 def _without_reason(alternative):
@@ -195,9 +218,13 @@ def page(manifest, version):
            "## 라이브러리를 바꾸는 항목 (F)", ""]
     out += [f"- {i['item_id']}: " + ", ".join(f"{op.get('type')} {op.get('target')}" for op in i["operations"])
             for i in manifest["F"]] or ["- 없음"]
-    out += ["", "## 대장만 바꾸는 항목", ""]
+    out += ["", "## 파일을 바꾸지 않는 항목", "",
+            "아래 항목은 S11이 파일을 바꾸지 않습니다. S12가 대장에 결정을 남기고, 대장에 항목이 없는 새 후보의 "
+            "`none`(바꾸지 않음)은 대장에 줄을 만들지 않고 이번 실행의 마무리 기록(close.json)에만 남습니다.", ""]
     out += [f"- {i['item_id']}: {i['disposition']}" + (f" (묶음 {i['member_of']})" if i.get("member_of") else "")
-            + (" (S7b 대안 채택)" if i.get("adopted") else "") for i in manifest["ledger_only"]] or ["- 없음"]
+            + (" (S7b 대안 채택)" if i.get("adopted") else "")
+            + (" — 이번 실행 기록에만 남음" if kept_in_run_only(i) else " — 대장에 기록")
+            for i in manifest["ledger_only"]] or ["- 없음"]
     out += ["", "## 이번 확정에 들어가지 않는 승인", ""]
     why = {"adopted_alternative": "채택한 S7b 대안이 라이브러리를 바꾸므로 S7이 작업을 제안해야 합니다",
            "revise_note": "수정 메모와 함께 S7로 돌아갑니다"}
@@ -237,8 +264,13 @@ def gathered(run_dir):
     path = run_dir / f"review.v{stage_approvals.latest_version(run_dir)}.json"
     current = {**records.read_json(path), "_sha256": records.sha256_file(path)}
     library = sorted({u["path"] for u in records.read_json(run_dir / INVENTORY).get("units") or [] if u.get("path")})
-    return (current, stage_approvals.rows_in(run_dir / stage_approvals.APPROVALS),
-            records.read_json(run_dir / stage_review_proposals.OUTPUT), stage_approvals.parsed_in(run_dir), library)
+    s7b, problems = stage_adjudicate.overlay_review(
+        records.read_json(run_dir / stage_review_proposals.OUTPUT),
+        stage_adjudicate.read_inputs(run_dir, stage_adjudicate.adjudicated_inputs(run_dir)))
+    if problems:
+        raise Refused("\n".join(problems))
+    return (current, stage_approvals.rows_in(run_dir / stage_approvals.APPROVALS), s7b,
+            stage_approvals.parsed_in(run_dir), library)
 
 
 def versions(run_dir):
@@ -249,9 +281,14 @@ def versions(run_dir):
 def build(run_dir):
     """S10b's build part: the next confirmation version, or Refused with nothing written."""
     run_dir = pathlib.Path(run_dir)
-    if (run_dir / CONFIRMATION).is_file():
-        raise Refused(f"CONFIRMED_ALREADY S10b: the final set is confirmed ({CONFIRMATION}); S11 applies it")
-    with records.run_stage(run_dir, STAGE, inputs_of(run_dir), part=BUILD) as stage:
+
+    def unconfirmed():
+        # under the stage's lock (`records.run_stage`'s `admit`): checked before it, a confirm that commits between
+        # the check and the lock leaves a new version built beside a confirmed set (Codex WP-20 r1 F1)
+        if (run_dir / CONFIRMATION).is_file():
+            raise Refused(f"CONFIRMED_ALREADY S10b: the final set is confirmed ({CONFIRMATION}); S11 applies it")
+    unconfirmed()
+    with records.run_stage(run_dir, STAGE, inputs_of(run_dir), part=BUILD, admit=unconfirmed) as stage:
         manifest, problems = final_set(stage.declaration, *gathered(run_dir))
         if problems:
             raise Refused("\n".join(problems))
@@ -308,14 +345,21 @@ def confirm(run_dir, version=None, copy_path=None):
     version = version or held[-1]
     if version not in held:
         raise Refused(f"VERSION_UNKNOWN v{version}: the confirmation versions are {held}")
-    if (run_dir / returned_rel(version)).is_file() or (run_dir / CONFIRMATION).is_file():
-        raise Refused(f"VERSION_DECIDED_ALREADY v{version}: a confirmation version is decided once, and a run's final "
-                      "set is confirmed once")
-    if version != held[-1]:
-        raise Refused(f"VERSION_SUPERSEDED v{version}: v{held[-1]} was built after it; decide the latest version")
+
+    def undecided():
+        # checked again under the stage's lock, before the record is replaced (`records.run_stage`'s `admit`): two
+        # invocations could each pass the check made before it, and the second then confirmed a version the first
+        # had returned, or one a build had superseded (Codex WP-20 r1 F1)
+        if (run_dir / returned_rel(version)).is_file() or (run_dir / CONFIRMATION).is_file():
+            raise Refused(f"VERSION_DECIDED_ALREADY v{version}: a confirmation version is decided once, and a run's "
+                          "final set is confirmed once")
+        latest = versions(run_dir)[-1]
+        if version != latest:
+            raise Refused(f"VERSION_SUPERSEDED v{version}: v{latest} was built after it; decide the latest version")
+    undecided()
     specs = inputs_of(run_dir) + [{"artifact": manifest_rel(version), "producer_stage": STAGE},
                                   {"artifact": render_name(version), "producer_stage": STAGE}]
-    with records.run_stage(run_dir, STAGE, specs, part=CONFIRM) as stage:
+    with records.run_stage(run_dir, STAGE, specs, part=CONFIRM, admit=undecided) as stage:
         stored = records.read_json(run_dir / manifest_rel(version))
         registered = next((row["sha256"] for row in stage.record["inputs"] if row["artifact"] == manifest_rel(version)),
                           None)
@@ -609,10 +653,20 @@ def self_test():
                sorted(i["artifact"] for i in rec.get("inputs") or [])),
               ("complete", sorted([manifest_rel(1), render_name(1), copy_name(1)]),
                sorted(["review.v1.json", "approvals.jsonl", "review-s7b.json", INVENTORY, "parsed.v1.json"])))
-        control("the page says what confirming does in release 1: files change, and the commit and the install are "
-                "the owner's",
-                (run_dir / render_name(1)).read_text(encoding="utf-8"),
-                "확정하면 선언된 체크아웃의 파일이 바뀝니다. 커밋과 설치는 소유자가 직접 합니다")
+        page_text = (run_dir / render_name(1)).read_text(encoding="utf-8")
+        control("the page says what confirming does in release 1: a changing proposal's files change, and the commit "
+                "and the install are the owner's", page_text,
+                "파일을 바꾸는 제안을 확정하면 선언된 체크아웃의 파일이 바뀝니다.")
+        control("and that a none and a ledger-only disposition change no file (Codex WP-20 r1 F7)", page_text,
+                "`none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다.")
+        control("the items without a file change are headed as such, not as ledger changes", page_text,
+                "## 파일을 바꾸지 않는 항목")
+        equal("a none on a new candidate is kept in the run's record alone, one on a legacy entry and a keep are not "
+              "(F-40)", [kept_in_run_only(i) for i in ({"item_id": "k-x", "disposition": "none"},
+                                                       {"item_id": "legacy:L-1", "disposition": "none"},
+                                                       {"item_id": "due_decision:N-1@r1", "disposition": "none"},
+                                                       {"item_id": "k-x", "disposition": "keep"})],
+              [True, False, False, False])
         control("an undecided copy confirms nothing", str(attempt(confirm, run_dir)), "NOTHING_DECIDED v1")
         later = shutil.copytree(root / "out", root / "later")
         again = attempt(build, later / "r1")
@@ -622,6 +676,8 @@ def self_test():
         cli_root = shutil.copytree(root / "out", root / "cli")
         returned_root = shutil.copytree(root / "out", root / "returned")
         moved_root = shutil.copytree(root / "out", root / "moved")
+        race_root = shutil.copytree(root / "out", root / "race")
+        race_build_root = shutil.copytree(root / "out", root / "race-build")
         # an input moved after build: the shared record check refuses before any field is read
         m_run = moved_root / "r1"
         m_copy = m_run / copy_name(1)
@@ -661,6 +717,52 @@ def self_test():
         equal("after 반려 a new version is built", getattr(again, "get", lambda k: again)("version"), 2)
         control("and the returned version is not decided again", str(attempt(confirm, b_run, 1)),
                 "VERSION_DECIDED_ALREADY v1")
+        # Codex WP-20 r1 F1: another invocation's decision lands after this one's first check and before its lock.
+        # The stand-in writes that decision as the lock is about to be taken; only the check under the lock sees it.
+        real_run_stage = records.run_stage
+
+        def racing(run_dir_, stage_, *args, **kwargs):
+            if kwargs.get("part") == CONFIRM:
+                (pathlib.Path(run_dir_) / returned_rel(1)).write_text(json.dumps({"decision": "return"}),
+                                                                      encoding="utf-8")
+            if kwargs.get("part") == BUILD:
+                (pathlib.Path(run_dir_) / CONFIRMATION).write_text("{}", encoding="utf-8")
+            return real_run_stage(run_dir_, stage_, *args, **kwargs)
+        r_run = race_root / "r1"
+        r_copy = r_run / copy_name(1)
+        r_copy.write_text(r_copy.read_text(encoding="utf-8").replace("확인:\n", "확인: 확정\n", 1), encoding="utf-8")
+        records.run_stage = racing
+        try:
+            lost = str(attempt(confirm, r_run))
+            lost_build = str(attempt(build, race_build_root / "r1"))
+        finally:
+            records.run_stage = real_run_stage
+        control("a return committed after confirm's first check is seen under the stage's lock", lost,
+                "VERSION_DECIDED_ALREADY v1")
+        equal("and no confirmation is written beside it", (r_run / CONFIRMATION).exists(), False)
+        control("a confirmation committed after build's first check is seen under the stage's lock", lost_build,
+                "CONFIRMED_ALREADY S10b")
+        equal("and no version is built beside it", versions(race_build_root / "r1"), [1])
+        # Codex WP-20 r1 F5: S9 renders S7b's review with S10's second-pass review laid over it, so S10b reads it so
+        adj = attempt(fx_run, root / "adj")
+        if isinstance(adj, str):
+            equal("the run for the adjudicated overlay is made", adj[:300], "a run")
+            raise SectionStopped
+        with records.run_stage(adj, "S10", [], part=stage_adjudicate.PART) as stage:
+            names = stage_adjudicate.outputs_of(1)
+            for rel, doc in zip(names, ({"newly_admitted": ["k-place"], "verdicts": {}},
+                                        {"proposals": [{"candidate_id": "k-place"}], "returned": []},
+                                        {"reviews": [{"item_id": "k-place", "verdict": "disagree",
+                                                      "alternative": {"disposition": "none", "reason": "다시 봄"}}]})):
+                records.write_json(adj, adj / rel, doc)
+                stage.output(rel)
+        seen = attempt(gathered, adj)
+        equal("S10b reads S7b's review with the adjudicated second-pass review laid over it, as S9 rendered it",
+              [((r.get("alternative") or {}).get("disposition")) for r in (seen[2] if isinstance(seen, tuple) else {})
+               .get("reviews") or [] if r.get("item_id") == "k-place"] if isinstance(seen, tuple) else seen, ["none"])
+        equal("and declares the adjudicated versions among its inputs",
+              sorted(set(stage_adjudicate.outputs_of(1)) & {i["artifact"] for i in inputs_of(adj)}),
+              sorted(stage_adjudicate.outputs_of(1)))
         # a run whose decisions approve nothing the final set can hold is refused, and nothing is built
         lone = attempt(fx_run, root / "lone")
         if isinstance(lone, str):

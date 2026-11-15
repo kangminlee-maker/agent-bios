@@ -2463,9 +2463,12 @@ def self_test():
               ["decisions.ko.v1.md", "frozen-proposals.v1.json", "review.ko.v1.md", "review.v1.json"])
         if names:
             text1 = (run_dir / "review.ko.v1.md").read_text(encoding="utf-8")
-            control("the review says what approving does in release 1: files change, and the commit and the install "
-                    "are the owner's", text1,
-                    "승인하면 선언된 체크아웃의 파일이 바뀝니다. 커밋과 설치는 소유자가 직접 합니다")
+            control("the review says what approving does in release 1: a changing proposal's files change, and the "
+                    "commit and the install are the owner's", text1,
+                    "파일을 바꾸는 제안을 승인하면 선언된 체크아웃의 파일이 바뀝니다.")
+            control("and that a none and a ledger-only disposition change no file (Codex WP-20 r1 F7)", text1,
+                    "`none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 "
+                    "소유자가 직접 합니다")
             held = records.read_json(run_dir / "review.v1.json")
             got, probs = owner_lines.parse(text1, (run_dir / "decisions.ko.v1.md").read_text(encoding="utf-8"),
                                            spec=held["spec"], render_name="review.ko.v1.md")

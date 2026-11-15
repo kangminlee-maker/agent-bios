@@ -282,15 +282,17 @@ Alternatives:
   kept beside it, and print each group member's lesson in the appendix.
 - Keep the subject in English and say so on the page; print the members' lessons only.
 
-## F-40 — an approved `none` on a candidate with no entry leaves no ledger row, and the review says it is recorded there
+## F-40 — an approved `none` on a candidate with no entry leaves no ledger row
 
 Found by the first three-hour live run of 2026-11-14 at S12. The owner approved five formed candidates whose
 disposition is `none`. `closed_ledger` gives such an item no entry (`target_of` is `new`, and a `none` allocates
-none), so the decision exists in the run's `close.json` and nowhere in the checkout; the close's report now says
-so. Two things remain: S7's Korean reason for such a proposal told the owner the item "is recorded in the ledger
-only", and a later window has no ledger row telling it this lesson was already seen and left alone.
+none), so the decision exists in the run's `close.json` and nowhere in the checkout. The close's report says so,
+and S9's and S10b's pages now say that a `none` changes no file and that one on a new candidate is kept in the
+run's record alone. Two things remain: the Korean reason S7's model writes for such a proposal may still tell the
+owner the item "is recorded in the ledger", since S7's packet does not say otherwise, and a later window has no
+ledger row telling it this lesson was already seen and left alone.
 
-Reach: every approved `none` on a candidate that has no ledger entry - in release 1, every approval of a formed
+Reach: every approved `none` on a candidate that has no ledger entry - in RR-1, every approval of a formed
 candidate. Nothing wrong is written.
 
 Alternatives:

@@ -390,26 +390,50 @@ def overlay(derivations, proposals, s7b, adjudicated):
                 continue
             verdicts[cid] = {**verdict, "adjudication": {**verdict.get("adjudication", {}),
                                                          "version": held["version"]}}
-        newly = set(dv.get("newly_admitted") or [])
+        ids, found = second_pass_ids(held)
+        problems += found
         second = held.get("proposals") or {}
-        ids = {p["candidate_id"] for p in second.get("proposals") or []} | {
-            r["candidate_id"] for r in second.get("returned") or []}
-        for cid in sorted(ids - newly):
-            problems.append(f"OVERLAY_UNACCOUNTED {cid}: v{held['version']}'s second pass answered a candidate its "
-                            "adjudication did not newly admit")
-        ids &= newly
         for key in ("proposals", "returned"):
             proposals[key] = [p for p in proposals.get(key) or [] if p["candidate_id"] not in ids] + [
                 p for p in second.get(key) or [] if p["candidate_id"] in ids]
-        review = held.get("review") or {}
-        reviewed = {r["item_id"] for key in ("reviews", "returned", "unreviewed") for r in review.get(key) or []}
-        for cid in sorted(reviewed - ids):
-            problems.append(f"OVERLAY_UNACCOUNTED {cid}: v{held['version']}'s second-pass review answered a proposal "
-                            "its second pass did not make")
-        for key in ("reviews", "returned", "unreviewed"):
-            s7b[key] = [r for r in s7b.get(key) or [] if r["item_id"] not in ids] + [
-                r for r in review.get(key) or [] if r["item_id"] in ids]
+        problems += _lay_review(s7b, held, ids)
     return derivations, proposals, s7b, problems
+
+
+def second_pass_ids(held):
+    """`(ids, problems)`: the candidates one adjudicated version's second pass answered and its adjudication newly
+    admitted; an answer for any other candidate is refused by name (OVERLAY_UNACCOUNTED)."""
+    newly = set(((held.get("derivations") or {}).get("newly_admitted")) or [])
+    second = held.get("proposals") or {}
+    ids = {p["candidate_id"] for p in second.get("proposals") or []} | {
+        r["candidate_id"] for r in second.get("returned") or []}
+    problems = [f"OVERLAY_UNACCOUNTED {cid}: v{held['version']}'s second pass answered a candidate its "
+                "adjudication did not newly admit" for cid in sorted(ids - newly)]
+    return ids & newly, problems
+
+
+def _lay_review(s7b, held, ids):
+    """Lay one adjudicated version's second-pass review over `s7b` in place, for `ids`; the problems, by name."""
+    review = held.get("review") or {}
+    reviewed = {r["item_id"] for key in ("reviews", "returned", "unreviewed") for r in review.get(key) or []}
+    problems = [f"OVERLAY_UNACCOUNTED {cid}: v{held['version']}'s second-pass review answered a proposal "
+                "its second pass did not make" for cid in sorted(reviewed - ids)]
+    for key in ("reviews", "returned", "unreviewed"):
+        s7b[key] = [r for r in s7b.get(key) or [] if r["item_id"] not in ids] + [
+            r for r in review.get(key) or [] if r["item_id"] in ids]
+    return problems
+
+
+def overlay_review(s7b, adjudicated):
+    """`(s7b, problems)`: S7b's review with each adjudicated version's second-pass review laid over it in version
+    order, exactly as `overlay` lays it for S9, for a stage that reads S7b's review and not S6's or S7's documents
+    (S10b holds an adopted alternative to the review S9 rendered; Codex WP-20 r1 F5)."""
+    s7b = copy.deepcopy(s7b or {})
+    problems = []
+    for held in adjudicated:
+        ids, found = second_pass_ids(held)
+        problems += found + _lay_review(s7b, held, ids)
+    return s7b, problems
 
 
 # ---- self-test ------------------------------------------------------------------------------------------------------
