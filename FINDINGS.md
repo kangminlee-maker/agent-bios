@@ -260,29 +260,25 @@ Alternatives:
   breaker's reset a driver command that names the provider and records who reset it.
 - Keep the frame unrecognised, and add only the command.
 
-## F-39 — the owner's review page does not say what a non-proposal row is about, and most of its bytes are unit comparisons
+## F-39 — the review states a non-proposal row's candidate in English, and a group row states none of its members
 
 Found by the first three-hour live run of 2026-11-14, when the owner opened the review (54 rows, 656 KB) and could
-not review it. Two things in `stage_render`'s page:
+not review it. The page now prints what each row's candidate says and each judge's reason for a disputed or
+rejected requirement, and keeps the per-unit comparisons in its appendix. Two things remain:
 
-- A row that carries no proposal (a disputed row, a rejected row, a legacy entry, a cluster of ledger entries)
-  prints only the generic sentence for its state ("the two judges differed on requirements …"). The candidate's
-  own lesson, situation and action - in `candidates.json`, in the lifecycle intake's `lessons`, or in the checkout
-  ledger's entry - are not on the page, so the owner is asked to settle `met` or `unmet` for a requirement of a
-  candidate the page never states. The judges' reasons for the disputed requirement are not printed either; only
-  their marks are.
-- Each judged row prints both judges' comparison against every retrieved unit (about ninety per row) and the list
-  of related unit ids with their delivery state. On this run that is nearly all of the page.
+- The candidate's words are its source's, which are English (S4's candidates, the ledger's lessons); only a
+  proposal's reasons are written in Korean, by S7. A Korean reader gets the subject of 49 of that run's 54 rows in
+  English.
+- A group row (the legacy groups, the left-out hints) names its members by id in the appendix and says nothing of
+  what any member is, so a decision on the group is a decision on ids.
 
-Reach: every review a run renders. The owner's decisions are still parsed correctly; what fails is that a person
-can read the page at all. On this run the lead wrote a summary by hand from the run's own files.
+Reach: every review a run renders. Decisions are parsed correctly either way.
 
 Alternatives:
 
-- Print for every row what the candidate says (lesson, situation, action, exception; for a cluster or a legacy
-  entry, the ledger's lesson text) and, for a disputed requirement, each judge's reason; move the per-unit
-  comparisons and the id lists to the appendix or to a second file the page names.
-- Keep the page as the complete record and render a second, short page for reading, with the same item numbers.
+- Give the subject a Korean rendering made by a model seat (S9b's, which already judges Korean), with the English
+  kept beside it, and print each group member's lesson in the appendix.
+- Keep the subject in English and say so on the page; print the members' lessons only.
 
 ## F-40 — the close says an approved `none` was recorded in the ledger, and the ledger holds no row for it
 

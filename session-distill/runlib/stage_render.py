@@ -48,6 +48,8 @@ PROPOSE_SCHEMA = HERE / "schemas" / "propose.schema.json"
 INPUTS = ({"artifact": "census.json", "producer_stage": "S1"},
           {"artifact": "population.json", "producer_stage": "S4"},
           {"artifact": "intake.json", "producer_stage": "S4"},
+          {"artifact": "candidates.json", "producer_stage": "S4"},
+          {"artifact": "checked-candidates.json", "producer_stage": "S5"},
           {"artifact": "controls.json", "producer_stage": "S5"},
           {"artifact": "checks.json", "producer_stage": "S5"},
           {"artifact": "judgments/judge.json", "producer_stage": "S6"},
@@ -147,7 +149,10 @@ def load(run_dir, ledger=None, overlays=()):
     docs = {"population": read("population.json"), "intake": read("intake.json"), "census": read("census.json"),
             "controls": read("controls.json"), "checks": read("checks.json"), "judge": read("judgments/judge.json"),
             "derivations": read("judgments/derivations.json"), "proposals": read("proposals.json"),
-            "s7b": read(stage_review_proposals.OUTPUT), "ledger": ledger, "judgments": {}, "quarantined": {}}
+            "s7b": read(stage_review_proposals.OUTPUT), "ledger": ledger, "judgments": {}, "quarantined": {},
+            # what each candidate says, for `subject_of`: the candidates S6 was sent, and S4's rejected findings
+            "said": {c["candidate_id"]: c for c in read("checked-candidates.json").get("candidates") or []},
+            "findings": {f["finding_id"]: f for f in read("candidates.json").get("rejected_findings") or []}}
     for spec in overlays:
         if spec["producer_stage"] == "S9b":
             key = "s9b_review" if spec["artifact"].startswith("review-s9b.") else "s9b_regenerated"
@@ -189,6 +194,8 @@ def judges_of(judgments, verdict):
         out[who] = {"seat": doc.get("seat"), "call_id": doc.get("call_id"),
                     "requirements": dict(sorted((marks.get(who) or j.get("requirements") or {}).items())),
                     "consequence_class": j.get("consequence_class"),
+                    "reasons": {n: v.get("reason") for n, v in sorted((j.get("requirements") or {}).items())
+                                if isinstance(v, dict) and v.get("reason")},
                     "units": [{"unit": u.get("unit"), "situation": u.get("situation"), "action": u.get("action"),
                                "reason": u.get("reason")} for u in j.get("units") or []]}
     return out
@@ -217,6 +224,37 @@ def units_of(check_row, delivery):
     state = (delivery or {}).get("state") or "absent"
     return [{"unit_id": u.get("unit_id") if isinstance(u, dict) else u, "delivery": state}
             for u in (check_row or {}).get("retrieved_units") or []]
+
+
+SUBJECT_FIELDS = ("lesson", "situation", "action", "exception")
+
+
+def subject_of(said=None, entry=None, finding=None):
+    """What the row is about, in its source's own words: `[{"part", "text"}]`. A formed candidate's lesson, situation,
+    action and exception; a cluster's member lessons; a legacy entry's lesson as the pinned ledger holds it; a
+    redundancy hint's two units and their similarity; a rejected finding's text and S4's reason. A row with no such
+    source (a group, a stage item) has none, and the page then says so by printing no subject line."""
+    out = []
+
+    def add(part, text):
+        if isinstance(text, str) and text.strip():
+            out.append({"part": part, "text": text})
+    if finding is not None:
+        add("finding", finding.get("finding"))
+        add("rejection_reason", finding.get("reason"))
+        return out
+    said = said or {}
+    for name in SUBJECT_FIELDS:
+        add(name, said.get(name))
+    lifecycle = said.get("lifecycle") or {}
+    for lesson in lifecycle.get("lessons") or []:
+        add("member_lesson", lesson)
+    if entry is not None:
+        add("ledger_lesson", entry.get("lesson"))
+    if lifecycle.get("target_units"):
+        add("similar_units", f"{', '.join(str(u) for u in lifecycle['target_units'])} "
+                             f"(match {lifecycle.get('match')}, similarity {lifecycle.get('similarity')})")
+    return out
 
 
 # ---- the Korean O6 text of rows no proposal speaks for --------------------------------------------------------------
@@ -282,7 +320,7 @@ def _row(item_id, row_kind, status, test_state, o6, **fields):
     held = {"item_id": item_id, "candidate_id": item_id, "row_kind": row_kind, "status": status, **UNDETERMINED,
             "disposition": "none", "changes_library": False, "events": [], "members": [], "test": test_state,
             "s7b": S7B_NONE, "failure": None, "awaiting_R": False, "awaiting_R_reason": None, "proposal": None,
-            "guarded_keeps": [], "disputed": [], "judges": None, "units": [], "o6": o6}
+            "guarded_keeps": [], "disputed": [], "judges": None, "units": [], "subject": [], "o6": o6}
     held.update(fields)
     return held
 
@@ -369,6 +407,7 @@ def rows_of(docs):
     checks = {c["candidate_id"]: c for c in (docs["checks"] or {}).get("candidates") or []}
     intake = {c["candidate_id"]: c for c in (docs["intake"] or {}).get("candidates") or []}
     entries = {e["id"]: e for e in ((docs.get("ledger") or {}).get("entries") or [])}
+    said, findings = docs.get("said") or {}, docs.get("findings") or {}
     rows, problems, groups = [], list(docs.get("overlay_problems") or []), collections.OrderedDict()
     # the overlays, in stage order (decision (a)): S9b's regenerated proposals over S7's, each held to S7's own rule
     for ident, answer in sorted(((docs.get("s9b_regenerated") or {}).get("proposals") or {}).items()):
@@ -384,13 +423,16 @@ def rows_of(docs):
     for cand in pop["candidates"]:
         cid, source = cand["candidate_id"], cand["source"]
         events = list(cand.get("event_ids") or [])
+        subject = subject_of(said.get(cid), entries.get((intake.get(cid) or {}).get("target_entry"))
+                             if source == "legacy" else None)
         if cid in check_failed:
             rows.append(_row(cid, "candidate", FAILED, test_state, o6_failed("S5", check_failed[cid]),
-                             source=source, events=events, failure={"stage": "S5", "codes": list(check_failed[cid])}))
+                             source=source, events=events, subject=subject, failure={"stage": "S5", "codes": list(check_failed[cid])}))
             continue
         if cid in not_derived:
             rows.append(_row(cid, "candidate", FAILED, test_state, o6_failed("S6", [str(not_derived[cid])]),
-                             source=source, events=events, failure={"stage": "S6", "codes": [str(not_derived[cid])]}))
+                             source=source, events=events, subject=subject,
+                             failure={"stage": "S6", "codes": [str(not_derived[cid])]}))
             continue
         if cid not in judged:
             if source not in left_out:
@@ -404,7 +446,8 @@ def rows_of(docs):
                                     "not hold, so it cannot be grouped")
                     continue
                 # the grouping key is WP-12's, which S7's legacy split groups by: one owner for the owner's rule
-                held = {"source": source, "events": events, "legacy_word": stage_propose.decision1_kind(entry)}
+                held = {"source": source, "events": events, "subject": subject,
+                        "legacy_word": stage_propose.decision1_kind(entry)}
                 if cid in returned:
                     rows.append(returned_row(cid, returned[cid], test_state, held, "legacy"))
                     continue
@@ -428,7 +471,7 @@ def rows_of(docs):
         outcome = verdict.get("outcome") or {}
         admission = (outcome.get("admission") or {}).get("admission")
         judges = judges_of(docs["judgments"].get(cid), verdict)
-        base = {"source": source, "events": events, "admission": admission, "judges": judges,
+        base = {"source": source, "events": events, "subject": subject, "admission": admission, "judges": judges,
                 "kind": (outcome.get("kind") or {}).get("kind") or UNDETERMINED["kind"],
                 "diagnosis": ((outcome.get("candidate_diagnosis") or {}).get("current") or {}).get("diagnosis")
                              or UNDETERMINED["diagnosis"],
@@ -458,6 +501,7 @@ def rows_of(docs):
     for finding in pop.get("rejected_findings") or []:
         rows.append(_row(finding["finding_id"], "rejected_finding", "rejected", test_state,
                          o6_rejected_finding(finding.get("failed") or []), events=list(finding.get("event_ids") or []),
+                         subject=subject_of(finding=findings.get(finding["finding_id"]) or {}),
                          failed_requirements=list(finding.get("failed") or [])))
     for stage, entries_ in sorted(docs.get("quarantined", {}).items(), key=lambda kv: records.STAGES.index(kv[0])):
         for entry in entries_:
@@ -836,10 +880,28 @@ def judge_line(who, judge):
     if judge is None:
         return f"- 판정자 {who}: 수락된 판정 없음"
     marks = ", ".join(f"{inline(k)}={inline(v)}" for k, v in judge["requirements"].items())
-    units = "; ".join(f"{inline(u['unit'])} 상황 {inline(u['situation'])} 행동 {inline(u['action'])}: "
-                      f"{inline(u['reason'])}" for u in judge["units"]) or "단위 판정 없음"
+    units = f"단위 비교 {len(judge['units'])}개는 부록에 있습니다" if judge["units"] else "단위 판정 없음"
     return (f"- 판정자 {who} ({inline(judge['seat'])}): 요구 사항 {marks}; 결과 등급 {inline(judge['consequence_class'])}; "
-            f"단위 {units}")
+            f"{units}")
+
+
+def judge_units_line(who, judge):
+    """One judge's comparison of the candidate with every retrieved unit: the appendix's line, so a row stays short
+    and nothing a judge wrote is left off the page."""
+    return (f"  - 판정자 {who}: " + "; ".join(
+        f"{inline(u['unit'])} 상황 {inline(u['situation'])} 행동 {inline(u['action'])}: {inline(u['reason'])}"
+        for u in judge["units"]))
+
+
+SUBJECT_LABELS = {"lesson": "교훈", "situation": "상황", "action": "행동", "exception": "예외",
+                  "member_lesson": "묶인 교훈", "ledger_lesson": "대장에 적힌 교훈", "similar_units": "비슷한 두 단위",
+                  "finding": "발견", "rejection_reason": "형성 단계의 거부 이유"}
+
+
+def reason_lines(row, name):
+    """Each judge's own reason for one requirement, indented under the line that names it."""
+    return [f"  - 판정자 {who}의 이유: {inline(((row['judges'] or {}).get(who) or {}).get('reasons', {}).get(name))}"
+            for who in JUDGES if ((row.get("judges") or {}).get(who) or {}).get("reasons", {}).get(name)]
 
 
 def proposal_lines(answer):
@@ -939,9 +1001,18 @@ def row_lines(row, fields):
            f"독립 계보 {inline(row['lineages'])}"]
     labels = {"what_happened": "무엇이 있었나", "proposal": "제안", "reason": "이유", "cost": "비용",
               "serves": "누구에게", "falsifier": "반증"}
+    # what the row is about, before anything said of it: the source's own words, which are English
+    out += [f"- 후보 원문 · {SUBJECT_LABELS.get(part['part'], inline(part['part']))}: {inline(part['text'])}"
+            for part in row.get("subject") or []]
     out += [f"- {labels.get(name, name)}: {inline(o6[name])}" for name in fields]
     if row.get("judges"):
         out += [judge_line(who, row["judges"].get(who)) for who in JUDGES]
+    if row["status"] == "rejected" and row.get("judges"):
+        held = [row["judges"].get(who) or {} for who in JUDGES]
+        for name in sorted(set.intersection(*[{n for n, v in (j.get("requirements") or {}).items() if v == "unmet"}
+                                              for j in held])):
+            out.append(f"- 함께 미충족으로 본 요구 사항: {inline(name)}")
+            out += reason_lines(row, name)
     adjudication = row.get("adjudication")
     if adjudication:
         said = "; ".join(f"{inline(r.get('judgment_ref'))} {inline(r.get('value'))} "
@@ -952,6 +1023,7 @@ def row_lines(row, fields):
     for d in row.get("disputed") or []:
         out.append(f"- 판정할 것 {d['label']}: {inline(d['ref'])} — A {inline(d['A'])}, B {inline(d['B'])} (자기 값은 "
                    f"{' 또는 '.join(inline(v) for v in d['values'])})")
+        out += reason_lines(row, d["ref"].split("/", 1)[1] if "/" in d["ref"] else d["ref"])
     if row.get("proposal"):
         out += proposal_lines(row["proposal"])
     out += s7b_lines(row["s7b"])
@@ -963,8 +1035,7 @@ def row_lines(row, fields):
     if row.get("failure"):
         out.append(f"- 실패: {inline(row['failure']['stage'])} {', '.join(inline(c) for c in row['failure']['codes'])}")
     if row.get("units"):
-        out.append("- 관련 단위: " + ", ".join(f"{inline(u['unit_id'])} (전달 증거: {inline(u['delivery'])})"
-                                            for u in row["units"]))
+        out.append(f"- 관련 단위: {len(row['units'])}개 (부록의 `{row['item_id']}`)")
     if row.get("events"):
         out.append(f"- 사건: {', '.join(inline(e) for e in row['events'])}")
     if row.get("members"):
@@ -1025,6 +1096,17 @@ def appendix_lines(doc, locators):
     for ident, members in sorted(doc["appendix"]["group_members"].items()):
         out.append(f"- `{ident}` ({len(members)}개): " + ", ".join(f"`{m}`" for m in members))
     if not doc["appendix"]["group_members"]:
+        out.append("- 없음")
+    out += ["", "### 행별 단위 비교와 관련 단위", ""]
+    held = [r for r in doc["rows"] if r.get("units") or any((j or {}).get("units") for j in (r.get("judges") or {}).values())]
+    for row in held:
+        out.append(f"- `{row['item_id']}`")
+        out += [judge_units_line(who, row["judges"][who]) for who in JUDGES
+                if ((row.get("judges") or {}).get(who) or {}).get("units")]
+        if row.get("units"):
+            out.append("  - 관련 단위: " + ", ".join(f"{inline(u['unit_id'])} (전달 증거: {inline(u['delivery'])})"
+                                                 for u in row["units"]))
+    if not held:
         out.append("- 없음")
     return out
 
@@ -1290,7 +1372,7 @@ def fixture_docs():
               + [{"candidate_id": "due_decision:P-1@r1", "source": "due_decision", "pending_intervention": True}]}
 
     def entry(ident, word, classification=None):
-        return {"id": ident, "status": "incubating", "classification": classification,
+        return {"id": ident, "status": "incubating", "classification": classification, "lesson": f"lesson of {ident}",
                 "decisions": [{"field": "decision1", "legacy_text": f"{word} 2026-07-19 imported", "run": "legacy-1"}]}
 
     ledger = {"schema": 2, "entries": [entry("L-1", "incubating", {"type": "D"}), entry("L-2", "below-bar-default"),
@@ -1319,6 +1401,18 @@ def fixture_docs():
                                         "requirements": dict(met),
                                         "units": [{"unit": "u-9", "situation": "yes", "action": "no", "reason": "r"}]}}
                      for who in JUDGES} for c in judged}
+    # the two judges' own reasons on the disputed and the rejected candidate, as S6's judgment files hold them
+    for cid, name in (("k-b", "bounded"), ("k-c", "actionable")):
+        for who in JUDGES:
+            judgments[cid][who]["judgment"]["requirements"] = {
+                **{n: {"mark": "met", "reason": ""} for n in req},
+                name: {"mark": "unmet", "reason": f"{who} says {cid} is not {name}"}}
+    # what each candidate says: a formed candidate's four parts, a cluster's lessons, a hint's two units
+    said = {"k-b": {"candidate_id": "k-b", "source": "formed", "lesson": "Quote the glob", "situation": "An unquoted star",
+                    "action": "Quote it", "exception": "Not in bash"},
+            "redundancy_hint:u1|u2": {"candidate_id": "redundancy_hint:u1|u2", "source": "redundancy_hint",
+                                      "lifecycle": {"target_units": ["u1", "u2"], "match": "near", "similarity": 0.8}}}
+    findings = {"r-1": {"finding_id": "r-1", "finding": "The timeout command is absent", "reason": "One retry each time"}}
     candidates = {"candidates": [{"candidate_id": c, "type": "D"} for c in ("k-a", "k-d", "k-g", "due_decision:P-1@r1", "k-p")]}
     keep_reasons = {"what_happened": "같은 상황이 두 번 있었다", "proposal": "그대로 둔다", "reason": "단위가 따라졌다",
                     "cost": "없음", "serves": "작업자", "falsifier": "다음 창에서 따르지 않으면 틀린 것"}
@@ -1375,6 +1469,7 @@ def fixture_docs():
     return {"population": population, "intake": intake, "census": {}, "controls": controls, "checks": checks,
             "judge": judge, "derivations": derivations, "proposals": proposals, "s7b": s7b, "judgments": judgments,
             "candidates": candidates,
+            "said": said, "findings": findings,
             "quarantined": quarantined, "ledger": ledger}
 
 
@@ -1605,6 +1700,40 @@ def self_test():
             return f"REFUSED {exc}"
     text = rendered(good, meta, {"e9": "s1#3"}) if good["rows"] else ""
     clean("the render is a render owner_lines can copy", owner_lines.render_problems(text) if text else ["NO_ROWS"])
+
+    def section(item_id, page=None):
+        """The lines of one row's section of the page: from its heading to the next heading."""
+        lines = (text if page is None else page).split("\n")
+        start = next((n for n, line in enumerate(lines) if line.startswith("### ") and f"`{item_id}`" in line), None)
+        if start is None:
+            return []
+        end = next((n for n in range(start + 1, len(lines)) if lines[n].startswith("#")), len(lines))
+        return lines[start:end]
+    equal("a disputed row states what its candidate says, in the candidate's own words, before anything said of it",
+          [line for line in section("k-b") if line.startswith("- 후보 원문")],
+          ["- 후보 원문 · 교훈: Quote the glob", "- 후보 원문 · 상황: An unquoted star", "- 후보 원문 · 행동: Quote it",
+           "- 후보 원문 · 예외: Not in bash"])
+    equal("a legacy entry's own row states the lesson the pinned ledger holds for it, and a rejected finding its text "
+          "and S4's reason",
+          ([line for line in section("r-1") if line.startswith("- 후보 원문")],
+           [line for line in section("legacy:L-1") if line.startswith("- 후보 원문")]),
+          (["- 후보 원문 · 발견: The timeout command is absent", "- 후보 원문 · 형성 단계의 거부 이유: One retry each time"],
+           ["- 후보 원문 · 대장에 적힌 교훈: lesson of L-1"]))
+    equal("each disputed requirement is followed by both judges' own reasons for it",
+          [line for line in section("k-b") if "의 이유:" in line],
+          ["  - 판정자 A의 이유: A says k-b is not bounded", "  - 판정자 B의 이유: B says k-b is not bounded"])
+    equal("a rejected row names each requirement both judges marked unmet, with their reasons",
+          [line for line in section("k-c") if "미충족으로 본" in line or "의 이유:" in line],
+          ["- 함께 미충족으로 본 요구 사항: actionable", "  - 판정자 A의 이유: A says k-c is not actionable",
+           "  - 판정자 B의 이유: B says k-c is not actionable"])
+    appendix_at = text.find("### 행별 단위 비교와 관련 단위")
+    equal("a judge's unit comparisons and the related units are in the appendix under the row's id, and the row itself "
+          "holds their counts",
+          ([line for line in section("k-a") if line.startswith(("- 판정자", "- 관련 단위"))],
+           "상황 yes 행동 no: r" in text[:appendix_at], text[appendix_at:].count("상황 yes 행동 no: r") > 0,
+           "u-9 (전달 증거: delivery_assembly_waiting)" in text[appendix_at:]),
+          ([line for line in section("k-a") if line.startswith("- 판정자")] + ["- 관련 단위: 1개 (부록의 `k-a`)"],
+           False, True, True))
     try:   # a render copy_of refuses is this section's controls failing by name, not the suite dying
         owner_copy = owner_lines.copy_of(text, "review.ko.v1.md") if text else ""
     except Refused as exc:
@@ -1711,10 +1840,14 @@ def self_test():
                            "behavior_contract": {"when": "x"}, "expected_observation": {"what": "x"},
                            "artifact_set": {"registration": "x", "english": "x", "korean": "x"},
                            "unknowns": [{"field": "x", "state": "x", "effect": "x"}]}
+        row["subject"] = [{"part": "x", "text": "x"}]
         row["judges"] = {who: {"seat": "x", "requirements": {"bounded": "x"}, "consequence_class": "x",
+                               "reasons": {"bounded": "x"},
                                "units": [{"unit": "x", "situation": "x", "action": "x", "reason": "x"}]}
                          for who in JUDGES}
-        row["disputed"] = [{"label": "1", "ref": "x", "A": "x", "B": "x", "values": ["x"]}]
+        row["disputed"] = [{"label": "1", "ref": "x", "A": "x", "B": "x", "values": ["x"]},
+                           # the requirement the planted reasons are for, so their lines are on the page
+                           {"label": "2", "ref": "requirement/bounded", "A": "x", "B": "x", "values": ["x"]}]
         row["s7b"] = {"state": "reviewed", "verdict": "disagree", "disposition_holds": False, "destination_holds": True,
                       "faithful_merge": "x", "bars_failing": ["x"], "owner_resolves": True, "notes": "x",
                       "alternative": {"disposition": "x", "destination": {"layer": "x", "carrier": "x"}, "reason": "x"}}
@@ -1749,6 +1882,9 @@ def self_test():
                      ("the status line's consequence", at("consequence")),
                      ("the status line's lineages", at("lineages")),
                      *[(f"O6 field {name}", at("o6", name)) for name in o6_fields()],
+                     ("a subject's text", at("subject", 0, "text")),
+                     ("a subject's part", at("subject", 0, "part")),
+                     ("a judge's reason for a disputed requirement", at("judges", "A", "reasons", "bounded")),
                      ("a judge's seat", at("judges", "A", "seat")),
                      ("a judge's requirement name", key_of("judges", "A", "requirements")),
                      ("a judge's requirement mark", at("judges", "A", "requirements", "bounded")),
