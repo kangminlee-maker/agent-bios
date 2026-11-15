@@ -758,7 +758,9 @@ def build_parser():
                                                        "destination, which the caller names; without it the stage is "
                                                        "refused LEDGER_UNNAMED rather than writing a guess")
             sub.add_argument("--checkout-coverage", help="the coverage state's path INSIDE the declaration's checkout "
-                                                         "destination (a coverage.json), which a periodic run promotes")
+                                                         "destination (a coverage.json), which a periodic run promotes; it is "
+                                                         "keyed by session identifiers, so name a path git ignores "
+                                                         "(session-distill/local/coverage.json in an agent-bios checkout)")
         if name == "inventory":
             sub.add_argument("--to", help="write inventory/<reference>.json here instead of into a run directory")
             sub.add_argument("--pin", help="HOST:SESSION_ID, the activation pin whose selection and release to read")
@@ -770,7 +772,8 @@ def build_parser():
                                   "injection is attributed to; repeatable")
             sub.add_argument("--ledger", help="the ledger to read the incubating and keep layers from")
         if name == "census":
-            sub.add_argument("--coverage", help="the coverage state the declaration pinned (default: session-distill/coverage.json)")
+            sub.add_argument("--coverage", help="the coverage state the declaration pinned (default: session-distill/coverage.json; "
+                                                  "a state an earlier close promoted is where --checkout-coverage put it)")
             sub.add_argument("--originators", help="the originator table; refused unless it is the one the declaration names (source 'originators')")
             sub.add_argument("--jobs", type=int, default=8, help="parallel transcript reads")
             sub.add_argument("--reconcile", help="S3's results (a JSON list): fold them back instead of counting")

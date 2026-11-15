@@ -296,17 +296,21 @@ Alternatives:
 - Give an approved `none` on a new candidate a ledger entry in a state that names it as seen and left alone.
 - Keep it out of the ledger, and have S7's packet say that a `none` on a new candidate is kept in the run's record.
 
-## F-41 — a periodic close promotes a coverage state of thousands of transcript ids into a tracked checkout file
+## F-41 — the coverage state is keyed by session ids, and its default home is still a tracked, shipped file
 
-Found by the same run at S12. `promote_coverage` wrote `session-distill/coverage.json` in the checkout: 3.2 MB,
-7,398 transcript keys with their versions, 21 backlog rows and 28 pending events, where the tracked file held four
-empty containers. The close then prints a `git add` of that file as the owner's command. The keys are session
-identifiers of the owner's own records, and the file is tracked in a repository that is pushed.
+Found by the first three-hour live run of 2026-11-14 at S12: `promote_coverage` wrote 3.2 MB, 7,398 transcript
+keys, into the tracked `session-distill/coverage.json` of the checkout, and the close printed a `git add` of it.
+The close now leaves the coverage state out of the commit command and names it local state, the repository
+ignores `session-distill/local/`, and the driver's help names that path (owner, 2026-11-15: keep it inside the
+checkout, untracked). What remains: `census --coverage` still defaults to the tracked, shipped
+`session-distill/coverage.json`, S0 pins whatever path the caller hashed, and nothing refuses a
+`--checkout-coverage` that names a tracked path, so a caller who keeps the defaults still dirties a tracked file
+(uncommitted by the printed command). The state also stays on one machine.
 
-Reach: every periodic run that closes with `--checkout-coverage`. Nothing is committed by the stage; the owner's
-printed command would commit it.
+Reach: every periodic run that closes with `--checkout-coverage`.
 
 Alternatives:
 
-- Keep the coverage state outside the checkout (the state root), and record in the checkout only the window row.
-- Keep it in the checkout and decide by record that session identifiers are acceptable there, with the size named.
+- Move the coverage state out of the checkout to the state root, with S0, S1 and S12 reading one declared place,
+  and drop the tracked empty file from the package.
+- Keep it in the checkout, make the ignored path the default of S0, S1 and S12, and drop the tracked empty file.

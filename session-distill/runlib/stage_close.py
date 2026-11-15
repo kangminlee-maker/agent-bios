@@ -385,6 +385,13 @@ def commands_of(checkout, paths):
                                 "the checkout's version registry"}
 
 
+def closed_paths(applied, ledger_rel, coverage_rel, coverage_written):
+    """`(paths, local_state)`: the changed files the owner's commit command names (S11's and the ledger), and apart
+    from them the coverage state when this run promoted it. The coverage state is keyed by the owner's session
+    identifiers: local state of this checkout, never a path of the commit command."""
+    return list(applied) + [ledger_rel], ([coverage_rel] if coverage_written else [])
+
+
 def _file_sha(path):
     return ledger.sha256_bytes(ledger.read_current(path))
 
@@ -499,7 +506,7 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
                 if state is not None:
                     coverage_written = promote_coverage(tree, coverage_rel, state, pinned["coverage"])
                 ledger_sha = tree.state(ledger_rel)
-        paths = list(apply_doc.get("paths") or []) + [ledger_rel] + ([coverage_rel] if coverage_written else [])
+        paths, local_state = closed_paths(apply_doc.get("paths") or [], ledger_rel, coverage_rel, coverage_written)
         doc = {"stage": STAGE, "run_id": run_id, "confirmation_id": confirmation["confirmation_id"],
                "checkout": str(checkout),
                "ledger": {"path": ledger_rel, "sha256": ledger_sha, "allocated": made,
@@ -510,7 +517,8 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
                "items": rows, "counts": {"items": len(items), "new_entries": len(made),
                                          "applied": sum(1 for i in items if i["operations"]),
                                          "ledger_only": sum(1 for i in items if not i["operations"])},
-               "paths": paths, "owner_commands": commands_of(checkout, paths), "not_done": NOT_DONE}
+               "paths": paths, "local_state": local_state,
+               "owner_commands": commands_of(checkout, paths), "not_done": NOT_DONE}
         with stagelock.hold(run_dir, "declaration", wait_s=stage_apply.DECLARATION_WAIT_S):
             stage_apply._held_declaration(run_dir, admitted, STAGE)     # once more before the stage says complete
             records.write_json(run_dir, run_dir / OUTPUT, doc)
@@ -529,7 +537,8 @@ def report_lines(doc):
              + (f"; {unrecorded} approved `none` on a candidate with no entry make no ledger row and are kept in "
                 f"this run's {OUTPUT} alone" if unrecorded else "") + "; the window "
              f"{doc['ledger']['window']['start']}..{doc['ledger']['window']['end']} is appended with no commit yet",
-             ("coverage promoted to " + str(doc["coverage"]["path"])) if doc["coverage"]["promoted"]
+             ("coverage promoted to " + str(doc["coverage"]["path"]) + ": local state keyed by session identifiers, "
+              "left out of the commit command below; keep its path out of git") if doc["coverage"]["promoted"]
              else f"coverage not promoted: {doc['coverage']['why']}",
              "Not done by this release's close: " + "; ".join(sorted(doc["not_done"])),
              "This stage ran no git and no installer. The commands are yours to run:"]
@@ -805,6 +814,13 @@ def _self_test_body(failures, ran, reporting):
                      "1 approved `none` on a candidate with no entry make no ledger row" in report_lines(said)[0],
                      "make no ledger row" in report_lines(doc)[0]],
                     [f"S12 close: 2 decided items closed, 1 recorded in {doc['ledger']['path']}", True, False])
+            control("the commit command leaves the coverage state out and keeps every other changed path, in order",
+                    [closed_paths(["a.md"], "book/ledger.json", "state/coverage.json", True),
+                     closed_paths(["a.md"], "book/ledger.json", "state/coverage.json", False),
+                     "coverage.json" in commands_of("/c", closed_paths([], "l.json", "s/coverage.json", True)[0])["commit"],
+                     doc["local_state"]],
+                    [(["a.md", "book/ledger.json"], ["state/coverage.json"]), (["a.md", "book/ledger.json"], []),
+                     False, []])
             control("the commit command names every file S11 and the close changed, the ledger among them",
                     [sorted(doc["paths"]), all(f"'{p}'" in doc["owner_commands"]["commit"] for p in doc["paths"])],
                     [sorted(["claude/guides/g.md", "claude/guides/k.md", LEDGER_AT]), True])
