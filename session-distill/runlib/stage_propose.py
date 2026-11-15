@@ -452,6 +452,19 @@ def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
     return held
 
 
+def core_targets(answer):
+    """`[(target, layer)]`: the answer's operation targets that lie in one of the checkout's core layers
+    (`drift.layer_of`: global, guides, skills, hooks, gates, enforcement, ledger)."""
+    from runlib import drift
+    out = []
+    for op in (answer or {}).get("operations") or []:
+        if isinstance(op, dict) and isinstance(op.get("target"), str):
+            layer = drift.layer_of(op["target"])
+            if layer is not None:
+                out.append((op["target"], layer))
+    return out
+
+
 def awaiting_r(answer, candidate, derivation_row):
     """`(bool, reason)`: whether this proposal waits for an R comparison before it can be applied.
 
@@ -464,7 +477,9 @@ def awaiting_r(answer, candidate, derivation_row):
     if answer["disposition"] in placement.LEDGER_ONLY + ("none",):
         return False, "a ledger-only disposition enters no F"
     layer = (answer.get("destination") or {}).get("layer")
-    if layer == "personal":
+    # personal by where the operations write, not by the label alone (Codex WP-12 r2 F8): an operation on a file in
+    # one of the checkout's core layers makes the item core whatever its destination says
+    if layer == "personal" and not core_targets(answer):
         return False, "a personal item admitted by adjudication proceeds (§10)"
     if facts["admission"] == "adjudication":
         return True, ("a core item admitted by adjudication is awaiting_R: it enters no F this run "
@@ -551,8 +566,11 @@ def _non_prose_values(answer):
 # requires of every operation. The schema cannot express this — `if`/`then` is not a keyword the
 # validator supports — so it is here, named per type, and the self-test holds the set of types
 # against the schema's own enum so a new type cannot arrive unjudged.
+# A merge writes its `content` over the target (`operations.apply`'s merge branch) and a route writes its `entry`
+# (`operations.routed`); each was absent from this list, so a merge or a route S11 could not write passed the
+# contract (Codex WP-12 r2 F9). A route's `names` is what `sequencing` orders it by.
 OPERATION_CONTENT = {"create": ("content",), "edit": ("content",), "delete": (),
-                     "merge": ("units",), "route": ("names",)}
+                     "merge": ("units", "content"), "route": ("names", "entry")}
 
 # The blocks a LIBRARY-CHANGING proposal must carry. A disposition that changes an installed
 # instruction without them is a proposal nobody can execute or review: `artifact_set` is the text
@@ -643,6 +661,11 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
     problems += placement.problems(proposal, active_keep)
     # §10.4: a ledger-only disposition changes no installed instruction, so it carries no operations
     # and needs no test. The structural table owns the rest of §7.3; this one is §10.4's own sentence.
+    held_core = core_targets(answer)
+    if (answer.get("destination") or {}).get("layer") == "personal" and held_core:
+        problems.append(f"DESTINATION_LAYER_INCONSISTENT {candidate.get('candidate_id')}: the destination is personal "
+                        f"and the operations write {', '.join(f'{t} ({l})' for t, l in held_core)}, in the checkout's "
+                        f"core layers; a personal item writes no core file (Codex WP-12 r2 F8)")
     if answer["disposition"] in placement.LEDGER_ONLY + ("none",) and answer.get("operations"):
         problems.append(f"LEDGER_ONLY_WITH_OPERATIONS {candidate['candidate_id']}: a "
                         f"{answer['disposition']} changes the ledger alone, and carries "
@@ -783,6 +806,11 @@ def document(derivations, candidates, answers, active_keep=None, legacy=(), only
             answer = legacy_answer(entry)
             defaulted.append(cid)
             default_groups[decision1_kind(entry)] += 1
+            if cid in verdicts:
+                # S6's sample judged it: the owner's default rests on that derivation like any proposal, so it
+                # carries the states the derivation named, by name, as a model's answer must (Codex WP-12 r2 F3:
+                # the default with no unknowns was refused UNKNOWN_NOT_CARRIED and shown as a failed item)
+                answer = {**answer, "unknowns": named_states(derivations or {})}
             if cid not in verdicts:
                 # The owner's default for an entry S6 did not judge is the owner's rule and not a
                 # proposal: with no derivation it has no kind, and §7.2's pair check - which holds a
@@ -859,7 +887,10 @@ SUBSET_IN_RUN = ("SUBSET_IN_RUN {stage}: `run` writes the stage's output, so a s
                  "the result where the caller owns it.")
 
 
-def run(run_dir, answers, active_keep=None, legacy=(), only=None):
+PINNED_LEGACY = "pinned"
+
+
+def run(run_dir, answers, active_keep=None, legacy=(), only=None, ledger_ref=None):
     """The stage, through the shared mechanism: nothing is written on refusal.
 
     Two things this got wrong until lane E ran it: `records.write_json` confines its path beneath the
@@ -870,9 +901,23 @@ def run(run_dir, answers, active_keep=None, legacy=(), only=None):
     run_dir = pathlib.Path(run_dir)
     if only is not None:
         raise Refused(SUBSET_IN_RUN.format(stage=STAGE, n=len(list(only))))
-    with records.run_stage(run_dir, STAGE, INPUTS) as stage:
+    # `legacy="pinned"`: the legacy entries as the live stage resolves them, from S4's intake and the pinned ledger,
+    # so answers in hand meet the owner's default as a live run does (Codex WP-12 r2 F3: the driver's `--answers`
+    # passed none, and every legacy candidate was ANSWER_ABSENT)
+    pinned = legacy == PINNED_LEGACY
+    inputs = INPUTS + (({"artifact": "intake.json", "producer_stage": "S4"},
+                        {"artifact": "inventory/current.json", "producer_stage": "S2"}) if pinned else ())
+    with records.run_stage(run_dir, STAGE, inputs) as stage:
         derivations = records.read_json(run_dir / "judgments" / "derivations.json")
         candidates = records.read_json(run_dir / "checked-candidates.json")
+        if pinned:
+            from runlib import lifecycle_intake
+            ledger, _read = lifecycle_intake.ledger_of(stage.declaration, ledger_ref)
+            legacy = legacy_entries(candidates, records.read_json(run_dir / "intake.json"), ledger)
+            if active_keep is None:
+                current = {u["unit_id"]: u for u in
+                           records.read_json(run_dir / "inventory" / "current.json").get("units") or []}
+                active_keep = active_keeps_of(ledger, current)
         doc = document(derivations, candidates, answers, active_keep, legacy)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
@@ -1005,6 +1050,44 @@ def with_before_states(answer, checkout):
     return {**answer, "operations": operations}, problems
 
 
+def active_keeps_of(ledger, units):
+    """`{unit id: {record, path, heading}}`: every keep record standing in the pinned ledger (§10.1, an entry whose
+    `keep` is not null), with each unit's place in the current inventory so `placement` guards only the units a
+    proposal reaches (Codex WP-12 r2 F5). A unit the inventory no longer holds has no place, and nothing reaches it."""
+    out = {}
+    for entry in (ledger or {}).get("entries") or []:
+        for unit in ((entry.get("keep") or {}).get("units") or []):
+            held = (units or {}).get(unit) or {}
+            out[unit] = {"record": entry.get("id"), "path": held.get("path"), "heading": held.get("heading")}
+    return out
+
+
+STATES_DIR = "propose/states"
+
+
+def bound_before_states(run_dir, call_id, answer):
+    """`(answer, problem | None, rel)`: the answer's code-set before-states bound to its accepted call the first time
+    they are read, and held to that on every later read (Codex WP-12 r2 F4: a re-run read the checkout again and
+    rebound an accepted answer to a file the owner had since changed, which is the change S11's before-state exists
+    to refuse). The binding is written once under `propose/states/`, keyed by the call."""
+    rel = f"{STATES_DIR}/{call_id}.json"
+    path = pathlib.Path(run_dir) / rel
+    states = [{"target": op.get("target"), "before_state_sha256": op.get("before_state_sha256"),
+               "unit_states": op.get("unit_states")}
+              for op in (answer or {}).get("operations") or [] if isinstance(op, dict)]
+    if path.is_file():
+        held = records.read_json(path).get("operations")
+        if held != states:
+            moved = sorted({str(a.get("target")) for a, b in zip(held or [], states) if a != b}
+                           | ({"(the operations themselves)"} if len(held or []) != len(states) else set()))
+            return None, (f"BEFORE_STATE_MOVED {call_id}: the checkout changed under {', '.join(moved)} since S7 "
+                          "accepted this answer, so it is not rebound to the files as they are now; propose it "
+                          "again in a new run"), rel
+        return answer, None, rel
+    records.write_json(run_dir, path, {"stage": STAGE, "call_id": call_id, "operations": states})
+    return answer, None, rel
+
+
 def with_named_states(answer, derivation):
     """The answer with every state the derivation named carried in `unknowns`, by CODE.
 
@@ -1067,7 +1150,7 @@ def applicability_problems(answer, checkout):
             if (problem.split() or [""])[0] not in SET_DEPENDENT]
 
 
-def live_check(candidate, derivations, verdict, legacy_incubating, checkout, capacity):
+def live_check(candidate, derivations, verdict, legacy_incubating, checkout, capacity, active_keep=None):
     """The stage's check of a proposal call's attempts, as `Supervisor.item(stage_check=)` asks it:
     the contract's own refusals over the answer with its before-states set, so the one retry is
     told exactly what `document` would have returned the row for."""
@@ -1080,7 +1163,7 @@ def live_check(candidate, derivations, verdict, legacy_incubating, checkout, cap
                           f"carries the capacity {held!r}, and S7 was admitted against {capacity!r}")
         answer, problems = with_before_states(stage_read.answer_of(call_dir), checkout)
         answer = with_named_states(answer, derivations)
-        problems = problems + answer_problems(answer, candidate, derivations, verdict, None, legacy_incubating)
+        problems = problems + answer_problems(answer, candidate, derivations, verdict, active_keep, legacy_incubating)
         # asked only of an answer the contract otherwise accepts: a refused target has no state to apply to
         return problems or applicability_problems(answer, checkout)
     return judged
@@ -1121,6 +1204,7 @@ def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calib
         intake = records.read_json(run_dir / "intake.json")
         ledger, _read = lifecycle_intake.ledger_of(declaration, ledger_ref)
         legacy = legacy_entries(candidates, intake, ledger)
+        active = active_keeps_of(ledger, current)
         asked, not_asked = asked_of(candidates, derivations, planted, legacy)
         rows = {r["candidate_id"]: r for r in candidates["candidates"]}
         verdicts = derivations.get("verdicts") or {}
@@ -1166,7 +1250,7 @@ def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calib
                           f"({over[:3]})")
         episode = declaration["budget"]["per_episode"]
         caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
-        answers, calls = {}, []
+        answers, calls, state_moved = {}, [], {}
         for row in measured:
             cid = row["candidate_id"]
             item, text = packets[cid]
@@ -1175,20 +1259,26 @@ def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calib
                 tranche=tranche, max_output_tokens=OUTPUT_CAP, resume=True,
                 context_capacity=limits["capacity"],
                 stage_check=live_check(rows[cid], derivations, verdicts.get(cid), cid in legacy,
-                                       checkout, limits["capacity"]),
+                                       checkout, limits["capacity"], active),
                 packet_check=lambda built: stage_judge.attempt_problems(
                     built, limits, schema_bytes(), SEAT_KEY, code="PROPOSE_OVER_CAPACITY"))
             held = {"candidate_id": cid, "item": item, **stage_judge.call_row(out)}
             if out["outcome"] == "accepted":
                 call_dir = pathlib.Path(out["accepted"])
                 held["call_id"] = records.read_json(call_dir / "call.json")["call_id"]
-                answers[cid], _checked = with_before_states(gate.accepted(call_dir, judged=True), checkout)
-                answers[cid] = with_named_states(answers[cid], derivations)
+                filled, _checked = with_before_states(gate.accepted(call_dir, judged=True), checkout)
+                filled, moved, states_rel = bound_before_states(run_dir, held["call_id"], filled)
+                stage.output(states_rel)
+                if moved:
+                    state_moved[cid] = moved
+                else:
+                    answers[cid] = with_named_states(filled, derivations)
             calls.append(held)
         unanswered = {c["candidate_id"]: f"CALL_NOT_ACCEPTED {c['candidate_id']}: S7's call ended "
                                          f"{c['outcome']}" + (f" ({', '.join(c['codes'])})" if c["codes"] else "")
                       for c in calls if c["outcome"] != "accepted"}
-        doc = document(derivations, candidates, answers, None, legacy, not_asked=not_asked,
+        unanswered.update(state_moved)
+        doc = document(derivations, candidates, answers, active, legacy, not_asked=not_asked,
                        unanswered=unanswered)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
@@ -1383,7 +1473,7 @@ def fixture_cases():
          "row": nd_row, "derivation": ANSWERED,
          "answer": _answered(disposition="re-deliver",
                              operations=[{"type": "route", "target": "router/relevant.md",
-                                          "names": "claude/guides/g.md",
+                                          "names": "claude/guides/g.md", "entry": "- claude/guides/g.md",
                                           "before_state_sha256": "a" * 64}],
                              destination={"layer": "session_injection", "carrier": "router/relevant.md",
                                           "situation": "the same situation"})},
@@ -1408,6 +1498,13 @@ def fixture_cases():
          # `~/notes/own.md` it would resolve through the home directory and bypass the root
          # `run.json.destinations.personal_layers` names. The frozen answer moved with this change,
          # deliberately, which is what the freeze is for.
+         # Its operation writes the personal file it names: an operation on a core file under a personal label is
+         # F-O5-08c's case (Codex WP-12 r2 F8).
+         "answer": _answered(destination={"layer": "personal", "carrier": "notes/own.md"},
+                             operations=[{"type": "create", "target": "notes/own.md", "content": "a personal note\n",
+                                          "before_state_sha256": "absent"}])},
+        {"id": "F-O5-08c", "plant": "a core operation under a personal label", "candidate": adj_cand,
+         "row": adj_row, "derivation": ANSWERED,
          "answer": _answered(destination={"layer": "personal", "carrier": "notes/own.md"})},
         {"id": "F-O5-15", "plant": "a type G candidate below the lineage bar", "candidate": g_cand,
          "row": g_row, "derivation": ANSWERED, "answer": _answered()},
@@ -1711,6 +1808,10 @@ def _self_test_body(failures, ran):
             str(run_fixture(ids["F-O5-08b"])["awaiting_R"]), "False")
     control("and it says so rather than being silent", run_fixture(ids["F-O5-08b"])["awaiting_R_reason"],
             "personal item admitted by adjudication proceeds")
+    control("F-O5-08c: an operation on a core file under a personal label is refused by name (Codex WP-12 r2 F8)",
+            "; ".join(run_fixture(ids["F-O5-08c"])["problems"]), "DESTINATION_LAYER_INCONSISTENT")
+    control("and it is core, so admitted by adjudication it awaits R", str(run_fixture(ids["F-O5-08c"])["awaiting_R"]),
+            "True")
     control("an item admitted directly is not awaiting_R either, and says that",
             awaiting_r(_answered(), *_candidate())[1], "admitted directly")
     clean("a ledger-only disposition enters no F whatever its admission",
@@ -1800,11 +1901,13 @@ def _self_test_body(failures, ran):
            if legacy_answer(case["entry"])["operations"]])
     # The split, counted over the entries the run holds rather than remembered.
     split = legacy_split([case["entry"] for case in legacy_fixture_cases()])
-    control("the split counts the calls and the defaults of THIS run",
-            f"{split['counts']['entries']}={split['counts']['calls']}+{split['counts']['defaults']}",
-            "4=1+3")
-    control("and names the groups it found, rather than the owner's figure of the day",
-            json.dumps(sorted(split["groups"])), "below-bar-default")
+    held_split = (split["counts"]["entries"], split["counts"]["calls"], split["counts"]["defaults"])
+    clean("the split counts the calls and the defaults of THIS run, exactly (Codex WP-12 r2 F12: a substring "
+          "passed 14=1+3)", [] if held_split == (4, 1, 3) else [f"entries, calls, defaults are {held_split}"])
+    clean("and names the groups it found, rather than the owner's figure of the day: F-O5-13's entry in the other "
+          "group, the rest in S3-03's",
+          [] if sorted(split["groups"]) == ["below-bar-default", "user-approved-default"]
+          else [f"groups {sorted(split['groups'])}"])
     control("a legacy row with no owner_default is refused, so an undecided default cannot be applied "
             "silently", _said_without_default(), "LEGACY_DEFAULT_UNDECLARED")
     # The owner's sentence reaches the model, not only the table: the packet is where a proposal is
@@ -2028,7 +2131,9 @@ def _self_test_body(failures, ran):
     control("with the reason §10 gives", awaiting_r(_answered(), adj_facts, adjudicated_row())[1],
             "awaiting_R")
     control("a personal item admitted that way proceeds, since §10 says it needs no R",
-            str(awaiting_r(_answered(destination={"layer": "personal", "carrier": "notes/own.md"}),
+            str(awaiting_r(_answered(destination={"layer": "personal", "carrier": "notes/own.md"},
+                                     operations=[{"type": "create", "target": "notes/own.md", "content": "n\n",
+                                                  "before_state_sha256": "absent"}]),
                            adj_facts, adjudicated_row())[0]),
             "False")
     def disputed_row(cid="k-d"):
@@ -2178,14 +2283,24 @@ def _self_test_body(failures, ran):
            if "CONTENT_BLOCK_ABSENT" in problem])
     clean("and `none` likewise",
           content_problems({"disposition": "none", "operations": []}))
-    for kind, field in (("edit", "content"), ("merge", "units"), ("route", "names")):
+    # each field missing alone, the operation's other fields present (Codex WP-12 r2 F9 added a merge's content and a
+    # route's entry, which S11 writes)
+    full = {"edit": {"content": "x"}, "merge": {"units": ["claude/guides/g.md#Two"], "content": "x"},
+            "route": {"names": "claude/guides/h.md", "entry": "- claude/guides/h.md"}}
+    for kind, field in (("edit", "content"), ("merge", "units"), ("merge", "content"), ("route", "names"),
+                        ("route", "entry")):
+        op = {"type": kind, "target": "claude/guides/g.md", "before_state_sha256": "a" * 64,
+              **{k: v for k, v in full[kind].items() if k != field}}
         control(f"a {kind} with no {field} is refused by name",
                 "; ".join(content_problems(
                     {"disposition": "place", "artifact_set": {"english": "t"},
-                     "behavior_contract": {"recognition": "r"},
-                     "operations": [{"type": kind, "target": "claude/guides/g.md",
-                                     "before_state_sha256": "a" * 64}]})),
+                     "behavior_contract": {"recognition": "r"}, "operations": [op]})),
                 f"OPERATION_FIELD_ABSENT operations[0] {kind}: a {kind} carries {field}")
+    for kind in ("merge", "route"):
+        clean(f"and a {kind} carrying all of them passes this rule", content_problems(
+            {"disposition": "place", "artifact_set": {"english": "t"}, "behavior_contract": {"recognition": "r"},
+             "operations": [{"type": kind, "target": "claude/guides/g.md", "before_state_sha256": "a" * 64,
+                             **full[kind]}]}))
     clean("a DELETE carries no content, since removing a file needs no text",
           content_problems({"disposition": "place", "artifact_set": {"english": "t"},
                             "behavior_contract": {"recognition": "r"},
@@ -2341,6 +2456,16 @@ def _self_test_body(failures, ran):
                                                          eligible=False)[1]},
                      "not_derived": [], **ANSWERED}
     legacy_doc = document(legacy_derivs, legacy_cands, {}, None, {"k-legacy": legacy_entry})
+    # Codex WP-12 r2 F3: the same sampled entry under a release-1 derivation, which names its unknown states
+    sampled_derivs = {k: v for k, v in legacy_derivs.items() if k not in ANSWERED}
+    sampled_doc = document(sampled_derivs, legacy_cands, {}, None, {"k-legacy": legacy_entry})
+    sampled_row = next((r for r in sampled_doc["proposals"] if r["candidate_id"] == "k-legacy"), {})
+    control("a sampled legacy entry under a derivation that names unknown states is the owner's default, not a "
+            "failed item: it carries those states by name",
+            json.dumps([sampled_doc["returned"], sampled_row.get("answered_by"),
+                        len((sampled_row.get("proposal") or {}).get("unknowns") or []) > 0,
+                        sorted(r["field"] for r in (sampled_row.get("proposal") or {}).get("unknowns") or [])]),
+            json.dumps([[], "default", True, sorted(r["field"] for r in named_states(sampled_derivs))]))
     # The default is APPLIED and it now PASSES: the entry is no longer ANSWER_ABSENT and no longer
     # PAIR_DISALLOWED either. This control was written as the second half's placeholder — the
     # promotion guard refused the owner's `none` for a legacy entry below the bar, which every one
@@ -2540,6 +2665,31 @@ def _self_test_body(failures, ran):
                 json.dumps([merged_problems, merged_answer["operations"][0].get("unit_states")]),
                 json.dumps([[], [{"unit": "claude/guides/other.md",
                                   "state": hashlib.sha256(b"other\n").hexdigest()}]]))
+        # Codex WP-12 r2 F4: an accepted answer's before-states are bound once to its call, and a re-run that reads
+        # the checkout again after the owner changed a target refuses the answer rather than rebinding it
+        bind_run = state_root / "run"
+        bind_run.mkdir()
+        g_edit = {"operations": [{"type": "edit", "target": "claude/guides/g.md", "before_state_sha256": wrong}]}
+        first_bind, _p = with_before_states(g_edit, str(state_root))
+        once_bound = bound_before_states(bind_run, "c-1", first_bind)
+        again_bound = bound_before_states(bind_run, "c-1", with_before_states(g_edit, str(state_root))[0])
+        (state_root / "claude" / "guides" / "g.md").write_bytes(b"the guide, edited by its owner\n")
+        moved_bound = bound_before_states(bind_run, "c-1", with_before_states(g_edit, str(state_root))[0])
+        (state_root / "claude" / "guides" / "g.md").write_bytes(b"the guide\n")
+        control("the first read binds the before-states to the call, and the same checkout reads the same",
+                json.dumps([once_bound[1], again_bound[1], (bind_run / once_bound[2]).is_file(),
+                            (again_bound[0] or {}).get("operations", [{}])[0].get("before_state_sha256")]),
+                json.dumps([None, None, True, hashlib.sha256(b"the guide\n").hexdigest()]))
+        control("and a target changed since is refused by name, the answer not rebound to it",
+                json.dumps([moved_bound[0], (moved_bound[1] or "").split(" ")[0]]),
+                json.dumps([None, "BEFORE_STATE_MOVED"]))
+        held_keeps = active_keeps_of(
+            {"entries": [{"id": "M-1", "keep": {"units": ["u-1", "u-gone"]}}, {"id": "M-2", "keep": None}]},
+            {"u-1": {"path": "claude/guides/g.md", "heading": "One"}})
+        control("Codex WP-12 r2 F5: the keep records standing in the ledger, each unit with its place in the inventory",
+                json.dumps(held_keeps, sort_keys=True),
+                json.dumps({"u-1": {"record": "M-1", "path": "claude/guides/g.md", "heading": "One"},
+                            "u-gone": {"record": "M-1", "path": None, "heading": None}}, sort_keys=True))
         escaped, escaped_problems = with_before_states(
             {"operations": [{"type": "edit", "target": "../outside.md", "before_state_sha256": wrong}]},
             str(state_root))
@@ -2615,6 +2765,22 @@ def _self_test_body(failures, ran):
                           "S7's golden seat and budget", scope=["S7"])
             control("a live run with no supervisor is refused by name",
                     refusal(lambda: live(live_run)), "PROPOSE_UNSUPERVISED S7")
+            # Codex WP-12 r2 F3: answers in hand meet the legacy entries as the live stage resolves them
+            pinned_run = shutil.copytree(live_run.parent, live_root / "pinned") / live_run.name
+            legacy_ids = sorted(r["candidate_id"] for r in
+                                records.read_json(pinned_run / "checked-candidates.json")["candidates"]
+                                if r.get("source") == "legacy")
+            try:
+                _stage, pinned_doc = run(pinned_run, {}, legacy=PINNED_LEGACY)
+                pinned_codes = {r["candidate_id"]: r["problems"][0].split()[0] for r in pinned_doc["returned"]}
+            except Refused as exc:
+                pinned_codes = {"(refused)": str(exc)[:200]}
+            clean("answers in hand with the pinned legacy entries: no legacy candidate is a missing answer, each is "
+                  "the owner's default or a call owed",
+                  ([] if legacy_ids else ["the fixture holds no legacy candidate"])
+                  + [f"{cid}: {pinned_codes.get(cid)}" for cid in legacy_ids
+                     if pinned_codes.get(cid) not in (None, "LEGACY_CALL_UNANSWERED")]
+                  + [f"{k}: {v}" for k, v in pinned_codes.items() if k == "(refused)"])
             dry_summary, _none = live(live_run, dry=True)
             planted_ids = {p["candidate_id"] for p in records.read_json(live_run / "controls.json")["planted"]}
             population = [r["candidate_id"] for r in
@@ -2833,7 +2999,7 @@ def _self_test_body(failures, ran):
                     f"{code}:{'S7 propose (dry)' if 'S7 propose (dry)' in said_dry else said_dry[-200:]}",
                     "0:S7 propose (dry)")
             code, said = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root),
-                             "--answers", str(answers_path))
+                             "--answers", str(answers_path), "--checkout-ledger", str(stage_read.CHECKOUT_LEDGER))
             control("`distill.py propose --answers` runs the stage from the command line",
                     f"{code}:{'proposed' if 'proposed' in said else said[-160:]}", "0:proposed")
             code, said_r = cli("review-proposals", "--run-id", cli_run.name, "--out", str(cli_root),

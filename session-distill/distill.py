@@ -655,7 +655,7 @@ def cmd_propose(args):
             raise Refused("INPUT_INVALID propose --answers: answers in hand make no call, so they take no --dry, "
                           "--cells or --golden-plan")
         answers = records.read_json(pathlib.Path(args.answers))
-        stage, doc = stage_propose.run(run_dir, answers)
+        stage, doc = stage_propose.run(run_dir, answers, legacy=stage_propose.PINNED_LEGACY)
         say(f"S7: {doc['counts']['proposed']} proposed, {doc['counts']['returned']} returned, "
             f"{doc['counts']['awaiting_R']} awaiting R")
         return 0

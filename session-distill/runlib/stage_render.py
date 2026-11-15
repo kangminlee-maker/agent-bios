@@ -1494,7 +1494,7 @@ def fixture_docs():
                "k-g": stage_propose._answered(
                    disposition="re-deliver", requires_R=True,
                    operations=[{"type": "route", "target": "router/other.md", "names": "claude/guides/h.md",
-                                "before_state_sha256": "b" * 64}],
+                                "entry": "- claude/guides/h.md", "before_state_sha256": "b" * 64}],
                    destination={"layer": "session_injection", "carrier": "router/other.md", "situation": "s"},
                    unknowns=stage_propose._carry(derivations)),
                # a model's text with a newline into a decision-shaped line and a marker-shaped line: the render keeps
@@ -1505,7 +1505,7 @@ def fixture_docs():
                                  "registration": "router line", "gate_change": None},
                    disposition="re-deliver",
                    operations=[{"type": "route", "target": "router/relevant.md", "names": "claude/guides/g.md",
-                                "before_state_sha256": "a" * 64}],
+                                "entry": "- claude/guides/g.md", "before_state_sha256": "a" * 64}],
                    destination={"layer": "session_injection", "carrier": "router/relevant.md", "situation": "s"},
                    unknowns=stage_propose._carry(derivations)),
                "k-p": stage_propose._answered(disposition="keep", operations=[], expected_observation=None,

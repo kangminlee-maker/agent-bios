@@ -22,6 +22,7 @@ running under the hook, and is bounded by a timeout.
 import hashlib
 import itertools
 import inspect
+import re
 import json
 import os
 import pathlib
@@ -61,7 +62,7 @@ def under_the_hook(environ=None):
 
 # The operation fields the stand-in READS, and therefore the fields a set's identity must bind.
 # `apply_to` is the only reader, and its self-test holds this tuple against the fields it names.
-OPERATION_FIELDS = ("type", "target", "names", "units")
+OPERATION_FIELDS = ("type", "target", "names", "units", "anchor")
 
 
 def set_hash(items):
@@ -135,8 +136,11 @@ def apply_to(tree, item):
             if not in_file:
                 held.pop(target, None)
         elif kind == "merge":
+            # a unit that names a section is that section's removal and leaves its file, as a delete of a
+            # section does (`operations.removed`); only a unit naming a whole file removes it (Codex WP-12 r2 F11)
             for unit in op.get("units") or []:
-                held.pop(_path(unit), None)
+                if "#" not in str(unit):
+                    held.pop(_path(unit), None)
             held[target] = "present"
         elif kind == "route":
             held[f"route:{target}->{_path(op.get('names'))}"] = "present"
@@ -576,14 +580,32 @@ def _self_test_body(failures, ran):
             json.dumps({"x": subset_answer(merge_x, base=merge_base).get("sequenced"),
                         "y": subset_answer(merge_y, base=merge_base).get("sequenced")}),
             '{"x": false, "y": true}')
-    control("the identity is derived from the fields the stand-in reads, named in one place",
-            json.dumps(list(OPERATION_FIELDS)),
-            json.dumps(["type", "target", "names", "units"]))
-    clean("and every field `apply_to` reads is one of them, so a field added there cannot be left "
-          "out of the identity",
-          [field for field in ("type", "target", "names", "units")
-           if f'op.get("{field}")' not in inspect.getsource(apply_to)
-           and f"op.get('{field}')" not in inspect.getsource(apply_to)])
+    # Both ways, from the reader's own source rather than from a list written here (Codex WP-12 r2 F10: the
+    # one-way check passed while `apply_to` read `anchor` and the identity left it out)
+    read_fields = set(re.findall(r"""op\.get\(["']([a-z_]+)["']""", inspect.getsource(apply_to)))
+    clean("the fields `apply_to` reads are found in its source, so the comparison below is not over nothing",
+          [] if len(read_fields) >= 4 else [f"found only {sorted(read_fields)}"])
+    clean("every field `apply_to` reads is in the identity, and the identity names no field it does not read",
+          [f"read, not bound: {f}" for f in sorted(read_fields - set(OPERATION_FIELDS))]
+          + [f"bound, not read: {f}" for f in sorted(set(OPERATION_FIELDS) - read_fields)])
+    anchored = [{"item_id": "d", "operations": [{"type": "delete", "target": "x", "anchor": "text"}]},
+                {"item_id": "r", "operations": [{"type": "route", "target": "router/r.md", "names": "x"}]}]
+    whole = [{"item_id": "d", "operations": [{"type": "delete", "target": "x"}]},
+             {"item_id": "r", "operations": [{"type": "route", "target": "router/r.md", "names": "x"}]}]
+    control("two sets that differ only in a delete's anchor have different identities and opposite verdicts",
+            json.dumps([set_hash(anchored) != set_hash(whole),
+                        subset_answer(anchored, base={"x": "present"}).get("sequenced"),
+                        subset_answer(whole, base={"x": "present"}).get("sequenced")]), "[true, true, false]")
+    section_merge = [{"item_id": "m", "operations": [{"type": "merge", "target": "out.md",
+                                                      "units": ["g.md#One"]}]},
+                     {"item_id": "r", "operations": [{"type": "route", "target": "router/r.md", "names": "g.md"}]}]
+    control("a merge of one section leaves its file, so a route to that file still has it (Codex WP-12 r2 F11)",
+            json.dumps(subset_answer(section_merge, base={"g.md": "present", "out.md": "present"}).get("sequenced")),
+            "true")
+    control("while a merge of the whole file removes it, and the same route then points at nothing",
+            json.dumps(subset_answer([{**section_merge[0], "operations": [{"type": "merge", "target": "out.md",
+                                                                           "units": ["g.md"]}]}, section_merge[1]],
+                                     base={"g.md": "present", "out.md": "present"}).get("sequenced")), "false")
 
     # The exported checker on an approved SUBSET: the full set has an order, the subset does not, and
     # the subset is what is judged (done-when 7's control fixture; WP-20 and WP-21 re-run this).

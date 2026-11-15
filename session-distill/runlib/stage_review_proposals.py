@@ -46,11 +46,15 @@ def packet_for(candidate, proposal_row, units=(), call_id="c1", seat="review"):
     return packet.build(call_id, STAGE, seat, payload, schema=schema_bytes(), repo=HERE.parent)
 
 
-def payload_for(candidate, proposal_row, units=()):
-    """The packet's payload alone: what a supervised call is handed (`packet_for` builds around it)."""
+def payload_for(candidate, proposal_row, units=(), judgments=None):
+    """The packet's payload alone: what a supervised call is handed (`packet_for` builds around it). `judgments` are
+    S6's two judges' marks on the candidate's requirements, the slot S7's packet fills from the same derivation
+    (`stage_propose.payload_for`); S7's proposal row does not carry them, so a live call passes them in (Codex WP-12
+    r2 F2: the slot was always empty)."""
     return packet.render(TEMPLATE, {
         "candidate": json.dumps(candidate, ensure_ascii=False, indent=1),
-        "judgments": json.dumps((proposal_row.get("judgments") or {}), ensure_ascii=False, indent=1),
+        "judgments": json.dumps(judgments if judgments is not None else (proposal_row.get("judgments") or {}),
+                                ensure_ascii=False, indent=1),
         "proposal": json.dumps(shown_proposal(proposal_row), ensure_ascii=False, indent=1),
         "units": json.dumps(list(units), ensure_ascii=False, indent=1),
         "placement_contract": f"sha256:{placement.contract_digest()}\n\n{placement.contract_text()}",
@@ -146,6 +150,14 @@ def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incu
         problems.append(f"REVIEW_VERDICT_CONTRADICTS {', '.join(sorted(negative))}: a verdict of "
                         f"agree with a finding that does not hold would reach the owner as "
                         f"agreement with nothing to resolve")
+    # A semantic bar that does not hold is a negative finding too (Codex WP-12 r2 F1): with `agree` it reached the
+    # owner beside "agreement" with no resolution asked of anyone.
+    failed_bars = sorted({row.get("bar") for row in review.get("bars") or []
+                          if isinstance(row, dict) and row.get("holds") is False})
+    if review.get("verdict") == "agree" and failed_bars:
+        problems.append(f"REVIEW_VERDICT_CONTRADICTS bars {', '.join(str(b) for b in failed_bars)}: a verdict of "
+                        f"agree with a bar that does not hold would reach the owner as agreement with nothing to "
+                        f"resolve")
     if review.get("verdict") == "agree" and review.get("faithful_merge") == "no":
         problems.append("REVIEW_VERDICT_CONTRADICTS faithful_merge: a verdict of agree with an "
                         "unfaithful merge would reach the owner as agreement")
@@ -335,7 +347,8 @@ SEAT_KEY = "S7b"
 CASE = "review"
 OUTPUT_CAP = 20_000
 LIVE_INPUTS = INPUTS + ({"artifact": "checks.json", "producer_stage": "S5"},
-                        {"artifact": "inventory/current.json", "producer_stage": "S2"})
+                        {"artifact": "inventory/current.json", "producer_stage": "S2"},
+                        {"artifact": "judgments/derivations.json", "producer_stage": "S6"})
 CALLS = "review-proposals/calls.json"
 DRY_RECORD = "review-proposals/dry.json"
 UNASKED_DEFAULT = "the owner's legacy default answered it in code, so there is no proposal of a model's to review"
@@ -413,6 +426,7 @@ def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calib
                       records.read_json(run_dir / "checked-candidates.json")["candidates"]}
         checks = {r["candidate_id"]: r for r in records.read_json(run_dir / "checks.json")["candidates"]}
         current = {u["unit_id"]: u for u in records.read_json(run_dir / "inventory" / "current.json")["units"]}
+        verdicts = records.read_json(run_dir / "judgments" / "derivations.json").get("verdicts") or {}
         by_id = {p["candidate_id"]: p for p in proposals.get("proposals") or []}
         asked, unasked = asked_of(proposals)
         held_schema = json.loads(schema_bytes().decode("utf-8"))
@@ -422,7 +436,8 @@ def live(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calib
         packets, measured = {}, []
         for cid in asked:
             text = payload_for(population.get(cid) or {"candidate_id": cid}, by_id[cid],
-                               stage_propose.unit_rows(checks.get(cid), current, None))
+                               stage_propose.unit_rows(checks.get(cid), current, None),
+                               judgments=(verdicts.get(cid) or {}).get("requirements") or {})
             item = item_of(cid)
             built = packet.build(f"{run_id}-{STAGE}-{item}-a1", STAGE, seat, text, schema_bytes())
             size = bound.driver_bytes(built, schema_bytes())[0]
@@ -869,6 +884,16 @@ def _self_test_body(failures, ran):
     clean("a verdict of agree whose findings all hold is clean, so the rule judges the "
           "contradiction and not the verdict",
           review_problems(review(verdict="agree"), row()))
+    failing_bar = review(verdict="agree")
+    failing_bar["bars"] = [{**failing_bar["bars"][0], "holds": False}] + failing_bar["bars"][1:]
+    control("a verdict of agree with a semantic bar that does not hold is refused by name (Codex WP-12 r2 F1)",
+            "; ".join(review_problems(failing_bar, row())),
+            f"REVIEW_VERDICT_CONTRADICTS bars {failing_bar['bars'][0]['bar']}")
+    through = document({"proposals": [row(candidate_id="k1")]}, {"k1": failing_bar})
+    held_where = ([r.get("item_id") for r in through.get("returned") or []],
+                  [r.get("item_id") for r in through.get("reviews") or []])
+    clean("and the document returns it rather than counting it as agreement",
+          [] if held_where == (["k1"], []) else [f"returned and reviewed are {held_where}"])
     clean("and a DISAGREE verdict carrying the same negative finding is clean, which is the shape "
           "the contradiction was hiding behind",
           [problem for problem in review_problems(
@@ -919,13 +944,13 @@ def _self_test_body(failures, ran):
             "; ".join(review_problems({k: v for k, v in review().items()
                                        if k != "merge_findings"}, row())),
             "REVIEW_INVALID <root>: 'merge_findings' is a required property")
-    control("a null alternative destination is the alternative naming none",
-            "; ".join(review_problems(
-                review(verdict="disagree",
-                       disposition_review={"holds": False, "reason": "r"},
-                       alternative={"disposition": "none", "reason": "r", "destination": None}),
-                row())),
-            "")
+    clean("a null alternative destination is the alternative naming none, for a kind whose row allows `none` "
+          "(Codex WP-12 r2 F12: the control expected the empty substring, which every result contains)",
+          review_problems(
+              review(verdict="disagree",
+                     disposition_review={"holds": False, "reason": "r"},
+                     alternative={"disposition": "none", "reason": "r", "destination": None}),
+              row(), kind="unclassified", diagnosis="unknown"))
     none_alt = lambda dest: "; ".join(review_problems(  # noqa: E731
         review(verdict="disagree", disposition_review={"holds": False, "reason": "r"},
                alternative={"disposition": "none", "reason": "r", "destination": dest}), row()))
@@ -1161,6 +1186,16 @@ def _self_test_body(failures, ran):
                     json.dumps([records.read_json(records.record_path(live_run, STAGE)).get("status"),
                                 (live_run / CALLS).is_file(), (live_run / OUTPUT).is_file()]),
                     json.dumps(["partial", True, True]))
+            # Codex WP-12 r2 F2: each packet carries S6's marks on its candidate's requirements, read from the
+            # derivation S6 wrote, not the empty slot S7's proposal row never fills
+            held_verdicts = records.read_json(live_run / "judgments" / "derivations.json").get("verdicts") or {}
+            sent = [p.read_text(encoding="utf-8") for p in (live_run / "calls").glob("*/packet.md")
+                    if f"-{STAGE}-" in p.parent.name]
+            carried = {cid: bool((held_verdicts.get(cid) or {}).get("requirements")) and any(
+                json.dumps(held_verdicts[cid]["requirements"], ensure_ascii=False, indent=1) in t for t in sent)
+                for cid in proposed}
+            clean("every packet sent carries its candidate's two judges' marks from S6's derivation",
+                  [cid for cid, ok in carried.items() if not ok] if sent else ["no S7b packet was found under the run's calls"])
             again_summary, _doc = live(live_run, supervisor(live_run, live_root / "cells", plan_path))
             control("a re-run reuses every accepted attempt",
                     json.dumps(again_summary["counts"]["reused"]), json.dumps(len(proposed) - 1))

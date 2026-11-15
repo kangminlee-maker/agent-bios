@@ -109,6 +109,22 @@
       "scope": "a_c_principle",
       "requires": [
         "typology"
+      ],
+      "requires_when": [
+        {
+          "typology": "C",
+          "layer": "guides",
+          "fields": [
+            "names_situation_of_guide"
+          ]
+        },
+        {
+          "typology": "C",
+          "layer": "session_injection",
+          "fields": [
+            "owner_only"
+          ]
+        }
       ]
     },
     {
@@ -128,5 +144,5 @@
       ]
     }
   ],
-  "$comment_inputs": "Each rule names the inputs it READS and the scope in which it reads them. `placement.py` refuses a proposal that is in a rule's scope and does not carry one of that rule's inputs (PLACEMENT_INPUT_ABSENT) instead of letting the rule pass over a field nobody filled. The reason is measured: the flat proposal S7 built carried none of these, so five of the six rules passed vacuously on every proposal while their own suite - which calls them with hand-built dicts - stayed green. A rule whose input never arrives is not a rule."
+  "$comment_inputs": "Each rule names the inputs it READS and the scope in which it reads them. `placement.py` refuses a proposal that is in a rule's scope and does not carry one of that rule's inputs (PLACEMENT_INPUT_ABSENT) instead of letting the rule pass over a field nobody filled. The reason is measured: the flat proposal S7 built carried none of these, so five of the six rules passed vacuously on every proposal while their own suite - which calls them with hand-built dicts - stayed green. A rule whose input never arrives is not a rule. A rule that reads a field only for some destinations names it under `requires_when`, with the values (the destination `layer`, or the proposal's own field) under which the rule reads it (Codex WP-12 r2 F6: C_ROUTE read `names_situation_of_guide` for a guide and required only `typology`, so an absent value passed as a refusal of the wrong kind instead of a missing input)."
 }

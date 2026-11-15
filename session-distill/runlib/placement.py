@@ -174,21 +174,49 @@ def _global_ops(proposal):
     review). `targets.identity` is the one owner of "which file is this", so the question is asked
     of it rather than answered again here.
     """
-    held = {targets.identity(name) or name for name in global_files()}
-    return [op for op in _operations(proposal)
-            if (targets.identity(op.get("target")) or str(op.get("target") or "")) in held]
+    return [op for op in _operations(proposal) if is_global(op.get("target"))]
+
+
+def is_global(name):
+    """Whether a target or a carrier names the always-loaded global file: by the identity of the FILE it names, so
+    a section of it (`claude/CLAUDE.md#Heading`) is the file too (Codex WP-12 r2 F7: naming a heading passed both
+    global rules, which compared the whole string)."""
+    held = {targets.identity(g) or g for g in global_files()}
+    if not isinstance(name, str) or not name:
+        return False
+    return (targets.identity(targets.file_of(name)) or targets.file_of(name)) in held
 
 
 def _library_ops(proposal):
     return _operations(proposal, set(table("rules")["operations"]["library"]))
 
 
+def touches(proposal, path, heading):
+    """Whether one of the proposal's operations reaches the unit at `path` (and `heading`): an operation's target, or
+    a merge's unit, names its file and either no section (the whole file) or that unit's heading. The file is asked
+    of `targets` by identity, as the global rule asks it. A unit with no known path is reached by nothing."""
+    if not path:
+        return False
+    own = targets.identity(path)
+    for op in _operations(proposal):
+        names = [op.get("target")] + [u for u in (op.get("units") if isinstance(op.get("units"), list) else [])]
+        for name in names:
+            if not isinstance(name, str) or not name:
+                continue
+            section = name.split("#", 1)[1] if "#" in name else None
+            if targets.identity(targets.file_of(name)) == own and (section is None or section == heading):
+                return True
+    return False
+
+
 def structural_problems(proposal, active_keep=None):
     """§7.3's rules in the table's order, each refused by the table's own code.
 
-    `active_keep` maps a unit id to the id of the keep record standing over it (§10.1). It is the
-    caller's to supply from the ledger, because this module reads no ledger: a module that read one
-    would answer about whatever file it found.
+    `active_keep` maps a unit id to the keep record standing over it (§10.1): `{record, path, heading}`, the unit's
+    place in the current inventory, so the rule guards only the units the proposal's operations reach (Codex WP-12
+    r2 F5: every keep in the ledger was guarded, whatever was merged). A bare record id says nothing of where its unit
+    lives and is guarded whatever the proposal touches. It is the caller's to supply from the ledger, because this
+    module reads no ledger: a module that read one would answer about whatever file it found.
     """
     active_keep = dict(active_keep or {})
     problems = []
@@ -220,8 +248,11 @@ def structural_problems(proposal, active_keep=None):
                        [op.get("type") for op in _operations(proposal, {"merge"})]
             if touching:
                 named = set(proposal.get("keep_records_named") or ())
-                guarded = sorted({unit: record for unit, record in active_keep.items()
-                                  if record not in named}.items())
+                guarded = sorted({unit: (held["record"] if isinstance(held, dict) else held)
+                                  for unit, held in active_keep.items()
+                                  if (held["record"] if isinstance(held, dict) else held) not in named
+                                  and (not isinstance(held, dict)
+                                       or touches(proposal, held.get("path"), held.get("heading")))}.items())
                 problems += [f"{code} {unit}: an active keep record ({record}) stands over it, and the "
                              f"proposal does not name it; the owner's `keep 해제` comes first"
                              for unit, record in guarded]
@@ -350,6 +381,13 @@ def scope_problems():
     return problems
 
 
+def _holds_when(proposal, cond):
+    """Whether a `requires_when` condition holds: `layer` is the destination's layer, any other key the proposal's
+    own field, each equal to the value named."""
+    return all((_layer(proposal) if key == "layer" else proposal.get(key)) == value
+               for key, value in cond.items() if key != "fields")
+
+
 def input_problems(proposal):
     """Inputs a rule needs, for every rule whose scope this proposal is in, missing by name.
 
@@ -364,7 +402,10 @@ def input_problems(proposal):
             continue
         if not SCOPES[scope](proposal):
             continue
-        for field in rule.get("requires") or []:
+        wanted = list(rule.get("requires") or [])
+        wanted += [f for cond in rule.get("requires_when") or [] if _holds_when(proposal, cond)
+                   for f in cond.get("fields") or []]
+        for field in wanted:
             if proposal.get(field) is None:
                 problems.append(f"PLACEMENT_INPUT_ABSENT {rule['code']} {proposal.get('item_id')}."
                                 f"{field}: this proposal is in the rule's scope ({scope}) and carries "
@@ -393,6 +434,11 @@ def placement_problems(proposal):
                                     f"covers, and this one has {sharing!r}")
         elif rid == "consumer_mismatch":
             reads = held["consumers"]["reads"].get(proposal.get("consumer"))
+            if reads is None and proposal.get("consumer") is not None and SCOPES[rule["scope"]](proposal):
+                # a consumer the table does not name is not one this rule can judge, so it is refused rather than
+                # passed (Codex WP-12 r2 F6: an invented consumer made the lookup None and the rule skipped)
+                problems.append(f"{code} {proposal.get('item_id')}: the consumer {proposal.get('consumer')!r} is not "
+                                f"one the table names ({', '.join(sorted(held['consumers']['reads']))})")
             if reads is not None and proposal.get("artifact_form") == "instruction" and "instruction" not in reads:
                 problems.append(f"{code} {proposal.get('item_id')}: an instruction cannot reach a "
                                 f"{proposal.get('consumer')}, which reads {', '.join(reads)}")
@@ -402,8 +448,7 @@ def placement_problems(proposal):
                 problems.append(f"{code} {proposal.get('item_id')}: a semantic check discloses and never "
                                 f"blocks, so a blocking gate is not its destination")
         elif rid == "global_addition":
-            if _carrier(proposal) in global_files() and proposal.get("disposition") in ("place", "correct",
-                                                                                        "re-deliver"):
+            if is_global(_carrier(proposal)) and proposal.get("disposition") in ("place", "correct", "re-deliver"):
                 problems.append(f"{code} {proposal.get('item_id')}: the always-loaded global file receives "
                                 f"deletions and merges only, so it is no home for a new learning")
         elif rid == "c_route":
@@ -533,7 +578,7 @@ def fx_proposal(kind, diagnosis, disposition, promotion_eligible=True, legacy=Fa
     """
     ledger = disposition in LEDGER_ONLY + ("none",)
     return {"item_id": "enum", "candidate_id": "enum", "kind": kind, "diagnosis": diagnosis,
-            "disposition": disposition, "consequence": "cost", "consumer": "worker", "typology": "D",
+            "disposition": disposition, "consequence": "cost", "consumer": "session", "typology": "D",
             "admitted": True, "promotion_eligible": promotion_eligible, "legacy_incubating": legacy,
             "names_situation_of_guide": False, "situation_covered_by_guide": False,
             "situation_promoted_items": 0, "blocking": False, "owner_only": False,
@@ -825,7 +870,12 @@ def _self_test_body(failures, ran):
             failures.append((name, f"expected nothing, got {problems}"))
 
     def said(proposal, active_keep=None):
-        return "; ".join(problems(proposal, active_keep))
+        # the subject is computed here, so a rule that dies under its mutation fails the control asking about it
+        # by name instead of ending the suite after the one before (Codex WP-12 r2 F13)
+        try:
+            return "; ".join(problems(proposal, active_keep))
+        except Exception as exc:  # noqa: BLE001 - reported as this control's subject, never swallowed
+            return f"RAISED {type(exc).__name__}: {exc}"
 
     # The tables are the design's, and every condition they name has a reader.
     clean("the two tables carry §7.2's rows and §7.3's sentences, and every condition has a reader",
@@ -890,7 +940,7 @@ def _self_test_body(failures, ran):
             "; ".join(problems({**place, "situation_promoted_items": None})),
             "PLACEMENT_INPUT_ABSENT")
     control("`problems` carries §7.2's pair check too, so one call is the whole contract",
-            "; ".join(problems({**place, "disposition": "correct"})), "PAIR_DISALLOWED")
+            said({**place, "disposition": "correct"}), "PAIR_DISALLOWED")
     clean("and the reduce passes while its keep record is named",
           problems(merge, {"u-1": "kr-1"}))
     # The union's precedence rule, over a PLANTED table: no pair in the real table has an
@@ -941,6 +991,22 @@ def _self_test_body(failures, ran):
             said({**merge, "keep_records_named": []}, {"u-1": "kr-1"}), "KEEP_GUARDED")
     control("and the refusal names the record, so the owner knows what to release",
             said({**merge, "keep_records_named": []}, {"u-1": "kr-1"}), "kr-1")
+    reached = {"u-1": {"record": "kr-1", "path": "claude/guides/g.md", "heading": "One"},
+               "u-3": {"record": "kr-3", "path": "claude/guides/other.md", "heading": "Three"}}
+    section_merge = {**merge, "keep_records_named": [],
+                     "operations": [{"type": "merge", "target": "claude/guides/g.md#One", "before_sha256": "a" * 64,
+                                     "units": ["claude/guides/g.md#One", "claude/guides/g.md#Two"]}]}
+    control("Codex WP-12 r2 F5: a keep over a unit the merge reaches is guarded",
+            said(section_merge, reached), "KEEP_GUARDED u-1")
+    clean("and a keep over a unit in a file the merge does not reach is not",
+          [x for x in said(section_merge, reached).split("; ") if x.startswith("KEEP_GUARDED u-3")])
+    clean("nor one over another section of the merged file",
+          [x for x in said(section_merge, {"u-4": {"record": "kr-4", "path": "claude/guides/g.md",
+                                                   "heading": "Four"}}).split("; ") if x.startswith("KEEP_GUARDED")])
+    control("a merge of the whole file reaches every section of it",
+            said({**section_merge, "operations": [{"type": "merge", "target": "claude/guides/g.md",
+                                                   "before_sha256": "a" * 64}]},
+                 {"u-4": {"record": "kr-4", "path": "./claude/guides/g.md", "heading": "Four"}}), "KEEP_GUARDED u-4")
     control("a merge operation under another disposition is guarded the same way",
             said({**place, "operations": [{"type": "merge", "target": "claude/guides/g.md",
                                            "before_sha256": "a" * 64}]}, {"u-2": "kr-9"}),
@@ -960,6 +1026,9 @@ def _self_test_body(failures, ran):
                 said({**place, "operations": [{"type": "edit", "target": spelling,
                                                "before_sha256": "a" * 64}]}),
                 "GLOBAL_OP_DISALLOWED")
+    control("Codex WP-12 r2 F7: a section of the global file is the global file",
+            said({**place, "operations": [{"type": "edit", "target": "claude/CLAUDE.md#Header",
+                                           "before_sha256": "a" * 64}]}), "GLOBAL_OP_DISALLOWED")
     clean("while a file whose name merely starts with the global file's is not it",
           [p for p in problems({**place, "operations": [
               {"type": "edit", "target": "claude/CLAUDE.md.bak", "before_sha256": "a" * 64}]})
@@ -1039,6 +1108,12 @@ def _self_test_body(failures, ran):
             said({**guide, "consumer": "hermetic_dispatch"}), "CONSUMER_MISMATCH")
     clean("while code aimed at a script is not a mismatch",
           problems({**guide, "consumer": "script", "artifact_form": "code"}))
+    control("Codex WP-12 r2 F6: a consumer the table does not name is refused, not skipped",
+            said({**guide, "consumer": "invented-consumer"}), "the consumer 'invented-consumer' is not one the table names")
+    clean("while a proposal that carries no instruction is outside the rule's scope, whatever consumer it names (RR-1: "
+          "a `none` named one in its own words)",
+          [x for x in said({**fx_proposal("unclassified", "covered", "none"), "consumer": "claude main session"})
+           .split("; ") if x.startswith("CONSUMER_MISMATCH")])
     # The carrier is a NAME, not a path: a fixture spelling a real author-side module is read by the
     # payload gate as this shipped file naming one, which it refuses (and rightly: it cannot tell a
     # proposal's data from a code reference).
@@ -1051,6 +1126,9 @@ def _self_test_body(failures, ran):
           problems({**gate, "criterion": "semantic", "blocking": False}))
     control("F-O5-17: an addition to the global file is refused by name",
             said({**guide, "destination": {"layer": "guides", "carrier": "claude/CLAUDE.md"}}),
+            "GLOBAL_ADDITION")
+    control("Codex WP-12 r2 F7: and so is one whose carrier names a section of it",
+            said({**guide, "destination": {"layer": "guides", "carrier": "claude/CLAUDE.md#Header"}}),
             "GLOBAL_ADDITION")
     clean("while a reduce whose carrier is the global file is not an addition",
           problems({**guide, "kind": "obsolete", "diagnosis": "unknown", "disposition": "reduce",
@@ -1075,6 +1153,14 @@ def _self_test_body(failures, ran):
     control("and one injected at session level without concerning only the owner, the same",
             said({**c_rule, "destination": {"layer": "session_injection", "carrier": "session"},
                   "owner_only": False}), "concerns only the owner")
+    control("Codex WP-12 r2 F6: a C principle in a guide that does not say whether it names the guide's situation is "
+            "a missing input, by name",
+            said({**c_rule, "names_situation_of_guide": None}),
+            "PLACEMENT_INPUT_ABSENT C_ROUTE i-1.names_situation_of_guide")
+    control("and one injected at session level that does not say whether it concerns only the owner, the same",
+            said({**c_rule, "destination": {"layer": "session_injection", "carrier": "session"},
+                  "names_situation_of_guide": None, "owner_only": None}),
+            "PLACEMENT_INPUT_ABSENT C_ROUTE i-1.owner_only")
     hook = {**guide, "destination": {"layer": "hooks", "carrier": "hooks/x"}, "blocking": False,
             "judges": False}
     clean("a hook that injects canonical text passes", problems(hook))
@@ -1203,15 +1289,24 @@ def _self_test_body(failures, ran):
     # Every (kind, diagnosis, bar) S6 can produce must have at least ONE acceptable disposition. A
     # candidate the stage must answer for and whose every answer is refused is a contract defect
     # whatever else is true, which is why this is enumerated rather than reasoned about.
+    def raised(call):
+        """`call()`, or the exception it raised as its one problem: the enumeration below calls the pair rule
+        directly, and a rule that dies under its mutation fails these controls by name (Codex WP-12 r2 F13)."""
+        try:
+            return call()
+        except Exception as exc:  # noqa: BLE001 - reported as the subject, never swallowed
+            return [f"RAISED {type(exc).__name__}: {exc}"]
+
     clean("every combination S6 can produce has an acceptable disposition, or is declared open with "
-          "its reason", combination_problems())
+          "its reason", raised(combination_problems))
     control("the enumeration really judges the whole vocabulary, not a sample",
             f'{len(table("pairs")["vocabularies"]["kind"])}x'
             f'{len(table("pairs")["vocabularies"]["diagnosis"])}',
             "7x6")
     clean("and it finds at least one answer for a combination that has one",
-          [] if acceptable_dispositions("misfire", "wrong or insufficient", True)
-          else ["misfire/wrong or insufficient above the bar has no answer"])
+          (lambda held: held if isinstance(held, list) and held and str(held[0]).startswith("RAISED ")
+           else [] if held else ["misfire/wrong or insufficient above the bar has no answer"])(
+              raised(lambda: acceptable_dispositions("misfire", "wrong or insufficient", True))))
     # The ten combinations this enumeration found open on 2026-11-12 are CLOSED: lane E's
     # `BELOW_BAR` is the §6.4 table's own below-bar row and now admits `none`, which is the one
     # disposition §7.2 allowed for both kinds. The declaration that named them went stale the moment
@@ -1232,7 +1327,7 @@ def _self_test_body(failures, ran):
                             for row in t["rows"]
                             if row.get("kind") == "misfire"
                             and row.get("diagnosis") == "wrong or insufficient"],
-        combination_problems)
+        lambda: raised(combination_problems))
     control("a combination with no acceptable disposition is reported by name, with the code that "
             "refuses every one §7.2 allows",
             "; ".join(held_plant),
@@ -1248,11 +1343,11 @@ def _self_test_body(failures, ran):
             "; ".join(with_table("pairs", lambda t: t.__setitem__("pending_empty", {
                 "decided": None,
                 "combinations": [{"kind": "misfire", "diagnosis": "redundant",
-                                  "promotion_eligible": True}]}), combination_problems)),
+                                  "promotion_eligible": True}]}), lambda: raised(combination_problems))),
             "PENDING_EMPTY_STALE misfire/redundant/above bar")
     clean("an emptiness a structural rule causes is NOT reported as a contract defect: this "
           "enumeration fixes the other fields, so that one may be the fixture's",
-          [p for p in combination_problems() if "gap/gap" in p])
+          [p for p in raised(combination_problems) if "gap/gap" in p or p.startswith("RAISED ")])
 
     # An adjudicated admission is an admission for §7.2 (§10.2: "a candidate that becomes admitted
     # goes through S7, S7b"), which `stage_propose` now reads; the legacy row's `place` condition is
@@ -1264,9 +1359,9 @@ def _self_test_body(failures, ran):
                   "names_situation_of_guide": False}
     control("the legacy row's place condition accepts an item admitted by adjudication, since the "
             "owner resolved the dispute",
-            "; ".join(problems(held_place) or ["ACCEPTED"]), "ACCEPTED")
+            "; ".join(raised(lambda: problems(held_place)) or ["ACCEPTED"]), "ACCEPTED")
     control("while the same item NOT admitted is refused, so the condition is really being read",
-            "; ".join(problems({**held_place, "admitted": False}) or ["ACCEPTED"]),
+            "; ".join(raised(lambda: problems({**held_place, "admitted": False})) or ["ACCEPTED"]),
             "PAIR_DISALLOWED")
 
     # A destination is model output that reaches the owner's review page. The layer vocabulary and
