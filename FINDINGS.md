@@ -306,10 +306,14 @@ Found by the first three-hour live run of 2026-11-14 at S12: `promote_coverage` 
 keys, into the tracked `session-distill/coverage.json` of the checkout, and the close printed a `git add` of it.
 The close now leaves the coverage state out of the commit command and names it local state, the repository
 ignores `session-distill/local/`, and the driver's help names that path (owner, 2026-11-15: keep it inside the
-checkout, untracked). What remains: `census --coverage` still defaults to the tracked, shipped
-`session-distill/coverage.json`, S0 pins whatever path the caller hashed, and nothing refuses a
-`--checkout-coverage` that names a tracked path, so a caller who keeps the defaults still dirties a tracked file
-(uncommitted by the printed command). The state also stays on one machine.
+checkout, untracked). The guide's census and close examples name `session-distill/local/coverage.json`, and say
+that a periodic close without `--checkout-coverage` is refused (`COVERAGE_UNNAMED`). What remains is in the code,
+not the advice: `census --coverage` still defaults to the tracked, shipped `session-distill/coverage.json`, S0
+pins whatever path the caller hashed, and nothing refuses a `--checkout-coverage` that names a tracked path, so a
+caller who names the tracked file still dirties it (uncommitted by the printed command). A census that keeps its
+default after a periodic close reads the empty tracked state: refused (`COVERAGE_BASE_STALE`) when the declaration
+pinned the promoted state's hash, and counted from nothing, every session read again, when it pinned the tracked
+file's. The state also stays on one machine.
 
 Reach: every periodic run that closes with `--checkout-coverage`.
 
@@ -318,3 +322,48 @@ Alternatives:
 - Move the coverage state out of the checkout to the state root, with S0, S1 and S12 reading one declared place,
   and drop the tracked empty file from the package.
 - Keep it in the checkout, make the ignored path the default of S0, S1 and S12, and drop the tracked empty file.
+
+## F-43 — S5b's delivery evidence is not sound enough for a verdict to depend on it
+
+Found by Codex's second review rounds of WP-11b (S5b delivery, F1 to F11, F13, F14) and WP-10 (the delivery
+evidence, F2, F3, F7), pinned at 367ad83b, 2026-11-15. S5b answers, per (session, unit, decision), whether the unit
+was delivered, and the reviews found that several of its answers are stronger than its evidence: inputs it reads
+outside the run's admitted set (F1, F10, F11), a Codex thread's decisions read under its last rollout file's session
+(F2), an absent copy entry or a failed, unsupported or partly redacted read turned into a reading claim (F3, F4, F6,
+F13; WP-10 F3), native delivery that ignores S2's recorded certainty and ownership (F5), shell output credited to a
+file without evidence the command read it (F7), release lookups under the wrong identifiers (F8), `not_delivered`
+paths that need a release completeness S2 cannot publish (F9), a shared-fragment coverage that needs a field real
+session assembly never produces (WP-10 F2), an inert `executable_consumed` threshold (WP-10 F7), and whole-value
+controls that compare substrings (F14).
+
+Reach in release 1: no verdict. S6 does not read S5b (`stage_judge.DELIVERY_WAITING`), and S9 shows each row's
+delivery as `delivery_assembly_waiting`, so S5b's answers reach the run's records and no decision. The owner chose
+to queue these for release 2 rather than fix them before the publish (D-20261115-faea56). They become blocking the
+day S6 consumes S5b.
+
+Alternatives:
+
+- Fix each finding in S5b before S6 is wired to read it, under the same two-round review cap.
+- Narrow S5b to what S2 records with certainty (a recorded occurrence the session's own owner holds), and answer
+  every other pair `unknown` by its reason, so the stronger claims are not made at all.
+- Keep S5b out of release 2's S6 as well, and leave delivery to S8's measured outcomes.
+
+## F-44 — five author-side checks can pass the violation they name
+
+Found by Codex's second review round of WP-10, pinned at 367ad83b, 2026-11-15. Each is a check that holds a
+property of the code, and each passed a planted violation in the reviewer's probe: `dispatch.py`'s `SCRIPT_RUNS`
+accepts a different program when names inside the proven path are shadowed (F4); `controls.py`'s expected-verdict
+seal is bypassed by opening a link alias relative to a directory descriptor (F5); `gates/check-self-test-legs.py`
+keeps crediting a suite whose executable self-test leg was replaced by code that never runs it (F6);
+`stage_retrieve.py`'s output-preservation control compares lesson and quote values by substring (F8); and
+`stage_judge.py`'s all-packet blindness control passes when it reads no packet contents (F9).
+
+Reach: none of these changes what a run does or what a user receives; each weakens the evidence that a property
+holds. The seal (F5) guards against S6's own code reading the expected verdicts; the judges are model calls in
+other processes and never run this code. The owner queued them for release 2 (D-20261115-faea56).
+
+Alternatives:
+
+- Fix each check and add the negative control that the reviewer's probe is, so the mutation fails by name.
+- Record each as `unguarded-accepted` with its reason where the property is held some other way (for F5, S6's
+  packets are built from named inputs, and a computed read is what the seal exists to catch), and fix only the rest.

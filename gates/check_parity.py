@@ -3744,8 +3744,9 @@ def author_only_preset_is_withheld_without_a_checkout():
         # by WHERE THE LAUNCHER IS — which is why each fixture gets its own copy of it and is
         # imported from there. Passing a root to `build_plan` is not possible: it takes
         # (config, host, preset_name) and the verdict inside it is rootless by design.
-        def plan_in(tree):
-            """`build_plan` for the distill preset, from a launcher living in `tree`."""
+        def in_tree(tree, act):
+            """`act(module)` with the launcher imported from a copy living in `tree`: its text, or the
+            refusal it raised, as `Name: message`."""
             (tree / "launch").mkdir(parents=True, exist_ok=True)
             held_copy = tree / "launch" / launcher.name
             held_copy.write_bytes(pathlib.Path(launcher).read_bytes())
@@ -3755,12 +3756,54 @@ def author_only_preset_is_withheld_without_a_checkout():
             sys.modules[spec.name] = held_module
             try:
                 spec.loader.exec_module(held_module)
-                held_module.build_plan(profile, "claude", held_module.DISTILL_PRESET)
+                return str(act(held_module) or "")
             except Exception as exc:  # noqa: BLE001 - the refusal IS the answer
                 return f"{type(exc).__name__}: {exc}"
             finally:
                 sys.modules.pop(spec.name, None)
-            return ""
+
+        def plan_in(tree):
+            """`build_plan` for the distill preset, from a launcher living in `tree`."""
+            return in_tree(tree, lambda m: m.build_plan(profile, "claude", m.DISTILL_PRESET) and "")
+
+        class MenuShown(Exception):
+            """Raised by the stubbed picker once it has recorded the root menu's options."""
+
+        def interactive(held, resume_mode):
+            """`pick_mode_and_preset` RUN, with no terminal (Codex WP-22a r2 F4: two conditions made
+            `... and False` kept both calls and the filter's text, and every structural assertion
+            green). The picker records the root menu's option values and stops; the distill hub,
+            reached by a resume, answers "start". Status reads are stubbed so no state is read."""
+            seen = []
+
+            def picker(_title, options, *_args, **_kwargs):
+                seen.append([o.value for o in options])
+                raise MenuShown()
+            held.choose = picker
+            held.distill_hub = lambda *_a, **_k: "start"
+            held.load_instructions_status = lambda: None
+            held._instructions_launch_description = lambda _status: ""
+            held.instructions_summary_lines = lambda _status: []
+            held.private_instructions_enabled = lambda: False
+            held.t = lambda key, *_a, **_k: key   # the copy has no catalogs beside it; labels are not judged
+            try:
+                return repr(held.pick_mode_and_preset(profile, "claude", None, resume_mode))
+            except MenuShown:
+                return f"menu {seen[-1]!r}"
+
+        for name, tree in (("packaged", packaged), ("checkout", checkout)):
+            shown = in_tree(tree, lambda m: interactive(m, None))
+            offered = shown.startswith("menu ") and repr(module.DISTILL_MODE) in shown
+            if not shown.startswith("menu "):
+                mark_fail(f"the root menu did not reach its picker in the {name} tree: {shown!r}")
+            elif offered != (name == "checkout"):
+                mark_fail(f"the root menu in the {name} tree {'offers' if offered else 'does not offer'} "
+                          f"the distill mode: {shown!r}. Only a checkout offers it")
+            resumed = in_tree(tree, lambda m: interactive(m, m.DISTILL_MODE))
+            if name == "packaged" and not resumed.startswith("LaunchError: PRESET_AUTHOR_ONLY"):
+                mark_fail(f"a resumed distill mode in a packaged tree was not refused by name: {resumed!r}")
+            if name == "checkout" and resumed != repr((module.DISTILL_PRESET, False, module.DISTILL_MODE)):
+                mark_fail(f"a resumed distill mode in a checkout did not start the preset: {resumed!r}")
 
         said = plan_in(packaged)
         if "PRESET_AUTHOR_ONLY" not in said:

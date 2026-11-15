@@ -119,7 +119,7 @@ stderr, exit 2. The table is what this checkout does today, not the design:
 | Stage | Command | Today |
 | --- | --- | --- |
 | S0 | `distill.py declare --run-id ID --from DECLARATION.json` | runs; `--set PATH=VALUE` edits it until a stage has read it, `--amend --reason TEXT` after |
-| S1 | `distill.py census --run-id ID` | runs; `--reconcile RESULTS.json` folds S3's results back into the statuses |
+| S1 | `distill.py census --run-id ID --coverage session-distill/local/coverage.json` | runs; `--reconcile RESULTS.json` folds S3's results back into the statuses. `--coverage` names the state the last periodic close promoted, and the declaration's `starting_hashes.coverage` pins its sha256 (a mismatch is `COVERAGE_BASE_STALE`); left out, the census reads the tracked `session-distill/coverage.json`, the empty state of a checkout no periodic close has written to |
 | S2 | `distill.py views --run-id ID` | runs: the immutable copies, the redaction projection, the windows, the search index, the evidence store |
 | S2 | `distill.py inventory --run-id ID --ledger design/session-distill/ledger.json` | runs: the units per reference point. The ledger path is the caller's to name |
 | S3 | `distill.py read --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | runs: every window packet measured, no call, record partial |
@@ -128,19 +128,22 @@ stderr, exit 2. The table is what this checkout does today, not the design:
 | S4 | `distill.py form --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--golden-plan PLAN.json]` | runs: the one formation call, live (token only as `CLAUDE_RUN_TOKEN_FILE`) or golden with a plan |
 | S5 | `distill.py retrieve --run-id ID --checkout-ledger design/session-distill/ledger.json` | runs: code only - each candidate's retrieved units, lineages and checks, with the planted controls |
 | S5b | `distill.py deliver --run-id ID` | runs: code only - per (session, unit, decision) whether the unit was delivered. A pair whose candidate names no session is counted apart (`not_session_derived`) |
-| S6 | `distill.py judge --run-id ID --dry` or `--cells DIR [--golden-plan PLAN.json] --checkout-ledger design/session-distill/ledger.json` | runs: two judges per candidate through the supervisor, then the derivations |
-| S7, S7b | `distill.py propose`, `review-proposals` with `--dry`, or `--cells DIR [--golden-plan PLAN.json]`, or answers in hand (`--answers`, `--reviews`) | runs: one proposal per candidate, held to the contract and to what S11 would refuse of its operations; a second seat's review of each |
+| S6 | `distill.py judge --run-id ID --checkout-ledger design/session-distill/ledger.json --dry`, then the same with `--cells DIR [--golden-plan PLAN.json]` in place of `--dry` | runs: two judges per candidate through the supervisor, then the derivations |
+| S7, S7b | `distill.py propose --run-id ID --checkout-ledger design/session-distill/ledger.json` with `--dry`, `--cells DIR [--golden-plan PLAN.json]` or answers in hand (`--answers ANSWERS.json`); then `distill.py review-proposals --run-id ID` with `--dry`, `--cells DIR [--golden-plan PLAN.json]` or `--reviews REVIEWS.json` | runs: one proposal per candidate S6 admitted, held to the contract and to what S11 would refuse of its operations; a second seat's review of each proposal a model wrote |
 | S8 | `distill.py test` | refuses, and **stays refused in release 1: S8 is deferred to release 2 by name (D-20261111-818391).** No run tests whether an applied change helped; a row that would carry a test result carries the named state `untested: s8_deferred` |
-| S9, S9b | `distill.py render --checkout-ledger design/session-distill/ledger.json`, `review-korean --cells DIR` | runs: the Korean review file `decisions.ko.v<n>.md` in the run directory, and a faithfulness check of its Korean against the proposals. Without S8 the order falls back to the judges and S7b, and the header says so |
-| S10, S10b | `distill.py parse-decisions`, `adjudicate`, `confirm`, `confirm --decide` | runs: the owner's decisions parsed from their edited copy, the adjudications recomputed, the final set built, and the owner's confirmation line read |
-| S11 | `distill.py apply --run-id ID` | runs: **writes the confirmed changes into files of the declaration's checkout and nothing else.** No git, no installer, no personal layer. It ends by printing the commit command and the install command, which are yours to run |
-| S12 | `distill.py close --run-id ID --checkout-ledger design/session-distill/ledger.json [--checkout-coverage session-distill/coverage.json]` | runs: records every decided item in the checkout's ledger and, for a periodic run, promotes the coverage state. It runs no process and names what it leaves to you: the commit, the install, the launcher state, the version-registry line. `--recovery` is reserved |
+| S9, S9b | `distill.py render --run-id ID --checkout-ledger design/session-distill/ledger.json`, then `distill.py review-korean --run-id ID --cells DIR` | runs: the Korean review file `decisions.ko.v<n>.md` in the run directory, and a faithfulness check of its Korean against the proposals. Without S8 the order falls back to the judges and S7b, and the header says so. The header also states how many planted controls got their expected verdict after S6, recorded in `review.v<n>.json`; a failed control is shown, never a stop (D-20261115-18d56b) |
+| S10, S10b | `distill.py parse-decisions --run-id ID`, `distill.py adjudicate --run-id ID --cells DIR` (when the owner wrote a `판정`), `distill.py confirm --run-id ID`, then `distill.py confirm --run-id ID --decide` | runs: the owner's decisions parsed from their edited copy, the adjudications recomputed, the final set built, and the owner's confirmation line read |
+| S11 | `distill.py apply --run-id ID` | runs: **writes the confirmed changes into files of the declaration's checkout and nothing else.** No git, no installer, no personal layer. When it changed files, it ends by printing the commit command and the install command, which are yours to run; when the confirmed set changes no file, it says so and prints none |
+| S12 | `distill.py close --run-id ID --checkout-ledger design/session-distill/ledger.json --checkout-coverage session-distill/local/coverage.json` | runs: records the window and each decision on an existing ledger entry in the checkout's ledger (a `none` on a new candidate makes no ledger row and is kept in the run's `close.json`, F-40) and, for a periodic run, promotes the coverage state into the file named. Name the file under the ignored `session-distill/local/`, as the command shows: the state is keyed by session ids and stays out of git; a periodic close without the flag is refused (`COVERAGE_UNNAMED`). Its report carries the planted controls' evaluation as S9 recorded it. It runs no process and names what it leaves to you: the commit, the install, the launcher state, the version-registry line. `--recovery` is reserved |
 
-**What a release 1 run produces.** Mostly cleanup of what the library already
-holds — legacy ledger entries decided, redundant or obsolete units reduced — and
-measurement of the window. A new learning is placed only where S6's two judges
-admit it under the kind rules as they stand. Nothing tests whether an applied
-change helped: that is S8, in release 2. The run changes files of the declared
+**What a release 1 run produces.** Evidence about the window, the owner's review
+of it, and a record of what the owner decided. A file of the library changes only
+where S6's two judges admit a candidate whose kind allows a changing disposition: an
+obsolete or redundant unit above the promotion bar may be reduced, and an admitted,
+eligible legacy entry may be placed. Release 1 derives no unit outcome, so a
+formed candidate is mostly `unclassified`, whose only disposition is `none`; the
+first real run (2026-11-14) changed no file. Nothing tests whether an applied
+change helped: that is S8, in release 2. The run may change files of the declared
 checkout and its ledger; the commit, the install and the publish are yours.
 
 The evidence that the runnable stages run is the driver's own suite,

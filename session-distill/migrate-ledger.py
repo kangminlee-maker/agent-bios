@@ -876,7 +876,9 @@ def self_test():
     with tempfile.TemporaryDirectory(prefix="ml-dest-") as held_tmp:
         held_root = pathlib.Path(held_tmp)
         held_ledger = held_root / "ledger.json"
-        held_ledger.write_text(json.dumps({"schema": 1, "entries": []}), encoding="utf-8")
+        # a ledger the migration accepts (Codex WP-22a r2 F5), so a destination guard that stopped
+        # refusing would write it, rather than the check refusing it for another reason
+        held_ledger.write_text(json.dumps(tiny()), encoding="utf-8")
         held_link = held_root / "link.json"
         held_link.symlink_to(held_ledger)
         for label, destination, want in (
@@ -896,7 +898,7 @@ def self_test():
         # And through the COMMAND, with nothing written: a guard whose only caller is a control
         # changes nothing a user sees.
         before = held_ledger.read_bytes()
-        code = apply_migration(held_ledger, held_ledger)
+        code = applied(held_ledger, held_ledger)
         if code != 2 or held_ledger.read_bytes() != before:
             failures.append(f"--apply with --removed aliasing the ledger returned {code} and the "
                             f"ledger {'changed' if held_ledger.read_bytes() != before else 'held'}")
@@ -928,11 +930,45 @@ def self_test():
             failures.append(f"the same fixture judged at another path was asked for as much: "
                             f"{len(elsewhere)} vs {len(at_repo)} — a row of our ledger is not a "
                             f"rule about someone else's")
-        if "ledger_problems(" not in inspect.getsource(main):
-            failures.append("--check does not reach the shared routine, so the two commands can "
-                            "still judge differently")
-        if "ledger_problems(" not in inspect.getsource(apply_migration):
-            failures.append("--apply does not reach the shared routine")
+        # The two PUBLIC commands, run (Codex WP-22a r2 F5: a source-substring test stayed green when
+        # schema 1 `--apply` alone went back to judging without reader discovery). The checkout's
+        # ledger is a fixture standing at the path the module calls the repository's (`LEDGER`), with
+        # no named rows asked of it (`EXPECTED_ROWS`), so both commands judge it as the checkout's.
+        def commands(at, plant):
+            """(`--check`'s exit and its words, `--apply`'s exit, whether the file changed, whether a
+            removed-value file was written), for a schema 1 fixture judged at the repository's path
+            (`at="repo"`) or elsewhere, with a reader-inventory problem planted or not."""
+            kept = {name: globals()[name] for name in ("LEDGER", "EXPECTED_ROWS", "reader_problems")}
+            with tempfile.TemporaryDirectory(prefix="ml-cmd-") as cmd_tmp:
+                root_ = pathlib.Path(cmd_tmp)
+                fixture, removed_file = root_ / "ledger.json", root_ / "removed.json"
+                fixture.write_text(json.dumps(tiny()), encoding="utf-8")
+                before_ = fixture.read_bytes()
+                if at == "repo":
+                    globals()["LEDGER"] = fixture
+                globals()["EXPECTED_ROWS"] = {}
+                if plant:
+                    globals()["reader_problems"] = lambda *_a, **_k: [
+                        "READER_PLANTED tables/ledger_readers.json: a reader the inventory does not name"]
+                try:
+                    err = io.StringIO()
+                    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                        check_code = main(["--check", "--ledger", str(fixture)])
+                        apply_code = main(["--apply", "--ledger", str(fixture), "--removed", str(removed_file)])
+                finally:
+                    globals().update(kept)
+                return (check_code, "READER_PLANTED" in err.getvalue(), apply_code,
+                        fixture.read_bytes() != before_, removed_file.exists())
+        if commands("repo", plant=False) != (0, False, 0, True, True):
+            failures.append(f"the checkout's ledger, valid, was not accepted and migrated by both commands: "
+                            f"{commands('repo', plant=False)}")
+        if commands("repo", plant=True) != (1, True, 1, False, False):
+            failures.append(f"a reader-inventory problem did not stop both public commands, before any "
+                            f"write, on the checkout's ledger: {commands('repo', plant=True)} (want --check 1 "
+                            f"naming it, --apply 1, nothing written)")
+        if commands("elsewhere", plant=True) != (0, False, 0, True, True):
+            failures.append(f"an independent ledger was judged by the checkout's reader inventory: "
+                            f"{commands('elsewhere', plant=True)}")
 
     for failure in failures:
         print(f"migrate-ledger --self-test [FAIL] {failure}")

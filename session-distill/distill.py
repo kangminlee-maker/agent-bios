@@ -23,12 +23,13 @@
                                                            packet built and measured per judge; the record stays partial
   distill.py judge --run-id ID --cells DIR [--golden-plan PLAN.json]
                                                            S6: each judged candidate to Judge A and Judge B
-  distill.py <stage command> --run-id ID                   S3, S6-S12: named, and refused until implemented
+  distill.py <stage command> --run-id ID                   S3, S6-S12: each runs (`--help` per command); S8 test refuses
 
 A run lives in `<run root>/<run-id>/`: `run.json`, `amendments.jsonl`,
 `stages/<stage>/record.json`, and per-call directories. The run root is `--out`, or, unset, the
-XDG state directory `default_out()` resolves; a checkout passes `session-distill/out/<...>`
-explicitly, as the runbook does. The declaration, its amendments and the stage records are
+XDG state directory `default_out()` resolves. A run root inside the checkout is refused (`inventory` protects the
+checkout, PROTECTED_OVERLAP), so a checkout leaves `--out` unset or names a directory outside every protected root,
+as the runbook says. The declaration, its amendments and the stage records are
 `runlib/declare.py` and `runlib/records.py`; the
 record schemas every stage keeps (claim, evidence, expected observation) are
 `schemas/*.schema.json`, loaded through `runlib/claims.py`; the declaration's own structure is
