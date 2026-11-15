@@ -60,9 +60,17 @@ JUDGES = ("A", "B")
 FIELDS = {"review": ("item", "sha"), "confirm": ("set",)}
 # What approving does in release 1, in the owner's words (D-20261113-f22b7d and its dated record): S11 edits files
 # and nothing else, and the commit and the install are the owner's. S9's review page and S10b's confirmation page both say this sentence.
-APPROVAL_EFFECT = ("파일을 바꾸는 제안을 승인하면 선언된 체크아웃의 파일이 바뀝니다. `none`(바꾸지 않음)과 대장에만 "
-                   "남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 소유자가 직접 합니다 — 적용이 "
-                   "끝나면 실행할 명령을 그대로 보여 드립니다.")
+# Codex WP-20 r2 F4, F5: an approval is provisional until the final set is confirmed (S10b) and applied (S11); a
+# `none` on a candidate with no ledger entry is kept in the run's close record alone (F-40); commands are shown only
+# when the application changed files (`stage_apply` names none otherwise).
+APPROVAL_EFFECT = ("승인은 아직 적용이 아닙니다. 승인한 항목으로 만든 최종 집합을 확정(S10b)하고 적용(S11)하면, 파일을 바꾸는 "
+                   "제안만 선언된 체크아웃의 파일을 바꿉니다. `none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·"
+                   "drop)는 파일을 바꾸지 않고, 대장에 항목이 없는 새 후보의 `none`은 대장에 줄을 만들지 않고 이번 "
+                   "실행의 마무리 기록(close.json)에만 남습니다. 커밋과 설치는 소유자가 직접 합니다 — 적용으로 파일이 "
+                   "바뀌면 실행할 명령을 그대로 보여 드립니다.")
+CONFIRM_EFFECT = ("확정하면 S11이 이 집합에서 파일을 바꾸는 항목(F)만 선언된 체크아웃에 적용합니다. `none`(바꾸지 않음)과 "
+                  "대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 소유자가 직접 합니다 — "
+                  "적용으로 파일이 바뀌면 실행할 명령을 그대로 보여 드립니다.")
 CLOSE = "<!-- /owner-block -->"
 _VALUE = r"[^\s=<>]+"
 OPEN = re.compile(rf"^<!-- owner-block (review|confirm)((?: [a-z]+={_VALUE})+) -->$")

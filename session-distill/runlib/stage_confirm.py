@@ -213,7 +213,7 @@ def page(manifest, version):
     out = [f"# 최종 확인 v{version}", "",
            f"검토 v{manifest['review_version']}에서 승인한 항목으로 만든 최종 집합입니다. 확정하면 S11이 이 집합을 "
            "아래 순서대로 적용합니다.", "",
-           owner_lines.APPROVAL_EFFECT.replace("승인하면", "확정하면", 1), "",
+           owner_lines.CONFIRM_EFFECT, "",
            f"- 구성 해시: {manifest['configuration_sha'][:16]}", f"- 시험: {S8_DEFERRED} (S8은 다음 릴리스에 들어옵니다)", "",
            "## 라이브러리를 바꾸는 항목 (F)", ""]
     out += [f"- {i['item_id']}: " + ", ".join(f"{op.get('type')} {op.get('target')}" for op in i["operations"])
@@ -654,13 +654,20 @@ def self_test():
               ("complete", sorted([manifest_rel(1), render_name(1), copy_name(1)]),
                sorted(["review.v1.json", "approvals.jsonl", "review-s7b.json", INVENTORY, "parsed.v1.json"])))
         page_text = (run_dir / render_name(1)).read_text(encoding="utf-8")
-        control("the page says what confirming does in release 1: a changing proposal's files change, and the commit "
-                "and the install are the owner's", page_text,
-                "파일을 바꾸는 제안을 확정하면 선언된 체크아웃의 파일이 바뀝니다.")
-        control("and that a none and a ledger-only disposition change no file (Codex WP-20 r1 F7)", page_text,
-                "`none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다.")
-        control("the items without a file change are headed as such, not as ledger changes", page_text,
-                "## 파일을 바꾸지 않는 항목")
+        # whole lines (Codex WP-20 r2 F6): the effect sentence, the section's heading and each item's own line
+        equal("the page says, in one line, what confirming does in release 1",
+              [line for line in page_text.split("\n") if line.startswith("확정하면 S11이")], ['확정하면 S11이 이 집합에서 파일을 바꾸는 항목(F)만 선언된 체크아웃에 적용합니다. `none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 소유자가 직접 합니다 — 적용으로 파일이 바뀌면 실행할 명령을 그대로 보여 드립니다.'])
+        equal("the items without a file change are headed as such, not as ledger changes",
+              [line for line in page_text.split("\n") if line.startswith("## ") and "바꾸" in line],
+              ["## 라이브러리를 바꾸는 항목 (F)", "## 파일을 바꾸지 않는 항목"])
+        kept_page = page({**records.read_json(run_dir / manifest_rel(1)), "ledger_only": [
+            {"item_id": "k-new", "approval_id": "a1", "disposition": "none"},
+            {"item_id": "legacy:L-1", "approval_id": "a2", "disposition": "none"},
+            {"item_id": "k-keep2", "approval_id": "a3", "disposition": "keep"}]}, 9)
+        equal("each item without a file change says where it is kept: a new candidate's none in the run's record "
+              "alone, a legacy entry's none and a keep in the ledger (F-40)",
+              [line for line in kept_page.split("\n") if line.startswith(("- k-new", "- legacy:L-1", "- k-keep2"))],
+              ["- k-new: none — 이번 실행 기록에만 남음", "- legacy:L-1: none — 대장에 기록", "- k-keep2: keep — 대장에 기록"])
         equal("a none on a new candidate is kept in the run's record alone, one on a legacy entry and a keep are not "
               "(F-40)", [kept_in_run_only(i) for i in ({"item_id": "k-x", "disposition": "none"},
                                                        {"item_id": "legacy:L-1", "disposition": "none"},

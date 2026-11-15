@@ -357,7 +357,8 @@ def s9b_states(doc, proposed, problems):
     for r in doc.get("rows") or []:
         states[r["item_id"]] = {"state": "marked" if r["mark"] else "regenerated" if r["regenerated"] else "passed",
                                 "mark": bool(r["mark"]), "notes": r.get("notes"),
-                                "carried_from": r.get("carried_from")}
+                                "carried_from": r.get("carried_from"),
+                                "payload_sha256": r.get("payload_sha256"), "korean_sha256": r.get("korean_sha256")}
     for r in doc.get("unreviewed") or []:
         states[r["item_id"]] = {"state": "unreviewed", "mark": False, "why": r.get("why")}
     for r in doc.get("returned") or []:
@@ -549,6 +550,33 @@ def english_of(row):
     return held
 
 
+def korean_sha256_of(proposal):
+    """The sha256 of a proposal's Korean reason fields, the text S9b judges (`stage_propose.REASON_FIELDS`). S9b
+    binds a verdict to it and S9 holds a verdict to it before showing one (Codex WP-20 r1 F3, r2 F1)."""
+    reasons = (proposal or {}).get("reasons") if isinstance(proposal, dict) else None
+    return sha256_of({name: (reasons or {}).get(name) for name in stage_propose.REASON_FIELDS})
+
+
+S9B_UNBOUND = "S9b judged another text of this row: its English or its Korean has changed since"
+
+
+def s9b_bound(rows):
+    """The rows whose S9b verdict was given on another text than the row shows, each such verdict replaced by the
+    row's not-yet state (Codex WP-20 r2 F1: a fresh pass on regenerated Korean was shown beside S7's original after
+    the next render). A verdict carries the English payload and the Korean it judged; one that carries neither is
+    bound to nothing and shown as not yet reviewed."""
+    stale = []
+    for r in rows:
+        held = r.get("s9b")
+        if not isinstance(held, dict) or held.get("state") not in ("passed", "regenerated", "marked"):
+            continue
+        if (held.get("payload_sha256") != sha256_of(english_of(r))
+                or held.get("korean_sha256") != korean_sha256_of(r.get("proposal"))):
+            r["s9b"] = {"state": "not_yet", "mark": False, "why": S9B_UNBOUND}
+            stale.append(r["item_id"])
+    return stale
+
+
 def keyed(row):
     """`(row with its hashes)`: `payload_sha256` over its English source (`english_of`), `item_sha` over all of it, the
     Korean included. Neither covers the rank, which other rows move."""
@@ -684,6 +712,7 @@ def document(docs):
     problems += counts_problems(counts, docs) + left_out_problems(rows, docs) + row_problems(rows)
     if problems:
         return {"rows": [], "appendix": appendix, "counts": counts, "problems": problems}
+    unbound = set(s9b_bound(rows))
     keyed_rows = [ordering_view(keyed(r)) for r in rows]
     # ranking's own problems first, as a list: a row it cannot place is reported by its code, and `ranked` is called
     # only over rows it can place, so no refusal of it is caught here
@@ -692,7 +721,9 @@ def document(docs):
         return {"rows": [], "appendix": appendix, "counts": counts, "problems": [f"RANK_REFUSED {p}" for p in unplaced]}
     # the items S9b's own review marked, read from its document rather than the rows, so render_text can hold the
     # rendered headings to S9b and not to a state rows_of may have worked out wrong (MARK_MISSING)
-    marked = sorted(r["item_id"] for r in (docs.get("s9b_review") or {}).get("rows") or [] if r.get("mark"))
+    # (a verdict given on another text than the row shows marks nothing it shows: `s9b_bound`)
+    marked = sorted(r["item_id"] for r in (docs.get("s9b_review") or {}).get("rows") or []
+                    if r.get("mark") and r["item_id"] not in unbound)
     return {"rows": [{k: v for k, v in r.items() if k != ORDER_ONLY} for r in ranking.ranked(keyed_rows)],
             "appendix": appendix, "counts": counts, "problems": [], "marked": marked}
 
@@ -2309,6 +2340,18 @@ def self_test():
         return document(held)
     over = overlaid()
     clean("S9b's review and regenerated proposals overlay S7's with nothing refused", s9b_probs + over["problems"])
+    # Codex WP-20 r2 F1: a verdict is shown only beside the text it judged. The regenerated row's verdict binds the
+    # regenerated Korean; without the regenerated proposals laid over S7's, the row shows S7's original Korean, so its
+    # verdict is not shown as a pass
+    bare = overlaid(lambda d: d.update(s9b_regenerated={"stage": "S9b", "version": 1, "proposals": {}}))
+    equal("a verdict on regenerated Korean shown beside S7's original is not shown as passed, and marks nothing",
+          ((row_of(bare, "k-g").get("s9b") or {}).get("state"), (row_of(bare, "k-g").get("s9b") or {}).get("why"),
+           (row_of(over, "k-g").get("s9b") or {}).get("state")), ("not_yet", S9B_UNBOUND, "regenerated"))
+    english_moved_s9b = overlaid(lambda d: next(r for r in d["s9b_review"]["rows"] if r["item_id"] == "k-a")
+                                 .update(payload_sha256="e" * 64))
+    equal("nor one given on another English payload, whose mark then marks nothing it shows",
+          ((row_of(english_moved_s9b, "k-a").get("s9b") or {}).get("state"), english_moved_s9b.get("marked"),
+           over.get("marked")), ("not_yet", [], ["k-a"]))
     equal("a regenerated row shows its new Korean over the same English payload, and its sha moves",
           ((row_of(over, "k-g").get("o6") or {}).get("what_happened"),
            row_of(over, "k-g").get("payload_sha256") == row_of(unlaid, "k-g").get("payload_sha256"),
@@ -2463,12 +2506,12 @@ def self_test():
               ["decisions.ko.v1.md", "frozen-proposals.v1.json", "review.ko.v1.md", "review.v1.json"])
         if names:
             text1 = (run_dir / "review.ko.v1.md").read_text(encoding="utf-8")
-            control("the review says what approving does in release 1: a changing proposal's files change, and the "
-                    "commit and the install are the owner's", text1,
-                    "파일을 바꾸는 제안을 승인하면 선언된 체크아웃의 파일이 바뀝니다.")
-            control("and that a none and a ledger-only disposition change no file (Codex WP-20 r1 F7)", text1,
-                    "`none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 "
-                    "소유자가 직접 합니다")
+            # the whole sentence, as one line of the page (Codex WP-20 r2 F6: two substrings passed beside an added
+            # unconditional promise): approval is provisional, only a changing proposal changes files, a new
+            # candidate's `none` is kept in the run's record alone, commands follow only a change
+            equal("the review says, in one line, what approving does in release 1",
+                  [line for line in text1.split("\n") if line.startswith("승인은 아직 적용이 아닙니다.")],
+                  ['승인은 아직 적용이 아닙니다. 승인한 항목으로 만든 최종 집합을 확정(S10b)하고 적용(S11)하면, 파일을 바꾸는 제안만 선언된 체크아웃의 파일을 바꿉니다. `none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않고, 대장에 항목이 없는 새 후보의 `none`은 대장에 줄을 만들지 않고 이번 실행의 마무리 기록(close.json)에만 남습니다. 커밋과 설치는 소유자가 직접 합니다 — 적용으로 파일이 바뀌면 실행할 명령을 그대로 보여 드립니다.'])
             held = records.read_json(run_dir / "review.v1.json")
             got, probs = owner_lines.parse(text1, (run_dir / "decisions.ko.v1.md").read_text(encoding="utf-8"),
                                            spec=held["spec"], render_name="review.ko.v1.md")
