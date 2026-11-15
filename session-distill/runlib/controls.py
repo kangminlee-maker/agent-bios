@@ -22,10 +22,13 @@ its expected verdict - is written only to `controls.json` (CONTROLS_FILE), which
 name it (a glob, a computed name, a link) is refused where it opens. The §3.2 gate controls are
 declared beside them; the gate judges them over planted call directories of the stage that dispatches calls.
 
-`check_s5` holds S5's checks to the S5 verdicts; `evaluate` holds the judgments and the gate's verdicts to the rest,
-and the natural candidates to the rejection share, apart from the controls: CONTROLS_INCOMPLETE (a kind not planted,
-or a control with no verdict), CONTROL_FAILED (a control accepted as natural or not given its verdict; the run stops
-before S7), REJECTION_SHARE_ZERO (more than twenty natural candidates and none rejected; O4).
+`check_s5` holds S5's checks to the S5 verdicts, and a control S5 does not give its verdict stops the run at S5;
+`evaluate` holds the judgments and the gate's verdicts to the rest, and the natural candidates to the rejection share,
+apart from the controls: CONTROLS_INCOMPLETE (a kind not planted, or a control with no verdict), CONTROL_FAILED (a
+control accepted as natural or not given its verdict), REJECTION_SHARE_ZERO (more than twenty natural candidates and
+none rejected; O4). `evaluation_of` is that evaluation as a run records it after S6 (D-20261115-18d56b): it never
+stops the run; S9's review header and S12's close report show how many controls got their expected verdict, and a
+control whose verdict needs a complete reference point is counted not applicable at an incomplete one.
 
   controls.py --self-test
 """
@@ -321,10 +324,94 @@ def evaluate(doc, verdicts, gate_verdicts, natural_ids, s5_rows):
             "problems": problems}
 
 
-def require(evaluation):
-    """Refuse by name when the controls or the natural share fail: the run stops before S7."""
-    if evaluation["problems"]:
-        raise Refused("\n".join(evaluation["problems"]))
+EVALUATION_INPUTS = ({"artifact": CONTROLS_FILE, "producer_stage": "S5"},
+                     {"artifact": "checks.json", "producer_stage": "S5"},
+                     {"artifact": "judgments/derivations.json", "producer_stage": "S6"},
+                     {"artifact": "judgments/gate-verdicts.json", "producer_stage": "S6"})
+NEEDS_COMPLETE_POINT = ("unit_diagnosis",)
+NOT_APPLICABLE_POINT = ("its expected verdict is a unit diagnosis at the current reference point, and that point is "
+                        "incomplete, so no diagnosis there is the verdict or its failure")
+NOT_APPLICABLE_GATE = "the gate judged no planted copy of this kind"
+
+
+def evaluation_of(planted_doc, derivations, gate_doc, checks_doc):
+    """The planted controls evaluated after S6, as a run records them (D-20261115-18d56b): never a stop. Each control
+    is `expected` (given its verdict), `failed`, or `not_applicable` with why: a control whose S6 rule reads a unit
+    diagnosis at an incomplete current point (the point decides the diagnosis, so a verdict there proves nothing either
+    way), and a gate control the gate judged no planted copy of (S6 copied no call: `gate-verdicts.json` says why).
+    S5's controls are read too: a run that reached S6 had every one of them given its verdict, or S5 stopped it.
+
+    `planted_doc` is S5's `controls.json`, `derivations` S6's `judgments/derivations.json`, `gate_doc` S6's
+    `judgments/gate-verdicts.json`, `checks_doc` S5's `checks.json`. Returns `{controls, gate, natural, counts,
+    problems}`; `problems` are `evaluate`'s, over the applicable controls only."""
+    complete = (((derivations or {}).get("points") or {}).get("current") or {}).get("complete") is True
+    verdicts = (derivations or {}).get("verdicts") or {}
+    gate_verdicts = (gate_doc or {}).get("gate_verdicts") or {}
+    s5_rows = {r["candidate_id"]: r for r in (checks_doc or {}).get("candidates") or []}
+    planted = list((planted_doc or {}).get("planted") or [])
+    planted_ids = {e["candidate_id"] for e in planted}
+    rows, applicable = [], []
+    for entry in planted:
+        if "S5" in entry["checked_at"]:
+            row = s5_rows.get(entry["candidate_id"])
+            rows.append({"candidate_id": entry["candidate_id"], "kind": entry["kind"], "stage": "S5",
+                         "state": "expected" if row is not None and s5_holds(entry["expected"]["S5"]["rule"], entry, row)
+                         else "failed"})
+        if "S6" not in entry["checked_at"]:
+            continue
+        rule = entry["expected"]["S6"]["rule"]
+        if not complete and any(key in rule for key in NEEDS_COMPLETE_POINT):
+            rows.append({"candidate_id": entry["candidate_id"], "kind": entry["kind"], "stage": "S6",
+                         "state": "not_applicable", "why": NOT_APPLICABLE_POINT})
+        else:
+            applicable.append(entry)
+    gate_rows = [row for row in (planted_doc or {}).get("gate") or [] if row["kind"] in gate_verdicts]
+    gate_absent = [{"kind": row["kind"], "state": "not_applicable",
+                    "why": (gate_doc or {}).get("why") or NOT_APPLICABLE_GATE}
+                   for row in (planted_doc or {}).get("gate") or [] if row["kind"] not in gate_verdicts]
+    held = evaluate({**(planted_doc or {}), "planted": applicable, "gate": gate_rows}, verdicts, gate_verdicts,
+                    sorted(i for i in s5_rows if i not in planted_ids), s5_rows)
+    rows += [{"candidate_id": c["candidate_id"], "kind": c["kind"], "stage": "S6",
+              "state": "expected" if c["ok"] else "failed"} for c in held["controls"]]
+    gate = [{"kind": g["kind"], "state": "expected" if g["ok"] else "failed"} for g in held["gate"]] + gate_absent
+    counts = {state: sum(1 for r in rows + gate if r["state"] == state)
+              for state in ("expected", "failed", "not_applicable")}
+    counts["kinds_not_planted"] = len((planted_doc or {}).get("incomplete") or [])
+    return {"controls": rows, "gate": gate, "natural": held["natural"], "counts": counts, "problems": held["problems"]}
+
+
+def evaluation_in(run_dir):
+    """`evaluation_of` over the run's own four artifacts (`EVALUATION_INPUTS`), S6's derivations as S6 wrote them:
+    an owner's adjudication changes what the owner decides, never what the controls were given."""
+    from runlib import records
+    run_dir = pathlib.Path(run_dir)
+    held = [records.read_json(run_dir / spec["artifact"]) for spec in EVALUATION_INPUTS]
+    return evaluation_of(*held)
+
+
+def korean_line(evaluation):
+    """The evaluation in one Korean line, for the review header and the close report: how many controls got their
+    expected verdict, how many did not, and how many were not applicable and why, with the run never stopped."""
+    counts = evaluation["counts"]
+    total = counts["expected"] + counts["failed"] + counts["not_applicable"]
+    whys = sorted({r["why"] for r in evaluation["controls"] + evaluation["gate"] if r["state"] == "not_applicable"})
+    failed = [f"{r.get('candidate_id') or 'gate'} {r['kind']}" for r in evaluation["controls"] + evaluation["gate"]
+              if r["state"] == "failed"]
+    line = (f"심어 둔 대조군 {total}개 중 기대한 판정 {counts['expected']}개, 어긋남 {counts['failed']}개, "
+            f"해당 없음 {counts['not_applicable']}개")
+    if failed:
+        line += f" (어긋난 것: {', '.join(failed)})"
+    if whys:
+        line += f". 해당 없음의 이유: {'; '.join(NOT_APPLICABLE_KO.get(w, w) for w in whys)}"
+    if counts["kinds_not_planted"]:
+        line += f". 심지 못한 종류 {counts['kinds_not_planted']}개"
+    return line + ". 어긋나도 실행은 멈추지 않고, 이 결과만 기록합니다."
+
+
+NOT_APPLICABLE_KO = {
+    NOT_APPLICABLE_POINT: "현재 기준점이 불완전해, 단위 진단을 기대하는 대조군은 맞았는지 틀렸는지 판정할 수 없음",
+    NOT_APPLICABLE_GATE: "게이트가 이 종류의 심은 호출 사본을 판정하지 않음",
+}
 
 
 # ---- F27: no judge-visible byte marks a control --------------------------------------------------------------------
@@ -668,9 +755,57 @@ def self_test():
                     "counterpart accepted, passes", clean["problems"] == [], f"{clean['problems']}")
             temporal = next(e["candidate_id"] for e in doc["planted"] if e["kind"] == "temporal_order_cause")
             accepted = evaluate(doc, {**verdicts, **some, temporal: outcome("admitted")}, gates, nat, {})
-            control("CONTROL_FAILED: a planted control accepted as natural is named, and require() stops the run",
-                    any(p.startswith(f"CONTROL_FAILED {temporal} temporal_order_cause: accepted as natural") for p in accepted["problems"])
-                    and refusal(lambda: require(accepted)).startswith("CONTROL_FAILED"), f"{accepted['problems']}")
+            control("CONTROL_FAILED: a planted control accepted as natural is named",
+                    any(p.startswith(f"CONTROL_FAILED {temporal} temporal_order_cause: accepted as natural") for p in accepted["problems"]),
+                    f"{accepted['problems']}")
+
+            # ---- as a run records it after S6, never a stop (D-20261115-18d56b) -------------------------------------
+            s5_ok = {e["candidate_id"]: {"candidate_id": e["candidate_id"], "retrieved_units": [{"unit_id": e.get("unit_id")}],
+                                         "quote_problems": [f"QUOTE_MISMATCH {e.get('evidence_id')}"],
+                                         "session_problems": [f"SESSION_UNKNOWN {e.get('session')}"], "quote_ok": False}
+                     for e in doc["planted"]}
+            checks_ok = {"candidates": list(s5_ok.values()) + [{"candidate_id": i, "retrieved_units": [], "quote_problems": [],
+                                                                 "session_problems": [], "quote_ok": True} for i in nat]}
+            gate_ok = {"gate_verdicts": gates}
+            point = lambda complete: {"current": {"complete": complete}}  # noqa: E731
+            whole = evaluation_of(doc, {"points": point(True), "verdicts": {**verdicts, **some}}, gate_ok, checks_ok)
+            planted_count = sum(len(e["checked_at"]) for e in doc["planted"]) + len(doc["gate"])
+            control("the evaluation over a complete point: every control expected, counted once per stage it is checked "
+                    "at, gate controls included",
+                    whole["counts"] == {"expected": planted_count, "failed": 0, "not_applicable": 0,
+                                        "kinds_not_planted": len(doc["incomplete"])} and whole["problems"] == [],
+                    f"{whole['counts']} {whole['problems']}")
+            failing = evaluation_of(doc, {"points": point(True), "verdicts": {**verdicts, **some, temporal: outcome("admitted")}},
+                                    gate_ok, checks_ok)
+            control("a control accepted as natural is failed in the evaluation, named in its problems, and nothing raises",
+                    [(r["candidate_id"], r["state"]) for r in failing["controls"] if r["state"] == "failed"]
+                    == [(temporal, "failed")] and failing["counts"]["failed"] == 1
+                    and any(p.startswith(f"CONTROL_FAILED {temporal}") for p in failing["problems"]),
+                    f"{failing['counts']} {failing['problems']}")
+            partial = evaluation_of(doc, {"points": point(False), "verdicts": {**verdicts, **some}}, gate_ok, checks_ok)
+            para_ids = sorted(e["candidate_id"] for e in doc["planted"] if e["kind"] == "paraphrase_covered")
+            control("at an incomplete current point a unit-diagnosis control is not applicable, with why, and not failed",
+                    sorted(r["candidate_id"] for r in partial["controls"] if r["state"] == "not_applicable") == para_ids
+                    and all(r.get("why") == NOT_APPLICABLE_POINT for r in partial["controls"] if r["state"] == "not_applicable")
+                    and partial["counts"]["failed"] == 0 and partial["counts"]["not_applicable"] == len(para_ids),
+                    f"{partial['counts']}")
+            covered_wrong = evaluation_of(doc, {"points": point(False), "verdicts": {**verdicts, **some,
+                                                                                   para_ids[0]: outcome("disputed", {})}},
+                                          gate_ok, checks_ok)
+            control("and its verdict there is not read either way: a paraphrase the judges did not find covering is still "
+                    "not applicable", covered_wrong["counts"]["failed"] == 0, f"{covered_wrong['counts']}")
+            ungated = evaluation_of(doc, {"points": point(True), "verdicts": {**verdicts, **some}},
+                                    {"gate_verdicts": {}, "why": "no candidate has both judges' calls accepted"}, checks_ok)
+            control("a gate the gate judged no copy of is not applicable with the gate's own why, not failed",
+                    [g["state"] for g in ungated["gate"]] == ["not_applicable"] * len(doc["gate"])
+                    and {g["why"] for g in ungated["gate"]} == {"no candidate has both judges' calls accepted"}
+                    and ungated["counts"]["failed"] == 0, f"{ungated['gate'][:2]}")
+            s5_failed = evaluation_of(doc, {"points": point(True), "verdicts": {**verdicts, **some}}, gate_ok,
+                                      {"candidates": [r for r in checks_ok["candidates"] if r["candidate_id"] != para_ids[0]]})
+            control("an S5 control with no S5 row is failed at S5, not dropped",
+                    ("S5", "failed") in {(r["stage"], r["state"]) for r in s5_failed["controls"]
+                                         if r["candidate_id"] == para_ids[0]},
+                    f"{[r for r in s5_failed['controls'] if r['candidate_id'] == para_ids[0]]}")
             other = {**verdicts[temporal], "requirements": {"A": {"causal_support": "met"}, "B": {"causal_support": "unmet"}}}
             loose = copy.deepcopy(doc)
             for e in loose["planted"]:

@@ -38,6 +38,7 @@ import sys
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from grammar import owner_lines  # noqa: E402
+from runlib import controls as planted_controls  # noqa: E402
 from runlib import derive, ranking, records, stage_adjudicate, stage_propose, stage_review_proposals  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
@@ -54,6 +55,7 @@ INPUTS = ({"artifact": "census.json", "producer_stage": "S1"},
           {"artifact": "checks.json", "producer_stage": "S5"},
           {"artifact": "judgments/judge.json", "producer_stage": "S6"},
           {"artifact": "judgments/derivations.json", "producer_stage": "S6"},
+          {"artifact": "judgments/gate-verdicts.json", "producer_stage": "S6"},
           {"artifact": "proposals.json", "producer_stage": "S7"},
           {"artifact": stage_review_proposals.OUTPUT, "producer_stage": "S7b"})
 # The ranking keys of a row nothing judged: values inside ranking.py's vocabularies that say "not determined", so a
@@ -1292,13 +1294,16 @@ def meta_of(run_dir, declaration, docs, version):
     natural = [r for r in docs_rows_natural(docs)]
     rejected = sum(1 for r in natural if r == "rejected")
     share = f"{rejected} / {len(natural)}" if natural else "해당 없음 (판정된 자연 후보 없음)"
-    controls = "기록 없음: S7의 대조군 평가가 아직 이 트리에 없음 (controls.evaluate는 S7이 부름)"
+    # the planted controls evaluated after S6, never a stop (D-20261115-18d56b), over S6's own derivations
+    evaluation = planted_controls.evaluation_in(run_dir)
+    controls = planted_controls.korean_line(evaluation)
     unexpected = sorted({r["legacy_word"] for r in document_rows(docs) if r["row_kind"] == "legacy_group"}
                         - set(LEGACY_GROUPS))
     return {"version": version, "run_id": run_dir.resolve().name, "declaration": declaration,
             "legacy_unexpected": unexpected,
             "census": (docs.get("census") or {}).get("sources") or {}, "window_flags": flags, "spent": dict(sorted(spent.items())),
-            "resolutions": resolutions, "rejection_share": share, "controls": controls}
+            "resolutions": resolutions, "rejection_share": share, "controls": controls,
+            "controls_evaluation": evaluation}
 
 
 def document_rows(docs):
@@ -1393,7 +1398,8 @@ def run(run_dir, ledger=None):
         if doc["problems"]:
             raise Refused("RENDER_REFUSED " + "\n".join(doc["problems"]))
         version = next_version(run_dir)
-        text = render_text(doc, meta_of(run_dir, stage.declaration, docs, version), locators_of(run_dir))
+        meta = meta_of(run_dir, stage.declaration, docs, version)
+        text = render_text(doc, meta, locators_of(run_dir))
         name, copy_name, rows_name = f"review.ko.v{version}.md", f"decisions.ko.v{version}.md", f"review.v{version}.json"
         frozen_rel = frozen_name(version)
         for rel in (name, copy_name, rows_name, frozen_rel):
@@ -1412,7 +1418,8 @@ def run(run_dir, ledger=None):
             "stage": STAGE, "version": version, "render": name, "render_sha256": owner_lines.sha256_text(text),
             "copy": copy_name, "rendered_at": rendered_at, "frozen": frozen_rel,
             "frozen_sha256": records.sha256_file(run_dir / frozen_rel), "previous": previous, "rows": doc["rows"],
-            "appendix": doc["appendix"], "counts": doc["counts"], "spec": spec_of(doc)})
+            "appendix": doc["appendix"], "counts": doc["counts"], "spec": spec_of(doc),
+            "controls": meta["controls_evaluation"]})
         for rel in (name, copy_name, frozen_rel, rows_name):
             stage.output(rel)
         return {"version": version, "render": name, "copy": copy_name, "rows": len(doc["rows"])}
@@ -2520,6 +2527,18 @@ def self_test():
                   sorted({r["status_group"] for r in held["rows"] if r["status"] == RETURNED}) or ["(none returned)"],
                   ["quarantined_or_failed"])
             equal("the rows file binds the render by its sha256", held["render_sha256"], owner_lines.sha256_text(text1))
+            # D-20261115-18d56b: the planted controls evaluated after S6 over the run's own artifacts, recorded in the
+            # rows file and stated in one header line; the run went on whatever the evaluation says
+            recorded = held.get("controls") or {}
+            equal("the rows file records the planted controls' evaluation over the run's own S5 and S6 artifacts",
+                  recorded, planted_controls.evaluation_in(run_dir))
+            equal("and the header states it in one line, the evaluation's own",
+                  [line for line in text1.split("\n") if line.startswith("- 대조군 결과: ")],
+                  [f"- 대조군 결과: {inline(planted_controls.korean_line(recorded))}"] if recorded else ["(none recorded)"])
+            equal("the golden run's evaluation counts every planted control once per stage it is checked at",
+                  sum(recorded.get("counts", {}).get(k, 0) for k in ("expected", "failed", "not_applicable")),
+                  sum(len(e["checked_at"]) for e in records.read_json(run_dir / "controls.json")["planted"])
+                  + len(records.read_json(run_dir / "controls.json")["gate"]))
             stage_record = records.read_json(run_dir / "stages" / "S9" / "record.json")
             equal("the stage record lists the three outputs and the frozen proposals",
                   sorted(o.get("artifact") if isinstance(o, dict) else o for o in stage_record.get("outputs") or []),

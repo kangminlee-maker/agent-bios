@@ -518,12 +518,30 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
                                          "applied": sum(1 for i in items if i["operations"]),
                                          "ledger_only": sum(1 for i in items if not i["operations"])},
                "paths": paths, "local_state": local_state,
-               "owner_commands": commands_of(checkout, paths), "not_done": NOT_DONE}
+               "owner_commands": commands_of(checkout, paths), "not_done": NOT_DONE,
+               # the planted controls as S9 evaluated and recorded them (D-20261115-18d56b), carried, not recomputed
+               "controls": records.read_json(
+                   run_dir / f"review.v{stage_approvals.latest_version(run_dir)}.json").get("controls")}
         with stagelock.hold(run_dir, "declaration", wait_s=stage_apply.DECLARATION_WAIT_S):
             stage_apply._held_declaration(run_dir, admitted, STAGE)     # once more before the stage says complete
             records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return doc
+
+
+def controls_summary(evaluation):
+    """The close report's line on the planted controls: the counts, each failed one by name, why any was not
+    applicable. A render made before S9 recorded the evaluation carries none, and says so."""
+    if not evaluation:
+        return "not evaluated: the review this close descends from records no evaluation"
+    counts = evaluation["counts"]
+    failed = [f"{r.get('candidate_id') or 'gate'} {r['kind']}" for r in evaluation["controls"] + evaluation["gate"]
+              if r["state"] == "failed"]
+    whys = sorted({r["why"] for r in evaluation["controls"] + evaluation["gate"] if r["state"] == "not_applicable"})
+    return (f"{counts['expected']} given their expected verdict, {counts['failed']} not"
+            + (f" ({', '.join(failed)})" if failed else "") + f", {counts['not_applicable']} not applicable"
+            + (f" ({'; '.join(whys)})" if whys else "")
+            + (f"; {counts['kinds_not_planted']} kinds not planted" if counts["kinds_not_planted"] else ""))
 
 
 def report_lines(doc):
@@ -540,6 +558,7 @@ def report_lines(doc):
              ("coverage promoted to " + str(doc["coverage"]["path"]) + ": local state keyed by session identifiers, "
               "left out of the commit command below; keep its path out of git") if doc["coverage"]["promoted"]
              else f"coverage not promoted: {doc['coverage']['why']}",
+             "Planted controls (recorded, never a stop): " + controls_summary(doc.get("controls")),
              "Not done by this release's close: " + "; ".join(sorted(doc["not_done"])),
              "This stage ran no git and no installer. The commands are yours to run:"]
     lines += [f"  {doc['owner_commands'][k]}" for k in ("commit", "install", "launcher_state")]
@@ -715,6 +734,13 @@ def _self_test_body(failures, ran, reporting):
     def close_run(run_dir, **refs):                                     # the stage, with this fixture's references
         return run(run_dir, **{"ledger_ref": LEDGER_AT, **refs})
 
+    RECORDED_EVALUATION = {"controls": [{"candidate_id": "k-c1", "kind": "temporal_order_cause", "stage": "S6",
+                                         "state": "failed"},
+                                        {"candidate_id": "k-c2", "kind": "paraphrase_covered", "stage": "S6",
+                                         "state": "not_applicable", "why": "the point is incomplete"}],
+                           "gate": [{"kind": "refusal", "state": "expected"}],
+                           "counts": {"expected": 1, "failed": 1, "not_applicable": 1, "kinds_not_planted": 0}}
+
     def applied(name, kind="targeted", legacy_target="L-2"):
         root = pathlib.Path(tempfile.mkdtemp(prefix=f"s12-{name}-"))
         made_dirs.append(root)
@@ -731,6 +757,7 @@ def _self_test_body(failures, ran, reporting):
         held["starting_hashes"]["ledger"] = _file_sha(checkout / LEDGER_AT)
 
         def edit(rows_doc):
+            rows_doc["controls"] = copy.deepcopy(RECORDED_EVALUATION)   # as S9 records it (D-20261115-18d56b)
             for row in rows_doc["rows"]:
                 for operation in (row.get("proposal") or {}).get("operations") or []:
                     if operation["target"] == "claude/guides/k.md":
@@ -848,6 +875,18 @@ def _self_test_body(failures, ran, reporting):
                      "1 approved `none` on a candidate with no entry make no ledger row" in report_lines(said)[0],
                      "make no ledger row" in report_lines(doc)[0]],
                     [f"S12 close: 2 decided items closed, 1 recorded in {doc['ledger']['path']}", True, False])
+            # D-20261115-18d56b: the close carries S9's recorded evaluation of the planted controls, and says so in
+            # one report line; a review that recorded none (this fixture's, and any render before S9 recorded it)
+            # is said to be unevaluated, never counted clean
+            control("the close carries the evaluation S9 recorded, says it in one report line, and a review that "
+                    "recorded none is said to be unevaluated",
+                    [doc["controls"], [x for x in report_lines(doc) if x.startswith("Planted controls")],
+                     [x for x in report_lines({**doc, "controls": None}) if x.startswith("Planted controls")]],
+                    [RECORDED_EVALUATION,
+                     ["Planted controls (recorded, never a stop): 1 given their expected verdict, 1 not "
+                      "(k-c1 temporal_order_cause), 1 not applicable (the point is incomplete)"],
+                     ["Planted controls (recorded, never a stop): not evaluated: the review this close descends "
+                      "from records no evaluation"]])
             control("the commit command leaves the coverage state out and keeps every other changed path, in order",
                     [closed_paths(["a.md"], "book/ledger.json", "state/coverage.json", True),
                      closed_paths(["a.md"], "book/ledger.json", "state/coverage.json", False),
