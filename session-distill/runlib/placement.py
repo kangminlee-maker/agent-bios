@@ -54,6 +54,22 @@ BELOW_BAR = ("incubate", "keep", "drop", "none")
 RELEASE_SCOPES = ("release_1", "all")
 _SCOPE = ["release_1"]
 NO_CHANGE = ("none",)
+# The functions a suite runs in. `scoped` refuses to run unless one of them is on the calling thread's stack, and
+# placement's suite refuses a reference to it anywhere else (Codex release-1 review F4).
+SELF_TEST_FUNCTIONS = ("self_test", "_self_test_all", "_self_test_body")
+
+
+def self_test_on_stack(names):
+    """Whether a stack of function names, innermost first, runs inside a suite."""
+    return any(name in SELF_TEST_FUNCTIONS for name in names)
+
+
+def _stack_names():
+    frame, names = sys._getframe(1), []
+    while frame is not None:
+        names.append(frame.f_code.co_name)
+        frame = frame.f_back
+    return names
 
 
 def release_scope():
@@ -65,6 +81,9 @@ def scoped(scope):
     """The release scope for the code inside, for a self-test: `all` runs the contract as designed."""
     if scope not in RELEASE_SCOPES:
         raise Refused(f"RELEASE_SCOPE_UNKNOWN {scope!r}: the scopes are {', '.join(RELEASE_SCOPES)}")
+    if not self_test_on_stack(_stack_names()):
+        raise Refused("RELEASE_SCOPE_OUTSIDE_SELF_TEST: the release scope is changed only inside a suite; release 1 "
+                      "changes no library file")
     held = _SCOPE[0]
     _SCOPE[0] = scope
     try:
@@ -109,7 +128,9 @@ def release_packet_text(role="propose"):
             f"(`RELEASE_1_NO_LIBRARY_CHANGE`), whatever the contract above would allow. ")
     if role == "review":
         return head + (f"An alternative you name is held to the same refusal: choose it among "
-                       f"{', '.join(release_accepts())}, as the contract's row for the pair allows them. Where you "
+                       f"{', '.join(release_accepts())}, as the contract's row for the pair allows them. A `keep` or "
+                       "`drop` alternative carries its reason into the ledger; an `incubate` alternative carries no "
+                       "observation, so a person who adopts it sends the item back for a complete proposal. Where you "
                        "judge that a change to a library file is what the evidence supports, say so in your reason; "
                        "it is shown to the person, and a later release can carry it out.\n")
     return head + (f"Choose among {', '.join(release_accepts())}, as the contract's row for this pair allows them and "
@@ -1624,27 +1645,71 @@ def _self_test_body(failures, ran):
                                "; ".join(answerable_in_release_1()), "not delivered/covered/above: only ['re-deliver']"))
 
     def scope_writers(sources):
-        """Every call of `scoped` outside a self-test function, as `file:line`: the scope's only writer runs
-        inside a suite, so a shipped path cannot reopen what release 1 closes."""
+        """Every REFERENCE to `scoped` outside a function SELF_TEST_FUNCTIONS names, as `file:line`: a call, an
+        attribute read, a name, an imported alias, or the string a `getattr` would take. A reference is how a call
+        through another name begins, so none stands outside a suite (Codex release-1 review F4)."""
         out = []
         for name, text in sorted(sources.items()):
+            tree = ast.parse(text)
+            # the names this file binds to placement itself: `placement`, and any alias it imports it under
+            aliases = {"placement"} | {a.asname or a.name.split(".")[-1] for node in ast.walk(tree)
+                                       if isinstance(node, (ast.Import, ast.ImportFrom))
+                                       for a in node.names if a.name.split(".")[-1] == "placement"}
+            own = name.endswith("placement.py")
+
+            def refers(child):
+                if isinstance(child, ast.Attribute) and child.attr == "scoped":
+                    return (isinstance(child.value, ast.Name) and child.value.id in aliases) or \
+                        (not isinstance(child.value, ast.Name) and "placement" in ast.unparse(child.value))
+                if isinstance(child, ast.ImportFrom):
+                    return (child.module or "").split(".")[-1] == "placement" and any(
+                        a.name in ("scoped", "*") for a in child.names)
+                if isinstance(child, ast.Call) and getattr(child.func, "id", None) == "getattr":
+                    return any(isinstance(arg, ast.Constant) and arg.value == "scoped" for arg in child.args[1:2])
+                return own and isinstance(child, ast.Name) and child.id == "scoped"
+
             def walk(node, inside):
                 for child in ast.iter_child_nodes(node):
                     now = inside or (isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
-                                     and "self_test" in child.name)
-                    if (isinstance(child, ast.Call) and not now
-                            and getattr(child.func, "attr", getattr(child.func, "id", None)) == "scoped"):
+                                     and child.name in SELF_TEST_FUNCTIONS)
+                    if refers(child) and not now:
                         out.append(f"{name}:{child.lineno}")
                     walk(child, now)
-            walk(ast.parse(text), False)
+            walk(tree, False)
         return out
     shipped = {str(p.relative_to(HERE)): p.read_text(encoding="utf-8")
                for p in sorted(list((HERE / "runlib").glob("*.py")) + [HERE / "distill.py"])}
     inside = [n for n, t in shipped.items() if ".scoped(" in t]
     equals("the suites that run the design's scope call it, eight of them, and this one", len(inside), 9)
     clean("no shipped code calls `scoped` outside a self-test", scope_writers(shipped))
-    equals("and a call outside a self-test is named", json.dumps(scope_writers(
-        {"x.py": "def run():\n    with placement.scoped('all'):\n        pass\n"})), json.dumps(["x.py:2"]))
+    equals("and a call outside a self-test is named, through an alias, a captured callable, getattr or a helper "
+           "whose name merely holds self_test", json.dumps(scope_writers({
+               "a.py": "def run():\n    with placement.scoped('all'):\n        pass\n",
+               "b.py": "from runlib.placement import scoped as switch\n",
+               "c.py": "switch = placement.scoped\n",
+               "d.py": "def run():\n    getattr(placement, 'scoped')('all')\n",
+               "e.py": "def run_self_test_helper():\n    placement.scoped('all')\n",
+               "f.py": "from runlib import placement as p\ndef run():\n    p.scoped('all')\n",
+               "g.py": "def run(scoped, x):\n    return scoped + x.scoped\n"})),
+           json.dumps(["a.py:2", "b.py:1", "c.py:1", "d.py:2", "e.py:2", "f.py:3"]))
+    equals("a stack is a suite's only with one of its functions on it",
+           json.dumps([self_test_on_stack(["run", "main", "<module>"]), self_test_on_stack(["run_self_test_x"]),
+                       self_test_on_stack(["helper", "_self_test_body", "<module>"])]), json.dumps([False, False, True]))
+    import threading
+    outside = []
+
+    def from_another_stack():
+        try:
+            scoped("all").__enter__()
+            outside.append("entered")
+        except Refused as exc:
+            outside.append(str(exc).split(":")[0])
+    worker = threading.Thread(target=from_another_stack)
+    worker.start()
+    worker.join()
+    _SCOPE[0] = "release_1"          # had the guard let it in, the scope is restored here before anything else runs
+    equals("and `scoped` called from a stack with no suite on it is refused by name", json.dumps(outside),
+           json.dumps(["RELEASE_SCOPE_OUTSIDE_SELF_TEST"]))
 
     import inspect
     wrapper_text = inspect.getsource(self_test)

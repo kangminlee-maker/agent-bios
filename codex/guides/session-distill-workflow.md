@@ -61,7 +61,9 @@ A run should produce:
    gate, or other existing mechanism that reaches its consumer. Keep evidence
    and decisions in the ledger; report what was applied and verified and what
    remains open. A review-ready proposal and an applied change are distinct
-   outcomes, and promotion still requires explicit user approval.
+   outcomes, and promotion still requires explicit user approval. In release 1
+   the driver applies none of them: an approved change to the library is an
+   author's own work by hand (Stages 2 to 5).
 
 Judge success by useful, justified learning and its appropriate application.
 Candidate counts and added text measure output volume. A supported decision to
@@ -166,6 +168,13 @@ against the migrated ledger it would leave a document the schema no longer
 describes. It now refuses a ledger that is not schema 1 by name
 (`LEDGER_SCHEMA_UNSUPPORTED`) before reading or writing anything. After the
 migration a window is folded in by the lifecycle intake.
+
+**Stages 2 to 5 are the author's own work, not the driver's.** In release 1 the
+driver changes no library file (D-20261116-7853bc). Where the owner decides that a
+run's finding should change the library, an author makes the change by hand, as
+Stage 3 describes: on a branch, through the placement framework, verified and
+committed like any other change to this repository. The run's ledger records the
+owner's decision, not the edit.
 
 ## Stage 2 — Review with the user
 

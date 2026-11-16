@@ -60,7 +60,9 @@ core_rules:
    사용 주체에게 도달하는 기존 수단에 반영한다. 근거와 결정은 ledger에
    보존하고, 반영·검증된 내용과 미해결 사항을 보고한다. 검토 가능한
    제안과 적용된 변경은 서로 다른 결과이며, promotion에는 계속해서
-   명시적인 사용자 승인이 필요하다.
+   명시적인 사용자 승인이 필요하다. release 1에서는 드라이버가 이 중
+   어느 것도 반영하지 않는다: 승인된 library 변경은 작성자가 손으로 하는
+   일이다(Stage 2~5).
 
 성공은 유용하고 타당한 학습과 적절한 적용으로 판단한다. 후보 수나
 늘어난 문장의 양은 산출물의 분량을 나타낸다. 기존 내용을 유지한다는
@@ -140,6 +142,11 @@ census), `plain-asks.py`, `update-state.py --window-end <date>`(launcher의 nudg
 필드가 없다. 그래서 이행된 ledger에 돌리면 schema가 더는 설명하지 않는 문서를 남긴다. 지금은
 schema 1이 아닌 ledger를 이름을 대고 거부한다(`LEDGER_SCHEMA_UNSUPPORTED`), 읽기도 쓰기도 전에.
 이행 뒤의 window는 lifecycle intake가 접어 넣는다.
+
+**Stage 2~5는 드라이버가 아니라 작성자가 직접 하는 일이다.** release 1에서 드라이버는 library 파일을
+바꾸지 않는다(D-20261116-7853bc). 소유자가 run의 발견으로 library를 바꾸기로 정하면, 작성자가 Stage 3에
+적힌 대로 손으로 바꾼다: branch에서, placement framework를 따라, 이 저장소의 다른 변경처럼 검증하고
+commit한다. run의 ledger에는 그 편집이 아니라 소유자의 결정이 기록된다.
 
 ## Stage 2 — Review with the user
 

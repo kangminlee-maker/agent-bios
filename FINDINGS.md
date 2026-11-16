@@ -383,7 +383,10 @@ write (D4), and controls without exact or independent oracles (D5).
 Reach in release 1: none of these runs. Release 1 changes no library file (D-20261116-7853bc): `place`, `correct`,
 `re-deliver`, `reduce` and any operation are refused by name (`RELEASE_1_NO_LIBRARY_CHANGE`) at S7, S7b, S10b and
 S11 (`session-distill/runlib/placement.py`, `release_problems`), and a keep release arises only from a `reduce`
-approval. The closed path keeps its controls, run under the scope `all`. The review's result is the lead's
+approval. S12 refuses, by the same name, to close a run whose confirmed set held a change or whose S11 record holds
+an effect - a run an earlier version applied - because its close would record those transitions, the lost keep
+release (C4) among them; the confirmation review of the closing found that path (2026-11-16). The closed path keeps
+its controls, run under the scope `all`. The review's result is the lead's
 `work/lead/write-path-x-r4-review.json`, outside the repository.
 
 Alternatives:

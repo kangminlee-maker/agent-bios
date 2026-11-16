@@ -53,9 +53,8 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
-from runlib import (census, coverage, ledger, placement, records, stage_apply, stage_approvals, stage_propose,  # noqa: E402
-                    stagelock,
-                    stage_confirm, targets)
+from runlib import (census, coverage, drift, ledger, placement, records, stage_apply, stage_approvals,  # noqa: E402
+                    stage_propose, stagelock, stage_confirm, targets)
 from runlib.records import Refused  # noqa: E402
 
 STAGE = "S12"
@@ -107,7 +106,7 @@ def decided_items(manifest, current, approvals, apply_doc):
                     "disposition": held["disposition"], "row": row,
                     "proposal": {} if held.get("member_of") or held.get("adopted") else (row.get("proposal") or {}),
                     "paths": [], "operations": [], "adopted": held.get("adopted"),
-                    "member_of": held.get("member_of")})
+                    "alternative_reason": held.get("alternative_reason"), "member_of": held.get("member_of")})
     return out
 
 
@@ -140,6 +139,7 @@ def reason_of(item):
     adopted = item.get("adopted")
     return (reasons.get("reason")
             or (adopted.get("reason") if isinstance(adopted, dict) else None)
+            or item.get("alternative_reason")
             or (f"the owner's default for the legacy group {item['member_of']}" if item.get("member_of") else None))
 
 
@@ -397,6 +397,28 @@ def _file_sha(path):
     return ledger.sha256_bytes(ledger.read_current(path))
 
 
+# The instruction trees: a file under one is shipped or installed as instructions whatever its name, as a skill's
+# bundle takes every file beneath it (`compose/instructions_catalog.py`).
+LIBRARY_TREES = ("claude", "codex", "ko")
+
+
+def destination_problems(paths):
+    """S12's own state files kept out of the library (Codex release-1 review F1): a ledger or a coverage state named
+    in a layer that carries instructions, or under an instruction tree, would be written as a library member. Only
+    the `ledger` layer and a path no layer names are S12's to write; read case-folded, as a case-folding checkout
+    resolves them."""
+    out = []
+    for rel in paths:
+        held = pathlib.PurePosixPath(str(rel)).as_posix()
+        layers = {drift.layer_of(held), drift.layer_of(held.casefold())} - {None, "ledger"}
+        tree = held.casefold().split("/", 1)[0]
+        if layers or tree in LIBRARY_TREES:
+            where = f"in the {', '.join(sorted(layers))} layer" if layers else f"under the instruction tree {tree}/"
+            out.append(f"CLOSE_DESTINATION_IN_LIBRARY {rel}: S12 writes the ledger and the coverage state outside the "
+                       f"library, and this path is {where}")
+    return out
+
+
 def run(run_dir, ledger_ref=None, coverage_ref=None):
     """S12 over a run S11 applied: `close.json`, or Refused with no tracked file written by this call. `ledger_ref`
     and `coverage_ref` are the two tracked files' paths inside the declared checkout, named by the caller."""
@@ -428,9 +450,18 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
         if any(e.get("state") not in ("applied", "done_before") for e in apply_doc.get("effects") or []):
             raise Refused("APPLY_INCOMPLETE S12: apply.json holds an effect that was not written")
         stored = records.read_json(run_dir / stage_confirm.manifest_rel(version))
+        # Release 1 changes no library file (Codex release-1 review F3): a run whose confirmed set held a change, or
+        # whose S11 record holds an effect, was applied by an earlier version, and its close would record those
+        # transitions (a keep release among them) on the ledger. Refused before the allocation and every write.
+        if placement.release_scope() == "release_1" and (stored.get("F") or apply_doc.get("effects")):
+            raise Refused(f"RELEASE_1_NO_LIBRARY_CHANGE S12: this run's confirmed set holds {len(stored.get('F') or [])} "
+                          f"change(s) to a library file and S11 recorded {len(apply_doc.get('effects') or [])} effect(s), "
+                          f"applied by an earlier version; release 1 closes no such run. Restore the changed files in "
+                          f"the checkout if they should not stay, and decide the items again in a new run")
         gathered = stage_confirm.gathered(run_dir)
         current, approvals = gathered[0], gathered[1]
         found = list(targets.set_problems([ledger_rel] + ([coverage_rel] if coverage_rel else []), str(checkout)))
+        found += destination_problems([ledger_rel] + ([coverage_rel] if coverage_rel else []))
         if found:
             raise Refused("\n".join(found))
         candidates = {c["candidate_id"]: c for c in
@@ -750,7 +781,7 @@ def _self_test_body(failures, ran, reporting):
                            "gate": [{"kind": "refusal", "state": "expected"}],
                            "counts": {"expected": 1, "failed": 1, "not_applicable": 1, "kinds_not_planted": 0}}
 
-    def applied(name, kind="targeted", legacy_target="L-2"):
+    def applied(name, kind="targeted", legacy_target="L-2", alternative=None, decisions=None):
         root = pathlib.Path(tempfile.mkdtemp(prefix=f"s12-{name}-"))
         made_dirs.append(root)
         checkout = root / "checkout"
@@ -767,11 +798,13 @@ def _self_test_body(failures, ran, reporting):
 
         def edit(rows_doc):
             rows_doc["controls"] = copy.deepcopy(RECORDED_EVALUATION)   # as S9 records it (D-20261115-18d56b)
+            if alternative:
+                next(r for r in rows_doc["rows"] if r["item_id"] == "k-place")["s7b"]["alternative"] = dict(alternative)
             for row in rows_doc["rows"]:
                 for operation in (row.get("proposal") or {}).get("operations") or []:
                     if operation["target"] == "claude/guides/k.md":
                         operation["before_state_sha256"] = stage_apply.sha_of(K)
-        run_dir = stage_confirm.fx_run(root, held, edit)
+        run_dir = stage_confirm.fx_run(root, held, edit, alternative)
         records.write_json(run_dir, run_dir / "checked-candidates.json", {"candidates": [
             {"candidate_id": "k-place", "source": "formed", "lesson": "Place it.", "event_ids": ["v-9"],
              "lifecycle": None},
@@ -783,9 +816,9 @@ def _self_test_body(failures, ran, reporting):
             stage.output("checked-candidates.json")
         copy_path = run_dir / "decisions.ko.v1.md"
         lines = copy_path.read_text(encoding="utf-8").split("\n")
-        for ident, said in {"k-place": ["결정: 승인"],
-                            "k-reduce": ["결정: 승인", "keep 해제: R-1 사용자가 직접 줄인다"],
-                            "group:legacy:incubating": ["결정: 승인"]}.items():
+        for ident, said in (decisions or {"k-place": ["결정: 승인"],
+                                          "k-reduce": ["결정: 승인", "keep 해제: R-1 사용자가 직접 줄인다"],
+                                          "group:legacy:incubating": ["결정: 승인"]}).items():
             start = next(i for i, x in enumerate(lines) if x.startswith(f"<!-- owner-block review item={ident} "))
             end = next(i for i in range(start + 1, len(lines)) if lines[i] == owner_lines.CLOSE)
             lines = lines[:start + 1] + said + lines[end:]
@@ -817,6 +850,60 @@ def _self_test_body(failures, ran, reporting):
             control("and a coverage reference names a coverage.json",
                     code(lambda: close_run(run_dir, coverage_ref="state/other.json")), "COVERAGE_REF_INVALID")
         section('a confirmed set S11 has not applied (section)', scenario_0)
+
+        def scenario_release_1():
+            # Codex release-1 review F1: S12's own files are not written into the library, under either scope
+            clean_paths = destination_problems(["design/session-distill/ledger.json", "session-distill/local/coverage.json"])
+            control("S12's ledger and coverage destinations outside the library pass", clean_paths, [])
+            control("and one inside a skill, a guide, an instruction tree or a case-folded spelling of one is refused",
+                    [p.split(":")[0] for p in destination_problems(
+                        ["claude/skills/understand/ledger.json", "claude/guides/coverage.json",
+                         "ko/claude/notes/ledger.json", "Claude/Skills/u/coverage.json", "compose/ledger.json"])],
+                    ["CLOSE_DESTINATION_IN_LIBRARY claude/skills/understand/ledger.json",
+                     "CLOSE_DESTINATION_IN_LIBRARY claude/guides/coverage.json",
+                     "CLOSE_DESTINATION_IN_LIBRARY ko/claude/notes/ledger.json",
+                     "CLOSE_DESTINATION_IN_LIBRARY Claude/Skills/u/coverage.json",
+                     "CLOSE_DESTINATION_IN_LIBRARY compose/ledger.json"])
+            root, run_dir, checkout = applied("dest")
+            stage_apply.run(run_dir)                        # S11 under the design's scope, as an earlier version ran it
+            before = (checkout / LEDGER_AT).read_bytes()
+            control("the stage refuses a coverage state named inside a skill, before it writes",
+                    code(lambda: close_run(run_dir, coverage_ref="claude/skills/understand/coverage.json")),
+                    "CLOSE_DESTINATION_IN_LIBRARY")
+            control("and the ledger and the skill are as they were",
+                    [(checkout / LEDGER_AT).read_bytes() == before,
+                     (checkout / "claude" / "skills" / "understand" / "coverage.json").exists()], [True, False])
+            # Codex release-1 review F3: a run an earlier version applied is not closed in release 1
+            root, run_dir, checkout = applied("rel1")
+            stage_apply.run(run_dir)                        # S11 under the design's scope, as an earlier version ran it
+            before = (checkout / LEDGER_AT).read_bytes()
+            with placement.scoped("release_1"):
+                said_rel1 = refusal(lambda: close_run(run_dir))
+            control("in release 1 the close of a run whose confirmed set changed a library file is refused by name",
+                    said_rel1.split(":")[0], "RELEASE_1_NO_LIBRARY_CHANGE S12")
+            control("and nothing is written: the ledger as it was, no close record",
+                    [(checkout / LEDGER_AT).read_bytes() == before, (run_dir / OUTPUT).exists()], [True, False])
+        section('release 1 and the close (section)', scenario_release_1)
+
+        def scenario_release_1_run():
+            # the run release 1 can make, from S10's parse through S12 at the shipped scope: the owner adopts S7b's
+            # drop for k-place and approves the legacy group, so nothing changes a file (Codex release-1 review F2)
+            with placement.scoped("release_1"):
+                root, run_dir, checkout = applied(
+                    "rel1-run", alternative={"disposition": "drop", "reason": "이번 근거로는 약하다"},
+                    decisions={"k-place": ["결정: 수정 대안 s7b"], "group:legacy:incubating": ["결정: 승인"]})
+                library_before = (checkout / "claude" / "guides" / "k.md").read_bytes()
+                done = stage_apply.run(run_dir)
+                closed = close_run(run_dir)
+            control("in release 1 S11 writes nothing for a set that changes no file", (done["counts"]["effects"],
+                    done["paths"], (checkout / "claude" / "guides" / "k.md").read_bytes() == library_before),
+                    (0, [], True))
+            held_doc = json.loads((checkout / LEDGER_AT).read_text(encoding="utf-8"))
+            dropped = [d for e in held_doc.get("entries") or [] for d in e.get("decisions") or []
+                       if d.get("run") == run_dir.name and d.get("disposition") == "drop"]
+            control("and S12 closes it, the adopted drop recorded with the reason the owner read",
+                    (bool(closed), [d.get("reason") for d in dropped]), (True, ["이번 근거로는 약하다"]))
+        section('a release-1 run through S12 (section)', scenario_release_1_run)
 
         def scenario_coverage_paths():
             # The stage's own call site with a coverage state to promote, on its first pass and on the re-run after

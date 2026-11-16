@@ -121,6 +121,16 @@ def _without_reason(alternative):
 
 # ---- the final set ----------------------------------------------------------------------------------------------
 
+def adopted_gap(disposition, reason):
+    """Why an adopted S7b alternative cannot be closed as it stands, or None. S12 records an incubate's observation and
+    expiry and a keep's or a drop's reason (`stage_close.element_of`), and S7b's alternative carries a reason alone."""
+    if disposition == "incubate":
+        return "adopted_incubate_without_observation"
+    if disposition in ("keep", "drop") and not reason:
+        return "adopted_without_reason"
+    return None
+
+
 def final_set(declaration, current, approvals, s7b, parses, library):
     """`(manifest, problems)`: the final set S10's approvals leave over the current rows. Pure, every input given:
     `current` the current rows document (with `_sha256`, its file's hash), `approvals` approvals.jsonl's rows in
@@ -172,9 +182,20 @@ def final_set(declaration, current, approvals, s7b, parses, library):
                                 f"{(shown or {}).get('disposition')!r}, and S7b's recorded review now offers "
                                 f"{(held or {}).get('disposition')!r}; decide it again in a new review version")
             elif shown.get("disposition") in LEDGER_ONLY:
-                ledger_only.append({"item_id": item_id, "approval_id": a["approval_id"],
-                                    "disposition": shown["disposition"], "adopted": a["alternative"]})
-                bound.append(a["approval_id"])
+                # what S12 needs of it is decided now, before the owner confirms (Codex release-1 review F2): an
+                # alternative carries a reason and no observation, so an incubate, or a keep or drop without its
+                # reason, is S7's to propose again, and the reason the owner read travels to the close
+                reason = ((row.get("s7b") or {}).get("alternative") or {}).get("reason")
+                reason = reason if isinstance(reason, str) and reason.strip() else None
+                gap = adopted_gap(shown["disposition"], reason)
+                if gap:
+                    needs_proposal.append({"item_id": item_id, "approval_id": a["approval_id"],
+                                           "disposition": shown["disposition"], "why": gap})
+                else:
+                    ledger_only.append({"item_id": item_id, "approval_id": a["approval_id"],
+                                        "disposition": shown["disposition"], "adopted": a["alternative"],
+                                        "alternative_reason": reason})
+                    bound.append(a["approval_id"])
             else:
                 needs_proposal.append({"item_id": item_id, "approval_id": a["approval_id"],
                                        "disposition": shown.get("disposition"), "why": "adopted_alternative"})
@@ -234,6 +255,9 @@ def page(manifest, version):
             for i in manifest["ledger_only"]] or ["- 없음"]
     out += ["", "## 이번 확정에 들어가지 않는 승인", ""]
     why = {"adopted_alternative": "채택한 S7b 대안이 라이브러리를 바꾸므로 S7이 작업을 제안해야 합니다",
+           "adopted_incubate_without_observation": "채택한 S7b 대안 incubate에는 관찰 계획과 만료가 없어, S7이 그것을 "
+                                                   "갖춘 제안을 다시 만들어야 합니다",
+           "adopted_without_reason": "채택한 S7b 대안에 이유가 없어, S7이 이유를 갖춘 제안을 다시 만들어야 합니다",
            "revise_note": "수정 메모와 함께 S7로 돌아갑니다"}
     apart = [f"- {i['item_id']}: R을 기다립니다 ({i.get('reason') or '이유 없음'})" for i in manifest["awaiting_R"]]
     apart += [f"- {i['item_id']}: 승인한 뒤 행이 바뀌어 새 검토 판에서 다시 결정합니다" for i in manifest["stale"]]
@@ -415,7 +439,7 @@ def confirm(run_dir, version=None, copy_path=None):
 
 # ---- self-test --------------------------------------------------------------------------------------------------
 
-def fx_run(root, declaration=None, edit=None):
+def fx_run(root, declaration=None, edit=None, alternative=None):
     """A run carried to S10's parse over S10's own fixture rows (`stage_approvals.fixture`: a place, a keep, a guarded
     reduce, an item awaiting R, a disputed row and a legacy group), each producer's file written under its own stage
     record, as `stage_propose.fx_through_s6` writes S6's. S10's parse is the real one. Returns the run directory."""
@@ -434,8 +458,8 @@ def fx_run(root, declaration=None, edit=None):
         stage.output(INVENTORY)
     with records.run_stage(run_dir, "S7b", []) as stage:
         records.write_json(run_dir, run_dir / stage_review_proposals.OUTPUT, {"stage": "S7b", "reviews": [
-            {"item_id": "k-place", "verdict": "disagree", "alternative": {"disposition": "incubate",
-                                                                           "reason": "관찰을 더 모은다"}}]})
+            {"item_id": "k-place", "verdict": "disagree", "alternative": alternative or {"disposition": "incubate",
+                                                                                          "reason": "관찰을 더 모은다"}}]})
         stage.output(stage_review_proposals.OUTPUT)
     with records.run_stage(run_dir, "S9", []) as stage:
         records.write_text(run_dir, run_dir / "review.ko.v1.md", text)
@@ -555,9 +579,26 @@ def _self_test_all():
 
     # ---- each rule, one break at a time ----------------------------------------------------------------------------
     m, f = built({**approve, "k-place": ["결정: 수정 대안 s7b"]})
-    equal("an adopted S7b alternative that is ledger-only joins the ledger-only set with its disposition, out of F",
-          ([(i["item_id"], i["disposition"], i.get("adopted")) for i in m["ledger_only"] if i["item_id"] == "k-place"],
-           [i["item_id"] for i in m["F"]], f), ([("k-place", "incubate", "s7b")], ["k-reduce"], []))
+    equal("an adopted S7b incubate carries no observation, so it is S7's to propose again and not in the set (Codex "
+          "release-1 review F2)",
+          ([(i["item_id"], i["disposition"], i["why"]) for i in m["needs_proposal"] if i["item_id"] == "k-place"],
+           [i["item_id"] for i in m["ledger_only"] if i["item_id"] == "k-place"], [i["item_id"] for i in m["F"]], f),
+          ([("k-place", "incubate", "adopted_incubate_without_observation")], [], ["k-reduce"], []))
+    dropping = copy.deepcopy(rows_doc)
+    next(r for r in dropping["rows"] if r["item_id"] == "k-place")["s7b"]["alternative"] = {
+        "disposition": "drop", "reason": "이번 근거로는 약하다"}
+    m, f = built({**approve, "k-place": ["결정: 수정 대안 s7b"]}, rows=dropping,
+                 s7b={"reviews": [{"item_id": "k-place", "alternative": {"disposition": "drop", "reason": "x"}}]})
+    equal("an adopted drop joins the ledger-only set with the reason the owner read, which the close records",
+          ([(i["item_id"], i["disposition"], i.get("adopted"), i.get("alternative_reason")) for i in m["ledger_only"]
+            if i["item_id"] == "k-place"], f), ([("k-place", "drop", "s7b", "이번 근거로는 약하다")], []))
+    next(r for r in dropping["rows"] if r["item_id"] == "k-place")["s7b"]["alternative"] = {
+        "disposition": "drop", "reason": "  "}
+    m, f = built({**approve, "k-place": ["결정: 수정 대안 s7b"]}, rows=dropping,
+                 s7b={"reviews": [{"item_id": "k-place", "alternative": {"disposition": "drop", "reason": "x"}}]})
+    equal("and one without a reason is S7's to propose again",
+          [(i["item_id"], i["why"]) for i in m["needs_proposal"] if i["item_id"] == "k-place"],
+          [("k-place", "adopted_without_reason")])
     m, f = built({**approve, "k-place": ["결정: 수정 대안 s7b"]},
                  s7b={"reviews": [{"item_id": "k-place", "alternative": {"disposition": "drop"}}]})
     control("an adopted alternative S7b's recorded review no longer offers is ALTERNATIVE_STALE", "\n".join(f),
