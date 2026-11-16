@@ -1694,8 +1694,15 @@ def _self_test_body(failures, ran):
                     walk(child, now)
             walk(tree, False)
         return out
+    # every Python file the driver ships beside it, its grammar package among them (release 1's third confirmation
+    # review: the walk had covered runlib/ and the driver only)
     shipped = {str(p.relative_to(HERE)): p.read_text(encoding="utf-8")
-               for p in sorted(list((HERE / "runlib").glob("*.py")) + [HERE / "distill.py"])}
+               for p in sorted(list((HERE / "runlib").glob("*.py")) + list((HERE / "grammar").glob("*.py"))
+                               + [HERE / "distill.py"])}
+    equals("the walk reads the driver and its grammar package beside runlib",
+           json.dumps([sorted(n for n in shipped if n.startswith("grammar/")), "distill.py" in shipped,
+                       "runlib/placement.py" in shipped]),
+           json.dumps([["grammar/__init__.py", "grammar/owner_lines.py"], True, True]))
     inside = [n for n, t in shipped.items() if ".scoped(" in t]
     equals("the suites that run the design's scope call it, eight of them, and this one", len(inside), 9)
     clean("no shipped code calls `scoped` outside a self-test", scope_writers(shipped))

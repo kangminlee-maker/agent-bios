@@ -698,6 +698,27 @@ py.write_text(py.read_text(encoding="utf-8").replace("REPO /", "GONE /"), encodi
 PY
   case_is "patterns that no longer match their sources" "extracted zero runtime paths"
 
+  # A tree shipped by its members: the driver's grammar package taken out of files[] and declared
+  # nowhere is exactly how every tarball lost it (release 1's third confirmation review, F1).
+  fresh; dropline package.json '"session-distill/grammar/"'
+  case_is "a driver file neither shipped nor declared author-side" \
+          "UNCLASSIFIED 2 file(s) under a tree shipped by its members"
+
+  # The classification holds only if the package starts: a table the driver reads at import,
+  # withheld and DECLARED author-side, passes the classification and must still fail by name.
+  fresh; dropline package.json '"session-distill/tables/unit_outcome.json"'
+  # (the old text spans the declaration's line break, so it cannot match this line's own quoting)
+  sub gates/check-package.sh $'    "session-distill/REPIN.md":\n        "how to re-pin' \
+      $'    "session-distill/tables/unit_outcome.json":\n        "planted: withheld while the driver reads it at import",\n    "session-distill/REPIN.md":\n        "how to re-pin'
+  case_is "a table the packaged driver reads at import, withheld" "PAYLOAD_DOES_NOT_START"
+
+  # And a module the driver loads only once a command runs (`runlib/measures.py` is not imported by
+  # `--help`): its import-time read of a withheld author-side table is reached by the import probe alone.
+  fresh; printf '\n__import__("pathlib").Path(__file__).resolve().parents[1].joinpath("tables", "ledger_readers.json").read_text()\n' \
+      >> "$W/session-distill/runlib/measures.py"
+  case_is "a module outside the driver's start reads a withheld table at import" \
+          "runlib.measures: FileNotFoundError"
+
   if [ "$bad" -ne 0 ]; then
     echo "check-package --self-test: FAILED" >&2
     exit 1
@@ -782,6 +803,9 @@ AUTHOR_SIDE_FILES = {
     "session-distill/tables/ledger_readers.json":
         "the reader registry of the CHECKOUT's ledger: every row names an author-side path, and "
         "its one consumer is migrate-ledger.py, which does not ship (review Y #8)",
+    "session-distill/tables/stage_delivery_fixtures.json":
+        "S5b's frozen state paths, read by stage_delivery's own suite alone; its rows cite the "
+        "mechanism design under design/, which never ships (release 1's third confirmation review)",
 
 }
 
@@ -1837,6 +1861,43 @@ if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mkte
               "in the config table that holds the text")
     sys.exit(1)
 
+
+def tracked_names():
+    """The INDEX where there is one — under the hook that is the snapshot the commit carries — and
+    the tree itself otherwise, because this gate's own self-test judges copies that are not git
+    repositories at all, and a crash there reads as "the gate failed on text that is no
+    violation"."""
+    tracked = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True)
+    if tracked.returncode == 0 and tracked.stdout:
+        return [n for n in tracked.stdout.decode().split("\0") if n]
+    return [str(q.relative_to(REPO)) for q in REPO.rglob("*")
+            if q.is_file() and ".git/" not in str(q.relative_to(REPO))
+            and not str(q.relative_to(REPO)).startswith(".git")]
+
+
+# ---- a tree shipped by its members: every file in it is shipped or declared author-side ----------
+# The first direction derives what the installer reads; nothing asked what a SHIPPED MODULE reads.
+# `session-distill/` ships member by member and its driver loads its own tables and its `grammar/`
+# package by path, so a file added there was in neither list until someone decided, and nobody
+# did: from 2026-11-11 every tarball lacked `grammar/` and six tables, and the packaged driver
+# stopped at startup while every clone worked (release 1's third confirmation review, F1). What a
+# module reads is not decidable here; whether every file was DECIDED is. A file is shipped by
+# files[], or author-side by a declaration above that carries its reason.
+CLASSIFIED_TREES = {
+    "session-distill/": "the driver ships by members and loads its tables, packets and grammar by "
+                        "path, so a file in neither list is a payload nobody chose",
+}
+members = sorted(n for n in tracked_names()
+                 if any(n.startswith(t) for t in CLASSIFIED_TREES) and (REPO / n).is_file()
+                 and "__pycache__" not in n.split("/") and not n.endswith((".pyc", ".pyo")))
+unclassified = [n for n in leg("classified tree members", members)
+                if not shipped(n) and not author_side(n)]
+if unclassified:
+    sys.exit(f"check-package: FAILED — UNCLASSIFIED {len(unclassified)} file(s) under a tree shipped "
+             f"by its members are neither in package.json files[] nor declared author-side: "
+             f"{', '.join(unclassified[:12])}. Every clone has them and no packaged user does. Ship "
+             f"each, or declare it in AUTHOR_SIDE_FILES with the reason it is not payload.")
+
 hollow = sorted(n for n, c in LEGS.items() if c == 0)
 if hollow:
     sys.exit(f"check-package: FAILED — leg(s) that judged nothing: {', '.join(hollow)}. "
@@ -1855,17 +1916,7 @@ if npm_bin is None:
     print("check-package: SKIPPED the npm expansion leg: npm is not on PATH, so the tarball's own "
           "file list cannot be derived here", file=sys.stderr)
 else:
-    # The INDEX where there is one — under the hook that is the snapshot the commit carries — and
-    # the tree itself otherwise, because this gate's own self-test judges copies that are not git
-    # repositories at all, and a crash there reads as "the gate failed on text that is no
-    # violation".
-    tracked = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True)
-    if tracked.returncode == 0 and tracked.stdout:
-        names = [n for n in tracked.stdout.decode().split("\0") if n]
-    else:
-        names = [str(q.relative_to(REPO)) for q in REPO.rglob("*")
-                 if q.is_file() and ".git/" not in str(q.relative_to(REPO))
-                 and not str(q.relative_to(REPO)).startswith(".git")]
+    names = tracked_names()
     with tempfile.TemporaryDirectory() as raw_tmp:
         copy = pathlib.Path(raw_tmp) / "tree"
         for rel in names:
@@ -1926,6 +1977,68 @@ else:
         # rather than counted as a disagreement.
         forced = {name for name in npm_files if always_packed(name)}
         leg("npm expansion rows", npm_files)
+
+        # ---- the payload STARTS: the driver and every module it ships, from npm's expansion alone.
+        # The classification above says every file was decided; this says the decision holds, by
+        # running what a packaged user runs with nothing beside it but a scratch home. A module
+        # that reads a withheld table at import, or imports a withheld package, fails here by its
+        # name. A read made only once a command runs is not reached; the classification is what
+        # asks about those files.
+        package = pathlib.Path(raw_tmp) / "package"
+        for name in sorted(npm_files):
+            if (copy / name).is_file():
+                (package / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(copy / name, package / name)
+        driver_root = package / "session-distill"
+        driver_modules = sorted(
+            ".".join(p.relative_to(driver_root).with_suffix("").parts)
+            for p in driver_root.rglob("*.py")
+            if p.parent != driver_root and p.name != "__init__.py")
+        leg("payload driver modules", driver_modules)
+        scratch_home = pathlib.Path(raw_tmp) / "home"
+        quiet_env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(scratch_home),
+                     "CLAUDE_CONFIG_DIR": str(scratch_home / "claude"),
+                     "CODEX_HOME": str(scratch_home / "codex"), "TMPDIR": str(npm_tmp),
+                     "PYTHONDONTWRITEBYTECODE": "1", "LANG": "C.UTF-8"}
+        import_probe = ("import importlib, pathlib, sys\n"
+                        "sys.path.insert(0, sys.argv[1])\n"
+                        "for name in sys.argv[2:]:\n"
+                        "    try:\n"
+                        "        importlib.import_module(name)\n"
+                        "    except BaseException as problem:\n"
+                        "        print(f'{name}: {type(problem).__name__}: {problem}'[:300])\n")
+        starts = [("distill.py --help",
+                   [sys.executable, "-I", "-B", str(driver_root / "distill.py"), "--help"]),
+                  ("every shipped driver module",
+                   [sys.executable, "-I", "-B", "-c", import_probe, str(driver_root), *driver_modules])]
+        def environment_only_line(line):
+            return "JSONSCHEMA_MISSING" in line or "JSONSCHEMA_VERSION" in line
+
+        environment_only, startup_bad = [], []
+        for label, argv in starts:
+            ran = subprocess.run(argv, cwd=package, env=quiet_env, capture_output=True, text=True)
+            if label == "distill.py --help":
+                said = (ran.stdout + ran.stderr).strip()
+                if ran.returncode != 0 and environment_only_line(said):
+                    environment_only.append(label)
+                elif ran.returncode != 0:
+                    startup_bad.append(f"{label}: rc {ran.returncode}: {said[-600:]}")
+                continue
+            # the probe prints one line per module that did not import, and nothing else
+            lines = [line for line in (ran.stdout + ran.stderr).splitlines() if line.strip()]
+            if any(environment_only_line(line) for line in lines):
+                environment_only.append(label)
+            real = [line for line in lines if not environment_only_line(line)]
+            if real or ran.returncode != 0:
+                startup_bad.append(f"{label}: rc {ran.returncode}: {'; '.join(real)[-900:]}")
+        if environment_only:
+            print("check-package: SKIPPED the payload start leg for " + ", ".join(environment_only)
+                  + ": this interpreter lacks the pinned jsonschema the driver requires, so the "
+                  "package's own start cannot be judged here", file=sys.stderr)
+        if startup_bad:
+            sys.exit("check-package: FAILED — PAYLOAD_DOES_NOT_START from npm's own expansion: "
+                     + " | ".join(startup_bad) + ". Every clone has the file it reached for; ship it, "
+                     "or stop the shipped code reaching for it.")
         def is_cache(name):
             # Both suffixes, because files[] now negates both and the installer's predicate knows
             # both: a comparison that reads only `.pyc` would pass over the pair it is here to hold.

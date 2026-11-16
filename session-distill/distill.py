@@ -107,7 +107,7 @@ except BaseException:
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:
-    from runlib import census, coverage, declare, drift, inventory, projection, records, sources, stage_delivery, \
+    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_delivery, \
         stage_form, stage_judge, \
         stage_adjudicate, stage_apply, stage_approvals, stage_close, stage_confirm, stage_propose, stage_render, stage_retrieve, \
         stage_review_korean, stage_review_proposals, \
@@ -311,11 +311,20 @@ def run_dir_of(args):
         raise Refused(f"RUN_DIR_ESCAPE {args.run_id!r}: {pathlib.Path(out) / args.run_id} resolves outside {out}")
     # a run directory inside the instructions makes its locks, records and outputs part of them (release 1's
     # confirmation review, round 2 F2): refused for every command, before any lock or directory
-    where = drift.library_place(pathlib.Path(run_dir).resolve())
-    if where:
-        raise Refused(f"RUN_DIR_IN_INSTRUCTIONS {run_dir}: a run directory is not placed inside the instructions, and "
-                      f"this one is {where}. Nothing was written; pass --out DIR outside them")
+    outside_instructions(run_dir, "RUN_DIR_IN_INSTRUCTIONS", "a run directory", "--out")
     return run_dir
+
+
+def outside_instructions(path, code, what, flag):
+    """Refuse a destination directory the instructions hold (`inventory.instructions_place`: a checkout's trees and
+    the hosts' homes as configured), before anything is written beneath it: every file there would be shipped or
+    installed as instructions. The one admission for a run directory and for a standalone inventory's `--to`
+    (release 1's third confirmation review, F2 and F3). It reads the path as it resolves now; a parent another
+    process replaces afterwards is not held (the record of that review)."""
+    where = inventory.instructions_place(pathlib.Path(path).resolve())
+    if where:
+        raise Refused(f"{code} {path}: {what} is not placed inside the instructions, and this one is {where}. "
+                      f"Nothing was written; pass {flag} DIR outside them")
 
 
 def split_csv(text):
@@ -387,6 +396,9 @@ def cmd_inventory(args):
     out_dir = run_dir_of(args) if args.run_id else pathlib.Path(args.to or "")
     if not args.run_id and not args.to:
         raise Refused("INPUT_INVALID inventory: give --run-id, or --to DIR to write outside a run")
+    if not args.run_id:
+        # `--to` enters no run, so `run_dir_of` never judged it: another checkout's skill was a destination
+        outside_instructions(out_dir, "INVENTORY_TO_IN_INSTRUCTIONS", "an inventory", "--to")
     repo = pathlib.Path(__file__).resolve().parents[1]
     # Two questions, not one value. The roots are resolved for PROTECTION whatever this run reads,
     # and `--no-state` decides only the reading pair. Setting both to None before the protected set
@@ -1205,15 +1217,21 @@ def self_test():
             for d in ("claude/skills/understand", "codex"):
                 (skill_repo / d).mkdir(parents=True)
             inside = skill_repo / "claude" / "skills" / "understand"
-            for command in (["apply", "--run-id", "r1"], ["close", "--run-id", "r1", "--checkout-ledger", "l.json"]):
+            # and a standalone inventory's --to, which enters no run (release 1's third confirmation review, F3);
+            # --no-state, so that a reverted admission reads nothing but this checkout
+            for command, code_named in ((["apply", "--run-id", "r1", "--out", str(inside)], "RUN_DIR_IN_INSTRUCTIONS"),
+                                        (["close", "--run-id", "r1", "--checkout-ledger", "l.json", "--out", str(inside)],
+                                         "RUN_DIR_IN_INSTRUCTIONS"),
+                                        (["inventory", "--to", str(inside), "--no-state"],
+                                         "INVENTORY_TO_IN_INSTRUCTIONS")):
                 held_err = io.StringIO()
                 with contextlib.redirect_stderr(held_err), contextlib.redirect_stdout(io.StringIO()):
                     try:
-                        held_code = main([*command, "--out", str(inside)])
+                        held_code = main(command)
                     except Exception as exc:  # noqa: BLE001 - reported by name
                         held_code, _ = 99, held_err.write(f"RAISED {exc!r}")
-                control(f"{command[0]} with a run directory inside a skill is refused by name and writes nothing there",
-                        held_code == 1 and "RUN_DIR_IN_INSTRUCTIONS" in held_err.getvalue()
+                control(f"{command[0]} with a destination inside a skill is refused by name and writes nothing there",
+                        held_code == 1 and code_named in held_err.getvalue()
                         and not any(inside.iterdir()), f"{held_code} {held_err.getvalue()[-300:]}")
         finally:
             held_intake.CHECKOUT_LEDGER = held_checkout_ledger
@@ -1470,6 +1488,20 @@ def self_test():
         control("the two variables really move the homes this driver protects",
                 moved_homes == [fixture_environment["CLAUDE_CONFIG_DIR"],
                                 fixture_environment["CODEX_HOME"]], f"{moved_homes}")
+        # the admission resolves the homes as the environment configures them, a default home that is a link to a
+        # directory of another name among them (release 1's third confirmation review, F2)
+        (host_home_fixture / "dot-claude" / "skills").mkdir(parents=True)
+        (host_home_fixture / "linked-home").mkdir()
+        (host_home_fixture / "linked-home" / ".claude").symlink_to(host_home_fixture / "dot-claude")
+        placed = [bool(inventory.instructions_place(where, environment)) for where, environment in (
+            (host_home_fixture / "elsewhere" / "claude" / "skills" / "r1", fixture_environment),
+            (host_home_fixture / "elsewhere" / "codex" / "r1", fixture_environment),
+            (host_home_fixture / "dot-claude" / "skills" / "r1", {"HOME": str(host_home_fixture / "linked-home")}),
+            (host_home_fixture / "dot-claude" / "skills" / "r1", {"HOME": str(host_home_fixture / "home")}),
+            (host_home_fixture / "elsewhere" / "r1", fixture_environment))]
+        control("the admission names a destination inside either configured home and inside a default home that is a "
+                "link, and not the same directory when no home is it, nor a sibling of the homes",
+                placed == [True, True, True, False, False], f"{placed}")
         for variable in ("CLAUDE_CONFIG_DIR", "CODEX_HOME"):
             configured = pathlib.Path(fixture_environment[variable])
             # A run directory under the configured home, named through `--out` and `--run-id`, so
@@ -1479,8 +1511,10 @@ def self_test():
                 "--out", str(configured / "runs"), "--no-state",
                 "--state-root", str(host_home_fixture / "state"),
                 "--user-root", str(host_home_fixture / "user"))
+            # refused at the run directory's admission now, before inventory's own overlap check is asked: a
+            # configured home is the host's home for every command (release 1's third confirmation review, F2)
             control(f"the driver itself refuses a run destination inside the home {variable} names",
-                    code == 1 and "PROTECTED_OVERLAP" in err and not reached,
+                    code == 1 and "RUN_DIR_IN_INSTRUCTIONS" in err and "configured home" in err and not reached,
                     f"{code} {reached} {err.strip()[:300]}")
             written = sorted(str(path.relative_to(host_home_fixture))
                              for path in host_home_fixture.rglob("record.json"))

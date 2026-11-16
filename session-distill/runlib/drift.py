@@ -26,7 +26,11 @@ not moved.
 `chain_problems` holds operations sharing a target to the hash chain.
 
 This module reads no configuration: the live manifest is handed to it. That is what keeps it away
-from the owner's homes, and its suite asserts it spawns nothing.
+from the owner's homes, and its suite asserts it spawns nothing. Its one look at the filesystem is
+where a destination lands (`library_place`): the path's symlinks resolved and its ancestors asked
+whether they hold `claude/` and `codex/`, no file read; the hosts' homes are handed to it too. The
+suite's effect audit does not see that function, because only the suite calls it in this module
+(FINDINGS F-46).
 
     drift.py --self-test
 """
@@ -118,12 +122,14 @@ def _relative_place(rel):
     return None
 
 
-def library_place(path):
-    """Where a path falls inside the instructions, or None (release 1's confirmation review, F1 and F2 of both
+def library_place(path, homes=()):
+    """Where a path falls inside the instructions, or None (release 1's confirmation review, F1 and F2 of all three
     rounds). A relative path is read from a checkout's root: its layer, any but `ledger`, or its instruction tree,
     case-folded. An absolute path is resolved with its symlinks followed and read the same way from every ancestor
     that holds both `claude/` and `codex/` - an agent-bios checkout or package, so a checkout or a run directory
-    placed inside a skill is named - and inside a host's installed home."""
+    placed inside a skill is named - and inside a host's home: a `.claude` or `.codex` component, or any of `homes`,
+    compared case-folded. `homes` are the hosts' homes as the environment configures them, resolved by the caller
+    (`inventory.instructions_place`), because this module reads no configuration."""
     held = pathlib.PurePosixPath(str(path))
     if not held.is_absolute():
         return _relative_place(held.as_posix())
@@ -131,6 +137,11 @@ def library_place(path):
     for n, part in enumerate(parts):
         if part.casefold() in INSTALLED_HOMES:
             return f"inside the host's installed home {pathlib.Path(*parts[:n + 1])}"
+    folded = [part.casefold() for part in parts]
+    for home in homes:
+        home_parts = [part.casefold() for part in pathlib.Path(home).parts]
+        if len(home_parts) > 1 and folded[:len(home_parts)] == home_parts:
+            return f"inside the host's configured home {home}"
     for n in range(1, len(parts)):
         root = pathlib.Path(*parts[:n])
         if (root / "claude").is_dir() and (root / "codex").is_dir():
@@ -1026,6 +1037,20 @@ def self_test():
                                                place_root / "home" / ".claude" / "skills" / "r1",
                                                repo / "session-distill/out/r1", repo / "design/session-distill/ledger.json",
                                                place_root / "elsewhere" / "claude" / "skills" / "r1")],
+             [True, True, True, True, False, False, False])
+        # a host home under an ordinary name, as its variable may move it (release 1's third confirmation review, F2):
+        # the homes are given, resolved, and this module compares them
+        for d in ("config-A/skills/x", "config-B", "plain"):
+            (place_root / d).mkdir(parents=True)
+        (place_root / "link-A").symlink_to(place_root / "config-A" / "skills")
+        moved = [pathlib.Path(os.path.realpath(place_root / "config-A")), pathlib.Path(os.path.realpath(place_root / "config-B"))]
+        same("a host's home it is given is named wherever it lies, through a symlink and case-folded, and a sibling "
+             "of it, or the same path with no homes given, is not",
+             [bool(library_place(x, moved)) for x in (place_root / "config-A/skills/x/r1", place_root / "config-B/r1",
+                                                      place_root / "link-A" / "x" / "ledger.json",
+                                                      place_root / "Config-A" / "r1", place_root / "plain" / "r1",
+                                                      place_root / "config-AB" / "r1")]
+             + [bool(library_place(place_root / "config-A/skills/x/r1"))],
              [True, True, True, True, False, False, False])
     finally:
         _shutil.rmtree(place_root, ignore_errors=True)

@@ -2674,6 +2674,23 @@ def host_homes(environ=None, repo=REPO):
     return [installer.claude_root, installer.codex_root]
 
 
+_RESOLVED_HOMES = {}
+
+
+def instructions_place(path, environ=None, repo=REPO):
+    """Where a destination falls inside the instructions, or None: `drift.library_place` given the hosts' homes as
+    this environment configures them, each resolved with its symlinks followed. A home moved by its variable under an
+    ordinary name, or a default home that is a link, is the host's home all the same (release 1's third confirmation
+    review, F2); `drift` reads no configuration, so the homes are resolved here, where `host_homes` lives. Held per
+    environment, because resolving them loads the installer."""
+    from runlib import drift
+    held = dict(os.environ if environ is None else environ)
+    key = (str(repo), tuple(sorted(held.items())))
+    if key not in _RESOLVED_HOMES:
+        _RESOLVED_HOMES[key] = [pathlib.Path(os.path.realpath(str(home))) for home in host_homes(held, repo)]
+    return drift.library_place(path, _RESOLVED_HOMES[key])
+
+
 def protected_roots(state_root, user_root, native_roots, host_homes=None, checkout=None,
                     environ=None, repo=REPO):
     """Every root this inventory must not write into: the owner's state, the authoring root, the

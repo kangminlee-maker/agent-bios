@@ -400,11 +400,13 @@ def _file_sha(path):
 def destination_problems(paths, checkout=None):
     """S12's own state files kept out of the library (Codex release-1 review F1, both rounds): a ledger or a coverage
     state named in a layer that carries instructions, or under an instruction tree - as spelled, and where it lands
-    from the declared checkout, which may itself lie inside a skill - would be written as a library member
-    (`drift.library_place`)."""
+    from the declared checkout, which may itself lie inside a skill or inside a host's home as the environment
+    configures it - would be written as a library member (`inventory.instructions_place`)."""
+    from runlib import inventory
     out = []
     for rel in paths:
-        where = drift.library_place(rel) or (drift.library_place(pathlib.Path(checkout) / rel) if checkout else None)
+        where = drift.library_place(rel) or (inventory.instructions_place(pathlib.Path(checkout) / rel)
+                                             if checkout else None)
         if where:
             out.append(f"CLOSE_DESTINATION_IN_LIBRARY {rel}: S12 writes the ledger and the coverage state outside the "
                        f"instructions, and this path is {where}")
@@ -877,6 +879,24 @@ def _self_test_body(failures, ran, reporting):
             control("and the stage refuses a close whose declared checkout lies inside a skill, before it writes",
                     (code(lambda: close_run(run_dir)), (checkout / LEDGER_AT).read_bytes() == before),
                     ("CLOSE_DESTINATION_IN_LIBRARY", True))
+            # round 3 F2: a host home its variable moves under an ordinary name holds the declared checkout
+            root, run_dir, checkout = applied("homed", checkout_at="config-A/proj")
+            stage_apply.run(run_dir)
+            before = (checkout / LEDGER_AT).read_bytes()
+            held_config = os.environ.get("CLAUDE_CONFIG_DIR")
+            try:
+                control("a declared checkout in an ordinary directory is closed past the destination check",
+                        "CLOSE_DESTINATION_IN_LIBRARY" in "; ".join(destination_problems([LEDGER_AT], checkout)), False)
+                os.environ["CLAUDE_CONFIG_DIR"] = str(root / "config-A")
+                control("and once the environment names that directory a host's home, the stage refuses the close "
+                        "where its ledger lands, before it writes",
+                        (code(lambda: close_run(run_dir)), (checkout / LEDGER_AT).read_bytes() == before),
+                        ("CLOSE_DESTINATION_IN_LIBRARY", True))
+            finally:
+                if held_config is None:
+                    os.environ.pop("CLAUDE_CONFIG_DIR", None)
+                else:
+                    os.environ["CLAUDE_CONFIG_DIR"] = held_config
             # Codex release-1 review F3: a run an earlier version applied is not closed in release 1
             root, run_dir, checkout = applied("rel1")
             stage_apply.run(run_dir)                        # S11 under the design's scope, as an earlier version ran it

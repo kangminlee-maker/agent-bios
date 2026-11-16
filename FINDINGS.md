@@ -396,3 +396,20 @@ Alternatives:
   S12, with ledger feasibility decided before the owner confirms.
 - An isolated candidate tree that distill writes and the owner transfers, which removes the live-checkout writer
   (D4) and leaves D1 and D2 to be solved inside it.
+
+## F-46 — the effect audit reads a function only its own module's suite calls as suite code
+
+Found in release 1's third confirmation round of the closing, by a revert trial, 2026-11-16.
+`session-distill/runlib/destinations.py` (`_effect_reachable`) treats a function as test-only when every caller in
+its own module is test-only. A module's public function that other modules call at runtime, and that only the
+suite calls inside the module, is therefore outside `effect_audit` and `effect_scope`. `drift.library_place` is
+one: it resolves symlinks and asks ancestors whether they hold `claude/` and `codex/`, and drift's "spawns nothing
+and reads no environment" audit did not see it, nor a version of it that read `os.environ` (the record
+`design/session-distill/2026-11-16T1415--c457abe--the-closing-after-its-third-review.md`). Its docstring states
+the filesystem question it asks.
+
+Alternatives:
+
+- Read the module's callers across the shipped tree, so a function another module calls is a root.
+- Make every public top-level function a root and leave only underscored helpers to the reachability rule; this
+  widens each module's audit at once and may name effects the suites now pass.
