@@ -351,6 +351,18 @@ def _self_test_body(failures, ran):
         if want not in got:
             failures.append((name, f"expected {want!r} in {got!r}"))
 
+    def exact_mismatch(got, want):
+        return type(got) is not type(want) or got != want
+
+    def same(name, got, want):
+        """A typed, exact control: a verdict `False` is not the string "false", nor 0 (Codex write-path r4 C8)."""
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}")
+        ran.append(name)
+        if exact_mismatch(got, want):
+            failures.append((name, f"expected exactly {want!r} ({type(want).__name__}), got {got!r} "
+                                   f"({type(got).__name__})"))
+
     def clean(name, problems):
         if reporting:
             raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}")
@@ -602,19 +614,21 @@ def _self_test_body(failures, ran):
     section_merge = [{"item_id": "m", "operations": [{"type": "merge", "target": "out.md",
                                                       "units": ["g.md#One"]}]},
                      {"item_id": "r", "operations": [{"type": "route", "target": "router/r.md", "names": "g.md"}]}]
-    control("a merge of one section leaves its file, so a route to that file still has it (Codex WP-12 r2 F11)",
-            json.dumps(subset_answer(section_merge, base={"g.md": "present", "out.md": "present"}).get("sequenced")),
-            "true")
-    control("while a merge of the whole file removes it, and the same route then points at nothing",
-            json.dumps(subset_answer([{**section_merge[0], "operations": [{"type": "merge", "target": "out.md",
-                                                                           "units": ["g.md"]}]}, section_merge[1]],
-                                     base={"g.md": "present", "out.md": "present"}).get("sequenced")), "false")
+    control("the typed control tells a verdict from its spelling: the string, 0 and False itself",
+            json.dumps([exact_mismatch("false", False), exact_mismatch(0, False), exact_mismatch(False, False)]),
+            "[true, true, false]")
+    same("a merge of one section leaves its file, so a route to that file still has it (Codex WP-12 r2 F11)",
+         subset_answer(section_merge, base={"g.md": "present", "out.md": "present"}).get("sequenced"), True)
+    same("while a merge of the whole file removes it, and the same route then points at nothing",
+         subset_answer([{**section_merge[0], "operations": [{"type": "merge", "target": "out.md",
+                                                             "units": ["g.md"]}]}, section_merge[1]],
+                       base={"g.md": "present", "out.md": "present"}).get("sequenced"), False)
     # Codex WP-12 r3 F5: an empty or blank section suffix names no section, as S11 reads it
     for suffix in ("g.md#", "g.md#   "):
         for kind, extra in (("merge", {"target": "out.md", "units": [suffix]}), ("delete", {"target": suffix})):
-            control(f"a {kind} of {suffix!r} is the whole file's, as S11 reads it, so the route to it points at nothing",
-                    json.dumps(subset_answer([{"item_id": "m", "operations": [{"type": kind, **extra}]}, section_merge[1]],
-                                             base={"g.md": "present", "out.md": "present"}).get("sequenced")), "false")
+            same(f"a {kind} of {suffix!r} is the whole file's, as S11 reads it, so the route to it points at nothing",
+                 subset_answer([{"item_id": "m", "operations": [{"type": kind, **extra}]}, section_merge[1]],
+                               base={"g.md": "present", "out.md": "present"}).get("sequenced"), False)
 
     # The exported checker on an approved SUBSET: the full set has an order, the subset does not, and
     # the subset is what is judged (done-when 7's control fixture; WP-20 and WP-21 re-run this).

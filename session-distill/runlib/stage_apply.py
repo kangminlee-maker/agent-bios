@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""S11 apply, release 1: the confirmed final set written into files of the declared checkout.
+"""S11 apply: the confirmed final set written into files of the declared checkout - which release 1 does not do.
 
-The owner decided the release-1 form on 2026-11-13 (D-20261113-f22b7d): S11 writes the approved
+**Release 1 writes no library file (D-20261116-7853bc).** `items_of`, which both parts take their items through,
+refuses a confirmed set that holds a change by name (`RELEASE_1_NO_LIBRARY_CHANGE`) before any plan or effect, so a
+release-1 run's S11 records a set that changes no file and writes nothing into the checkout. S7, S7b and S10b refuse
+the same change upstream (`placement.release_problems`). What follows is the write path as designed, which this
+module's suite runs under the scope `all` (`placement.scoped`) so the redesign that reopens it starts from a path its
+controls still hold.
+
+The owner decided that form on 2026-11-13 (D-20261113-f22b7d): S11 writes the approved
 changes into files of the declared checkout and NOTHING else. It starts no process — no git, no
 installer, no hook — and writes no personal layer and no state root. Its other writes are inside the
 run directory: the plan, the write-ahead journal and its own record. It ends by naming the two
@@ -81,7 +88,7 @@ import unicodedata
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
-from runlib import (drift, journal, operations, records, stage_approvals, stage_confirm,  # noqa: E402
+from runlib import (drift, journal, operations, placement, records, stage_approvals, stage_confirm,  # noqa: E402
                     stagelock, targets)
 from runlib.operations import ABSENT, sha_of, split_target  # noqa: E402
 from runlib.records import Refused  # noqa: E402
@@ -349,6 +356,10 @@ def items_of(manifest, current, approvals):
     for row in approvals:
         last[row["item_id"]] = row
     in_f = [i["item_id"] for i in manifest["F"]]
+    # Release 1 writes no library file: the plan and the effects both take their items here, so no write follows
+    if in_f and placement.release_scope() == "release_1":
+        raise Refused(f"RELEASE_1_NO_LIBRARY_CHANGE S11: the confirmed set holds {len(in_f)} item(s) that change a "
+                      f"library file, and release 1 writes none")
     order = list(manifest["sequencing"].get("order") or [])
     if in_f and manifest["sequencing"].get("sequenced") is not True:
         raise Refused(f"APPLY_UNSEQUENCED S11: the confirmed set holds {len(in_f)} items and no order "
@@ -670,6 +681,14 @@ def report_lines(doc):
 # ---- self-test ---------------------------------------------------------------------------------------
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the path the redesign reopens stays held by its controls. Release 1's own controls
+    run inside it under `release_1`."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     failures, ran, reporting = [], [], []
     try:
         _self_test_body(failures, ran, reporting)
@@ -709,6 +728,19 @@ def _self_test_body(failures, ran, reporting):
         except Exception as exc:  # noqa: BLE001 - the exception IS the answer here
             return f"RAISED {type(exc).__name__}: {exc}"
         return ""
+
+    # release 1 writes no library file (D-20261116-7853bc): the items S11's plan and effects take are none
+    one_change = ({"F": [{"item_id": "k"}], "sequencing": {"sequenced": True, "order": ["k"]}, "approval_ids": ["a"]},
+                  {"rows": [{"item_id": "k", "proposal": {"operations": [{"type": "edit", "target": "g/a.md"}]}}]},
+                  [{"item_id": "k", "approval_id": "a"}])
+    no_change = ({"F": [], "sequencing": {"sequenced": None, "order": []}, "approval_ids": ["a"]},
+                 {"rows": [{"item_id": "k"}]}, [{"item_id": "k", "approval_id": "a"}])
+    control("under the design's scope the confirmed item is S11's to write (the fixture is otherwise valid)",
+            [i["item_id"] for i in items_of(*one_change)], ["k"])
+    with placement.scoped("release_1"):
+        control("in release 1 a confirmed set that holds a change is refused by name before any plan or effect",
+                said(lambda: items_of(*one_change)), "RELEASE_1_NO_LIBRARY_CHANGE")
+        control("and a confirmed set that holds none gives S11 nothing to write", items_of(*no_change), [])
 
     doc = "# Guide\n\nintro\n\n## One\n\nfirst body\n\n### Deep\n\ndeep body\n\n## Two\n\nsecond body\n"
     files = {"g/a.md": doc.encode(), "g/b.md": b"# B\n\nbody of b\n", "g/r.md": b"# Routes\n"}

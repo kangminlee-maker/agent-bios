@@ -129,22 +129,25 @@ stderr, exit 2. The table is what this checkout does today, not the design:
 | S5 | `distill.py retrieve --run-id ID --checkout-ledger design/session-distill/ledger.json` | runs: code only - each candidate's retrieved units, lineages and checks, with the planted controls |
 | S5b | `distill.py deliver --run-id ID` | runs: code only - per (session, unit, decision) whether the unit was delivered. A pair whose candidate names no session is counted apart (`not_session_derived`) |
 | S6 | `distill.py judge --run-id ID --checkout-ledger design/session-distill/ledger.json --dry`, then the same with `--cells DIR [--golden-plan PLAN.json]` in place of `--dry` | runs: two judges per candidate through the supervisor, then the derivations |
-| S7, S7b | `distill.py propose --run-id ID --checkout-ledger design/session-distill/ledger.json` with `--dry`, `--cells DIR [--golden-plan PLAN.json]` or answers in hand (`--answers ANSWERS.json`); then `distill.py review-proposals --run-id ID` with `--dry`, `--cells DIR [--golden-plan PLAN.json]` or `--reviews REVIEWS.json` | runs: one proposal per candidate S6 admitted, held to the contract and to what S11 would refuse of its operations; a second seat's review of each proposal a model wrote |
+| S7, S7b | `distill.py propose --run-id ID --checkout-ledger design/session-distill/ledger.json` with `--dry`, `--cells DIR [--golden-plan PLAN.json]` or answers in hand (`--answers ANSWERS.json`); then `distill.py review-proposals --run-id ID` with `--dry`, `--cells DIR [--golden-plan PLAN.json]` or `--reviews REVIEWS.json` | runs: one proposal per candidate S6 admitted, held to the contract and to what S11 would refuse of its operations; a second seat's review of each proposal a model wrote. In release 1 a proposal or an alternative that would change a library file is refused by name (`RELEASE_1_NO_LIBRARY_CHANGE`) |
 | S8 | `distill.py test` | refuses, and **stays refused in release 1: S8 is deferred to release 2 by name (D-20261111-818391).** No run tests whether an applied change helped; a row that would carry a test result carries the named state `untested: s8_deferred` |
 | S9, S9b | `distill.py render --run-id ID --checkout-ledger design/session-distill/ledger.json`, then `distill.py review-korean --run-id ID --cells DIR` | runs: the Korean review file `decisions.ko.v<n>.md` in the run directory, and a faithfulness check of its Korean against the proposals. Without S8 the order falls back to the judges and S7b, and the header says so. The header also states how many planted controls got their expected verdict after S6, recorded in `review.v<n>.json`; a failed control is shown, never a stop (D-20261115-18d56b) |
-| S10, S10b | `distill.py parse-decisions --run-id ID`, `distill.py adjudicate --run-id ID --cells DIR` (when the owner wrote a `판정`), `distill.py confirm --run-id ID`, then `distill.py confirm --run-id ID --decide` | runs: the owner's decisions parsed from their edited copy, the adjudications recomputed, the final set built, and the owner's confirmation line read |
-| S11 | `distill.py apply --run-id ID` | runs: **writes the confirmed changes into files of the declaration's checkout and nothing else.** No git, no installer, no personal layer. When it changed files, it ends by printing the commit command and the install command, which are yours to run; when the confirmed set changes no file, it says so and prints none |
+| S10, S10b | `distill.py parse-decisions --run-id ID`, `distill.py adjudicate --run-id ID --cells DIR` (when the owner wrote a `판정`), `distill.py confirm --run-id ID`, then `distill.py confirm --run-id ID --decide` | runs: the owner's decisions parsed from their edited copy, the adjudications recomputed, the final set built, and the owner's confirmation line read. In release 1 a final set that holds a change to a library file is refused by name before the owner confirms it |
+| S11 | `distill.py apply --run-id ID` | runs: **writes no library file in release 1 (D-20261116-7853bc).** A confirmed set that holds a change is refused by name (`RELEASE_1_NO_LIBRARY_CHANGE`) before any plan or effect; a set that changes no file is recorded as such, and no command is printed. No git, no installer, no personal layer |
 | S12 | `distill.py close --run-id ID --checkout-ledger design/session-distill/ledger.json --checkout-coverage session-distill/local/coverage.json` | runs: records the window and each decision on an existing ledger entry in the checkout's ledger (a `none` on a new candidate makes no ledger row and is kept in the run's `close.json`, F-40) and, for a periodic run, promotes the coverage state into the file named. Name the file under the ignored `session-distill/local/`, as the command shows: the state is keyed by session ids and stays out of git; a periodic close without the flag is refused (`COVERAGE_UNNAMED`). Its report carries the planted controls' evaluation as S9 recorded it. It runs no process and names what it leaves to you: the commit, the install, the launcher state, the version-registry line. `--recovery` is reserved |
 
 **What a release 1 run produces.** Evidence about the window, the owner's review
-of it, and a record of what the owner decided. A file of the library changes only
-where S6's two judges admit a candidate whose kind allows a changing disposition: an
-obsolete or redundant unit above the promotion bar may be reduced, and an admitted,
-eligible legacy entry may be placed. Release 1 derives no unit outcome, so a
-formed candidate is mostly `unclassified`, whose only disposition is `none`; the
-first real run (2026-11-14) changed no file. Nothing tests whether an applied
-change helped: that is S8, in release 2. The run may change files of the declared
-checkout and its ledger; the commit, the install and the publish are yours.
+of it, and a record of what the owner decided. **Release 1 changes no library file
+(D-20261116-7853bc).** A disposition that would - `place`, `correct`, `re-deliver`,
+`reduce` - and any operation are refused by name (`RELEASE_1_NO_LIBRARY_CHANGE`)
+where S7 and S7b accept an answer, where S10b builds the final set and where S11
+takes its items. Every kind of candidate keeps an answer among `keep`, `incubate`,
+`drop` and `none`; where the evidence supports a change to a library file, the
+proposal names it in its Korean reason for the owner to read. Reopening those
+dispositions waits on a redesign of the write path, after release 1 is published.
+Nothing tests whether a change would help: that is S8, in release 2. The run
+changes the declared checkout's ledger (S12) and, for a periodic run, the coverage
+file it names; the commit, the install and the publish are yours.
 
 The evidence that the runnable stages run is the driver's own suite,
 `python3 session-distill/distill.py --self-test` (declare → stage → amend → stage on

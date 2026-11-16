@@ -71,6 +71,16 @@ APPROVAL_EFFECT = ("승인은 아직 적용이 아닙니다. 승인한 항목으
 CONFIRM_EFFECT = ("확정하면 S11이 이 집합에서 파일을 바꾸는 항목(F)만 선언된 체크아웃에 적용합니다. `none`(바꾸지 않음)과 "
                   "대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 소유자가 직접 합니다 — "
                   "적용으로 파일이 바뀌면 실행할 명령을 그대로 보여 드립니다.")
+# The same two sentences for release 1, which changes no library file (D-20261116-7853bc): S7 and S7b refuse a change,
+# S10b refuses to confirm one and S11 writes none, so nothing the owner approves or confirms changes a library file.
+# The pages choose by `placement.release_scope()`; the sentences above are the design's, read under the scope `all`.
+RELEASE_1_APPROVAL_EFFECT = ("승인은 아직 적용이 아닙니다. 승인한 항목으로 만든 최종 집합을 확정(S10b)하면 S12가 결정을 "
+                             "대장(결정 기록 파일)에 남깁니다. 이번 릴리스는 라이브러리 파일을 바꾸지 않으므로, 어떤 "
+                             "승인도 체크아웃의 라이브러리 파일을 바꾸지 않습니다. 대장에 항목이 없는 새 후보의 `none`은 "
+                             "대장에 줄을 만들지 않고 이번 실행의 마무리 기록(close.json)에만 남습니다.")
+RELEASE_1_CONFIRM_EFFECT = ("확정하면 S12가 이 집합의 결정을 대장(결정 기록 파일)에 남깁니다. 이번 릴리스는 라이브러리 "
+                            "파일을 바꾸지 않으므로 S11은 체크아웃의 라이브러리 파일을 하나도 바꾸지 않습니다. 대장의 "
+                            "변경을 커밋하는 일은 소유자가 직접 합니다.")
 CLOSE = "<!-- /owner-block -->"
 _VALUE = r"[^\s=<>]+"
 OPEN = re.compile(rf"^<!-- owner-block (review|confirm)((?: [a-z]+={_VALUE})+) -->$")

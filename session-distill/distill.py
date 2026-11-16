@@ -600,8 +600,9 @@ def cmd_confirm(args):
 
 
 def cmd_apply(args):
-    """S11 (runlib/stage_apply.py), release 1: the confirmed final set written into files of the declared checkout,
-    and nothing else. It starts no process; its report ends with the two commands the owner runs."""
+    """S11 (runlib/stage_apply.py). Release 1 writes no library file (D-20261116-7853bc): a confirmed set that holds a
+    change is refused by name before any plan or effect, and a set that changes none is recorded as such. It starts no
+    process."""
     say("\n".join(stage_apply.report_lines(stage_apply.run(run_dir_of(args)))))
     return 0
 
@@ -869,8 +870,8 @@ COMMAND_HELP = {
     "parse-decisions": "the owner's decision copy into approvals and adjudications",
     "adjudicate": "the owner's adjudications recomputed, the newly admitted through S7 and S7b",
     "confirm": "the final set built for the owner's confirmation, or (--decide) the owner's 확인",
-    "apply": ("the confirmed final set written into files of the declared checkout; runs no git and no "
-        "installer, and names the two commands the owner runs"),
+    "apply": ("release 1 writes no library file: a confirmed set that holds a change is refused by name, and one "
+        "that changes none is recorded; runs no git and no installer"),
     "close": ("the run's decisions and window recorded in the checkout's ledger and a periodic run's coverage "
         "promoted; names the commands the owner runs"),
 }

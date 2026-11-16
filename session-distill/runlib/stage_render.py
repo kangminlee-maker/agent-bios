@@ -39,7 +39,7 @@ if __package__ in (None, ""):  # run as a script: put session-distill/ on the im
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from grammar import owner_lines  # noqa: E402
 from runlib import controls as planted_controls  # noqa: E402
-from runlib import derive, ranking, records, stage_adjudicate, stage_propose, stage_review_proposals  # noqa: E402
+from runlib import derive, placement, ranking, records, stage_adjudicate, stage_propose, stage_review_proposals  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -1153,7 +1153,8 @@ def header_lines(meta, counts):
     out = [f"# 세션 정리 검토 v{meta['version']}", "",
            "이 파일은 코드가 만든 렌더이고 고치지 않습니다. 결정은 같은 버전의 decisions 파일에서 각 항목의 "
            "소유자 블록 안에만 씁니다.", "",
-           owner_lines.APPROVAL_EFFECT, "",
+           owner_lines.RELEASE_1_APPROVAL_EFFECT if placement.release_scope() == "release_1"
+           else owner_lines.APPROVAL_EFFECT, "",
            "## 머리말", "",
            f"- 실행: {inline(meta['run_id'])} · 종류 {inline(d.get('kind'))} · 자세 {inline(d.get('posture'))} · 선언 순번 "
            f"{inline(d.get('declaration_seq'))}",
@@ -1628,6 +1629,14 @@ def golden_run(root):
 
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the path the redesign reopens stays held by its controls. Release 1's own controls
+    run inside it under `release_1`."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     """Positive controls on the fixture run's documents first; then one planted break per rule, each named."""
     import copy
     failures, ran, reporting = [], [], []
@@ -2416,6 +2425,16 @@ def self_test():
     except Refused as exc:  # a heading that lost its mark is refused by render_text itself; the controls below name it
         over_text = str(exc)
     control("a marked row says so in its heading", over_text, f"`k-a` · {MARK}")
+    # release 1 changes no library file (D-20261116-7853bc): the page says so, and not the design's promise
+    with placement.scoped("release_1"):
+        release_lines = render_text(over, meta, {}).split("\n")
+    design_lines = over_text.split("\n")
+    equal("in release 1 the review says what approving does there, in one line, and not that applying changes files",
+          ([line for line in release_lines if line == owner_lines.RELEASE_1_APPROVAL_EFFECT],
+           [line for line in release_lines if line == owner_lines.APPROVAL_EFFECT]),
+          ([owner_lines.RELEASE_1_APPROVAL_EFFECT], []))
+    equal("and under the design's scope the design's sentence", ([line for line in design_lines
+          if line in (owner_lines.APPROVAL_EFFECT, owner_lines.RELEASE_1_APPROVAL_EFFECT)]), [owner_lines.APPROVAL_EFFECT])
     control("and a regenerated row says it was rewritten once", over_text, "- S9b: 한국어를 한 번 다시 만든 뒤 통과")
     clean("the rendered marks are all there", mark_problems(over, over_text))
     equal("the marked ids are S9b's own", over.get("marked"), ["k-a"])

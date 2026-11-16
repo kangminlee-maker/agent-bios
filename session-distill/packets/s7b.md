@@ -61,4 +61,5 @@ What code cannot decide is what you are here for:
   An alternative the contract's table forbids is not an alternative, and code refuses it as it would a proposal.
 - `notes` is Korean: the owner reads it beside the proposal's own Korean reason fields.
 
+{{release}}
 {{returns}}

@@ -367,3 +367,29 @@ Alternatives:
 - Fix each check and add the negative control that the reviewer's probe is, so the mutation fails by name.
 - Record each as `unguarded-accepted` with its reason where the property is held some other way (for F5, S6's
   packets are built from named inputs, and a computed read is what the seal exists to catch), and fix only the rest.
+
+## F-45 — the write path S7 to S12 interprets one change in several places, so it is closed in release 1
+
+Found by Codex's fourth review round of the write path, with a design review, pinned at 2b901850, 2026-11-16.
+The round returned rework with seven major findings (C1 to C7) and named five structural causes across the write
+path's sixteen reviews (D1 to D5). The two that explain most of them: each stage reads "what this operation changes"
+for itself - S7's checks, sequencing, the review page, S11's plan (D1) - and the owner's decisions, keep releases and
+the ledger's transitions are not carried as one transaction, so a confirmed merge can change files before S12 finds
+the ledger entry it needs missing (D2, C7). The others are keep records a proposal cannot all name and an approved
+`keep 해제` that S12 never applies (C1 to C4), a route that escapes its target layer's rules and a one-layer rule that
+refuses a coherent multi-layer artifact set (C5, C6), checks that cannot exclude a writer between the check and the
+write (D4), and controls without exact or independent oracles (D5).
+
+Reach in release 1: none of these runs. Release 1 changes no library file (D-20261116-7853bc): `place`, `correct`,
+`re-deliver`, `reduce` and any operation are refused by name (`RELEASE_1_NO_LIBRARY_CHANGE`) at S7, S7b, S10b and
+S11 (`session-distill/runlib/placement.py`, `release_problems`), and a keep release arises only from a `reduce`
+approval. The closed path keeps its controls, run under the scope `all`. The review's result is the lead's
+`work/lead/write-path-x-r4-review.json`, outside the repository.
+
+Alternatives:
+
+- The redesign the review names and the owner chose, after release 1's npm publish: one version-bound plan of every
+  file effect, keep record, release and ledger transition, built before approval and read by S9, S10, S10b, S11 and
+  S12, with ledger feasibility decided before the owner confirms.
+- An isolated candidate tree that distill writes and the owner transfers, which removes the live-checkout writer
+  (D4) and leaves D1 and D2 to be solved inside it.

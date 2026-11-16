@@ -34,7 +34,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import derive, records, stage_judge, stage_propose, stage_review_proposals  # noqa: E402
+from runlib import derive, placement, records, stage_judge, stage_propose, stage_review_proposals  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 STAGE, PART = "S10", "adjudicate"
@@ -479,6 +479,14 @@ def fx_adjudication(cid, resolved, ident=None):
 
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the second pass S7 runs for an adjudicated item keeps the path the redesign reopens
+    held by its controls."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     """Document-level controls over synthetic disputed candidates first; then the stage end to end on S6's golden run
     with planted disputes: S9 renders them, the owner's 판정 lines are parsed by S10, this part runs, S9 renders again
     and S9b reads the result; then the driver's command as a process."""

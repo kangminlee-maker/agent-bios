@@ -48,7 +48,8 @@ import sys
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from grammar import owner_lines  # noqa: E402
-from runlib import records, sequencing, stage_adjudicate, stage_approvals, stage_review_proposals, validate  # noqa: E402
+from runlib import (placement, records, sequencing, stage_adjudicate, stage_approvals,  # noqa: E402
+                    stage_review_proposals, validate)
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -198,6 +199,11 @@ def final_set(declaration, current, approvals, s7b, parses, library):
                 "item_shas": dict(sorted(shas.items())), "sequencing": answer,
                 "cases": S8_DEFERRED, "results": S8_DEFERRED,
                 "confirmable": bool(bound) and answer.get("sequenced") is not False}
+    # Release 1 changes no library file: an approved change cannot be confirmed, whatever approved it, so the owner
+    # is told before confirming rather than S11 refusing after (S7 and S7b refuse such an answer upstream)
+    if placement.release_scope() == "release_1":
+        problems += [f"RELEASE_1_NO_LIBRARY_CHANGE S10b {item['item_id']}: approved as a change to a library file, "
+                     f"and release 1 changes none; decide it again in a new review version" for item in f]
     return manifest, problems
 
 
@@ -210,10 +216,11 @@ def set_sha(manifest):
 def page(manifest, version):
     """The page the owner reads: the final set in the review's rank order, what is apart from it and why, the order,
     the deferred tests, and the one block for `확인:` when the set can be confirmed."""
+    release_1 = placement.release_scope() == "release_1"
     out = [f"# 최종 확인 v{version}", "",
-           f"검토 v{manifest['review_version']}에서 승인한 항목으로 만든 최종 집합입니다. 확정하면 S11이 이 집합을 "
-           "아래 순서대로 적용합니다.", "",
-           owner_lines.CONFIRM_EFFECT, "",
+           f"검토 v{manifest['review_version']}에서 승인한 항목으로 만든 최종 집합입니다."
+           + ("" if release_1 else " 확정하면 S11이 이 집합을 아래 순서대로 적용합니다."), "",
+           owner_lines.RELEASE_1_CONFIRM_EFFECT if release_1 else owner_lines.CONFIRM_EFFECT, "",
            f"- 구성 해시: {manifest['configuration_sha'][:16]}", f"- 시험: {S8_DEFERRED} (S8은 다음 릴리스에 들어옵니다)", "",
            "## 라이브러리를 바꾸는 항목 (F)", ""]
     out += [f"- {i['item_id']}: " + ", ".join(f"{op.get('type')} {op.get('target')}" for op in i["operations"])
@@ -441,6 +448,14 @@ def fx_run(root, declaration=None, edit=None):
 
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the path the redesign reopens stays held by its controls. Release 1's own controls
+    run inside it under `release_1`."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     """The final set over S10's fixture first, then its page and its bindings, then a run through S10's real parse and
     both parts, and the driver's `confirm` as a process."""
     import copy
@@ -505,6 +520,15 @@ def self_test():
     # ---- positive controls ---------------------------------------------------------------------------------------
     manifest, found = built(approve)
     equal("positive: the fixture's approved set builds with nothing refused", found, [])
+    # release 1 changes no library file (D-20261116-7853bc), in the final set itself
+    with placement.scoped("release_1"):
+        _held, release_found = built(approve)
+        quiet_manifest, quiet_found = built({"k-keep": ["결정: 승인"], "group:legacy:incubating": ["결정: 승인"]})
+    equal("in release 1 each approved item that changes a library file is refused by name, and nothing else is",
+          [p.split(":")[0] for p in release_found],
+          ["RELEASE_1_NO_LIBRARY_CHANGE S10b k-place", "RELEASE_1_NO_LIBRARY_CHANGE S10b k-reduce"])
+    equal("and a set whose approvals change no library file builds with nothing refused and F empty",
+          (quiet_found, quiet_manifest["F"], len(quiet_manifest["ledger_only"])), ([], [], 3))
     equal("F is the approved items that change the library, in the review's rank order, and not the one awaiting R",
           [i["item_id"] for i in manifest["F"]], ["k-place", "k-reduce"])
     equal("the ledger-only set is the approved keep and each member of the approved legacy group, under its group",
@@ -655,7 +679,7 @@ def self_test():
                sorted(["review.v1.json", "approvals.jsonl", "review-s7b.json", INVENTORY, "parsed.v1.json"])))
         page_text = (run_dir / render_name(1)).read_text(encoding="utf-8")
         # whole lines (Codex WP-20 r2 F6): the effect sentence, the section's heading and each item's own line
-        equal("the page says, in one line, what confirming does in release 1",
+        equal("the page says, in one line, what confirming does under the design's scope",
               [line for line in page_text.split("\n") if line.startswith("확정하면 S11이")], ['확정하면 S11이 이 집합에서 파일을 바꾸는 항목(F)만 선언된 체크아웃에 적용합니다. `none`(바꾸지 않음)과 대장에만 남는 처리(keep·incubate·drop)는 파일을 바꾸지 않습니다. 커밋과 설치는 소유자가 직접 합니다 — 적용으로 파일이 바뀌면 실행할 명령을 그대로 보여 드립니다.'])
         equal("the items without a file change are headed as such, not as ledger changes",
               [line for line in page_text.split("\n") if line.startswith("## ") and "바꾸" in line],
@@ -781,20 +805,47 @@ def self_test():
         control("a run whose only approval awaits R builds nothing", str(attempt(build, lone)),
                 "NOTHING_APPROVED S10b: no approval puts an item in the final set (apart: {'awaiting_R': 1")
         equal("and writes no version", versions(lone), [])
-        # the driver, as a process: the build, then the owner's decision through the command
+        # the driver, as a process, at the release scope it ships with: release 1 refuses a set that changes a library
+        # file at the build and at the owner's decision, and builds and confirms one that changes none
         fresh = shutil.copytree(before, root / "cli-build")
         said = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "confirm", "--run-id", "r1",
                                "--out", str(fresh)], capture_output=True, text=True, timeout=600)
-        control("the driver's `confirm` builds the version as a process and says what it wrote",
-                f"rc={said.returncode} {said.stdout}{said.stderr[-400:]}",
-                "rc=0 S10b confirm: version 1 built, 2 in F, 3 ledger-only, 1 apart")
+        control("the driver's `confirm`, a process in release 1, refuses a set that changes a library file, by item",
+                f"rc={said.returncode} {said.stdout}{said.stderr[-400:]}", "rc=1 RELEASE_1_NO_LIBRARY_CHANGE S10b k-place")
+        equal("and builds no version", versions(fresh / "r1"), [])
         k_copy = cli_root / "r1" / copy_name(1)
         k_copy.write_text(k_copy.read_text(encoding="utf-8").replace("확인:\n", "확인: 확정\n", 1), encoding="utf-8")
         said = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "confirm", "--run-id", "r1",
                                "--out", str(cli_root), "--decide"], capture_output=True, text=True, timeout=600)
-        control("the driver's `confirm --decide` confirms the owner's copy as a process",
+        control("and its `confirm --decide` refuses to confirm a version built with one (under the design's scope)",
+                f"rc={said.returncode} {said.stdout}{said.stderr[-400:]}", "rc=1 RELEASE_1_NO_LIBRARY_CHANGE S10b k-place")
+        equal("and no confirmation is written", (cli_root / "r1" / CONFIRMATION).is_file(), False)
+        quiet = attempt(fx_run, root / "cli-quiet")
+        if isinstance(quiet, str):
+            equal("the run whose approvals change no library file is made", quiet[:300], "a run")
+            raise SectionStopped
+        quiet_copy = quiet / "decisions.ko.v1.md"
+        quiet_copy.write_text(fill(quiet_copy.read_text(encoding="utf-8"), {
+            "k-keep": ["결정: 승인"], "group:legacy:incubating": ["결정: 승인"]}), encoding="utf-8")
+        attempt(stage_approvals.run, quiet, 1)
+        said = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "confirm", "--run-id", "r1",
+                               "--out", str(quiet.parent)], capture_output=True, text=True, timeout=600)
+        control("the driver's `confirm` in release 1 builds a set that changes no library file, F empty",
+                f"rc={said.returncode} {said.stdout}{said.stderr[-400:]}",
+                "rc=0 S10b confirm: version 1 built, 0 in F, 3 ledger-only, 0 apart")
+        quiet_page = (quiet / render_name(1)).read_text(encoding="utf-8") if (quiet / render_name(1)).is_file() else ""
+        equal("and its page says what confirming does in release 1, and not that S11 applies anything",
+              ([line for line in quiet_page.split("\n") if line == owner_lines.RELEASE_1_CONFIRM_EFFECT],
+               [line for line in quiet_page.split("\n") if "S11이 이 집합을" in line or "S11이 이 집합에서" in line]),
+              ([owner_lines.RELEASE_1_CONFIRM_EFFECT], []))
+        q_copy = quiet / copy_name(1)
+        if q_copy.is_file():
+            q_copy.write_text(q_copy.read_text(encoding="utf-8").replace("확인:\n", "확인: 확정\n", 1), encoding="utf-8")
+        said = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "confirm", "--run-id", "r1",
+                               "--out", str(quiet.parent), "--decide"], capture_output=True, text=True, timeout=600)
+        control("and its `confirm --decide` confirms the owner's copy as a process",
                 f"rc={said.returncode} {said.stdout}{said.stderr[-400:]}", "rc=0 S10b confirm: version 1 confirmed")
-        equal("and the confirmation is written", (cli_root / "r1" / CONFIRMATION).is_file(), True)
+        equal("and the confirmation is written", (quiet / CONFIRMATION).is_file(), True)
         reached.append(True)
     except SectionStopped:
         pass

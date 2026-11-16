@@ -268,6 +268,7 @@ def payload_for(candidate, derivation, derivation_row, units=(), intake_entry=No
         "intake_entry": json.dumps(intake_entry, ensure_ascii=False, indent=1) if intake_entry
                         else "none: this candidate comes from this window's sessions",
         "placement_contract": f"sha256:{placement.contract_digest()}\n\n{placement.contract_text()}",
+        "release": placement.release_packet_text("propose"),
         "returns": "Return one JSON object in the schema of this call.",
     }, template_dir=HERE / "packets")
 
@@ -716,6 +717,10 @@ def answer_problems(answer, candidate, derivation, derivation_row, active_keep=N
         problems.append(f"LEDGER_ONLY_WITH_OPERATIONS {candidate['candidate_id']}: a "
                         f"{answer['disposition']} changes the ledger alone, and carries "
                         f"{len(answer['operations'])} library operation(s)")
+    # Release 1 changes no library file: every path that accepts an answer (the answers in hand, the live check,
+    # a Korean regeneration) passes here, so none of them can carry a change toward S11.
+    problems += placement.release_problems(answer["disposition"], answer.get("operations") or [],
+                                           where=f"{candidate.get('candidate_id')}: ")
     # The unknowns. A state the derivation named must be carried by name; a proposal may carry more
     # than the run has (a field it could not use for its own reason), but never fewer.
     wanted = {row["field"]: row["state"] for row in named_states(derivation)}
@@ -1707,6 +1712,14 @@ def fx_through_s6(root):
 # ---- self-test -----------------------------------------------------------------------------------
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the path the redesign reopens stays held by its controls. Release 1's own controls
+    run inside it under `release_1`."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     """The fixtures, then one planted violation per rule, each named.
 
     Golden only: no model call is made here and none is made by this module - S7's call is the
@@ -1900,6 +1913,33 @@ def _self_test_body(failures, ran):
     control("a hook written under a guides label is refused by name, so the label cannot choose the rules",
             "; ".join(run_fixture({**held_case, "answer": hook_labelled_guide})["problems"]),
             "DESTINATION_LAYER_INCONSISTENT")
+
+    # ---- release 1 changes no library file (D-20261116-7853bc), at the scope the stage ships with ------------
+    under_all = {fid: run_fixture(case)["problems"] for fid, case in ids.items()}
+    with placement.scoped("release_1"):
+        changing = {fid: case for fid, case in ids.items()
+                    if case["answer"]["disposition"] in placement.library_changing()}
+        control("the O5 plants hold answers that change a library file, so release 1's refusal is exercised",
+                json.dumps(len(changing) >= 3), "true")
+        control("release 1 refuses every O5 answer that changes a library file, by its candidate and disposition",
+                json.dumps(sorted(fid for fid, case in changing.items() if not any(
+                    p.startswith(f"RELEASE_1_NO_LIBRARY_CHANGE {case['candidate']['candidate_id']}: "
+                                 f"{case['answer']['disposition']}:") for p in run_fixture(case)["problems"]))), "[]")
+        control("and adds nothing to an O5 answer that changes no file",
+                json.dumps(sorted(fid for fid, case in ids.items() if fid not in changing
+                                  and run_fixture(case)["problems"] != under_all[fid])), "[]")
+        control("an answer that changes nothing and carries an operation is refused in release 1 as well",
+                "; ".join(run_fixture({**held_case, "answer": {**held_case["answer"], "disposition": "keep",
+                                                               "reasons": held_case["answer"].get("reasons")}})
+                          ["problems"]), "RELEASE_1_NO_LIBRARY_CHANGE")
+        release_text = payload_for(held_case["candidate"], held_case["derivation"], held_case["row"])
+        release_section = placement.release_packet_text("propose")
+    design_text = payload_for(held_case["candidate"], held_case["derivation"], held_case["row"])
+    control("S7's packet in release 1 says which dispositions code refuses and what to do instead, and under the "
+            "design's scope it says nothing of it",
+            json.dumps(["## This release changes no library file" in release_text,
+                        "## This release changes no library file" in design_text,
+                        bool(release_section) and release_section in release_text]), "[true, false, true]")
     control("and it is core, so admitted by adjudication it awaits R", str(run_fixture(ids["F-O5-08c"])["awaiting_R"]),
             "True")
     control("an item admitted directly is not awaiting_R either, and says that",
@@ -3225,7 +3265,8 @@ def _self_test_body(failures, ran):
     # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
     # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
     import inspect
-    wrapper_text = inspect.getsource(self_test)
+    wrapper_text = inspect.getsource(_self_test_all)
+    scope_text = inspect.getsource(self_test)
     control("a control that dies names itself, since a traceback is not a control firing",
             next((line.strip() for line in wrapper_text.splitlines()
                   if "died after" in line and "print(" in line), "<no such line>"),
@@ -3234,6 +3275,10 @@ def _self_test_body(failures, ran):
             next((line.strip() for line in wrapper_text.splitlines()
                   if "_self_test_body(" in line), "<no such line>"),
             "return _self_test_body(failures, ran)")
+    control("and the entry point runs that wrapper under the release scope `all`, the contract as designed",
+            " | ".join(line.strip() for line in scope_text.splitlines()
+                       if "scoped(" in line or "_self_test_all()" in line),
+            'with placement.scoped("all"): | return _self_test_all()')
 
     reporting.append(True)
     if failures:

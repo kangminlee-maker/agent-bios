@@ -53,7 +53,8 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
-from runlib import (census, coverage, ledger, records, stage_apply, stage_approvals, stage_propose, stagelock,  # noqa: E402
+from runlib import (census, coverage, ledger, placement, records, stage_apply, stage_approvals, stage_propose,  # noqa: E402
+                    stagelock,
                     stage_confirm, targets)
 from runlib.records import Refused  # noqa: E402
 
@@ -569,6 +570,14 @@ def report_lines(doc):
 # ---- self-test ---------------------------------------------------------------------------------------
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the path the redesign reopens stays held by its controls. Release 1's own controls
+    run inside it under `release_1`."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     failures, ran, reporting = [], [], []
     try:
         _self_test_body(failures, ran, reporting)

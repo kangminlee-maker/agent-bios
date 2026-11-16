@@ -14,6 +14,7 @@ separate authorities on purpose.
 
     placement.py --self-test
 """
+import contextlib
 import hashlib
 import itertools
 import json
@@ -40,6 +41,82 @@ LEDGER_ONLY = ("keep", "incubate", "drop")
 # row, whose `allowed_dispositions` this list must equal — asserted in the suite rather than copied
 # by hand).
 BELOW_BAR = ("incubate", "keep", "drop", "none")
+
+
+# ---- release 1's scope -----------------------------------------------------------------------------
+#
+# Release 1 changes no library file (D-20261116-7853bc). A disposition that would - any of §7.2's vocabulary outside
+# the ledger-only set and `none` - and any operation are refused where an answer is accepted (S7, and S7b's
+# alternative), where the final set is built (S10b) and where S11 takes its items, so nothing approved can reach a
+# write. The contract as designed stays in the tables and in the code that reads them, and its controls run it
+# under the scope `all`: the redesign that reopens these dispositions starts from a path its controls still hold.
+# `scoped` is the scope's only writer, and the suite holds that only a self-test calls it.
+RELEASE_SCOPES = ("release_1", "all")
+_SCOPE = ["release_1"]
+NO_CHANGE = ("none",)
+
+
+def release_scope():
+    return _SCOPE[0]
+
+
+@contextlib.contextmanager
+def scoped(scope):
+    """The release scope for the code inside, for a self-test: `all` runs the contract as designed."""
+    if scope not in RELEASE_SCOPES:
+        raise Refused(f"RELEASE_SCOPE_UNKNOWN {scope!r}: the scopes are {', '.join(RELEASE_SCOPES)}")
+    held = _SCOPE[0]
+    _SCOPE[0] = scope
+    try:
+        yield
+    finally:
+        _SCOPE[0] = held
+
+
+def library_changing():
+    """The dispositions that change a library file: §7.2's vocabulary less the ledger-only set and `none`, derived
+    so that a disposition added to the vocabulary is refused in release 1 until someone decides otherwise."""
+    return tuple(d for d in vocabularies()["disposition"] if d not in LEDGER_ONLY + NO_CHANGE)
+
+
+def release_accepts():
+    """The dispositions this release accepts, in the vocabulary's order."""
+    changing = library_changing() if release_scope() == "release_1" else ()
+    return tuple(d for d in vocabularies()["disposition"] if d not in changing)
+
+
+def release_problems(disposition, operations_held=(), where=""):
+    """Release 1's refusal of one proposal, alternative or approved item: a disposition that changes a library
+    file, or an operation under any disposition. Empty under the scope `all`."""
+    if release_scope() != "release_1":
+        return []
+    if disposition in library_changing():
+        return [f"RELEASE_1_NO_LIBRARY_CHANGE {where}{disposition}: release 1 changes no library file, so it "
+                f"accepts only {', '.join(release_accepts())}"]
+    if operations_held:
+        return [f"RELEASE_1_NO_LIBRARY_CHANGE {where}{len(operations_held)} operation(s) under {disposition!r}: "
+                f"release 1 changes no library file"]
+    return []
+
+
+def release_packet_text(role="propose"):
+    """What a proposer (`propose`) or a reviewer of proposals (`review`) is told of the release scope: empty under
+    `all`."""
+    if release_scope() != "release_1":
+        return ""
+    head = ("## This release changes no library file\n\n"
+            f"Code refuses the dispositions {', '.join(library_changing())} and any operation in this release "
+            f"(`RELEASE_1_NO_LIBRARY_CHANGE`), whatever the contract above would allow. ")
+    if role == "review":
+        return head + (f"An alternative you name is held to the same refusal: choose it among "
+                       f"{', '.join(release_accepts())}, as the contract's row for the pair allows them. Where you "
+                       "judge that a change to a library file is what the evidence supports, say so in your reason; "
+                       "it is shown to the person, and a later release can carry it out.\n")
+    return head + (f"Choose among {', '.join(release_accepts())}, as the contract's row for this pair allows them and "
+                   "with what each requires, and carry no operations. Where the evidence supports a change to a "
+                   "library file, choose `incubate` if the row allows it (with its observation and expiry) and "
+                   "otherwise `none` or `drop` with its reason, and name the change the evidence supports in the "
+                   "Korean `proposal` reason, so the person sees it and a later release can carry it out.\n")
 
 
 def table(which):
@@ -1494,6 +1571,81 @@ def _self_test_body(failures, ran):
     # control's own text — the phrase it looks for appears in the line that looks for it — which is
     # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
     # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
+    # ---- release 1's scope (D-20261116-7853bc): no library file changes --------------------------------
+    import ast
+    vocab = vocabularies()["disposition"]
+    equals("release 1 is the scope the module ships with", release_scope(), "release_1")
+    equals("the dispositions that change a library file are §7.2's vocabulary less the ledger-only set and none",
+           json.dumps(list(library_changing())), json.dumps(["place", "correct", "re-deliver", "reduce"]))
+    equals("release 1 refuses each of them by name and accepts each of the rest",
+           json.dumps({d: [p.split(":")[0] for p in release_problems(d)] for d in vocab}, sort_keys=True),
+           json.dumps({"place": ["RELEASE_1_NO_LIBRARY_CHANGE place"], "correct": ["RELEASE_1_NO_LIBRARY_CHANGE correct"],
+                       "re-deliver": ["RELEASE_1_NO_LIBRARY_CHANGE re-deliver"],
+                       "reduce": ["RELEASE_1_NO_LIBRARY_CHANGE reduce"], "keep": [], "incubate": [], "drop": [],
+                       "none": []}, sort_keys=True))
+    control("and an operation is refused under a disposition that changes nothing, too",
+            "; ".join(release_problems("none", [{"type": "edit", "target": "g.md"}], where="k: ")),
+            "RELEASE_1_NO_LIBRARY_CHANGE k: 1 operation(s) under 'none'")
+    for role in ("propose", "review"):
+        text = release_packet_text(role)
+        equals(f"the {role} packet's release section names every refused disposition, the code and what is accepted",
+               json.dumps([text.startswith("## This release changes no library file"),
+                           "place, correct, re-deliver, reduce" in text, "RELEASE_1_NO_LIBRARY_CHANGE" in text,
+                           "keep, incubate, drop, none" in text]), json.dumps([True, True, True, True]))
+    with scoped("all"):
+        under_all = ([release_problems(d, [{"type": "edit"}]) for d in vocab], release_packet_text(),
+                     release_packet_text("review"), list(release_accepts()))
+    equals("under the design's scope nothing is refused, the packets say nothing and every disposition is accepted",
+           json.dumps(under_all), json.dumps([[[] for _d in vocab], "", "", list(vocab)]))
+    try:
+        with scoped("all"):
+            raise LookupError("planted")
+    except LookupError:
+        pass
+    equals("and the scope is release 1 again after the block, an exception included", release_scope(), "release_1")
+    control("an unknown scope is refused by name", "; ".join(raised(lambda: scoped("release_2").__enter__())),
+            "RELEASE_SCOPE_UNKNOWN 'release_2'")
+
+    def answerable_in_release_1():
+        """Every combination the contract answers, answered by a disposition release 1 accepts."""
+        out = []
+        for kind in vocabularies()["kind"]:
+            for diagnosis in vocabularies()["diagnosis"]:
+                for bar in (True, False):
+                    held = acceptable_dispositions(kind, diagnosis, bar)
+                    if held and not set(held) & set(release_accepts()):
+                        out.append(f"{kind}/{diagnosis}/{'above' if bar else 'below'}: only {sorted(held)}")
+        return out
+    clean("every combination the contract answers has an answer release 1 accepts, so refusing the four leaves no "
+          "candidate unanswerable", answerable_in_release_1())
+    with_table("pairs", lambda t: [row.__setitem__("allowed", [{"disposition": "re-deliver"}]) for row in t["rows"]
+                                   if row["id"] == "not_delivered"],
+               lambda: control("and a row left with only a disposition that changes a file is named",
+                               "; ".join(answerable_in_release_1()), "not delivered/covered/above: only ['re-deliver']"))
+
+    def scope_writers(sources):
+        """Every call of `scoped` outside a self-test function, as `file:line`: the scope's only writer runs
+        inside a suite, so a shipped path cannot reopen what release 1 closes."""
+        out = []
+        for name, text in sorted(sources.items()):
+            def walk(node, inside):
+                for child in ast.iter_child_nodes(node):
+                    now = inside or (isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                                     and "self_test" in child.name)
+                    if (isinstance(child, ast.Call) and not now
+                            and getattr(child.func, "attr", getattr(child.func, "id", None)) == "scoped"):
+                        out.append(f"{name}:{child.lineno}")
+                    walk(child, now)
+            walk(ast.parse(text), False)
+        return out
+    shipped = {str(p.relative_to(HERE)): p.read_text(encoding="utf-8")
+               for p in sorted(list((HERE / "runlib").glob("*.py")) + [HERE / "distill.py"])}
+    inside = [n for n, t in shipped.items() if ".scoped(" in t]
+    equals("the suites that run the design's scope call it, eight of them, and this one", len(inside), 9)
+    clean("no shipped code calls `scoped` outside a self-test", scope_writers(shipped))
+    equals("and a call outside a self-test is named", json.dumps(scope_writers(
+        {"x.py": "def run():\n    with placement.scoped('all'):\n        pass\n"})), json.dumps(["x.py:2"]))
+
     import inspect
     wrapper_text = inspect.getsource(self_test)
     control("a control that dies names itself, since a traceback is not a control firing",

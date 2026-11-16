@@ -26,7 +26,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import packet, records, stage_adjudicate, stage_propose, stage_render, validate  # noqa: E402
+from runlib import packet, placement, records, stage_adjudicate, stage_propose, stage_render, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -492,6 +492,14 @@ def run(run_dir, reviews=None, regenerations=None, second=None, *, supervisor=No
 # ---- self-test ----------------------------------------------------------------------------------------------------
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the path the redesign reopens stays held by its controls. Release 1's own controls
+    run inside it under `release_1`."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     """Positive controls first; then each path a row can take; then one planted violation per rule, each named."""
     import copy
     failures, ran, reporting = [], [], []

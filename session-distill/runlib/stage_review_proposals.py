@@ -58,6 +58,7 @@ def payload_for(candidate, proposal_row, units=(), judgments=None):
         "proposal": json.dumps(shown_proposal(proposal_row), ensure_ascii=False, indent=1),
         "units": json.dumps(list(units), ensure_ascii=False, indent=1),
         "placement_contract": f"sha256:{placement.contract_digest()}\n\n{placement.contract_text()}",
+        "release": placement.release_packet_text("review"),
         "returns": returns_text(),
     }, template_dir=HERE / "packets")
 
@@ -212,6 +213,9 @@ def review_problems(review, proposal_row, kind=None, diagnosis=None, legacy_incu
             problems.append(f"ALTERNATIVE_DISALLOWED {alternative['disposition']}: §7.2 allows "
                             f"{', '.join(sorted(allowed)) or 'nothing'} for this pair, so this is not "
                             f"an alternative the owner could take")
+        # the owner may adopt it with `수정`, so release 1's refusal holds it as it holds a proposal
+        problems.extend(placement.release_problems(alternative["disposition"], (),
+                                                   where=f"{proposal_row.get('candidate_id')} alternative: "))
         # The alternative IS a proposal - it is what the owner may take instead - so its destination
         # is held to §7.4's layers and to the carrier rules, through the same function S7's own
         # destination goes through. Both are model output that reaches the owner's review page, where
@@ -525,6 +529,14 @@ def live_report_lines(summary):
 # ---- self-test -----------------------------------------------------------------------------------
 
 def self_test():
+    """The suite under the release scope `all`: the contract as designed, which release 1 holds closed
+    (`placement.scoped`), so the path the redesign reopens stays held by its controls. Release 1's own controls
+    run inside it under `release_1`."""
+    with placement.scoped("all"):
+        return _self_test_all()
+
+
+def _self_test_all():
     """Positive control first, then one planted violation per rule, each named.
 
     Golden: no model call is made here or by this module. What is judged is the packet S7b would be
@@ -1028,6 +1040,19 @@ def _self_test_body(failures, ran):
     misfire = row(kind="misfire", diagnosis="wrong or insufficient")
     clean("an alternative with a §7.4 layer and a relative carrier passes",
           review_problems(disagreeing, misfire))
+    # release 1 changes no library file (D-20261116-7853bc): the owner may adopt an alternative with `수정`
+    with placement.scoped("release_1"):
+        control("in release 1 an alternative that changes a library file is refused by name",
+                said(disagreeing, misfire), "RELEASE_1_NO_LIBRARY_CHANGE k1 alternative: correct:")
+        clean("and one that changes nothing passes", review_problems(
+            review(verdict="disagree", alternative={"disposition": "incubate", "reason": "관찰을 더 모은다",
+                                                    "destination": {"layer": "incubator", "carrier": None}},
+                   disposition_review={"holds": False, "reason": "그 처분이 아니다"}), misfire))
+        release_review_text = payload_for({"candidate_id": "k"}, {"judgments": {}})
+        release_review_section = placement.release_packet_text("review")
+    control("S7b's packet in release 1 holds the alternative to the same refusal, and under the design's scope not",
+            json.dumps([bool(release_review_section) and release_review_section in release_review_text,
+                        "## This release changes no library file" in held_payload]), "[true, false]")
     control("an alternative whose layer is outside §7.4's order is refused by name",
             said(review(verdict="disagree", alternative=alt(destination={"layer": "everywhere",
                                                                         "carrier": "x"}),
@@ -1117,7 +1142,8 @@ def _self_test_body(failures, ran):
     # how a planted mutation passed here before. The wrapper lives in `self_test` and this control
     # lives in `_self_test_body`, so asking `self_test` for its source excludes the control.
     import inspect
-    wrapper_text = inspect.getsource(self_test)
+    wrapper_text = inspect.getsource(_self_test_all)
+    scope_text = inspect.getsource(self_test)
     control("a control that dies names itself, since a traceback is not a control firing",
             next((line.strip() for line in wrapper_text.splitlines()
                   if "died after" in line and "print(" in line), "<no such line>"),
@@ -1126,6 +1152,10 @@ def _self_test_body(failures, ran):
             next((line.strip() for line in wrapper_text.splitlines()
                   if "_self_test_body(" in line), "<no such line>"),
             "return _self_test_body(failures, ran)")
+    control("and the entry point runs that wrapper under the release scope `all`, the contract as designed",
+            " | ".join(line.strip() for line in scope_text.splitlines()
+                       if "scoped(" in line or "_self_test_all()" in line),
+            'with placement.scoped("all"): | return _self_test_all()')
 
     # ---- the supervised call (release 1) ---------------------------------------------------------
     held_asked, held_unasked = asked_of({"proposals": [

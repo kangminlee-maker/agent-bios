@@ -755,9 +755,9 @@ DECLARATION_READERS = {
                                       "recorded against them",
     ("runlib/dispatch.py", "self_test"): "the dispatcher's self-test plants and reads its scratch runs' declarations",
     ("runlib/views.py", "self_test"): "the S2 self-test reads its scratch runs' declarations, to check what S2 recorded",
-    ("runlib/stage_review_korean.py", "self_test"): "the S9b suite reads the seats its golden run declares, to amend them "
+    ("runlib/stage_review_korean.py", "_self_test_all"): "the S9b suite reads the seats its golden run declares, to amend them "
                                                     "with the stage's two seats (a dotted key is assigned as a whole map)",
-    ("runlib/stage_adjudicate.py", "self_test"): "the S10 suite reads the seats its golden run declares, to amend "
+    ("runlib/stage_adjudicate.py", "_self_test_all"): "the S10 suite reads the seats its golden run declares, to amend "
                                                  "them with the second pass's two seats (a dotted key is assigned as "
                                                  "a whole map)",
     ("runlib/stage_apply.py", "_held_declaration"): "S11's effects part takes the declaration's lock around every "
