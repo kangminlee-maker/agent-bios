@@ -107,7 +107,7 @@ except BaseException:
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:
-    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_delivery, \
+    from runlib import census, coverage, declare, drift, inventory, projection, records, sources, stage_delivery, \
         stage_form, stage_judge, \
         stage_adjudicate, stage_apply, stage_approvals, stage_close, stage_confirm, stage_propose, stage_render, stage_retrieve, \
         stage_review_korean, stage_review_proposals, \
@@ -309,6 +309,12 @@ def run_dir_of(args):
     run_dir = records.contained(out, args.run_id)
     if run_dir is None:
         raise Refused(f"RUN_DIR_ESCAPE {args.run_id!r}: {pathlib.Path(out) / args.run_id} resolves outside {out}")
+    # a run directory inside the instructions makes its locks, records and outputs part of them (release 1's
+    # confirmation review, round 2 F2): refused for every command, before any lock or directory
+    where = drift.library_place(pathlib.Path(run_dir).resolve())
+    if where:
+        raise Refused(f"RUN_DIR_IN_INSTRUCTIONS {run_dir}: a run directory is not placed inside the instructions, and "
+                      f"this one is {where}. Nothing was written; pass --out DIR outside them")
     return run_dir
 
 
@@ -1190,6 +1196,28 @@ def self_test():
         control("apply (S11) over a run whose final set is not confirmed is refused by name, and no stage record is "
                 "written or changed",
                 code == 1 and "CONFIRMATION_ABSENT S11" in err and stage_files() == before, f"{code} {err}")
+        # a run directory inside the instructions (release 1's confirmation review, round 2 F2): refused for every
+        # command before any lock or directory, here the two that write the most
+        skill_repo = scratch / "skill-repo"            # under the suite's declared scratch
+        from runlib import lifecycle_intake as held_intake
+        held_checkout_ledger = held_intake.CHECKOUT_LEDGER      # `close` names it for the process; restored below
+        try:
+            for d in ("claude/skills/understand", "codex"):
+                (skill_repo / d).mkdir(parents=True)
+            inside = skill_repo / "claude" / "skills" / "understand"
+            for command in (["apply", "--run-id", "r1"], ["close", "--run-id", "r1", "--checkout-ledger", "l.json"]):
+                held_err = io.StringIO()
+                with contextlib.redirect_stderr(held_err), contextlib.redirect_stdout(io.StringIO()):
+                    try:
+                        held_code = main([*command, "--out", str(inside)])
+                    except Exception as exc:  # noqa: BLE001 - reported by name
+                        held_code, _ = 99, held_err.write(f"RAISED {exc!r}")
+                control(f"{command[0]} with a run directory inside a skill is refused by name and writes nothing there",
+                        held_code == 1 and "RUN_DIR_IN_INSTRUCTIONS" in held_err.getvalue()
+                        and not any(inside.iterdir()), f"{held_code} {held_err.getvalue()[-300:]}")
+        finally:
+            held_intake.CHECKOUT_LEDGER = held_checkout_ledger
+            shutil.rmtree(skill_repo, ignore_errors=True)
         code, err = cli("close", "--run-id", "r1")
         control("close (S12) with no ledger reference is refused by name: no path inside a checkout is assumed",
                 code == 1 and "LEDGER_UNNAMED S12" in err and stage_files() == before, f"{code} {err}")

@@ -397,25 +397,17 @@ def _file_sha(path):
     return ledger.sha256_bytes(ledger.read_current(path))
 
 
-# The instruction trees: a file under one is shipped or installed as instructions whatever its name, as a skill's
-# bundle takes every file beneath it (`compose/instructions_catalog.py`).
-LIBRARY_TREES = ("claude", "codex", "ko")
-
-
-def destination_problems(paths):
-    """S12's own state files kept out of the library (Codex release-1 review F1): a ledger or a coverage state named
-    in a layer that carries instructions, or under an instruction tree, would be written as a library member. Only
-    the `ledger` layer and a path no layer names are S12's to write; read case-folded, as a case-folding checkout
-    resolves them."""
+def destination_problems(paths, checkout=None):
+    """S12's own state files kept out of the library (Codex release-1 review F1, both rounds): a ledger or a coverage
+    state named in a layer that carries instructions, or under an instruction tree - as spelled, and where it lands
+    from the declared checkout, which may itself lie inside a skill - would be written as a library member
+    (`drift.library_place`)."""
     out = []
     for rel in paths:
-        held = pathlib.PurePosixPath(str(rel)).as_posix()
-        layers = {drift.layer_of(held), drift.layer_of(held.casefold())} - {None, "ledger"}
-        tree = held.casefold().split("/", 1)[0]
-        if layers or tree in LIBRARY_TREES:
-            where = f"in the {', '.join(sorted(layers))} layer" if layers else f"under the instruction tree {tree}/"
+        where = drift.library_place(rel) or (drift.library_place(pathlib.Path(checkout) / rel) if checkout else None)
+        if where:
             out.append(f"CLOSE_DESTINATION_IN_LIBRARY {rel}: S12 writes the ledger and the coverage state outside the "
-                       f"library, and this path is {where}")
+                       f"instructions, and this path is {where}")
     return out
 
 
@@ -461,7 +453,7 @@ def run(run_dir, ledger_ref=None, coverage_ref=None):
         gathered = stage_confirm.gathered(run_dir)
         current, approvals = gathered[0], gathered[1]
         found = list(targets.set_problems([ledger_rel] + ([coverage_rel] if coverage_rel else []), str(checkout)))
-        found += destination_problems([ledger_rel] + ([coverage_rel] if coverage_rel else []))
+        found += destination_problems([ledger_rel] + ([coverage_rel] if coverage_rel else []), checkout)
         if found:
             raise Refused("\n".join(found))
         candidates = {c["candidate_id"]: c for c in
@@ -781,10 +773,12 @@ def _self_test_body(failures, ran, reporting):
                            "gate": [{"kind": "refusal", "state": "expected"}],
                            "counts": {"expected": 1, "failed": 1, "not_applicable": 1, "kinds_not_planted": 0}}
 
-    def applied(name, kind="targeted", legacy_target="L-2", alternative=None, decisions=None):
+    def applied(name, kind="targeted", legacy_target="L-2", alternative=None, decisions=None, checkout_at=None):
         root = pathlib.Path(tempfile.mkdtemp(prefix=f"s12-{name}-"))
         made_dirs.append(root)
-        checkout = root / "checkout"
+        checkout = root / (checkout_at or "checkout")
+        if checkout_at:                                   # inside an enclosing checkout: it holds claude/ and codex/
+            (root / "repo" / "codex").mkdir(parents=True)
         (checkout / "claude" / "guides").mkdir(parents=True)
         (checkout / "claude" / "guides" / "k.md").write_bytes(K)
         (checkout / LEDGER_AT).parent.mkdir(parents=True)
@@ -873,6 +867,16 @@ def _self_test_body(failures, ran, reporting):
             control("and the ledger and the skill are as they were",
                     [(checkout / LEDGER_AT).read_bytes() == before,
                      (checkout / "claude" / "skills" / "understand" / "coverage.json").exists()], [True, False])
+            # round 2 F1: a declared checkout inside a skill makes the ordinary destinations instruction members
+            root, run_dir, checkout = applied("nested", checkout_at="repo/claude/skills/understand")
+            stage_apply.run(run_dir)
+            before = (checkout / LEDGER_AT).read_bytes()
+            control("a ledger destination is named where it lands, inside a skill, though its spelling is ordinary",
+                    [p.split(":")[0] for p in destination_problems([LEDGER_AT], checkout)],
+                    [f"CLOSE_DESTINATION_IN_LIBRARY {LEDGER_AT}"])
+            control("and the stage refuses a close whose declared checkout lies inside a skill, before it writes",
+                    (code(lambda: close_run(run_dir)), (checkout / LEDGER_AT).read_bytes() == before),
+                    ("CLOSE_DESTINATION_IN_LIBRARY", True))
             # Codex release-1 review F3: a run an earlier version applied is not closed in release 1
             root, run_dir, checkout = applied("rel1")
             stage_apply.run(run_dir)                        # S11 under the design's scope, as an earlier version ran it

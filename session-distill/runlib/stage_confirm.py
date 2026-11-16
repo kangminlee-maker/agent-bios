@@ -123,10 +123,14 @@ def _without_reason(alternative):
 
 def adopted_gap(disposition, reason):
     """Why an adopted S7b alternative cannot be closed as it stands, or None. S12 records an incubate's observation and
-    expiry and a keep's or a drop's reason (`stage_close.element_of`), and S7b's alternative carries a reason alone."""
+    expiry, a keep's record over the units it keeps, and a drop's reason (`stage_close.element_of`), and S7b's
+    alternative carries a reason alone: only a `none` and a `drop` with its reason close as adopted (release 1's
+    confirmation review, both rounds)."""
     if disposition == "incubate":
         return "adopted_incubate_without_observation"
-    if disposition in ("keep", "drop") and not reason:
+    if disposition == "keep":
+        return "adopted_keep_without_units"
+    if disposition == "drop" and not reason:
         return "adopted_without_reason"
     return None
 
@@ -257,6 +261,8 @@ def page(manifest, version):
     why = {"adopted_alternative": "채택한 S7b 대안이 라이브러리를 바꾸므로 S7이 작업을 제안해야 합니다",
            "adopted_incubate_without_observation": "채택한 S7b 대안 incubate에는 관찰 계획과 만료가 없어, S7이 그것을 "
                                                    "갖춘 제안을 다시 만들어야 합니다",
+           "adopted_keep_without_units": "채택한 S7b 대안 keep에는 지킬 단위가 없어, S7이 그것을 갖춘 제안을 다시 "
+                                         "만들어야 합니다",
            "adopted_without_reason": "채택한 S7b 대안에 이유가 없어, S7이 이유를 갖춘 제안을 다시 만들어야 합니다",
            "revise_note": "수정 메모와 함께 S7로 돌아갑니다"}
     apart = [f"- {i['item_id']}: R을 기다립니다 ({i.get('reason') or '이유 없음'})" for i in manifest["awaiting_R"]]
@@ -599,6 +605,14 @@ def _self_test_all():
     equal("and one without a reason is S7's to propose again",
           [(i["item_id"], i["why"]) for i in m["needs_proposal"] if i["item_id"] == "k-place"],
           [("k-place", "adopted_without_reason")])
+    next(r for r in dropping["rows"] if r["item_id"] == "k-place")["s7b"]["alternative"] = {
+        "disposition": "keep", "reason": "지금 것이 맞다"}
+    m, f = built({**approve, "k-place": ["결정: 수정 대안 s7b"]}, rows=dropping,
+                 s7b={"reviews": [{"item_id": "k-place", "alternative": {"disposition": "keep", "reason": "x"}}]})
+    equal("and an adopted keep names no units to keep, so it is S7's to propose again, reason or not (round 2 F3)",
+          ([(i["item_id"], i["why"]) for i in m["needs_proposal"] if i["item_id"] == "k-place"],
+           [i["item_id"] for i in m["ledger_only"] if i["item_id"] == "k-place"]),
+          ([("k-place", "adopted_keep_without_units")], []))
     m, f = built({**approve, "k-place": ["결정: 수정 대안 s7b"]},
                  s7b={"reviews": [{"item_id": "k-place", "alternative": {"disposition": "drop"}}]})
     control("an adopted alternative S7b's recorded review no longer offers is ALTERNATIVE_STALE", "\n".join(f),

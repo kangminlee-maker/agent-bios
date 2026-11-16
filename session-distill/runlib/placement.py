@@ -78,7 +78,13 @@ def release_scope():
 
 @contextlib.contextmanager
 def scoped(scope):
-    """The release scope for the code inside, for a self-test: `all` runs the contract as designed."""
+    """The release scope for the code inside, for a self-test: `all` runs the contract as designed.
+
+    What holds it: no shipped code refers to it, to `_SCOPE` or to placement's dict outside a suite function (the
+    suite's AST walk), and it runs only with a suite function on the calling thread's stack. What does not: Python
+    run in the same process at will - `exec`, a thread started under a suite's name, a module that defines its own
+    `self_test` to call it - can change any module state, this one included. No command of the driver runs such code;
+    the property is release 1's commands, not an interpreter boundary (release 1's confirmation review, round 2 F4)."""
     if scope not in RELEASE_SCOPES:
         raise Refused(f"RELEASE_SCOPE_UNKNOWN {scope!r}: the scopes are {', '.join(RELEASE_SCOPES)}")
     if not self_test_on_stack(_stack_names()):
@@ -128,9 +134,10 @@ def release_packet_text(role="propose"):
             f"(`RELEASE_1_NO_LIBRARY_CHANGE`), whatever the contract above would allow. ")
     if role == "review":
         return head + (f"An alternative you name is held to the same refusal: choose it among "
-                       f"{', '.join(release_accepts())}, as the contract's row for the pair allows them. A `keep` or "
-                       "`drop` alternative carries its reason into the ledger; an `incubate` alternative carries no "
-                       "observation, so a person who adopts it sends the item back for a complete proposal. Where you "
+                       f"{', '.join(release_accepts())}, as the contract's row for the pair allows them. A "
+                       "`drop` alternative carries its reason into the ledger; a `keep` alternative names no units to keep "
+                       "and an `incubate` alternative carries no observation, so a person who adopts either sends the "
+                       "item back for a complete proposal. Where you "
                        "judge that a change to a library file is what the evidence supports, say so in your reason; "
                        "it is shown to the person, and a later release can carry it out.\n")
     return head + (f"Choose among {', '.join(release_accepts())}, as the contract's row for this pair allows them and "
@@ -1658,6 +1665,16 @@ def _self_test_body(failures, ran):
             own = name.endswith("placement.py")
 
             def refers(child):
+                # placement's own state and dict count as the switch: writing them is changing the scope
+                if isinstance(child, ast.Attribute) and child.attr in ("_SCOPE", "__dict__") and not own:
+                    return (isinstance(child.value, ast.Name) and child.value.id in aliases) or \
+                        (not isinstance(child.value, ast.Name) and "placement" in ast.unparse(child.value))
+                if isinstance(child, ast.Call) and getattr(child.func, "id", None) == "vars":
+                    return any(isinstance(arg, ast.Name) and arg.id in aliases for arg in child.args)
+                if isinstance(child, ast.Call) and getattr(child.func, "attr", getattr(child.func, "id", None)) \
+                        == "import_module":
+                    return any(isinstance(arg, ast.Constant) and str(arg.value).endswith("placement")
+                               for arg in child.args)
                 if isinstance(child, ast.Attribute) and child.attr == "scoped":
                     return (isinstance(child.value, ast.Name) and child.value.id in aliases) or \
                         (not isinstance(child.value, ast.Name) and "placement" in ast.unparse(child.value))
@@ -1690,8 +1707,11 @@ def _self_test_body(failures, ran):
                "d.py": "def run():\n    getattr(placement, 'scoped')('all')\n",
                "e.py": "def run_self_test_helper():\n    placement.scoped('all')\n",
                "f.py": "from runlib import placement as p\ndef run():\n    p.scoped('all')\n",
-               "g.py": "def run(scoped, x):\n    return scoped + x.scoped\n"})),
-           json.dumps(["a.py:2", "b.py:1", "c.py:1", "d.py:2", "e.py:2", "f.py:3"]))
+               "g.py": "def run(scoped, x):\n    return scoped + x.scoped\n",
+               "h.py": "def run():\n    placement._SCOPE[0] = 'all'\n    vars(placement)['_SCOPE'][0] = 'all'\n",
+               "i.py": "def run():\n    importlib.import_module('runlib.placement')\n    placement.__dict__.clear()\n"})),
+           json.dumps(["a.py:2", "b.py:1", "c.py:1", "d.py:2", "e.py:2", "f.py:3", "h.py:2", "h.py:3", "i.py:2",
+                       "i.py:3"]))
     equals("a stack is a suite's only with one of its functions on it",
            json.dumps([self_test_on_stack(["run", "main", "<module>"]), self_test_on_stack(["run_self_test_x"]),
                        self_test_on_stack(["helper", "_self_test_body", "<module>"])]), json.dumps([False, False, True]))

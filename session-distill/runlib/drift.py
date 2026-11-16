@@ -100,6 +100,46 @@ def target_identity(target):
     return targets.identity(targets.file_of(target))
 
 
+# The instruction trees by their top directory, read from a checkout's root: a file beneath one is shipped or
+# installed as instructions whatever its name, as a skill's bundle takes every file beneath it
+# (`compose/instructions_catalog.py`). And the hosts' installed homes, whose files the hosts read as instructions.
+LIBRARY_TREES = ("claude", "codex", "ko")
+INSTALLED_HOMES = (".claude", ".codex")
+
+
+def _relative_place(rel):
+    held = pathlib.PurePosixPath(rel).as_posix()
+    layers = {layer_of(held), layer_of(held.casefold())} - {None, "ledger"}
+    if layers:
+        return f"in the {', '.join(sorted(layers))} layer"
+    tree = held.casefold().split("/", 1)[0]
+    if tree in LIBRARY_TREES:
+        return f"under the instruction tree {tree}/"
+    return None
+
+
+def library_place(path):
+    """Where a path falls inside the instructions, or None (release 1's confirmation review, F1 and F2 of both
+    rounds). A relative path is read from a checkout's root: its layer, any but `ledger`, or its instruction tree,
+    case-folded. An absolute path is resolved with its symlinks followed and read the same way from every ancestor
+    that holds both `claude/` and `codex/` - an agent-bios checkout or package, so a checkout or a run directory
+    placed inside a skill is named - and inside a host's installed home."""
+    held = pathlib.PurePosixPath(str(path))
+    if not held.is_absolute():
+        return _relative_place(held.as_posix())
+    parts = pathlib.Path(os.path.realpath(str(path))).parts
+    for n, part in enumerate(parts):
+        if part.casefold() in INSTALLED_HOMES:
+            return f"inside the host's installed home {pathlib.Path(*parts[:n + 1])}"
+    for n in range(1, len(parts)):
+        root = pathlib.Path(*parts[:n])
+        if (root / "claude").is_dir() and (root / "codex").is_dir():
+            where = _relative_place("/".join(parts[n:]))
+            if where:
+                return f"{where} of {root}"
+    return None
+
+
 def target_problems(target, checkout=None):
     """Why this target may not be applied, by name. Empty means it is canonical and contained.
 
@@ -961,6 +1001,34 @@ def self_test():
             json.dumps(reads_in("import pathlib\nX = pathlib.Path('a').read_text()\n"
                                 "Y = pathlib.Path('b').read_bytes()\n")),
             json.dumps(["pathlib.Path('a').read_text", "pathlib.Path('b').read_bytes"]))
+
+    # ---- where a path falls inside the instructions (release 1's confirmation review, both rounds) ----
+    def same(name, got, want):
+        ran.append(name)
+        if got != want:
+            failures.append((name, f"expected exactly {want!r}, got {got!r}"[:600]))
+    same("a relative path inside a layer or an instruction tree is named, and one outside is not",
+         [bool(library_place(x)) for x in ("claude/skills/u/ledger.json", "Claude/Guides/c.json", "ko/x/ledger.json",
+                                           "claude/agents/a.md", "compose/ledger.json", "design/session-distill/ledger.json",
+                                           "session-distill/local/coverage.json", "session-distill/out/r1")],
+         [True, True, True, True, True, False, False, False])
+    place_root = pathlib.Path(_tempfile.mkdtemp(prefix="drift-place-"))
+    try:
+        repo = place_root / "repo"
+        for d in ("claude/skills/understand", "codex", "session-distill/out"):
+            (repo / d).mkdir(parents=True)
+        (place_root / "home" / ".claude" / "skills").mkdir(parents=True)
+        (place_root / "link").symlink_to(repo / "claude" / "skills" / "understand")
+        same("an absolute path is read from every ancestor that is a checkout: inside a skill, through a symlinked "
+             "parent and in a host's installed home it is named, beside a run's output it is not",
+             [bool(library_place(x)) for x in (repo / "claude/skills/understand/ledger.json",
+                                               place_root / "link" / "ledger.json", place_root / "link" / "r1",
+                                               place_root / "home" / ".claude" / "skills" / "r1",
+                                               repo / "session-distill/out/r1", repo / "design/session-distill/ledger.json",
+                                               place_root / "elsewhere" / "claude" / "skills" / "r1")],
+             [True, True, True, True, False, False, False])
+    finally:
+        _shutil.rmtree(place_root, ignore_errors=True)
 
     print(f"drift --self-test: {'FAILED' if failures else 'OK'} ({len(ran)} controls: the layer map "
           f"and its longest-prefix rule, targeted drift apart from untargeted, an approved "
