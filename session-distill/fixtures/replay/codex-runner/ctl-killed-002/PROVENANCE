@@ -1,0 +1,15 @@
+source: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/codex-runner
+SHA256SUMS: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/codex-runner/SHA256SUMS (sha256 5c531b30935d95ffa6c11dc372155502ba5b3e444de4f7d51a51737f1e4f08ae)
+read (path relative to the source, sha256 as listed in SHA256SUMS and verified at copy time):
+  captures/ctl-killed-002/capture.json  eb64411e64b710e166a9abddd6846c0a906ec09576fff016e6d81dc0c5476199
+  captures/ctl-killed-002/context-pre.json  410485bb6bf6e6a269fdb00fbedf95254cdf0884dbbc04e637484a0fdd06f229
+  captures/ctl-killed-002/frames.jsonl  fcd4aef1707321bf6e3349daa03b31897914205533991944946503992137175e
+  captures/ctl-killed-002/events.jsonl  21fb3fbfbddd2e95edc85245a22fdfcef957341223de5966e700898b89106922
+  captures/ctl-killed-002/packet  9d25806afb428461f4e1edb5e1f13efa63fe00cecfa05c2b50b00e6e8310b532
+  captures/ctl-killed-002/schema.json  f3d8e6a37d800bde18149b145d41ac903ed45db53e900f24bed19c55f9c242e2
+projection:
+  frames.jsonl: the root thread from capture.json, then the capture's server frames in the reduced form of codex-accounting/proto/acct.py (response.created/completed/incomplete/failed, error, codex.rate_limits); this probe captured no client frames and no otel rows
+  events.jsonl: the `--json` thread/turn/error events; item events dropped
+  host.json: profile and working directory as the capture recorded them (no flag-set hash was recorded); the pre-call working-directory listing and, from context-pre.json, the host's instruction sources with their sha256, the rendered skills
+  packet.md, result.json: verbatim; schema.json: canonical JSON of the capture's schema
+  facts.json: the seat sent (provider renamed openai -> codex), exit status, declared working directory

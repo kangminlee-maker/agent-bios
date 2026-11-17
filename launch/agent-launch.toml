@@ -189,7 +189,7 @@ sweep = "${CODEX_HOME}/agents/sweep.toml"
 # Every id named anywhere in this file must have a row here, and every row must be named
 # somewhere — both directions are gated, so this table cannot quietly outlive its bindings.
 [models]
-"claude-fable-5-1" = { display = "Claude Fable 5.1" }
+"claude-fable-5-2" = { display = "Claude Fable 5.2" }
 "claude-opus-5-5" = { display = "Claude Opus 5.5" }
 "claude-sonnet-5-5" = { display = "Claude Sonnet 5.5" }
 "claude-haiku-5-5" = { display = "Claude Haiku 5.5" }
@@ -199,10 +199,15 @@ sweep = "${CODEX_HOME}/agents/sweep.toml"
 
 [hosts.claude]
 provider = "anthropic"
-models = ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
+models = ["claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
 
+# Rebound from Fable 5.1 on 2026-11-11, and Fable 5.1 is RETIRED rather than kept beside
+# it: `models` is the selectable catalogue, and a listed model no tier binds would be a
+# site the currency check reports superseded forever, answerable only by a `superseded_by`
+# acknowledgement nobody has a reason to make. The codex host lists exactly its distinct
+# tier-bound models for the same reason.
 [hosts.claude.tiers.frontier]
-model = "claude-fable-5-1"
+model = "claude-fable-5-2"
 effort = "max"
 
 # One step below the seats the 5.x generation used. The vendor's Opus 5.5 guidance
@@ -275,9 +280,9 @@ claude_permission_mode = "standard"
 [presets.session-distill]
 # Author-only: the workflow edits the agent-bios instructions and needs a checkout, so
 # its mission names repo paths a packaged user does not have. Declaring it lets
-# gates/check-package.sh judge the mission text. NOTE: this declaration is read by
-# the gate, not yet by the launcher — the preset is still offered on a packaged
-# install. Closing that route belongs with the package-based distill work.
+# gates/check-package.sh judge the mission text, and the launcher reads it too: a tree
+# with no `gates/` directory is not a checkout, and the menu, the mode branch and
+# `build_plan` each refuse the preset by name there (`preset_withheld`, WP-22a).
 audience = "author"
 label = "Session distill"
 description = "Dedicated session-distill run: mine recent sessions, verify, place, and apply per the session-distill workflow. Requires an agent-bios checkout."
@@ -347,6 +352,11 @@ provider = "anthropic"
 tier = "frontier"
 
 # Nudge baseline lives in ~/.local/share/agent-bios/session-distill-state.json,
-# written by session-distill/update-state.py at window close.
+# written by session-distill/update-state.py at window close. A state file that records
+# transcript_files_total nudges when cadence_days have passed since its window end or the
+# transcript files grew by transcript_growth; one without it nudges after nudge_after new
+# history lines.
 [session_distill]
 nudge_after = 250
+cadence_days = 14
+transcript_growth = 250

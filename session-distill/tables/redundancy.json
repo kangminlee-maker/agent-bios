@@ -1,0 +1,10 @@
+{
+  "$comment": "Design §7.1's redundancy hints (plan WP-09 done-when 3 (d); lead decision D5 and its scope, WP-09 stage 0): code pairs the operative units of the current library whose BM25 similarity reaches a fixed threshold. Read by session-distill/runlib/lifecycle_intake.py. The similarity of a pair is the smaller of the two directions, each BM25 of one unit's keys over the other divided by that unit's BM25 over itself. Units of identical text (one fragment sha) are one instruction delivered by several carriers: they are folded into one before pairing and counted, never paired with each other. A unit with fewer than min_keys distinct keys (a JSON value, a bare marker) is too short to be an instruction anyone merges and is left out, counted.",
+  "threshold": 0.7,
+  "min_keys": 3,
+  "ceiling": 200,
+  "basis": "measured 2026-11-06 (work/impl/wp09/logs/redundancy-measure-1.log and -2.log) on the 1,435 operative units of this repository's shipped instructions and on C2-pre w1's current inventory (3,022 eligible operative units, 2,346 distinct texts): planted near-duplicates of 40 units (one word changed, the last fifth dropped, halves swapped, every fourth word dropped) score 0.725 at least, so 0.7 finds every one; with identical texts folded and units of fewer than 3 keys left out, 0.7 pairs 13 of the repository's units and 17 of w1's (0.6 would pair 32 and 40). Without the folding and the floor, 532 one- or two-key units of w1 form one clique of 141,250 pairs at 0.9. The ceiling is about ten times w1's count; above it the threshold is measured again.",
+  "excluded_layers": {
+    "native_undivided": "the host's own base instructions (Codex base_instructions), captured once per scope: not instructions the owner can reduce, and the same text repeated per scope turns about 3,000 operative units into about 22,700 (C2-pre, 2026-11-06); lead decision on D5's scope"
+  }
+}

@@ -152,7 +152,8 @@ class InstallerChoiceTests(unittest.TestCase):
         self.repo = self.root / "package"
         shutil.copytree(SOURCE / "claude", self.repo / "claude")
         files = ["compose/assemble.py", "compose/instructions_catalog.py", "compose/instructions_store.py", "compose/instructions_transaction.py", "compose/pkgid.py",
-                 "compose/domains.json", "learn/learning.schema.json", "launch/agent-launch.py", "launch/agent-launch.toml"]
+                 "compose/domains.json", "learn/learning.schema.json", "launch/agent-launch.py", "launch/agent-launch.toml",
+                 "wrappers/jsonl_lines.py"]
         for relative in files:
             target = self.repo / relative
             target.parent.mkdir(parents=True, exist_ok=True)

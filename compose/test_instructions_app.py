@@ -35,7 +35,9 @@ class AppInstructionsTests(unittest.TestCase):
                     "CLAUDE_CONFIG_DIR": str(self.home / ".claude"), "CODEX_HOME": str(self.home / ".codex"),
                     "ZDOTDIR": str(self.home), "PYTHONDONTWRITEBYTECODE": "1"}
         package = json.loads((SOURCE / "package.json").read_text(encoding="utf-8"))
-        files = set(package["files"]) | {"compose/instructions_app.py", "compose/app_bridge/"}
+        # Negated entries are npm exclusions, not paths (review Y #1): dropped before copying.
+        listed = [e for e in package["files"] if not e.startswith("!")]
+        files = set(listed) | {"compose/instructions_app.py", "compose/app_bridge/"}
         files.discard("provenance.json")
         for relative in sorted(files):
             source, target = SOURCE / relative, self.repo / relative
@@ -534,7 +536,8 @@ class AppInstructionsTests(unittest.TestCase):
 
         def discovered():
             with CodexServer(shutil.which("codex"), cwd=str(self.project), env=env) as server:
-                response = server.call("skills/list", {"cwds": [str(self.project)], "forceReload": True}, timeout=20)
+                # skills/list is this test's own question, not a call agent-bios makes: the client, unchecked.
+                response = server.client.call("skills/list", {"cwds": [str(self.project)], "forceReload": True}, timeout=20)
             groups = response.get("data", [])
             self.assertTrue(groups)
             self.assertFalse([error for group in groups for error in group.get("errors", [])])

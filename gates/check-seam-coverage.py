@@ -73,6 +73,8 @@ NOT_SEAM = {
     "load_state": "watermark persistence; cannot send or leak on its own",
     "save_state": "watermark persistence; cannot send or leak on its own",
     "print_upload_summary": "operator output; no transport decision",
+    "drain_under_lock": "the upload lock around the drain (a bounded wait, D-20261102-49b466); it decides "
+                        "no endpoint and carries no status, and the drain it runs is the seam",
     "_self_test": "a harness, not a subject — it is what executes the seam",
     "main": "CLI entry; its branches are argument parsing, not the transport path",
 }
@@ -296,7 +298,8 @@ def main(root=REPO):
 # of it a research instructions no harness reads. Sufficiency is not asserted here —
 # the positive control proves it, and fails loudly if this list is short.
 COPY_SET = ("learn", "gates/check-endpoints.py", "install.sh", "package.json",
-            "ENDPOINTS.md", "learn/learning.schema.json")
+            "ENDPOINTS.md", "learn/learning.schema.json",
+            "compose/host_platform.py")  # the upload lock's bounded wait, which the drain imports
 
 
 def _copy(dst):

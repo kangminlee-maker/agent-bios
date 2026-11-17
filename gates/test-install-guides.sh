@@ -59,19 +59,24 @@ chk "I4 the contrast guide exists and does NOT declare it" \
 # ZDOTDIR is redirected as deliberately as HOME. install.sh writes its shell hook
 # to ${ZDOTDIR:-$HOME}/.zshrc, so overriding HOME alone left a developer who
 # exports ZDOTDIR having their REAL .zshrc appended to by a test — outside the
-# temp tree, and outside the cleanup trap.
+# temp tree, and outside the cleanup trap. TMPDIR too: an install that fails keeps
+# its step's log in TMPDIR for the operator, and this file plants failures.
+mkdir -p "$T/tmp"
 sandbox_env() {
   printf '%s\n' "HOME=$T/home" "ZDOTDIR=$T/home" "CLAUDE_CONFIG_DIR=$T/home/.claude" \
-                "CODEX_HOME=$T/home/.codex" \
+                "CODEX_HOME=$T/home/.codex" "TMPDIR=$T/tmp" \
                 "AGENT_LAUNCH_VENV=$T/home/.local/share/agent-launch/venv" \
                 "AGENT_BIOS_IN_INSTALL_TEST=1"
 }
 
 run_install() {   # $1: subcommand, $2...: extra args
+  run_install_from "$REPO" "$@"
+}
+run_install_from() {   # $1: the source tree to install from, $2: subcommand, $3...: extra args
   # `install.sh verify` runs gates/check-parity.sh, which runs this file. The
   # sentinel makes the umbrella skip it — loudly — instead of recursing forever.
-  local sub="$1"; shift
-  env $(sandbox_env) bash "$REPO/install.sh" "$sub" "$@" >"$T/log" 2>&1
+  local src="$1" sub="$2"; shift 2
+  env $(sandbox_env) bash "$src/install.sh" "$sub" "$@" >"$T/log" 2>&1
   echo $? > "$T/rc"
 }
 
@@ -141,7 +146,7 @@ cat > "$T/probe-egress.py" <<PYEOF
 import importlib.util, os, pathlib, sys, tempfile
 spec = importlib.util.spec_from_file_location("cl", "$REPO/learn/collect-learning.py")
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-ctl = pathlib.Path(tempfile.mkdtemp(prefix="egress-ctl-")); os.environ["HOME"] = str(ctl)
+ctl = pathlib.Path(tempfile.mkdtemp(prefix="egress-ctl-", dir="$T")); os.environ["HOME"] = str(ctl)  # under $T: the trap removes it
 slot = ctl / ".config" / "agent-bios"; slot.mkdir(parents=True)
 (slot / "token").write_text("t"); (slot / "ingest-url").write_text("https://ctl.test")
 cfg, why = m.transport_config()
@@ -349,7 +354,7 @@ for rel in subprocess.run(['git','-C',str(src),'ls-files','-z'],capture_output=T
         (dst/rel).parent.mkdir(parents=True,exist_ok=True); shutil.copy2(src/rel,dst/rel)"
 rm -f "$B/compose/assemble.py"
 env HOME="$T/broken-home" ZDOTDIR="$T/broken-home" CLAUDE_CONFIG_DIR="$T/broken-home/.claude" \
-  CODEX_HOME="$T/broken-home/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 \
+  CODEX_HOME="$T/broken-home/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 TMPDIR="$T/tmp" \
   AGENT_LAUNCH_VENV="$T/broken-home/.local/share/agent-launch/venv" \
   bash "$B/install.sh" install >"$T/blog" 2>&1; echo $? > "$T/brc"
 chk "I7 an unreadable audience declaration aborts the install" "[ \$(cat \"$T/brc\") -ne 0 ]"
@@ -476,16 +481,25 @@ chk "I15 the manifest names it again" "grep -qxF \"$CD/skills/$SKILL/SKILL.md\" 
 # I13: a release that stops shipping a skill file must not leave it on the host, unowned.
 # Simulated by planting a file in the shipped skill, installing (it deploys and is
 # manifested), removing it from the source, and installing again: the deployed copy is
-# gone, backed up, and the still-shipped SKILL.md is untouched. Planted in the SOURCE tree
-# — this is what the scenario is about — and removed by the trap whatever happens.
-PLANT="$SKILL_SRC/$SKILL/gate-i13-probe.md"
-trap 'rm -f "$PLANT"; rm -rf "$T"' EXIT
+# gone, backed up, and the still-shipped SKILL.md is untouched. Planted in a COPY of the
+# source tree, which both installs run from: the scenario is about what a source ships,
+# and a plant in this checkout would change, for the scenario's length, the skill tree the
+# umbrella's other legs read while they run beside this one. The copy leaves out .git and
+# __pycache__; it lives under $T, which the trap removes.
+I13_SRC="$T/i13-source"
+python3 - "$REPO" "$I13_SRC" <<'PY'
+import shutil, sys
+shutil.copytree(sys.argv[1], sys.argv[2], symlinks=True, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+PY
+PLANT="$I13_SRC/claude/skills/$SKILL/gate-i13-probe.md"
+chk "I13 the plant is outside the source tree the umbrella's other legs read" \
+    "case \"$PLANT\" in \"$REPO\"/*) false ;; *) [ -d \"\${PLANT%/*}\" ] ;; esac"
 printf 'shipped once, then withdrawn\n' > "$PLANT"
-run_install install
+run_install_from "$I13_SRC" install
 chk "I13 a newly shipped skill file deploys to both hosts" \
     "[ -f \"$CD/skills/$SKILL/gate-i13-probe.md\" ] && [ -f \"$XD/skills/$SKILL/gate-i13-probe.md\" ]"
 rm -f "$PLANT"
-run_install install
+run_install_from "$I13_SRC" install
 chk "I13 the reinstall exits 0" "[ \$(cat \"$T/rc\") -eq 0 ]"
 chk "I13 the withdrawn file is gone from both hosts" \
     "[ ! -f \"$CD/skills/$SKILL/gate-i13-probe.md\" ] && [ ! -f \"$XD/skills/$SKILL/gate-i13-probe.md\" ]"
@@ -592,7 +606,7 @@ BLOCKED="$T/i17blocked"; mkdir -p "$BLOCKED"; chmod 500 "$BLOCKED"
 run_i17() {   # $1: extra env
   rm -rf "$UPD_HOME"; mkdir -p "$UPD_HOME"
   env HOME="$UPD_HOME" ZDOTDIR="$UPD_HOME" CLAUDE_CONFIG_DIR="$UPD_HOME/.claude" \
-      CODEX_HOME="$UPD_HOME/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 ${1:-} \
+      CODEX_HOME="$UPD_HOME/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 TMPDIR="$T/tmp" ${1:-} \
       AGENT_LAUNCH_VENV="$UPD_HOME/.local/share/agent-launch/venv" \
       bash "$REPO/install.sh" install >"$T/log" 2>&1
   echo $? > "$T/rc"

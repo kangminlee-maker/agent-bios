@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "plan WP-10 Artifacts and design §6.2 (retrieval), §5.3 (counting), §6.4 (the absence an incomplete reference point withholds): checks.json, S5's one row per candidate of S4's population - the units and ledger entries retrieved for it, its quotes verified again, its sessions checked, its recurrence over the census's lineages - and the summary the driver prints. Names, ids, hashes, scores and counts only: no unit text, lesson or quote.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["constants", "library", "ledger_index", "absence", "candidates", "summary"],
+  "properties": {
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["per_layer", "top_entries", "top_entries_basis", "indexed_class", "declared"],
+      "properties": {
+        "per_layer": {"type": "integer", "minimum": 1},
+        "top_entries": {"type": "integer", "minimum": 1},
+        "top_entries_basis": {"type": "string", "minLength": 1},
+        "indexed_class": {"type": "string", "minLength": 1},
+        "declared": {
+          "$comment": "plan WP-11: whether each count is the run's declaration (run.json retrieval) or S5's own default",
+          "type": "object", "additionalProperties": false, "required": ["per_layer", "top_entries"],
+          "properties": {"per_layer": {"type": "string", "enum": ["declared", "default"]},
+                         "top_entries": {"type": "string", "enum": ["declared", "default"]}}
+        }
+      }
+    },
+    "library": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indexed", "folded_copies", "not_indexed", "layers"],
+      "properties": {
+        "indexed": {"type": "integer", "minimum": 0},
+        "folded_copies": {"type": "integer", "minimum": 0},
+        "not_indexed": {"$ref": "#/$defs/counts_by_name"},
+        "layers": {"$ref": "#/$defs/counts_by_name"}
+      }
+    },
+    "ledger_index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entries", "read"],
+      "properties": {
+        "entries": {"type": "integer", "minimum": 0},
+        "read": {"type": "string", "minLength": 1}
+      }
+    },
+    "absence": {"$ref": "#/$defs/absence"},
+    "candidates": {"type": "array", "items": {"$ref": "#/$defs/candidate"}},
+    "summary": {
+      "$comment": "counts of the natural candidates (S4's); the planted controls of design §6.5 are reported apart, in controls.json and the driver's report",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidates", "formed", "lifecycle", "retrieved_units", "named_units", "ledger_entries", "quotes_checked",
+                   "quote_failed", "session_failed", "recurrence", "absence_withheld"],
+      "properties": {
+        "candidates": {"type": "integer", "minimum": 0},
+        "formed": {"type": "integer", "minimum": 0},
+        "lifecycle": {"type": "integer", "minimum": 0},
+        "retrieved_units": {"type": "integer", "minimum": 0},
+        "named_units": {"type": "integer", "minimum": 0},
+        "ledger_entries": {"type": "integer", "minimum": 0},
+        "quotes_checked": {"type": "integer", "minimum": 0},
+        "quote_failed": {"type": "integer", "minimum": 0},
+        "session_failed": {"type": "integer", "minimum": 0},
+        "recurrence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lineages", "sessions", "excluded"],
+          "properties": {
+            "lineages": {"type": "integer", "minimum": 0},
+            "sessions": {"type": "integer", "minimum": 0},
+            "excluded": {"$ref": "#/$defs/excluded_counts"}
+          }
+        },
+        "absence_withheld": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["candidates", "reason"],
+          "properties": {
+            "candidates": {"type": "integer", "minimum": 0},
+            "reason": {"type": ["string", "null"]}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1},
+    "ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "counts_by_name": {
+      "$comment": "a count per layer or unit class, by its name",
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {"^[a-z][a-z_]*$": {"type": "integer", "minimum": 0}}
+    },
+    "absence": {
+      "$comment": "design §6.2: an absence conclusion needs a complete reference point; at S5 that point is the current library the sweeps of WP-11 would read, held to the policy tables/unit_outcome.json names (derive.absence)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "policy", "complete", "unknown_layers"],
+      "properties": {
+        "reference": {"const": "current"},
+        "policy": {"type": "string", "minLength": 1},
+        "complete": {"type": "boolean"},
+        "unknown_layers": {"$ref": "#/$defs/ids"},
+        "withheld": {
+          "$comment": "the current reference point's withheld would-be units, summed over S2's layer rows (WP-11b X r1 (i)): the compiled instruction text is the owner's and is counted, never published; unmatched are the units this reference point cannot judge. Disclosure only",
+          "type": "object", "additionalProperties": false, "required": ["units", "matched", "unmatched"],
+          "properties": {"units": {"type": "integer", "minimum": 0}, "matched": {"type": "integer", "minimum": 0},
+                         "unmatched": {"type": "integer", "minimum": 0}}}
+      }
+    },
+    "excluded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown_independence", "not_indexed", "not_counted", "not_in_census"],
+      "properties": {
+        "unknown_independence": {"$ref": "#/$defs/ids"},
+        "not_indexed": {"$ref": "#/$defs/ids"},
+        "not_counted": {"$ref": "#/$defs/ids"},
+        "not_in_census": {"$ref": "#/$defs/ids"}
+      }
+    },
+    "excluded_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown_independence", "not_indexed", "not_counted", "not_in_census"],
+      "properties": {
+        "unknown_independence": {"type": "integer", "minimum": 0},
+        "not_indexed": {"type": "integer", "minimum": 0},
+        "not_counted": {"type": "integer", "minimum": 0},
+        "not_in_census": {"type": "integer", "minimum": 0}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "source", "query_keys", "retrieved_units", "named_units_absent", "ledger_entries",
+                   "named_entries_absent", "recurrence", "quote_ok", "quotes_checked", "quote_problems", "session_problems",
+                   "absence_withheld"],
+      "properties": {
+        "candidate_id": {"$ref": "#/$defs/id"},
+        "source": {"$ref": "#/$defs/id"},
+        "query_keys": {"type": "integer", "minimum": 0},
+        "retrieved_units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["unit_id", "layer", "rank", "score", "named", "copies"],
+            "properties": {
+              "unit_id": {"$ref": "#/$defs/id"},
+              "layer": {"$ref": "#/$defs/id"},
+              "rank": {"type": ["integer", "null"], "minimum": 1},
+              "score": {"type": ["number", "null"]},
+              "named": {"type": "boolean"},
+              "copies": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "named_units_absent": {"$ref": "#/$defs/ids"},
+        "ledger_entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entry_id", "status", "rank", "score", "named"],
+            "properties": {
+              "entry_id": {"$ref": "#/$defs/id"},
+              "status": {"type": ["string", "null"]},
+              "rank": {"type": ["integer", "null"], "minimum": 1},
+              "score": {"type": ["number", "null"]},
+              "named": {"type": "boolean"}
+            }
+          }
+        },
+        "named_entries_absent": {"$ref": "#/$defs/ids"},
+        "recurrence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count", "independent_sessions", "lineages", "excluded"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 0},
+            "independent_sessions": {"$ref": "#/$defs/ids"},
+            "lineages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["component", "root", "sessions"],
+                "properties": {
+                  "component": {"$ref": "#/$defs/id"},
+                  "root": {"$ref": "#/$defs/id"},
+                  "sessions": {"$ref": "#/$defs/ids"}
+                }
+              }
+            },
+            "excluded": {"$ref": "#/$defs/excluded"}
+          }
+        },
+        "quote_ok": {"type": ["boolean", "null"]},
+        "quotes_checked": {"type": "integer", "minimum": 0},
+        "quote_problems": {"$ref": "#/$defs/ids"},
+        "session_problems": {"$ref": "#/$defs/ids"},
+        "absence_withheld": {"type": "boolean"}
+      }
+    }
+  }
+}

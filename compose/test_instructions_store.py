@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
+from compose import instructions_store
 from compose.instructions_store import InstructionsStore, InstructionsStoreError, StaleRevision, ValidationError, verify_snapshot
 
 _COLLECT_PATH = Path(__file__).resolve().parents[1] / "learn" / "collect-learning.py"
@@ -97,7 +99,7 @@ class _UpdatingCatalog(_Catalog):
         return catalog
 
 
-class InstructionsStoreTest(unittest.TestCase):
+class _StoreFixture(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
@@ -119,6 +121,8 @@ class InstructionsStoreTest(unittest.TestCase):
         snapshot = self.store.snapshot(host, **kwargs)
         return [item["ref"] for item in self.store.snapshot_inventory(snapshot["content_ref"])["items"]]
 
+
+class InstructionsStoreTest(_StoreFixture):
     def test_enablement_is_not_deletion_and_preserves_edits_pins_and_updates(self) -> None:
         self.store.install()
         ref = "@core/base:hello"
@@ -332,6 +336,49 @@ class InstructionsStoreTest(unittest.TestCase):
         emitted = self.store.snapshot("codex")["instruction_text"]
         self.assertIn("new learning", emitted)
         self.assertNotIn("old learning", emitted)
+
+    def test_learning_events_hold_line_separators_and_bare_cr_whitespace(self) -> None:
+        # a learning event ends at "\n" only: the writer keeps U+2028 and U+2029 raw inside the
+        # lesson, and a bare CR between tokens is JSON whitespace; neither ends the event
+        self.store.install()
+        lesson = "before\u2028between\u2029after"
+        first = self.store.capture_learning("codex", self._learning(lesson, 1))
+        second = self.store.capture_learning("codex", self._learning("second lesson", 2))
+        source = self.store.user_root / "learnings" / "codex" / "events.jsonl"
+        lines = source.read_bytes().split(b"\n")
+        self.assertEqual(3, len(lines))
+        source.write_bytes(lines[0] + b"\n" + b"{\r" + lines[1][1:] + b"\r\n")
+        refs = {row["ref"] for row in self.store.list_items()}
+        for captured in (first, second):
+            self.assertIn(f"@local/learnings-codex:{captured['learning_id']}", refs)
+        self.assertEqual(lesson, self.store.show(f"@local/learnings-codex:{first['learning_id']}")["item"]["body"])
+
+    def test_a_release_store_reads_with_its_own_roots_splitter(self) -> None:
+        # A private release's store is loaded by path while another root's host_platform is
+        # already imported (the installer's); it must still read with its own root's splitter,
+        # and fail naming that path when its own root lacks one.
+        import re
+        import shutil
+        import sys
+        import host_platform  # noqa: F401 - the checkout's module, cached as the installer leaves it
+        self.assertIn("host_platform", sys.modules)
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td).resolve()
+            release = base / "release"
+            (release / "compose").mkdir(parents=True)
+            shutil.copy2(Path(__file__).resolve().parent / "instructions_store.py", release / "compose" / "instructions_store.py")
+            spec = importlib.util.spec_from_file_location("test_release_instructions_store", release / "compose" / "instructions_store.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            store = module.InstructionsStore(release, base / "state", base / "user")
+            events = base / "user" / "learnings" / "codex" / "events.jsonl"
+            events.parent.mkdir(parents=True)
+            events.write_text('{"a": 1}\n', encoding="utf-8")
+            with self.assertRaisesRegex(FileNotFoundError, re.escape(str(release / "wrappers" / "jsonl_lines.py"))):
+                store._learning_events("codex")
+            (release / "wrappers").mkdir()
+            shutil.copy2(Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py", release / "wrappers" / "jsonl_lines.py")
+            self.assertEqual([{"a": 1}], store._learning_events("codex"))
 
     def test_learning_sources_are_listed_and_support_show_edit_remove_recover(self) -> None:
         self.store.install()
@@ -597,6 +644,288 @@ class InstructionsStoreTest(unittest.TestCase):
         store._catalog_module = lambda: _Catalog  # type: ignore[method-assign]
         with self.assertRaises(InstructionsStoreError):
             store.install()
+
+
+class InstallationBindingTest(_StoreFixture):
+    """The consumer half of probe 10: scenarios c2 B and C, c4 unbound, and receipt identity.
+
+    The installer's own writing is covered in `test_instructions_install.py`; what is planted here is
+    exactly the state a snapshot reads — the install record, its COMMITTED journal, and the receipt.
+    """
+
+    def digests(self) -> dict[str, str]:
+        """The three release files a snapshot hashes into its inputs, keyed by their release path."""
+        return {"compose/instructions_catalog.py": (self.repo / "compose" / "instructions_catalog.py").read_bytes(),
+                "compose/instructions_store.py": Path(instructions_store.__file__).read_bytes(),
+                "compose/bootstrap/SKILL.md": (self.repo / "compose" / "bootstrap" / "SKILL.md").read_bytes()}
+
+    def installer_fields(self, **overrides) -> dict:
+        """The installer block as the writer writes it: every field present, and `digest` the canonical
+        hash of `files`, which is what `_installer_code` derives it from and the reader re-derives."""
+        files = [{"path": "compose/instructions_install.py", "sha256": "2b" * 32},
+                 {"path": "compose/instructions_transaction.py", "sha256": "3c" * 32}]
+        digest = hashlib.sha256(json.dumps(files, ensure_ascii=False, sort_keys=True,
+                                           separators=(",", ":")).encode("utf-8")).hexdigest()
+        return {"digest_at_import": digest, "digest": digest, "build": "0.0.0-fixture", "root": "/fixture",
+                "files": files, "package_modules_run": [{"path": "compose/instructions_store.py",
+                                                         "sha256": "4d" * 32}], **overrides}
+
+    def receipt_body(self, transaction_id: str, baseline_ref: str, **overrides) -> dict:
+        """The body the installer would write for this store, with any field replaced for a control."""
+        body = {
+            "schema": "InstallationReceipt/v1", "result": "success", "transaction_id": transaction_id,
+            "installer": self.installer_fields(),
+            "begun_by_installer_digest": None, "release_digest": "release-" + transaction_id,
+            "baseline_ref": baseline_ref, "selection": [],
+            "artifacts": [{"path": path, "sha256": hashlib.sha256(content).hexdigest(), "role": "release"}
+                          for path, content in sorted(self.digests().items())],
+            "at": 0,
+        }
+        body.update(overrides)
+        return body
+
+    def write_receipt(self, body: dict) -> str:
+        raw = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        receipt_id = hashlib.sha256(raw).hexdigest()
+        path = self.store.runtime / "receipts" / f"{receipt_id}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        return receipt_id
+
+    def plant(self, transaction_id: str = "tx-a", *, receipt: bool = True, committed: bool = True,
+              record_transaction: bool = True, **overrides) -> str | None:
+        """Install state pointing at one transaction, as the installer leaves it."""
+        baseline_ref = self.store.status()["selected_baseline_ref"]
+        receipt_id = self.write_receipt(self.receipt_body(transaction_id, baseline_ref, **overrides)) if receipt else None
+        record = {"schema_version": 1, "package_root": str(self.repo), "release_digest": "release-" + transaction_id}
+        if record_transaction:
+            record["transaction_id"] = transaction_id
+        (self.store.runtime / "private-install.json").write_text(json.dumps(record), encoding="utf-8")
+        journal = self.store.runtime / "installer-transactions" / transaction_id / "journal.json"
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        # A pending journal would stop every read (`guard_pending`), so "not committed" here is a
+        # superseded transaction: readable, and no binding.
+        data = {"state": "COMMITTED" if committed else "SUPERSEDED"}
+        if receipt_id:
+            data["receipt_id"] = receipt_id
+        journal.write_text(json.dumps(data), encoding="utf-8")
+        return receipt_id
+
+    def inputs(self, host: str = "codex") -> dict:
+        """`snapshot()` returns the compiled result; the recorded inputs are read back from the snapshot."""
+        return self.store.snapshot_inventory(self.store.snapshot(host)["content_ref"])["inputs"]
+
+    # ---- the binding a snapshot carries --------------------------------------------------------
+
+    def test_a_snapshot_records_the_receipt_id_before_its_content_ref_is_derived(self) -> None:
+        self.store.install()
+        receipt_id = self.plant("tx-a")
+        snapshot = self.store.snapshot("codex")
+        inventory = self.store.snapshot_inventory(snapshot["content_ref"])
+        self.assertEqual(receipt_id, inventory["inputs"]["installation_receipt_id"])
+        # content_ref is the digest of exactly those inputs, so the binding is immutable with no pin change.
+        self.assertEqual(snapshot["content_ref"],
+                         hashlib.sha256(json.dumps(inventory["inputs"], ensure_ascii=False, sort_keys=True,
+                                                   separators=(",", ":")).encode("utf-8")).hexdigest())
+        binding = inventory["installation_binding"]
+        self.assertTrue(binding["bound"])
+        self.assertEqual({"bound", "receipt_id", "transaction_id", "installer_digest", "release_digest",
+                          "begun_by_installer_digest"}, set(binding))
+        self.assertEqual("tx-a", binding["transaction_id"])
+        self.assertEqual(receipt_id, binding["receipt_id"])
+        self.assertEqual("release-tx-a", binding["release_digest"])
+
+    def test_two_installs_of_one_release_bind_their_sessions_to_their_own_receipts(self) -> None:
+        # c2 B and C: the second install does not move the first snapshot, and the two differ only
+        # in the receipt id, so `content_ref` separates them.
+        self.store.install()
+        first_receipt = self.plant("tx-a")
+        first = self.store.snapshot("codex")
+        first_bytes = (Path(first["path"]) / "inventory.json").read_bytes()
+        second_receipt = self.plant("tx-b")
+        second = self.store.snapshot("codex")
+        self.assertNotEqual(first["content_ref"], second["content_ref"])
+        first_inputs = self.store.snapshot_inventory(first["content_ref"])["inputs"]
+        second_inputs = self.store.snapshot_inventory(second["content_ref"])["inputs"]
+        differing = {key for key in second_inputs if second_inputs[key] != first_inputs[key]}
+        self.assertEqual({"installation_receipt_id"}, differing)
+        self.assertEqual(first_bytes, (Path(first["path"]) / "inventory.json").read_bytes())
+        self.assertEqual(first_receipt, self.store.snapshot_inventory(first["content_ref"])["inputs"]["installation_receipt_id"])
+        self.assertEqual(second_receipt, self.store.snapshot_inventory(second["content_ref"])["installation_binding"]["receipt_id"])
+        # Control: the same receipt id again yields the same content_ref.
+        self.plant("tx-a")
+        self.assertEqual(first["content_ref"], self.store.snapshot("codex")["content_ref"])
+
+    def test_an_earlier_snapshot_keeps_binding_to_the_receipt_it_was_built_from(self) -> None:
+        self.store.install()
+        first_receipt = self.plant("tx-a")
+        first = self.store.snapshot("codex")
+        self.plant("tx-b")
+        binding = self.store.snapshot_inventory(first["content_ref"])["installation_binding"]
+        self.assertTrue(binding["bound"])
+        self.assertEqual(first_receipt, binding["receipt_id"])
+        self.assertEqual("tx-a", binding["transaction_id"])
+
+    # ---- c4: unbound is a verdict, never a refusal ---------------------------------------------
+
+    def test_a_snapshot_whose_artifacts_differ_from_the_receipt_is_unbound_by_field(self) -> None:
+        self.store.install()
+        receipt_id = self.plant("tx-a")
+        inputs = self.inputs()
+        forged = {**inputs, "compiler_digest": "f" * 64, "store_schema_digest": "f" * 64}
+        verdict = instructions_store.installation_binding(self.store.state_root, forged)
+        self.assertFalse(verdict["bound"])
+        self.assertEqual(receipt_id, verdict["receipt_id"])
+        self.assertIn("compiler_digest", verdict["reason"])
+        self.assertIn("store_schema_digest", verdict["reason"])
+        self.assertNotIn("bootstrap_digest", verdict["reason"])
+
+    def test_a_snapshot_from_another_baseline_is_unbound_by_name(self) -> None:
+        self.store.install()
+        self.plant("tx-a")
+        inputs = self.inputs()
+        verdict = instructions_store.installation_binding(self.store.state_root, {**inputs, "baseline_ref": "other"})
+        self.assertFalse(verdict["bound"])
+        self.assertIn("baseline_ref", verdict["reason"])
+
+    def test_a_tampered_or_missing_receipt_is_unbound_with_its_reason(self) -> None:
+        self.store.install()
+        receipt_id = self.plant("tx-a")
+        inputs = self.inputs()
+        self.assertTrue(instructions_store.installation_binding(self.store.state_root, inputs)["bound"])
+        path = self.store.runtime / "receipts" / f"{receipt_id}.json"
+        path.write_bytes(path.read_bytes().replace(b'"result":"success"', b'"result":"SUCCESS"'))
+        tampered = instructions_store.installation_binding(self.store.state_root, inputs)
+        self.assertFalse(tampered["bound"])
+        self.assertIn("does not hash to its id", tampered["reason"])
+        path.unlink()
+        missing = instructions_store.installation_binding(self.store.state_root, inputs)
+        self.assertFalse(missing["bound"])
+        self.assertIn("missing", missing["reason"])
+
+    def test_an_installation_without_a_receipt_leaves_the_snapshot_unbound(self) -> None:
+        # The pre-receipt installer: a record with no transaction id, and a committed journal with no
+        # receipt id. Both must read as "no receipt", never as a bound snapshot.
+        self.store.install()
+        self.plant("tx-a", receipt=False, record_transaction=False)
+        inputs = self.inputs()
+        self.assertIsNone(inputs["installation_receipt_id"])
+        verdict = instructions_store.installation_binding(self.store.state_root, inputs)
+        self.assertFalse(verdict["bound"])
+        self.assertEqual("snapshot records no installation receipt", verdict["reason"])
+        self.assertFalse(self.store.snapshot_inventory(
+            self.store.snapshot("codex")["content_ref"])["installation_binding"]["bound"])
+
+    def test_a_transaction_that_has_not_committed_is_not_read_as_a_binding(self) -> None:
+        self.store.install()
+        self.plant("tx-a", committed=False)
+        self.assertIsNone(self.inputs()["installation_receipt_id"])
+
+    def test_a_receipt_the_store_cannot_verify_leaves_the_snapshot_unbound(self) -> None:
+        # The journal names a receipt whose artifacts do not cover this store, so the snapshot refuses
+        # to record it in the first place rather than recording a binding that will not verify.
+        self.store.install()
+        baseline_ref = self.store.status()["selected_baseline_ref"]
+        body = self.receipt_body("tx-a", baseline_ref)
+        body["artifacts"] = [{**row, "sha256": "0" * 64} for row in body["artifacts"]]
+        receipt_id = self.write_receipt(body)
+        (self.store.runtime / "private-install.json").write_text(
+            json.dumps({"schema_version": 1, "transaction_id": "tx-a", "package_root": str(self.repo)}), encoding="utf-8")
+        journal = self.store.runtime / "installer-transactions" / "tx-a" / "journal.json"
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        journal.write_text(json.dumps({"state": "COMMITTED", "receipt_id": receipt_id}), encoding="utf-8")
+        self.assertIsNone(self.inputs()["installation_receipt_id"])
+
+    # ---- receipt identity (done-when 6) --------------------------------------------------------
+
+    def test_reading_a_receipt_is_the_check_that_its_bytes_were_not_edited(self) -> None:
+        self.store.install()
+        receipt_id = self.plant("tx-a")
+        receipt = instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
+        self.assertEqual("tx-a", receipt["transaction_id"])
+        path = self.store.runtime / "receipts" / f"{receipt_id}.json"
+        # A re-serialization with reordered keys is the same canonical bytes, so it still reads.
+        reordered = dict(reversed(list(json.loads(path.read_bytes()).items())))
+        path.write_bytes(json.dumps(reordered, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+        self.assertEqual(receipt, instructions_store.read_installation_receipt(self.store.state_root, receipt_id))
+        # One changed byte is not.
+        path.write_bytes(path.read_bytes().replace(b'"at":0', b'"at":1'))
+        with self.assertRaises(ValidationError):
+            instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
+
+    def test_a_receipt_that_is_not_a_success_receipt_is_not_evidence(self) -> None:
+        self.store.install()
+        baseline_ref = self.store.status()["selected_baseline_ref"]
+        for overrides in ({"schema": "InstallationReceipt/v2"}, {"result": "failed"}):
+            receipt_id = self.write_receipt(self.receipt_body("tx-a", baseline_ref, **overrides))
+            with self.assertRaises(ValidationError):
+                instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
+
+    def test_a_receipt_that_hashes_to_its_name_and_breaks_its_contract_is_unbound_by_reason(self) -> None:
+        # Each of these recomputes its own file name, so the hash check passes: what is tested is the
+        # contract, which was accepted as bound or raised where a verdict was promised (X r1 F4).
+        self.store.install()
+        baseline_ref = self.store.status()["selected_baseline_ref"]
+        inputs = self.inputs()
+        written = self.installer_fields()
+        cases = {
+            "carries its own id": {"receipt_id": "0" * 64},
+            "names no installer": {"installer": None},
+            # every field below is one the writer always writes, so its absence is not a receipt (X r2 F2)
+            "is not the shape the installer writes: root": {"installer": {
+                key: value for key, value in written.items() if key != "root"}},
+            "is not the shape the installer writes: ran_at": {"installer": {**written, "ran_at": 1}},
+            "two different installer digests": {"installer": self.installer_fields(digest_at_import="a" * 64)},
+            "installer digests are not digests": {"installer": self.installer_fields(
+                digest_at_import="nope", digest="nope")},
+            "installer names no root": {"installer": self.installer_fields(root="")},
+            "build is neither a version nor absent": {"installer": self.installer_fields(build=5)},
+            "lists no installer files": {"installer": self.installer_fields(files=[])},
+            "installer file row of another shape": {"installer": self.installer_fields(
+                files=[{"path": "compose/instructions_install.py", "sha256": None}])},
+            "is not the hash of its own file list": {"installer": self.installer_fields(
+                digest_at_import="b" * 64, digest="b" * 64)},
+            "lists no package modules": {"installer": self.installer_fields(package_modules_run=None)},
+            "package module row of another shape": {"installer": self.installer_fields(
+                package_modules_run=[{"path": "compose/instructions_store.py"}])},
+            "transaction_id is not a str": {"transaction_id": None},   # overrides the body's own value
+            "at is not a int": {"at": "2026-11-11"},
+            "beginning installer digest is not a digest": {"begun_by_installer_digest": "earlier"},
+            "equals the finishing one": {"begun_by_installer_digest": written["digest"]},
+            "lists no artifacts": {"artifacts": None},
+            "artifact row of another shape": {"artifacts": [{"path": "compose/instructions_store.py",
+                                                             "sha256": "0" * 64}]},
+            # an unhashable role reached set membership and raised where a verdict was promised (X r2 F1)
+            "artifact row of another shape (role is a list)": {"artifacts": [
+                {"path": "compose/instructions_store.py", "sha256": "0" * 64, "role": []}]},
+            "artifact row of another shape (role is an object)": {"artifacts": [
+                {"path": "compose/instructions_store.py", "sha256": "0" * 64, "role": {"release": True}}]},
+        }
+        missing = {"names no beginning installer digest, not even as absent": "begun_by_installer_digest"}
+        for expected, overrides in {**cases, **{key: {} for key in missing}}.items():
+            with self.subTest(case=expected):
+                body = self.receipt_body("tx-a", baseline_ref)
+                body.update(overrides)
+                body.pop(missing.get(expected, ""), None)
+                receipt_id = self.write_receipt(body)
+                with self.assertRaises(ValidationError) as caught:
+                    instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
+                self.assertIn(expected.split(" (")[0], str(caught.exception))
+                verdict = instructions_store.installation_binding(
+                    self.store.state_root, {**inputs, "installation_receipt_id": receipt_id})
+                self.assertFalse(verdict["bound"])
+                self.assertIn(expected.split(" (")[0], verdict["reason"])
+
+    def test_a_receipt_id_may_not_leave_the_receipt_directory(self) -> None:
+        self.store.install()
+        for receipt_id in ("../private-install", "/etc/passwd", ""):
+            with self.assertRaises(ValidationError):
+                instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
+        symlinked = self.store.runtime / "receipts" / f"{'a' * 64}.json"
+        symlinked.parent.mkdir(parents=True, exist_ok=True)
+        symlinked.symlink_to(self.repo / "compose" / "instructions_catalog.py")
+        with self.assertRaises(InstructionsStoreError):
+            instructions_store.read_installation_receipt(self.store.state_root, "a" * 64)
 
 
 if __name__ == "__main__":

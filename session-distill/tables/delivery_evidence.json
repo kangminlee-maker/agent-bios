@@ -1,0 +1,36 @@
+{
+  "$comment": "design §6.3 (design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md) as data: the surfaces with their evidence levels in the design's words, the delivery states, and the one level this package adds. runlib/delivery_evidence.py reads it, and its fixture generator writes one frozen fixture per row (`delivery.py --generate-fixtures`). A surface whose evidence no producer reads yet says so here (`producer: absent`, with its reason), and every answer for a unit on it is `unknown` naming that reason - never silent.",
+  "states": ["delivered", "exposed_not_read", "selected_unavailable", "not_delivered", "unknown"],
+  "surfaces": [
+    {"id": "always_rule", "design": "Rule on the always surface", "levels": ["selected", "exposed"],
+     "item_surfaces": ["always"], "delivered_at": "exposed", "exposed_at": null, "selection": true, "producer": "implemented"},
+    {"id": "guide", "design": "Guide", "levels": ["selected", "pointer exposed", "router read", "unit read"],
+     "item_surfaces": ["relevant", "requested"], "delivered_at": "unit read", "exposed_at": "pointer exposed", "selection": true,
+     "producer": "implemented"},
+    {"id": "executable_invoked", "design": "Executable invoked directly (hook script, skill script, tool, wrapper)",
+     "levels": ["identity", "invoked", "completed"], "item_surfaces": ["executable"], "delivered_at": "completed", "exposed_at": null,
+     "selection": false, "producer": "absent",
+     "reason_absent": "no producer reads a transcript tool call, process record or receipt against an artifact hash in release 1"},
+    {"id": "executable_consumed", "design": "Executable producing consumed artifacts (catalog compiler, installer)",
+     "levels": ["identity of the producing version", "consumed"], "item_surfaces": [], "delivered_at": "consumed",
+     "exposed_at": null, "selection": false, "producer": "implemented",
+     "realization": "golden until WP-15's installation receipt is installed and read live (lane L); the live case waits by name: receipt_live_waiting_wp15"},
+    {"id": "skill", "design": "Skill", "levels": ["selected", "listed", "invoked"], "item_surfaces": ["skill"],
+     "delivered_at": "invoked", "exposed_at": "listed", "selection": true, "producer": "absent",
+     "reason_absent": "no producer reads a skill listing or invocation from a transcript in release 1"},
+    {"id": "hook", "design": "Hook", "levels": ["selected", "registered for the route", "fired"], "item_surfaces": ["event"],
+     "delivered_at": "fired", "exposed_at": "registered for the route", "selection": true, "producer": "absent",
+     "reason_absent": "no producer reads hook execution evidence (Claude --include-hook-events, a Codex executor-side marker) in release 1"},
+    {"id": "native_layer", "design": "Native layer", "levels": ["identity", "loaded"],
+     "layers": ["native_global", "native_project", "native_memory"], "item_surfaces": [], "delivered_at": "loaded",
+     "exposed_at": null, "selection": false, "producer": "implemented"},
+    {"id": "child_session", "design": "Child session (subagent reach)", "levels": ["the child's own record"],
+     "item_surfaces": ["delegated"], "delivered_at": "the child's own record", "exposed_at": null, "selection": true,
+     "producer": "absent", "reason_absent": "no producer reads a child's own record against an artifact id line in release 1"}
+  ],
+  "licensed_levels": [
+    {"id": "library_selected", "level": "library_selected", "state": "unknown", "basis": "selection_history",
+     "decision": "D-20261110-9c60bc",
+     "$comment": "not a level of §6.3: the baseline-selection history says what the owner's library had selected at the session's time, never what the session received (lead direction for WP-10, 2026-11-11). It ranks below every delivered level and above unknown, and its state is unknown, so the owner reads 'the library held this; delivery unknown' and never a delivered claim"}
+  ]
+}

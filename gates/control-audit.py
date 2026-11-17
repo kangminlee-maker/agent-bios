@@ -50,18 +50,71 @@ SUBJECTS = [
     "gates/check-model-currency.py",
     "gates/check-surfaces.py",
     "gates/check-receipt-chain.py",
+    "gates/check-global-file.py",
     "compose/check-domains.py",
     "learn/check-learning.py",
     "ontology/check-ontology.py",
     "claude/hooks/tooling-gotchas-hook.py",
-    # Its self-test runs on temporary fixtures with mocked subprocesses, so the whole
-    # audit costs about as much as one run of the umbrella's cheapest leg.
-    "gates/check-development-plan.py",
     # ~9s: 11 statements x a 0.80s self-test, ESTIMATED — an audit run is the measurement,
     # and this line is what a reader would otherwise mistake for one. Still the cheapest
     # subject here; its one floor-interpreter subprocess per file set is what keeps the
     # self-test off the 134s cliff that kept check-endpoints.py out for so long.
     "gates/check-python-floor.py",
+    # every session-distill file offering --self-test has an umbrella leg; a planted-tree self-test, about a second
+    "gates/check-self-test-legs.py",
+    # Shipped beside wrappers/claude-run.sh: the hermetic profile's evidence renderer.
+    "wrappers/claude_hermetic_evidence.py",
+    # The session-distill driver. The audit's automatic inventory recognises only checker-named
+    # files, so each module with a --self-test is registered by name or it is not graded.
+    "session-distill/distill.py",
+    "session-distill/runlib/declare.py",
+    "session-distill/runlib/inventory.py",
+    "session-distill/runlib/records.py",
+    "session-distill/runlib/claims.py",
+    "session-distill/runlib/validate.py",
+    "session-distill/runlib/stagelock.py",
+    "session-distill/runlib/sources.py",
+    "session-distill/runlib/lineage.py",
+    "session-distill/runlib/coverage.py",
+    "session-distill/runlib/census.py",
+    "session-distill/runlib/placement.py",
+    "session-distill/runlib/destinations.py",
+    "session-distill/runlib/drift.py",
+    "session-distill/runlib/exposure.py",
+    "session-distill/runlib/journal.py",
+    "session-distill/runlib/sequencing.py",
+    "session-distill/runlib/ranking.py",
+    "session-distill/runlib/stage_propose.py",
+    "session-distill/runlib/stage_review_proposals.py",
+    "session-distill/runlib/ledger.py",
+    "session-distill/runlib/ledger_compat.py",
+    "session-distill/migrate-ledger.py",
+    "session-distill/runlib/gate.py",
+    "session-distill/runlib/receipts.py",
+    "session-distill/runlib/packet.py",
+    "session-distill/runlib/usage.py",
+    "session-distill/runlib/dispatch.py",
+    "session-distill/runlib/monitor.py",
+    "session-distill/runlib/stop.py",
+    "session-distill/runlib/breaker.py",
+    # The Codex adapter's capture helper (shipped), registered by name for the same reason.
+    "wrappers/codex_frame_filter.py",
+    "session-distill/runlib/projection.py",
+    "session-distill/runlib/search.py",
+    "session-distill/runlib/views.py",
+    "session-distill/runlib/evidence.py",
+    "session-distill/runlib/derive.py",
+    "session-distill/runlib/delivery_evidence.py",
+    "session-distill/runlib/stage_retrieve.py",
+    "session-distill/runlib/stage_delivery.py",
+    "session-distill/runlib/controls.py",
+    "session-distill/runlib/stage_judge.py",
+    "session-distill/grammar/owner_lines.py",
+    "session-distill/runlib/stage_render.py",
+    "session-distill/runlib/stage_approvals.py",
+    "session-distill/runlib/stage_review_korean.py",
+    "session-distill/runlib/stage_adjudicate.py",
+    "session-distill/runlib/stage_confirm.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying
@@ -72,10 +125,10 @@ CHECKER_NAME = re.compile(r"(?:^|/)(?:check[-_.]|test-)[^/]*\.(?:py|sh)$")
 # it. `gates/check_parity.py` passes "--self-test" to other scripts and declares none of its
 # own; a substring test calls that a self-test and the disclosure below then reports the
 # opposite of the truth. Only the three shapes that make the flag reachable count: argparse
-# registration, a membership test against argv, and an exact-argv comparison.
+# registration, a membership test against argv (`in` or `not in`), and an exact-argv comparison.
 SELF_TEST_DECL = re.compile(
     r"""add_argument\(\s*["']--self-test["']"""
-    r"""|["']--self-test["']\s+in\s+(?:sys\.)?argv"""
+    r"""|["']--self-test["']\s+(?:not\s+)?in\s+(?:sys\.)?argv"""
     r"""|(?:sys\.)?argv\[1:\]\s*==\s*\[\s*["']--self-test["']"""
 )
 
@@ -120,6 +173,27 @@ DATA_SINKS = {
                  "must never decide a build",
         "out": "the --resolve/--propose suggestion rows; printed for a human to paste",
     },
+    "session-distill/runlib/inventory.py": {
+        "lines": "the per-reference-point report; printed for a person, while a refusal is raised by name",
+        "reached": "what a unit's text names, including `unknown:<what>` for a reference this "
+                   "reference point could not resolve; it is the requirement set carried on every "
+                   "unit record, and an unresolved entry is an answer rather than a failure",
+        "missing": "what a frozen copy left out — an absent source, a symlink, an unreadable file; "
+                   "it is reported as the run's input manifest, and the refusal for a state that "
+                   "CHANGED while being read is raised by name instead",
+        "unknown": "the per-session unknown list: each entry a named unknown — a session whose transcript "
+                   "could not be read, or that records no injection — published whole as data in the "
+                   "manifest's transcripts note; a named unknown is an answer, never a failure",
+        "failed": "a layer row's per-carrier splitting failures (step 0 S-20): each becomes one of the "
+                  "row's published reasons, an answer about that carrier, never a failure of the run",
+    },
+    "session-distill/runlib/monitor.py": {"uncertain": "requests whose sending no host record "
+                                                       "establishes; disclosed beside the boundary "
+                                                       "verdict, never a failure"},
+    "session-distill/runlib/dispatch.py": {"deferred": "the items an opened breaker defers, written "
+                                                       "to its state for resumption, never a failure"},
+    "session-distill/runlib/projection.py": {"out": "the projected text being assembled; it is the "
+                                                   "function's return value, not a report"},
 }
 
 

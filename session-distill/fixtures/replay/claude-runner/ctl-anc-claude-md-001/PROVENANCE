@@ -1,0 +1,15 @@
+source: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/claude-runner
+SHA256SUMS: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/claude-runner/SHA256SUMS (sha256 e4eca4a6bdb2dc84f456c0f9e9db3a0e226629bcac41ec6e5703888b7441b32f)
+read (path relative to the source, sha256 as listed in SHA256SUMS and verified at copy time):
+  captures/ctl-anc-claude-md-001/capture.json  7210bbe6c675297401bed048619abf0df2b9009472bd5aec05bde33a07a99815
+  captures/ctl-anc-claude-md-001/context-host.json  3b7e15458d1e55684af8053b701d1959799f21098b9018309340e29d1367cf02
+  captures/ctl-anc-claude-md-001/context-pre.json  c264cd2b7baade6842dca806daaa7df73f59e34da5a77c3bf49705f1fd093a07
+  captures/ctl-anc-claude-md-001/packet  5766c59786b439931bf82f9e13d8e522b3152e7aea2f423bd0f115c78e392fa0
+  captures/ctl-anc-claude-md-001/result  324600c63aac9561ad8e2afc26fb55c19637d4aaf9404570feed9bfcdd3627c5
+  fixtures/schema-answer.json  f3d8e6a37d800bde18149b145d41ac903ed45db53e900f24bed19c55f9c242e2
+projection:
+  packet.md: the packet file, verbatim
+  result.json: the host result object, keys kept: type, subtype, is_error, terminal_reason, stop_reason, safety_stops, api_error, api_error_status, structured_output, result, session_id, num_turns, usage, modelUsage; usage and modelUsage reduced to their four token counts; canonical JSON
+  host.json: capture.json + context-host.json -> the gate's Claude capture: profile 'claude-hermetic-v1' is named 'hermetic' (the flag list is kept as its sha256); cwd is the host's environment record; workdir_files is the runner's pre-call listing of the working directory (context-pre.json); requests from the reconstructed sent requests (model, first user message text, and the StructuredOutput input_schema recovered from fixtures/schema-*.json whose canonical sha256 equals the host-recorded structured_schema_sha256); assistant records deduplicated by message id, synthetic API-error messages flagged; context: instruction files (path, normalized sha256, kind), skills, agents, hook attachments
+  usage.json: per sent request, the assistant record's usage when the transcript carries it (measured), else unresolved; reconciled when the probe found transcript and result agreeing and every request measured
+  facts.json: the seat sent (provider renamed anthropic -> claude), exit status, declared working directory and schema the probe's judge used

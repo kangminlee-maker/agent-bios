@@ -279,7 +279,7 @@ effort = "high"
     {"id": "grade-model-difference", "outcome": "ok", "hosts": ("claude",), "review": """
 [presets.PRESET.review.base]
 provider = "anthropic"
-model = "claude-fable-5-1"
+model = "claude-fable-5-2"
 effort = "high"
 """},
     {"id": "grade-higher-effort", "outcome": "ok", "hosts": ("claude",), "review": """

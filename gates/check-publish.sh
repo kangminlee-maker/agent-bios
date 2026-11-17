@@ -120,7 +120,8 @@ PLIST
   local missing_p
   missing_p="$(AGENT_BIOS_PACKLIST="$plist" python3 - <<'PYEOF'
 import json, os, subprocess, sys
-files = json.load(open("package.json")).get("files", [])
+files = [e for e in json.load(open("package.json")).get("files", [])
+         if not (isinstance(e, str) and e.startswith("!"))]   # npm exclusions, not paths
 expected = set()
 for e in files:
     e = e.strip("/")
@@ -242,7 +243,12 @@ self_test() {
   # every git command inside it silently operates on the original.
   src="$(git rev-parse --absolute-git-dir 2>/dev/null)" \
     || die "self-test: not inside a git repository"
-  cleangit() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE "$@"; }
+  # Every command in the clone runs with HOME, the npm cache and TMPDIR inside $tmp, which the EXIT trap
+  # removes: npm, which the stamp and the guard run, writes its cache and logs under HOME and its compile
+  # cache under TMPDIR, and it wrote them into the caller's.
+  mkdir -p "$tmp/home" "$tmp/tmpdir" || die "self-test: no sandbox home"
+  cleangit() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE HOME="$tmp/home" npm_config_cache="$tmp/home/.npm" \
+                 TMPDIR="$tmp/tmpdir" "$@"; }
   in_clone() { (cd "$tmp/clone" && cleangit bash "$self" "$@"); }
   cg() { cleangit git -C "$tmp/clone" "$@"; }
   cleangit git clone -q "$src" "$tmp/clone" \
@@ -293,6 +299,18 @@ self_test() {
     && grep -q '"dirty":false' "$tmp/clone/provenance.json" \
     && say OK "the stamp names the clone's own HEAD, clean" \
     || say FAIL "the stamp did not record the clone's HEAD as clean provenance"
+
+  # Planted as the caller's HOME and TMPDIR, two empty directories stay empty through a stamp, and npm writes
+  # its cache into the self-test's own home instead (removed first, so it is this stamp's).
+  mkdir -p "$tmp/planted-home" "$tmp/planted-tmp"
+  rm -rf "$tmp/home/.npm" "$tmp/clone/provenance.json"
+  HOME="$tmp/planted-home" TMPDIR="$tmp/planted-tmp" in_clone --stamp >/dev/null 2>&1
+  leaked="$(find "$tmp/planted-home" "$tmp/planted-tmp" -mindepth 1 -maxdepth 1 2>/dev/null | sed "s|^$tmp/||" | tr '\n' ' ')"
+  if [ -z "$leaked" ] && [ -d "$tmp/home/.npm" ]; then
+    say OK "npm writes into the self-test's own home and temp directory, never the caller's"
+  else
+    say FAIL "npm wrote into the caller's HOME or TMPDIR (${leaked:-npm wrote no cache in the sandbox either})"
+  fi
 
   # An unwritable stamp target must fail the pack, not narrate success over a
   # tarball with no provenance in it: squat a directory on the path.

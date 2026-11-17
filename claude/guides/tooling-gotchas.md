@@ -107,7 +107,9 @@ depends on it, pin it explicitly instead of trusting the environment.
   that may contain `$`, backticks, quotes, or globs must not be inlined as
   raw CLI arguments — the shell expands or mangles them before the target
   process sees them. Pass via stdin, heredoc, or a temp file. (Our dispatch
-  scripts codex-run/codex-helm already accept stdin — use that path.)
+  scripts codex-run/codex-helm already accept stdin — use that path; beside a
+  prompt argument, codex-helm reads a pipe only with a `-` argument, as in
+  `git diff | codex-helm.sh "review" -`, and appends a redirected file either way.)
 - **Multi-line pasted commands**: a command pasted across lines without
   continuation markers can be re-wrapped into two invocations, silently
   dropping trailing flags (a real incident: `--scopes` lost during an auth

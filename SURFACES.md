@@ -1,8 +1,9 @@
 # SURFACES.md — where knowledge and tools reach a model, and what each place admits
 
-These surfaces serve the product purpose stated in `AGENTS.md`: workers select,
-share, and inherit team work environments. They determine what selected material
-reaches a model, when it reaches it, and under which delivery contract.
+These surfaces serve the product purpose stated in `AGENTS.md`: a worker keeps one
+library of Instructions and chooses what each session uses. They determine what
+selected material reaches a model, when it reaches it, and under which delivery
+contract.
 
 Efficient consumption preserves the information needed for the current judgment
 while limiting context and retrieval cost. Content, timing, and delivery surface
@@ -65,9 +66,13 @@ Ordered by when the cost is paid, because that is the axis that decides placemen
 | Incubator ledger | never | nobody | whoever searches it | none until promoted |
 
 The immutable release, baseline tuples, personal source tree, setup clients, Instructions
-Studio, and transaction journals are authorities or clients. Storing or
+Studio, transaction journals, and the installation receipt each successful install writes are
+authorities or clients. Storing or
 rendering an item there does not activate it. Native adapters and the explicit app
-context route supply snapshots and report their distinct delivery evidence.
+context route supply snapshots and report their distinct delivery evidence. The receipt is
+evidence about a delivery that already happened — which installer code executed, in which
+transaction, over which artifacts — so a snapshot naming no receipt reads as unbound, which makes
+installer exposure unknown and never refuses a launch.
 
 `understand!` uses a selected instructions bundle as learning data, not as a new instruction
 or capability surface. `compose/instructions_understand.py` pins the effective source bytes;
@@ -173,7 +178,8 @@ installs global instructions nor enables native instructions hooks or agents.
 - **Authority** — `RECEIPT_KEYS` and `verify_review_receipts` in
   `launch/agent-launch.py`; the producers are the adapters in `wrappers/`. The chain is
   exercised end to end by `gates/check-receipt-chain.py`, over a space derived from the
-  config rather than a list of scenarios.
+  config rather than a list of scenarios. A Codex capture's evidence (the call's frames, usage and
+  effective context, reduced to an allow-list) is produced by `wrappers/codex_frame_filter.py`.
 
 ### Capability withholding
 
@@ -184,7 +190,9 @@ installs global instructions nor enables native instructions hooks or agents.
 - **Fails as** — a reviewer that inherited the instructions agrees with it; a Vanilla path
   that still sees a legacy marker is not instructions-free merely because the launch argv is
   empty.
-- **Authority** — `--profile hermetic` in `wrappers/codex-run.sh`; the structural
+- **Authority** — `--profile hermetic` in `wrappers/codex-run.sh` and in
+  `wrappers/claude-run.sh`, whose evidence of what the call loaded is rendered by
+  `wrappers/claude_hermetic_evidence.py`; the structural
   Software Engineer short-circuit in `launch/agent-launch.py`; private-at-rest default
   and explicit legacy cleanup in `compose/instructions_install.py`.
 
@@ -203,6 +211,10 @@ installs global instructions nor enables native instructions hooks or agents.
   and compilation in `compose/instructions_catalog.py`, selection/snapshot ownership in
   `compose/instructions_store.py`, and per-call delivery/pinning in
   `compose/instructions_session.py` as invoked by `launch/agent-launch.py`.
+  Which installation produced the files a snapshot was built from is the installation receipt
+  `compose/instructions_install.py` writes after verification and before its transaction commits;
+  the snapshot records that receipt's id among its inputs before its ContentRef is derived, so
+  activation keeps the binding, and `installation_binding` reports it as a verdict.
 
 ### App discovery metadata
 

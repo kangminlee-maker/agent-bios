@@ -15,29 +15,180 @@ set -u
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"   # resolved BEFORE the cd below
 cd "$(dirname "$0")/.."
 fail=0
+# The stop-at-first-failure mode some self-tests honour shortens a run for a person who asked for
+# it. A gate judges every control, so an inherited setting never reaches the legs below.
+unset AGENT_BIOS_SELF_TEST_STOP_AT_FIRST_FAILURE
 
-# The selected development contract is an author-side live subject. The gateway
-# checks its exact dated members and runs both validation and acceptance controls.
-python3 gates/check-development-plan.py \
-  || { echo "FAIL: current development evidence graph"; fail=1; }
-python3 gates/check-development-plan.py --self-test \
-  || { echo "FAIL: development gate negative controls"; fail=1; }
+# leg runner: begin (gates/run-legs.py --self-test runs this block as written)
+# The external legs below are not run where they are written. `leg` records each one, and
+# gates/run-legs.py runs them at the end, AGENT_BIOS_PARITY_JOBS at a time (default 6), printing
+# every leg's output whole and in the order written here; that file says what counts as a failure.
+# Whatever this shell prints between two legs goes to an ordered slot file, so an inline check still
+# runs in place and its output still lands between the same two legs. A leg is recorded with the
+# directory it was declared in and a digest of the exported environment at that point (`env -0`, what
+# a command started here receives). `legs_run` writes that environment to a file for the runner,
+# which starts every leg in its directory with exactly that environment, never the runner's own, and
+# refuses a leg by name if its digest differs, so an export, unset or cd between a leg and the run
+# cannot change the leg silently. The digest is taken over the entries SORTED: bash lists what it
+# exports in the order of its own variable table, which changes as this script creates variables
+# (bash 3.2 reordered it between the 8th and 9th legs), and the order means nothing to a leg.
+#
+# What stays serial, and why:
+#   - the preconditions and the leg scan: they decide whether the run means anything;
+#   - every inline block (guide bundle, references, frontmatter, anchors, hook count, REACH): it runs
+#     here in the main shell, which owns `fail`, and each takes under a second;
+#   - the runner's own self-test, run directly rather than recorded, so a runner that reported every
+#     leg as passing could not also pass its own controls;
+#   - venv provisioning: the legs that use the venv are recorded after it exists;
+#   - a leg marked `-a` (none today): one that changes files other legs read while it runs would run
+#     first, by itself, before any other leg starts.
+# Every other leg overlaps freely. Measured 2026-11-02 at 43dc4bf, each leg run alone with the inode
+# change times of the tree, .git, HOME and the venv compared around it: the tree writes are __pycache__
+# files, which Python replaces by rename. Of the writes found then, the install scenarios' I13 plant
+# goes into a copy of the tree, bound.py's self-test files into scratch, and check-publish's npm and
+# the compose tests' claude CLI run with sandbox homes, each held by a control in its own suite;
+# check-publish's self-test clones the repository with hardlinks, which moves the change time of its
+# loose objects and writes none. The legs that change git state do it in scratch repositories with
+# GIT_DIR scrubbed; ports are kernel-assigned; each leg runs with a TMPDIR of its own, which
+# gates/run-legs.py removes when it ends and fails the leg for leaving anything in.
+legs_begin() {
+  LEGS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/parity-legs.XXXXXX")" || {
+    echo "FAIL: no directory for the leg runner's spec"; exit 1; }
+  LEGS_SPEC="$LEGS_DIR/spec"
+  : >"$LEGS_SPEC"
+  legs_declared=0
+  legs_slot=0
+  legs_interrupted=0
+  exec 7>&1 8>&2
+  legs_capturing=1
+  trap legs_exit EXIT
+  trap 'legs_interrupted=1; exit 129' HUP
+  trap 'legs_interrupted=1; exit 130' INT
+  trap 'legs_interrupted=1; exit 143' TERM
+  legs_next_slot
+}
+legs_next_slot() {
+  legs_slot=$((legs_slot + 1))
+  exec >"$LEGS_DIR/slot.$legs_slot" 2>&1
+}
+legs_close_slot() {
+  printf '%s\0' slot "$LEGS_DIR/slot.$legs_slot" >>"$LEGS_SPEC"
+}
+# leg [-q] [-e] [-a] [-l PREFIX] MESSAGE COMMAND [ARG...]: record one leg, to run with the others.
+#   -q  discard its stdout, as `>/dev/null` did; its stderr is still shown
+#   -e  start it before the others: it is one of the long legs
+#   -a  run it alone, before any other leg starts: while it runs it changes files other legs read
+#   -l  its whole output goes to PREFIX.* in TMPDIR, removed on a pass and kept on a failure
+#   MESSAGE is printed after its output when it fails; "" adds nothing
+leg() {
+  local quiet=0 early=0 alone=0 log=""
+  while :; do
+    case "${1:-}" in
+      -q) quiet=1; shift ;;
+      -e) early=1; shift ;;
+      -a) alone=1; shift ;;
+      -l) log="${2:-}"; shift 2 ;;
+      *) break ;;
+    esac
+  done
+  if [ "$#" -lt 2 ]; then
+    echo "FAIL: the leg at line ${BASH_LINENO[0]} names no command"; fail=1; return 0
+  fi
+  legs_close_slot
+  printf '%s\0' leg "${BASH_LINENO[0]}" "$quiet" "$early" "$alone" "$log" "$PWD" "$(env -0 | LC_ALL=C sort -z | cksum)" \
+    "$1" "$(($# - 1))" >>"$LEGS_SPEC"
+  shift
+  printf '%s\0' "$@" >>"$LEGS_SPEC"
+  legs_declared=$((legs_declared + 1))
+  legs_next_slot
+}
+legs_release() {
+  legs_close_slot
+  exec 1>&7 2>&8 7>&- 8>&-
+  legs_capturing=0
+}
+legs_dump_slots() {
+  local i=1
+  while [ "$i" -le "$legs_slot" ]; do cat "$LEGS_DIR/slot.$i"; i=$((i + 1)); done
+}
+legs_run() {
+  legs_release
+  if [ ! -f gates/run-legs.py ]; then
+    legs_dump_slots
+    echo "FAIL: gates/run-legs.py is missing, so none of the $legs_declared recorded leg(s) ran"
+    return 1
+  fi
+  if ! env -0 >"$LEGS_DIR/environ"; then
+    legs_dump_slots
+    echo "FAIL: the exported environment could not be written for the leg runner, so none of the $legs_declared recorded leg(s) ran"
+    return 1
+  fi
+  python3 gates/run-legs.py "$LEGS_SPEC" "$legs_declared" "$(LC_ALL=C sort -z <"$LEGS_DIR/environ" | cksum)" "$LEGS_DIR/environ"
+}
+legs_exit() {
+  local status=$?
+  if [ "${legs_capturing:-0}" = 1 ]; then
+    if [ "$legs_interrupted" = 1 ] || [ "$legs_declared" -eq 0 ]; then
+      legs_release
+      legs_dump_slots
+      [ "$legs_interrupted" = 0 ] || echo "FAIL: interrupted before its $legs_declared recorded leg(s) ran"
+    else
+      # The umbrella stopped early. The legs recorded before it stopped ran before the stop when every
+      # leg ran in place, so they still run now, and the stop still fails the umbrella.
+      legs_run
+    fi
+    [ "$status" -ne 0 ] || status=1
+  fi
+  rm -rf "$LEGS_DIR"
+  exit "$status"
+}
+# leg runner: end
+legs_begin
+# The runner is judged before it runs anything, and directly rather than as a recorded leg: a
+# runner that reported every leg as passing could not then also pass its own controls.
+python3 gates/run-legs.py --self-test >/dev/null \
+  || { echo "FAIL: leg runner self-test missed a negative control (run python3 gates/run-legs.py --self-test)"; fail=1; }
 
 # Project purpose reaches the repository entrypoints and public README coherently.
 if [ -f gates/check-product-purpose.py ]; then
-  python3 gates/check-product-purpose.py --self-test \
-    || { echo "FAIL: product purpose negative controls"; fail=1; }
-  python3 gates/check-product-purpose.py \
-    || { echo "FAIL: product purpose projection or entrypoint"; fail=1; }
+  leg "FAIL: product purpose negative controls" \
+    python3 gates/check-product-purpose.py --self-test
+  leg "FAIL: product purpose projection or entrypoint" \
+    python3 gates/check-product-purpose.py
 fi
 
 # The MCP servers agent-bios ships are derived from code into DEPENDENCIES.md and its
 # Korean reference; a server added or removed without re-emitting fails here.
 if [ -f gates/check-mcp-inventory.py ]; then
-  python3 gates/check-mcp-inventory.py --self-test >/dev/null \
-    || { echo "FAIL: MCP inventory gate self-test missed a negative control"; fail=1; }
-  python3 gates/check-mcp-inventory.py >/dev/null \
-    || { echo "FAIL: MCP inventory projection is stale (run gates/check-mcp-inventory.py --emit)"; fail=1; }
+  leg -q "FAIL: MCP inventory gate self-test missed a negative control" \
+    python3 gates/check-mcp-inventory.py --self-test
+  leg -q "FAIL: MCP inventory projection is stale (run gates/check-mcp-inventory.py --emit)" \
+    python3 gates/check-mcp-inventory.py
+fi
+
+# The shipped driver's own dependencies against the inventory: an import or a command literal the
+# driver reaches for and DEPENDENCIES.md does not name is a traceback on the first user who lacks
+# it, with nothing in the inventory to have warned them. Derived from the code, both halves.
+if [ -f gates/check-driver-dependencies.py ]; then
+  leg -q "FAIL: driver-dependency gate self-test missed a negative control" \
+    python3 gates/check-driver-dependencies.py --self-test
+  leg -q "FAIL: the shipped driver reaches for a dependency DEPENDENCIES.md does not declare" \
+    python3 gates/check-driver-dependencies.py
+fi
+
+# The always-loaded global file stays under its byte ceiling (AGENTS.md section 8). The gate
+# reads the INDEX — under the pre-commit hook the exported GIT_INDEX_FILE is the hook's
+# snapshot — so what it judges is what the commit carries. A staged file above the ceiling is
+# the only verdict (exit 1); an absent staged file, a staged deletion included, measures as
+# empty and passes. A staged file git cannot read — a failing or unmerged index — leaves no
+# measurement, so the gate names it and exits 2, which fails the leg: a gate that judged nothing
+# has not passed. The lines absent from HEAD and the Korean file's size are disclosures, so its
+# output is left visible here rather than sent to /dev/null: the committer is who reads them.
+if [ -f gates/check-global-file.py ]; then
+  leg -q "FAIL: global-file gate self-test missed a negative control" \
+    python3 gates/check-global-file.py --self-test
+  leg "FAIL: claude/CLAUDE.md is over its ceiling, or the gate could not judge (run gates/check-global-file.py)" \
+    python3 gates/check-global-file.py
 fi
 
 # Non-empty-subject guards: a parity check over missing inputs must fail, not pass vacuously.
@@ -45,7 +196,7 @@ for p in claude/guides codex/guides ko/claude/guides ko/codex/guides; do
   [ -d "$p" ] || { echo "FAIL: required dir missing: $p"; exit 1; }
 done
 for p in claude/CLAUDE.md codex/AGENTS.md ko/claude/CLAUDE.md ko/codex/AGENTS.md gates/emit-mirrors.py \
-         gates/test-install-guides.sh; do
+         gates/test-install-guides.sh gates/run-legs.py gates/compose-tests.py; do
   [ -f "$p" ] || { echo "FAIL: required file missing: $p"; exit 1; }
 done
 guide_count=$(ls claude/guides/*.md 2>/dev/null | wc -l | tr -d ' ')
@@ -96,10 +247,10 @@ done
 # host trigger contract requires). Checking the generator's own output subsumes the
 # per-file mirror diffs it replaces and additionally pins the declared bullet's
 # position, which a presence grep could not. --self-test proves each drift kind fails.
-python3 gates/emit-mirrors.py --check >/dev/null \
-  || { echo "FAIL: codex mirrors diverge from their projection (run gates/emit-mirrors.py)"; fail=1; }
-python3 gates/emit-mirrors.py --self-test >/dev/null \
-  || { echo "FAIL: mirror gate self-test missed a negative control"; fail=1; }
+leg -q "FAIL: codex mirrors diverge from their projection (run gates/emit-mirrors.py)" \
+  python3 gates/emit-mirrors.py --check
+leg -q "FAIL: mirror gate self-test missed a negative control" \
+  python3 gates/emit-mirrors.py --self-test
 
 # EN/KO guide-bundle parity: primary names and every exact member path agree.  A directory
 # name alone is not enough — it can hide a missing Korean RUNBOOK or an immutable asset the
@@ -183,17 +334,17 @@ ANCHORS
 # co-packaging (compose/domains.json vs the monolith); its --self-test proves
 # every negative control still fails, so a green gate is falsifiable.
 if [ -f gates/fixture_support.py ]; then
-  python3 gates/fixture_support.py --self-test >/dev/null \
-    || { echo "FAIL: author fixture isolation (gates/fixture_support.py --self-test)"; fail=1; }
+  leg -q "FAIL: author fixture isolation (gates/fixture_support.py --self-test)" \
+    python3 gates/fixture_support.py --self-test
 fi
 
 if [ -f compose/domains.json ]; then
-  python3 compose/check-domains.py >/dev/null \
-    || { echo "FAIL: domains manifest gate (run compose/check-domains.py)"; fail=1; }
-  python3 compose/check-domains.py --self-test >/dev/null \
-    || { echo "FAIL: domains gate self-test missed a negative control"; fail=1; }
-  bash gates/test-assemble.sh >/dev/null \
-    || { echo "FAIL: assembler scenario suite (run gates/test-assemble.sh)"; fail=1; }
+  leg -q "FAIL: domains manifest gate (run compose/check-domains.py)" \
+    python3 compose/check-domains.py
+  leg -q "FAIL: domains gate self-test missed a negative control" \
+    python3 compose/check-domains.py --self-test
+  leg -q "FAIL: assembler scenario suite (run gates/test-assemble.sh)" \
+    bash gates/test-assemble.sh
 fi
 
 # Full-mode install scenarios. The assembler suite above only exercises the
@@ -216,18 +367,11 @@ else
   # the only way to ask was to re-run it for another eleven minutes and watch it pass.
   # A failure nobody can diagnose is how a gate earns a reputation for flaking, which is
   # how it stops being read at all.
-  install_log="$(mktemp -t install-scenarios)"
-  if AGENT_BIOS_LEGACY_INSTALL=1 bash gates/test-install-guides.sh >"$install_log" 2>&1; then
-    rm -f "$install_log"
-  else
-    echo "FAIL: full-mode install scenarios (run gates/test-install-guides.sh)"
-    echo "--- its own failing output ---"
-    grep -a 'FAIL' "$install_log" | head -20
-    echo "--- last 15 lines ---"
-    tail -15 "$install_log"
-    echo "--- full log kept at $install_log ---"
-    fail=1
-  fi
+  # The runner keeps that handling (`-l`): the whole output goes to an install-scenarios.* log in
+  # TMPDIR, removed on a pass; on a failure its FAIL lines, its last 15 lines and the kept log's path
+  # are printed. One of the long legs (`-e`).
+  leg -e -l install-scenarios "FAIL: full-mode install scenarios (run gates/test-install-guides.sh)" \
+    env AGENT_BIOS_LEGACY_INSTALL=1 bash gates/test-install-guides.sh
 fi
 
 # Payload boundary (gates/check-package.sh). The gate itself runs from the
@@ -236,22 +380,380 @@ fi
 # so no leg had ever been shown to fail. It plants each violation into a
 # throwaway copy of the tree, so it costs a few seconds rather than milliseconds.
 if [ -x gates/check-package.sh ]; then
-  ./gates/check-package.sh --self-test >/dev/null \
-    || { echo "FAIL: package gate self-test missed a planted violation"; fail=1; }
+  leg -q -e "FAIL: package gate self-test missed a planted violation" \
+    ./gates/check-package.sh --self-test
 fi
 
 # Learning record gate: learn/learning.schema.json (collection-loop
 # SSOT) vs its fixtures; --self-test proves every mutation is still caught.
 if [ -f learn/learning.schema.json ]; then
-  python3 learn/check-learning.py >/dev/null \
-    || { echo "FAIL: learning record gate (run learn/check-learning.py)"; fail=1; }
-  python3 learn/check-learning.py --self-test >/dev/null \
-    || { echo "FAIL: learning gate self-test missed a negative control"; fail=1; }
+  leg -q "FAIL: learning record gate (run learn/check-learning.py)" \
+    python3 learn/check-learning.py
+  leg -q "FAIL: learning gate self-test missed a negative control" \
+    python3 learn/check-learning.py --self-test
   # collect-learning Phase 2 transport: the watermark upload-drain logic
   # (status classification, watermark advance, transient-stop, poison-skip)
   # plus the capture-time secret-redaction wiring.
-  python3 learn/collect-learning.py --self-test >/dev/null \
-    || { echo "FAIL: collect-learning upload-drain self-test"; fail=1; }
+  leg -q "FAIL: collect-learning upload-drain self-test" \
+    python3 learn/collect-learning.py --self-test
+fi
+
+# Session distill driver (session-distill/distill.py): the run declaration and its amendments,
+# stage records that pin the declaration they read, and the claim/evidence/expected-observation
+# record schemas. Each module's --self-test runs positive controls first and negative controls
+# that fail by name; the driver's own runs declare -> stage -> amend -> stage on real files.
+# Every module is also registered in gates/control-audit.py SUBJECTS. They run under the same
+# python3 as learn/check-learning.py; runlib/validate.py refuses by name a jsonschema other than
+# JSONSCHEMA_PIN in launch/provision-venv.sh, so a different interpreter fails here, not silently.
+# The Codex adapter's capture helper: its frame allow-list, the completion-ledger join, attempts and
+# coverage, and the events whitelist (golden); the adapter's capture runs in check_parity.py codex_run.
+if [ -f wrappers/codex_frame_filter.py ]; then
+  leg -q "FAIL: codex capture helper self-test (wrappers/codex_frame_filter.py)" \
+    python3 wrappers/codex_frame_filter.py --self-test
+fi
+# The Claude adapter's evidence helper: the record kinds measured per version (RECORD_KINDS), the cell and
+# manifest checks, and the evidence it renders; the adapter's capture runs in check_parity.py claude_run.
+if [ -f wrappers/claude_hermetic_evidence.py ]; then
+  leg -q "FAIL: claude hermetic evidence helper self-test (wrappers/claude_hermetic_evidence.py)" \
+    python3 wrappers/claude_hermetic_evidence.py --self-test
+fi
+if [ -f session-distill/distill.py ]; then
+  leg -q "FAIL: session-distill driver self-test (declare -> stage -> amend -> stage)" \
+    python3 session-distill/distill.py --self-test
+  leg -q "FAIL: session-distill run declaration self-test (session-distill/distill.py declare)" \
+    python3 session-distill/distill.py declare --self-test
+fi
+# The declaration's own entry point: the suite the driver's `declare --self-test` runs, reached the way the module offers
+# it, so every file that offers --self-test has its leg (gates/check-self-test-legs.py).
+if [ -f session-distill/runlib/declare.py ]; then
+  leg -q "FAIL: session-distill declaration module self-test (session-distill/runlib/declare.py)" \
+    python3 session-distill/runlib/declare.py --self-test
+fi
+if [ -f session-distill/runlib/inventory.py ]; then
+  leg -q -e "FAIL: session-distill inventory self-test (session-distill/runlib/inventory.py)" \
+    python3 session-distill/runlib/inventory.py --self-test
+fi
+if [ -f session-distill/runlib/records.py ]; then
+  leg -q "FAIL: session-distill stage record self-test (session-distill/runlib/records.py)" \
+    python3 session-distill/runlib/records.py --self-test
+fi
+if [ -f session-distill/runlib/claims.py ]; then
+  leg -q "FAIL: session-distill record schema self-test (session-distill/runlib/claims.py)" \
+    python3 session-distill/runlib/claims.py --self-test
+fi
+if [ -f session-distill/runlib/validate.py ]; then
+  leg -q "FAIL: session-distill schema-policy self-test (session-distill/runlib/validate.py)" \
+    python3 session-distill/runlib/validate.py --self-test
+fi
+if [ -f session-distill/runlib/stagelock.py ]; then
+  leg -q "FAIL: session-distill stage lock self-test (session-distill/runlib/stagelock.py)" \
+    python3 session-distill/runlib/stagelock.py --self-test
+fi
+# The census (S1): readers of the transcripts and the host indexes, lineage and the counting rule, the
+# coverage state of design §5.2, and the census itself over a synthetic corpus (one fixture per O1 plant).
+# The legacy session-distill/census.py remains ONLY as an author-side window tool (the v1 window
+# census the workflow guide still names); the cutover deleted the v1 pipeline around it. The census
+# self-test's legacy census -> digest handoff leg was withdrawn with that pipeline and this comment
+# claimed it still ran (the WP-22a review); the S1 controls are the readers, the lineage and
+# counting rule, §5.2's coverage state, and the census over a synthetic corpus.
+if [ -f session-distill/runlib/sources.py ]; then
+  leg -q "FAIL: session-distill source readers self-test (session-distill/runlib/sources.py)" \
+    python3 session-distill/runlib/sources.py --self-test
+fi
+if [ -f session-distill/runlib/lineage.py ]; then
+  leg -q "FAIL: session-distill lineage self-test (session-distill/runlib/lineage.py)" \
+    python3 session-distill/runlib/lineage.py --self-test
+fi
+if [ -f session-distill/runlib/coverage.py ]; then
+  leg -q "FAIL: session-distill coverage state self-test (session-distill/runlib/coverage.py)" \
+    python3 session-distill/runlib/coverage.py --self-test
+fi
+if [ -f session-distill/runlib/census.py ]; then
+  leg -q "FAIL: session-distill census self-test (session-distill/runlib/census.py)" \
+    python3 session-distill/runlib/census.py --self-test
+fi
+if [ -f session-distill/runlib/projection.py ]; then
+  leg -q "FAIL: session-distill redaction projection self-test (session-distill/runlib/projection.py)" \
+    python3 session-distill/runlib/projection.py --self-test
+fi
+if [ -f session-distill/runlib/search.py ]; then
+  leg -q "FAIL: session-distill full-source search self-test (session-distill/runlib/search.py)" \
+    python3 session-distill/runlib/search.py --self-test
+fi
+# The window bound has one owner (session-distill/runlib/bound.py) and its controls live with it: the
+# two pre-dispatch checks, the single read of every declared part, the refusals a part can carry and
+# the recovery rule. They used to sit in the view side's suite, where this umbrella ran them; moving
+# the rule moved them out of every gate until this leg (BC#5).
+if [ -f session-distill/runlib/bound.py ]; then
+  leg -q "FAIL: session-distill window bound self-test (session-distill/runlib/bound.py)" \
+    python3 session-distill/runlib/bound.py --self-test
+fi
+if [ -f session-distill/runlib/views.py ]; then
+  leg -q "FAIL: session-distill views self-test (session-distill/runlib/views.py)" \
+    python3 session-distill/runlib/views.py --self-test
+fi
+if [ -f session-distill/runlib/evidence.py ]; then
+  leg -q "FAIL: session-distill evidence store self-test (session-distill/runlib/evidence.py)" \
+    python3 session-distill/runlib/evidence.py --self-test
+fi
+
+# Session distill ledger (design §12): schema 2, the transition table, the migration of the schema 1
+# ledger, the projection the old readers keep, and the id-set check. `ledger.py --check` compares the
+# ledger in the index with HEAD (no id lost, new ids exactly the allocated, every changed row matching
+# a validated decision); `migrate-ledger.py --check` migrates the ledger dry against design §12.2's
+# expected records and holds the reader inventory against a text, AST and argument discovery. The nudge writer's
+# self-test runs the launcher's reader against the state it writes. The committed ledger is data and
+# moves only at the cutover; these legs read it and never change it.
+# Through `gates/check-ledger.py`, which supplies the two things only a checkout has: the committed
+# ledger's path and the author-side migrator. The shipped module no longer names either (WP-24), and
+# run bare it reports those legs as skipped by name.
+if [ -f gates/check-ledger.py ]; then
+  leg -q "FAIL: session-distill ledger self-test (gates/check-ledger.py --self-test)" \
+    python3 gates/check-ledger.py --self-test
+  leg -q "FAIL: the ledger lost an id, allocated a wrong one, or changed a row with no decision (gates/check-ledger.py --check)" \
+    python3 gates/check-ledger.py --check
+fi
+# The v1 window merge refuses a ledger that is not schema 1, by name and before it reads or writes (WP-22a).
+if [ -f session-distill/merge-ledger.py ]; then
+  leg -q "FAIL: session-distill window merge self-test (session-distill/merge-ledger.py)" \
+    python3 session-distill/merge-ledger.py --self-test
+fi
+if [ -f session-distill/migrate-ledger.py ]; then
+  leg -q "FAIL: session-distill ledger migration self-test (session-distill/migrate-ledger.py)" \
+    python3 session-distill/migrate-ledger.py --self-test
+  leg -q "FAIL: the ledger does not migrate to design 12.2's expected records, or the reader inventory is stale (session-distill/migrate-ledger.py --check)" \
+    python3 session-distill/migrate-ledger.py --check
+fi
+# The proposal contract's tables as code (WP-12): §7.2's pairs and §7.3's structural rules, each held
+# against the design's own rows by the module's own suite.
+if [ -f session-distill/runlib/placement.py ]; then
+  leg -q "FAIL: session-distill proposal contract self-test (session-distill/runlib/placement.py)" \
+    python3 session-distill/runlib/placement.py --self-test
+fi
+# S7 propose: the packet, the answer's shape and the O5 fixtures.
+if [ -f session-distill/runlib/stage_propose.py ]; then
+  leg -q "FAIL: session-distill S7 propose self-test (session-distill/runlib/stage_propose.py)" \
+    python3 session-distill/runlib/stage_propose.py --self-test
+fi
+# S7b review of proposals: the merge question, the bars and the alternative.
+if [ -f session-distill/runlib/stage_review_proposals.py ]; then
+  leg -q "FAIL: session-distill S7b review self-test (session-distill/runlib/stage_review_proposals.py)" \
+    python3 session-distill/runlib/stage_review_proposals.py --self-test
+fi
+# The §7.5 total order over review rows.
+if [ -f session-distill/runlib/ranking.py ]; then
+  leg -q "FAIL: session-distill ranking self-test (session-distill/runlib/ranking.py)" \
+    python3 session-distill/runlib/ranking.py --self-test
+fi
+# The grammar of the lines the owner writes into a review's decision copy and a confirmation file (WP-20 K1).
+if [ -f session-distill/grammar/owner_lines.py ]; then
+  leg -q "FAIL: session-distill owner-line grammar self-test (session-distill/grammar/owner_lines.py)" \
+    python3 session-distill/grammar/owner_lines.py --self-test
+fi
+# S9 render: the review of S4's population, its owner copy, its frozen proposals and its rows (WP-20 K2).
+if [ -f session-distill/runlib/stage_render.py ]; then
+  leg -q "FAIL: session-distill S9 render self-test (session-distill/runlib/stage_render.py)" \
+    python3 session-distill/runlib/stage_render.py --self-test
+fi
+# S9b: a review version's Korean against its English payload, one regeneration, the mark (WP-20 K4).
+if [ -f session-distill/runlib/stage_review_korean.py ]; then
+  leg -q "FAIL: session-distill S9b review-korean self-test (session-distill/runlib/stage_review_korean.py)" \
+    python3 session-distill/runlib/stage_review_korean.py --self-test
+fi
+# S10 adjudicate: the owner's adjudications recomputed, the newly admitted through S7 and S7b again (WP-20 K5).
+if [ -f session-distill/runlib/stage_adjudicate.py ]; then
+  leg -q "FAIL: session-distill S10 adjudicate self-test (session-distill/runlib/stage_adjudicate.py)" \
+    python3 session-distill/runlib/stage_adjudicate.py --self-test
+fi
+# S10b confirm: the final set S10's approvals leave, and the owner's confirmation bound to it (WP-20 K6).
+if [ -f session-distill/runlib/stage_confirm.py ]; then
+  leg -q "FAIL: session-distill S10b confirm self-test (session-distill/runlib/stage_confirm.py)" \
+    python3 session-distill/runlib/stage_confirm.py --self-test
+fi
+# what an operation does to a file's text: the one contract S7's check and S11's plan both read
+if [ -f session-distill/runlib/operations.py ]; then
+  leg -q "FAIL: session-distill operation contract self-test (session-distill/runlib/operations.py)" \
+    python3 session-distill/runlib/operations.py --self-test
+fi
+# S11 apply, release 1: the confirmed final set written into files of the declared checkout, and nothing else
+# (D-20261113-f22b7d). The suite writes under its own temp trees only.
+if [ -f session-distill/runlib/stage_apply.py ]; then
+  leg -q "FAIL: session-distill S11 apply self-test (session-distill/runlib/stage_apply.py)" \
+    python3 session-distill/runlib/stage_apply.py --self-test
+fi
+# S12 close, release 1: the run's decisions and window in the checkout's ledger, a periodic run's coverage promoted,
+# and nothing outside the checkout and the run directory. The suite writes under its own temp trees only.
+if [ -f session-distill/runlib/stage_close.py ]; then
+  leg -q "FAIL: session-distill S12 close self-test (session-distill/runlib/stage_close.py)" \
+    python3 session-distill/runlib/stage_close.py --self-test
+fi
+# S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
+if [ -f session-distill/runlib/stage_approvals.py ]; then
+  leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \
+    python3 session-distill/runlib/stage_approvals.py --self-test
+fi
+# The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
+# belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
+# by the pre-commit hook and a leg that ran the hook would recurse.
+# WP-21's §11 exposure predicate: one branch per table row, three generated cases each.
+if [ -f session-distill/runlib/exposure.py ]; then
+  leg -q "FAIL: session-distill exposure predicate self-test (session-distill/runlib/exposure.py)" \
+    python3 session-distill/runlib/exposure.py --self-test
+fi
+
+# WP-21's drift and order: the comparison, the layers nobody compared, and the global-file refusal.
+# The O10 case against the REAL global-file gate is `gates/global-op-unjudged-check.sh`, an
+# author-side script and not a leg: it drives git over a scratch repository, and a shipped suite
+# naming `gates/` would fail check-package.sh's third direction.
+if [ -f session-distill/runlib/drift.py ]; then
+  leg -q "FAIL: session-distill drift and order self-test (session-distill/runlib/drift.py)" \
+    python3 session-distill/runlib/drift.py --self-test
+fi
+
+# WP-21's identity contract: what an operation's target NAMES, for every surface that asks. Its own
+# leg because it is the OWNER of that question — `drift` and `journal` carried a copy each, and the
+# copies disagreed about `./claude/CLAUDE.md`.
+if [ -f session-distill/runlib/targets.py ]; then
+  leg -q "FAIL: session-distill target identity self-test (session-distill/runlib/targets.py)" \
+    python3 session-distill/runlib/targets.py --self-test
+fi
+
+# WP-21's write-ahead journal: §10.5's record, its framing, and the order no effect may precede.
+if [ -f session-distill/runlib/journal.py ]; then
+  leg -q "FAIL: session-distill side-effect journal self-test (session-distill/runlib/journal.py)" \
+    python3 session-distill/runlib/journal.py --self-test
+fi
+
+# WP-21's destination manifest: where S11 and S12 may write, held against the writers' own sources.
+if [ -f session-distill/runlib/destinations.py ]; then
+  leg -q "FAIL: session-distill destination manifest self-test (session-distill/runlib/destinations.py)" \
+    python3 session-distill/runlib/destinations.py --self-test
+fi
+
+if [ -f session-distill/runlib/sequencing.py ]; then
+  leg -q "FAIL: session-distill commit sequencing self-test (session-distill/runlib/sequencing.py)" \
+    python3 session-distill/runlib/sequencing.py --self-test
+fi
+# The schema-2 ledger library itself. Its `--self-test` came from the ship-driver history and the gate
+# that notices an unlegged self-test from the other, so the pair first meets here.
+if [ -f session-distill/runlib/ledger.py ]; then
+  leg -q "FAIL: session-distill ledger library self-test (session-distill/runlib/ledger.py)" \
+    python3 session-distill/runlib/ledger.py --self-test
+fi
+if [ -f session-distill/runlib/ledger_compat.py ]; then
+  leg -q "FAIL: session-distill ledger projection self-test (session-distill/runlib/ledger_compat.py)" \
+    python3 session-distill/runlib/ledger_compat.py --self-test
+fi
+# The plain-asks counter (in-window user asks, with sidechain, injected, pre-window and pasted turns excluded).
+if [ -f session-distill/plain-asks.py ]; then
+  leg -q "FAIL: session-distill plain-asks self-test (session-distill/plain-asks.py)" \
+    python3 session-distill/plain-asks.py --self-test
+fi
+if [ -f session-distill/update-state.py ]; then
+  leg -q "FAIL: session-distill nudge state self-test (session-distill/update-state.py)" \
+    python3 session-distill/update-state.py --self-test
+fi
+
+# The model-call gate (design §3.2) and what it reads: the receipt, the packet and its linter,
+# the per-call usage states (design §13.3). The gate's controls replay probe captures from
+# session-distill/fixtures/replay/ (each with its PROVENANCE) and mutate them one field at a time.
+if [ -f session-distill/runlib/gate.py ]; then
+  leg -q "FAIL: session-distill model-call gate self-test (session-distill/runlib/gate.py)" \
+    python3 session-distill/runlib/gate.py --self-test
+fi
+if [ -f session-distill/runlib/receipts.py ]; then
+  leg -q "FAIL: session-distill call receipt self-test (session-distill/runlib/receipts.py)" \
+    python3 session-distill/runlib/receipts.py --self-test
+fi
+if [ -f session-distill/runlib/packet.py ]; then
+  leg -q "FAIL: session-distill packet linter self-test (session-distill/runlib/packet.py)" \
+    python3 session-distill/runlib/packet.py --self-test
+fi
+if [ -f session-distill/runlib/usage.py ]; then
+  leg -q "FAIL: session-distill call usage self-test (session-distill/runlib/usage.py)" \
+    python3 session-distill/runlib/usage.py --self-test
+fi
+# The dispatch supervisor (design §13.2): reservations, both caps, the live monitor, the stop of a
+# process tree, and the provider breaker. dispatch.py's self-test runs golden fake hosts (no model
+# is called) through the real launcher's --emit-receipt, and traces the driver's import closure for
+# executor sites by AST; stop.py's self-test signals only processes it spawned itself, by pid and
+# start time.
+if [ -f session-distill/runlib/dispatch.py ]; then
+  leg -q -e "FAIL: session-distill dispatch supervisor self-test (session-distill/runlib/dispatch.py)" \
+    python3 session-distill/runlib/dispatch.py --self-test
+fi
+if [ -f session-distill/runlib/monitor.py ]; then
+  leg -q "FAIL: session-distill live monitor self-test (session-distill/runlib/monitor.py)" \
+    python3 session-distill/runlib/monitor.py --self-test
+fi
+if [ -f session-distill/runlib/stop.py ]; then
+  leg -q "FAIL: session-distill process-tree stop self-test (session-distill/runlib/stop.py)" \
+    python3 session-distill/runlib/stop.py --self-test
+fi
+if [ -f session-distill/runlib/breaker.py ]; then
+  leg -q "FAIL: session-distill provider breaker self-test (session-distill/runlib/breaker.py)" \
+    python3 session-distill/runlib/breaker.py --self-test
+fi
+# S3 read (plan WP-08): golden runs of the stage through the supervisor and dispatch's golden host, which
+# answers from a plan made of the windows themselves; no model is called.
+if [ -f session-distill/runlib/stage_read.py ]; then
+  leg -q "FAIL: session-distill S3 read self-test (session-distill/runlib/stage_read.py)" \
+    python3 session-distill/runlib/stage_read.py --self-test
+fi
+# S4 form (plan WP-09): the formation packet, its labels, the stage's check of an answer and the contract's closed
+# lists; no model is called.
+if [ -f session-distill/runlib/stage_form.py ]; then
+  leg -q "FAIL: session-distill S4 form self-test (session-distill/runlib/stage_form.py)" \
+    python3 session-distill/runlib/stage_form.py --self-test
+fi
+# S4's lifecycle intake (plan WP-09 done-when 3): due decisions, legacy incubation, obsolete hints over a golden occasion
+# index, redundancy hints over the current library, and G clusters; no model is called.
+if [ -f session-distill/runlib/lifecycle_intake.py ]; then
+  leg -q "FAIL: session-distill S4 lifecycle intake self-test (session-distill/runlib/lifecycle_intake.py)" \
+    python3 session-distill/runlib/lifecycle_intake.py --self-test \
+      --checkout-ledger design/session-distill/ledger.json
+fi
+# Follow-up resolutions (plan WP-08 done-when 5, design §11): the O9 fixtures through the derivation, each flipped.
+if [ -f session-distill/runlib/measures.py ]; then
+  leg -q "FAIL: session-distill follow-up resolution self-test (session-distill/runlib/measures.py)" \
+    python3 session-distill/runlib/measures.py --self-test
+fi
+# The §6.4 derivations (plan WP-10 done-whens 1, 2 and 5): tables/unit_outcome.json read as data, its frozen fixtures
+# against the table's rows and the executed cases, and the table against design §6.4's copied rows; no model is called.
+if [ -f session-distill/runlib/derive.py ]; then
+  leg -q "FAIL: session-distill §6.4 derivation self-test (session-distill/runlib/derive.py)" \
+    python3 session-distill/runlib/derive.py --self-test
+fi
+# The §6.3 delivery evidence (plan WP-10 done-whens 2 and 5): tables/delivery_evidence.json read as data, the O3
+# delivery verdicts each flipped, its frozen fixtures and the table against design §6.3's levels; no model is called.
+if [ -f session-distill/runlib/delivery_evidence.py ]; then
+  leg -q "FAIL: session-distill §6.3 delivery evidence self-test (session-distill/runlib/delivery_evidence.py)" \
+    python3 session-distill/runlib/delivery_evidence.py --self-test
+fi
+# S5 retrieve (plan WP-10 done-when 3): retrieval over a library of its own, recurrence over lineage-linked census rows,
+# and the stage over a golden run through S4, its quotes verified again and the driver run as a process; no model is called.
+if [ -f session-distill/runlib/stage_retrieve.py ]; then
+  leg -q "FAIL: session-distill S5 retrieve self-test (session-distill/runlib/stage_retrieve.py)" \
+    python3 session-distill/runlib/stage_retrieve.py --self-test
+fi
+# S5b delivery evidence (plan WP-11b): the stage's place between S5 and S6 in records.STAGES, the document's shape over
+# S5's rows with every pending pair answered by name, and the two refusals — a standing stop and a missing immutable
+# copy — each with nothing written; no model is called.
+if [ -f session-distill/runlib/stage_delivery.py ]; then
+  leg -q "FAIL: session-distill S5b delivery evidence self-test (session-distill/runlib/stage_delivery.py)" \
+    python3 session-distill/runlib/stage_delivery.py --self-test
+fi
+# Design §6.5's planted controls (plan WP-10 done-when 4): the population planted from a golden run under ordinary ids,
+# F27's marker check, CONTROLS_INCOMPLETE, CONTROL_FAILED and REJECTION_SHARE_ZERO; no model is called.
+if [ -f session-distill/runlib/controls.py ]; then
+  leg -q "FAIL: session-distill planted controls self-test (session-distill/runlib/controls.py)" \
+    python3 session-distill/runlib/controls.py --self-test
+fi
+# S6 judge (plan WP-11): the judgment schema and the reuse key against design §6.2 (done-when 8), one payload and one
+# receipt per call (done-when 1's PACKET_DIVERGENCE and RECEIPT_STALE), an answer checked against its packet; no model is called.
+if [ -f session-distill/runlib/stage_judge.py ]; then
+  leg -q "FAIL: session-distill S6 judge self-test (session-distill/runlib/stage_judge.py)" \
+    python3 session-distill/runlib/stage_judge.py --self-test
 fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
@@ -260,24 +762,24 @@ fi
 # --self-test drives it against a throwaway git repo and proves a run that fails
 # partway restores rather than leaving the instructions split across two versions.
 if [ -f compose/instructions-state.py ]; then
-  python3 compose/instructions-state.py --self-test >/dev/null \
-    || { echo "FAIL: instructions rollback self-test (compose/instructions-state.py)"; fail=1; }
+  leg -q "FAIL: instructions rollback self-test (compose/instructions-state.py)" \
+    python3 compose/instructions-state.py --self-test
 fi
 
 # Secret-redaction floor (learn/redact.py) — single-sourced by the heavy
-# (digest.py) and light (collect-learning.py) flows; --self-test proves each
+# (runlib/projection.py) and light (collect-learning.py) flows; --self-test proves each
 # pattern fires and that lessons ABOUT secrets are not over-redacted.
 if [ -f learn/redact.py ]; then
-  python3 learn/redact.py --self-test >/dev/null \
-    || { echo "FAIL: secret-redaction floor self-test (learn/redact.py)"; fail=1; }
+  leg -q "FAIL: secret-redaction floor self-test (learn/redact.py)" \
+    python3 learn/redact.py --self-test
 fi
 
 # Phase 3 curation intake (learn/ingest-learnings-export.py) — validates a
 # dashboard learnings export and maps it to ledger candidates; --self-test
 # proves valid rows map (cardinality > 0) and broken/non-v1 rows are diverted.
 if [ -f learn/ingest-learnings-export.py ]; then
-  python3 learn/ingest-learnings-export.py --self-test >/dev/null \
-    || { echo "FAIL: curation-intake self-test (learn/ingest-learnings-export.py)"; fail=1; }
+  leg -q "FAIL: curation-intake self-test (learn/ingest-learnings-export.py)" \
+    python3 learn/ingest-learnings-export.py --self-test
 fi
 
 # Phase 4 promote->migrate: the promotion manifest (learn/promotions.json) is
@@ -285,18 +787,18 @@ fi
 # ship without its manifest entry; migrate-learnings clears personal copies only
 # for in-bundle promotions (--self-test proves the not-in-bundle keep guard).
 if [ -f learn/build-promotions.py ]; then
-  python3 learn/build-promotions.py --self-test >/dev/null \
-    || { echo "FAIL: build-promotions self-test"; fail=1; }
-  python3 learn/build-promotions.py --check >/dev/null \
-    || { echo "FAIL: learn/promotions.json is stale vs the ledger (run learn/build-promotions.py)"; fail=1; }
+  leg -q "FAIL: build-promotions self-test" \
+    python3 learn/build-promotions.py --self-test
+  leg -q "FAIL: learn/promotions.json is stale vs the ledger (run learn/build-promotions.py)" \
+    python3 learn/build-promotions.py --check
 fi
 if [ -f compose/prune-backups.py ]; then
-  python3 compose/prune-backups.py --self-test >/dev/null \
-    || { echo "FAIL: backup retention self-test"; fail=1; }
+  leg -q "FAIL: backup retention self-test" \
+    python3 compose/prune-backups.py --self-test
 fi
 if [ -f learn/migrate-learnings.py ]; then
-  python3 learn/migrate-learnings.py --self-test >/dev/null \
-    || { echo "FAIL: migrate-learnings self-test (personal-copy prune + in-bundle guard)"; fail=1; }
+  leg -q "FAIL: migrate-learnings self-test (personal-copy prune + in-bundle guard)" \
+    python3 learn/migrate-learnings.py --self-test
 fi
 
 # Decision record (decisions/record-decision.py) — the submit tool that owns id,
@@ -304,21 +806,21 @@ fi
 # --self-test proves the recording bar refuses, no stamped field is settable from
 # the payload, and a backfilled record claims no interval it cannot derive.
 if [ -f decisions/record-decision.py ]; then
-  python3 decisions/record-decision.py --self-test >/dev/null \
-    || { echo "FAIL: decision-record self-test (decisions/record-decision.py)"; fail=1; }
+  leg -q "FAIL: decision-record self-test (decisions/record-decision.py)" \
+    python3 decisions/record-decision.py --self-test
   # The self-test proves the code; --check proves the ARTIFACT. Without it a
   # hand-edited or forged row renders as fact and no gate ever looks at it.
-  python3 decisions/record-decision.py --check >/dev/null \
-    || { echo "FAIL: decision ledger (run decisions/record-decision.py --check)"; fail=1; }
+  leg -q "FAIL: decision ledger (run decisions/record-decision.py --check)" \
+    python3 decisions/record-decision.py --check
 fi
 
 # Lexicon gate: forbid deprecated terminology tokens in live files
 # (LEXICON.md is the SSOT); --self-test proves the detector can fire.
 if [ -f LEXICON.md ]; then
-  python3 gates/check-lexicon.py >/dev/null \
-    || { echo "FAIL: lexicon gate (run gates/check-lexicon.py)"; fail=1; }
-  python3 gates/check-lexicon.py --self-test >/dev/null \
-    || { echo "FAIL: lexicon gate self-test failed"; fail=1; }
+  leg -q "FAIL: lexicon gate (run gates/check-lexicon.py)" \
+    python3 gates/check-lexicon.py
+  leg -q "FAIL: lexicon gate self-test failed" \
+    python3 gates/check-lexicon.py --self-test
 fi
 
 # Content-hygiene gate: the shipped distribution (npm payload + ko instructions trees) stays
@@ -327,10 +829,10 @@ fi
 # and asserted non-empty; --self-test plants each violation class and requires a named
 # failure, positive control first.
 if [ -f gates/check-hygiene.py ]; then
-  python3 gates/check-hygiene.py >/dev/null \
-    || { echo "FAIL: content-hygiene gate (run gates/check-hygiene.py)"; fail=1; }
-  python3 gates/check-hygiene.py --self-test >/dev/null \
-    || { echo "FAIL: content-hygiene self-test failed"; fail=1; }
+  leg -q "FAIL: content-hygiene gate (run gates/check-hygiene.py)" \
+    python3 gates/check-hygiene.py
+  leg -q "FAIL: content-hygiene self-test failed" \
+    python3 gates/check-hygiene.py --self-test
 fi
 
 # Endpoint contract gate: ENDPOINTS.md's wire literals are held against the code,
@@ -343,11 +845,19 @@ fi
 # reaches the network fails in a tunnel. What runs is the structural half — that every pin
 # names a mapped document and every mapped document is pinned — which is what makes the
 # online comparison able to run at all.
+# Every session-distill file that offers --self-test has a leg here (a suite the umbrella does not run is green about
+# nothing at commit time); the gate and its planted controls.
+if [ -f gates/check-self-test-legs.py ]; then
+  leg -q "FAIL: a session-distill self-test has no umbrella leg (run gates/check-self-test-legs.py)" \
+    python3 gates/check-self-test-legs.py
+  leg -q "FAIL: self-test leg coverage gate self-test (gates/check-self-test-legs.py --self-test)" \
+    python3 gates/check-self-test-legs.py --self-test
+fi
 if [ -f gates/check-prompting-sources.py ]; then
-  python3 gates/check-prompting-sources.py >/dev/null \
-    || { echo "FAIL: prompting source pins (run gates/check-prompting-sources.py)"; fail=1; }
-  python3 gates/check-prompting-sources.py --self-test >/dev/null \
-    || { echo "FAIL: prompting-source self-test (gates/check-prompting-sources.py --self-test)"; fail=1; }
+  leg -q "FAIL: prompting source pins (run gates/check-prompting-sources.py)" \
+    python3 gates/check-prompting-sources.py
+  leg -q "FAIL: prompting-source self-test (gates/check-prompting-sources.py --self-test)" \
+    python3 gates/check-prompting-sources.py --self-test
 fi
 
 # Tier bindings against the model catalogues the host CLIs already cache. The STRUCTURE half
@@ -359,10 +869,10 @@ fi
 # to /dev/null — the report IS the leg, and a leg nobody reads changes nothing. The refusal
 # lives at publish time instead (gates/check-publish.sh --guard).
 if [ -f gates/check-model-currency.py ]; then
-  python3 gates/check-model-currency.py \
-    || { echo "FAIL: model binding structure (run gates/check-model-currency.py)"; fail=1; }
-  python3 gates/check-model-currency.py --self-test >/dev/null \
-    || { echo "FAIL: model-currency self-test (gates/check-model-currency.py --self-test)"; fail=1; }
+  leg "FAIL: model binding structure (run gates/check-model-currency.py)" \
+    python3 gates/check-model-currency.py
+  leg -q "FAIL: model-currency self-test (gates/check-model-currency.py --self-test)" \
+    python3 gates/check-model-currency.py --self-test
 fi
 
 # The declared Python floor, judged by a real interpreter of that floor. Shipped
@@ -374,17 +884,22 @@ fi
 # Its stdout is deliberately kept — the per-set counts are how you see the leg had
 # subjects at all.
 if [ -f gates/check-python-floor.py ]; then
-  python3 gates/check-python-floor.py \
-    || { echo "FAIL: declared Python floor (run gates/check-python-floor.py)"; fail=1; }
-  python3 gates/check-python-floor.py --self-test >/dev/null \
-    || { echo "FAIL: python-floor self-test (gates/check-python-floor.py --self-test)"; fail=1; }
+  leg "FAIL: declared Python floor (run gates/check-python-floor.py)" \
+    python3 gates/check-python-floor.py
+  leg -q "FAIL: python-floor self-test (gates/check-python-floor.py --self-test)" \
+    python3 gates/check-python-floor.py --self-test
 fi
 
+# The cost meter users run as `agent-bios cost`. Its self-test plants transcripts of both hosts,
+# a renamed usage key among them, and had no leg: its controls ran only when someone ran them.
+leg -q "FAIL: session cost self-test (run python3 session-cost.py --self-test)" \
+  python3 session-cost.py --self-test
+
 if [ -f gates/check-endpoints.py ]; then
-  python3 gates/check-endpoints.py >/dev/null \
-    || { echo "FAIL: endpoint contract gate (run gates/check-endpoints.py)"; fail=1; }
-  python3 gates/check-endpoints.py --self-test >/dev/null \
-    || { echo "FAIL: endpoint-contract self-test failed"; fail=1; }
+  leg -q "FAIL: endpoint contract gate (run gates/check-endpoints.py)" \
+    python3 gates/check-endpoints.py
+  leg -q -e "FAIL: endpoint-contract self-test failed" \
+    python3 gates/check-endpoints.py --self-test
 fi
 
 # Coverage, which is a different question from every check above: those ask whether
@@ -393,10 +908,10 @@ fi
 # was a 105-minute audit nobody ran — a check that is not run is not a check. Seconds,
 # not minutes: it traces two in-process harnesses.
 if [ -f gates/check-seam-coverage.py ]; then
-  python3 gates/check-seam-coverage.py >/dev/null \
-    || { echo "FAIL: transport seam has statements no harness executes (run gates/check-seam-coverage.py)"; fail=1; }
-  python3 gates/check-seam-coverage.py --self-test >/dev/null \
-    || { echo "FAIL: seam-coverage self-test failed"; fail=1; }
+  leg -q "FAIL: transport seam has statements no harness executes (run gates/check-seam-coverage.py)" \
+    python3 gates/check-seam-coverage.py
+  leg -q "FAIL: seam-coverage self-test failed" \
+    python3 gates/check-seam-coverage.py --self-test
 fi
 
 # Receipt chain, over a space derived from the config rather than listed: every preset
@@ -404,10 +919,10 @@ fi
 # that plan projects. A stub adapter keeps it free of spend; --real dispatches for
 # real and is deliberately never run here. --self-test proves a cell can fail.
 if [ -f gates/check-receipt-chain.py ]; then
-  python3 gates/check-receipt-chain.py >/dev/null \
-    || { echo "FAIL: receipt chain (run gates/check-receipt-chain.py)"; fail=1; }
-  python3 gates/check-receipt-chain.py --self-test >/dev/null \
-    || { echo "FAIL: receipt chain self-test missed a negative control"; fail=1; }
+  leg -q "FAIL: receipt chain (run gates/check-receipt-chain.py)" \
+    python3 gates/check-receipt-chain.py
+  leg -q "FAIL: receipt chain self-test missed a negative control" \
+    python3 gates/check-receipt-chain.py --self-test
 fi
 
 # Publication provenance gate: npm lifecycle runs it for real (prepack stamps,
@@ -416,8 +931,8 @@ fi
 # dirty mid-work — while a broken stamp or guard would let the next publish
 # repeat the v0.9.9 unbound-tarball shape silently.
 if [ -f gates/check-publish.sh ]; then
-  bash gates/check-publish.sh --self-test >/dev/null \
-    || { echo "FAIL: publish-provenance self-test (run gates/check-publish.sh --self-test)"; fail=1; }
+  leg -q -e "FAIL: publish-provenance self-test (run gates/check-publish.sh --self-test)" \
+    bash gates/check-publish.sh --self-test
 fi
 
 # Surface catalog gate: SURFACES.md routes every promoted learning and every new tool,
@@ -425,10 +940,10 @@ fi
 # decidable directions — an authority path matching no file, and a deploy target no
 # surface claims. --self-test proves each fires.
 if [ -f SURFACES.md ]; then
-  python3 gates/check-surfaces.py >/dev/null \
-    || { echo "FAIL: surface catalog gate (run gates/check-surfaces.py)"; fail=1; }
-  python3 gates/check-surfaces.py --self-test >/dev/null \
-    || { echo "FAIL: surface catalog gate self-test failed"; fail=1; }
+  leg -q "FAIL: surface catalog gate (run gates/check-surfaces.py)" \
+    python3 gates/check-surfaces.py
+  leg -q "FAIL: surface catalog gate self-test failed" \
+    python3 gates/check-surfaces.py --self-test
 fi
 
 # Review-routing golden: normalised dry-run projections + resolver decisions
@@ -439,10 +954,10 @@ fi
 # reviewers this repo has never seen. --self-test proves each of its four controls
 # still fires, so a green golden is falsifiable rather than merely large.
 if [ -f gates/goldens/review-matrix.json ]; then
-  python3 gates/capture-review-goldens.py --check >/dev/null \
-    || { echo "FAIL: review routing diverges from gates/goldens/review-matrix.json"; fail=1; }
-  python3 gates/capture-review-goldens.py --self-test >/dev/null \
-    || { echo "FAIL: review golden self-test missed a negative control"; fail=1; }
+  leg -q "FAIL: review routing diverges from gates/goldens/review-matrix.json" \
+    python3 gates/capture-review-goldens.py --check
+  leg -q "FAIL: review golden self-test missed a negative control" \
+    python3 gates/capture-review-goldens.py --self-test
 fi
 
 # The ontology (ontology/) claims dependency facts about this repo. A claim nobody
@@ -450,10 +965,10 @@ fi
 # the gate re-derives the facts from source and fails on disagreement, and --self-test
 # proves each of its negative controls still fires.
 if [ -f ontology/check-ontology.py ]; then
-  python3 ontology/check-ontology.py >/dev/null \
-    || { echo "FAIL: ontology disagrees with the code (run ontology/check-ontology.py)"; fail=1; }
-  python3 ontology/check-ontology.py --self-test >/dev/null \
-    || { echo "FAIL: ontology gate self-test missed a negative control"; fail=1; }
+  leg -q "FAIL: ontology disagrees with the code (run ontology/check-ontology.py)" \
+    python3 ontology/check-ontology.py
+  leg -q "FAIL: ontology gate self-test missed a negative control" \
+    python3 ontology/check-ontology.py --self-test
 fi
 
 # The hook is the one mechanism here that provably fires on every session, and until now it was
@@ -469,8 +984,8 @@ hook_count=0
 for hook in claude/hooks/*.py; do
   [ -f "$hook" ] || continue
   hook_count=$((hook_count + 1))
-  python3 "$hook" --self-test >/dev/null \
-    || { echo "FAIL: $(basename "$hook") self-test (run python3 $hook --self-test)"; fail=1; }
+  leg -q "FAIL: $(basename "$hook") self-test (run python3 $hook --self-test)" \
+    python3 "$hook" --self-test
 done
 if [ "$hook_count" -eq 0 ]; then
   echo "FAIL: no hook self-tests ran — claude/hooks/ holds no .py, so this leg judged nothing"
@@ -482,8 +997,8 @@ fi
 # model no guide covered landed clean and surfaced at the next install. 26ms, no network, no
 # install state — it was unwired rather than deliberately deferred.
 if [ -x launch/check-prompting-targets.sh ]; then
-  ./launch/check-prompting-targets.sh >/dev/null \
-    || { echo "FAIL: prompting guides do not cover a configured model (run launch/check-prompting-targets.sh)"; fail=1; }
+  leg -q "FAIL: prompting guides do not cover a configured model (run launch/check-prompting-targets.sh)" \
+    ./launch/check-prompting-targets.sh
 fi
 
 # Reach: a check that exists, has a subject, and never runs before a commit is indistinguishable
@@ -565,8 +1080,12 @@ def live_lines(text):
             continue
         # All three shell quoting forms for the delimiter — <<'EOF', <<"EOF", <<\EOF —
         # plus bare. Only single quotes were handled first, and a payload behind a
-        # double-quoted delimiter read as live shell again.
-        hd = re.search(r"<<-?\s*(?:'([^']+)'|\"([^\"]+)\"|\\?([A-Za-z_][A-Za-z_0-9]*))", s)
+        # double-quoted delimiter read as live shell again. Only in the line's code, and
+        # never `<<<`: a here-string feeds one word and opens no body, and a `<<EOF` or
+        # `<<< word` inside a comment opened a heredoc that swallowed every later line,
+        # reading the legs after it as never reached.
+        hd = re.search(r"(?<!<)<<(?!<)-?\s*(?:'([^']+)'|\"([^\"]+)\"|\\?([A-Za-z_][A-Za-z_0-9]*))",
+                       sans_comment(s))
         if hd:
             heredoc_end = next(g for g in hd.groups() if g)
         m = re.match(r'if\s+(!\s*)?(true|false)\b', s)
@@ -1062,11 +1581,8 @@ HISTORICAL_CHECKS = {
 }
 
 
-# The entry point is read by the shared module, not by a second copy of its rules.
-# This inventory and gates/check-development-plan.py ask the same file the same
-# question, and the two copies had already drifted: one destination pattern admitted
-# an empty link target and the other did not, so they disagreed about whether a
-# pointer with no target is a bad name or no pointer at all.
+# The entry point is read by gates/current_selector.py, which resolves the pointer the
+# way CommonMark does, so a selector inside code or a comment selects nothing.
 SELECTOR_READER = 'gates/current_selector.py'
 sys.dont_write_bytecode = True   # a gate leaves no bytecode in the checkout it judges
 if not pathlib.Path(SELECTOR_READER).is_file():
@@ -1309,6 +1825,12 @@ probes = [
      "a backslash-quoted delimiter is still a heredoc"),
     ("cat <<'EOF'\nwords\nEOF\n./gates/a.sh", {"gates/a.sh"},
      "a command after the heredoc still counts"),
+    ("# a note on the <<EOF form\n./gates/a.sh", {"gates/a.sh"},
+     "a heredoc opener inside a comment opens nothing"),
+    ("# feed it with <<< word\n./gates/a.sh", {"gates/a.sh"},
+     "a here-string inside a comment opens nothing"),
+    ('grep -q x <<<"$v"\n./gates/a.sh', {"gates/a.sh"},
+     "a here-string is not a heredoc: the command after it still counts"),
     ("for gate in gates/dead.py; do :; done\nfor gate in gates/live.py; do\n  \"./$gate\"\ndone",
      {"gates/live.py"}, "a loop variable's invocation binds to its own loop"),
     ("for g in gates/a.sh; do \"./$g\"; done", {"gates/a.sh"},
@@ -1408,39 +1930,50 @@ print(f"CHECK REACHABILITY OK: {len(subjects)} checker subjects; "
 REACH
 
 if [ -f compose/ui_runtime/manifest.json ]; then
-  python3 gates/build-ui-runtime.py --check >/dev/null \
-    || { echo "FAIL: bundled Textual runtime is incomplete or incompatible"; fail=1; }
-  python3 gates/build-ui-runtime.py --self-test >/dev/null \
-    || { echo "FAIL: UI runtime bundle gate missed a negative control"; fail=1; }
+  leg -q "FAIL: bundled Textual runtime is incomplete or incompatible" \
+    python3 gates/build-ui-runtime.py --check
+  leg -q "FAIL: UI runtime bundle gate missed a negative control" \
+    python3 gates/build-ui-runtime.py --self-test
 fi
 
 # The launcher's Textual preflight UI tests need the managed venv (textual).
 # Provision it if missing; every non-UI check above runs under system python.
 VENV="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}"
+venv_ready=1
 if ! { [ -x "$VENV/bin/python" ] && "$VENV/bin/python" -c 'import textual' 2>/dev/null; }; then
   echo "provisioning agent-launch venv for parity UI tests ($VENV) ..."
   AGENT_LAUNCH_VENV="$VENV" bash launch/provision-venv.sh >/dev/null 2>&1 || {
-    echo "FAIL: could not provision the textual venv required for UI parity tests"; exit 1; }
-fi
-export AGENT_LAUNCH_VENV="$VENV"
-
-# Runtime-projection checks (role slots, wrapper defaults, launcher behavior) live in
-# gates/check_parity.py — a real module so it can be syntax-checked and read.
-if ! AGENT_BIOS_LEGACY_INSTALL=1 "$VENV/bin/python" gates/check_parity.py; then
-  fail=1
+    echo "FAIL: could not provision the textual venv required for UI parity tests"; venv_ready=0; fail=1; }
 fi
 
-# Default private installation and the manager are exercised independently of
-# the retained legacy migration regression fixtures above.
-if ! "$VENV/bin/python" launch/test-tier-effort.py; then
-  fail=1
+# The legs below are recorded only once the venv exists, and each is handed AGENT_LAUNCH_VENV itself.
+# It was exported here when every leg ran in place, which reached only the legs after this line; the
+# runner starts all legs from one environment, so an export here would reach every leg above too.
+if [ "$venv_ready" = 1 ]; then
+  # Runtime-projection checks (role slots, wrapper defaults, launcher behavior) live in
+  # gates/check_parity.py — a real module so it can be syntax-checked and read.
+  leg -e "" \
+    env AGENT_BIOS_LEGACY_INSTALL=1 AGENT_LAUNCH_VENV="$VENV" "$VENV/bin/python" gates/check_parity.py
+
+  # Default private installation and the manager are exercised independently of
+  # the retained legacy migration regression fixtures above.
+  leg "" \
+    env AGENT_LAUNCH_VENV="$VENV" "$VENV/bin/python" launch/test-tier-effort.py
+  # The compose unittests run as concurrent groups. gates/compose-tests.py owns the groups, and its
+  # self-test holds their union to the plain discovery's test ids, by name and count.
+  leg -q "FAIL: compose test groups no longer load the plain discovery's tests (run gates/compose-tests.py --self-test)" \
+    env AGENT_LAUNCH_VENV="$VENV" "$VENV/bin/python" gates/compose-tests.py --self-test
+  compose_groups="$(AGENT_LAUNCH_VENV="$VENV" "$VENV/bin/python" gates/compose-tests.py --groups)" || compose_groups=""
+  [ -n "$compose_groups" ] || { echo "FAIL: gates/compose-tests.py named no test group, so no compose test would run"; fail=1; }
+  for group in $compose_groups; do
+    leg -e "" \
+      env AGENT_LAUNCH_VENV="$VENV" "$VENV/bin/python" gates/compose-tests.py "$group"
+  done
+  leg "" \
+    env AGENT_LAUNCH_VENV="$VENV" "$VENV/bin/python" gates/test-slide-writing.py
 fi
-if ! "$VENV/bin/python" -m unittest discover -s compose -p 'test_instructions*.py'; then
-  fail=1
-fi
-if ! "$VENV/bin/python" gates/test-slide-writing.py; then
-  fail=1
-fi
+
+legs_run || fail=1
 
 [ "$fail" -eq 0 ] && echo "PARITY OK: mirrors, globals, guides, domain manifest, assembler, launch profile, bypass paths, role bindings, and wrapper defaults aligned"
 exit "$fail"

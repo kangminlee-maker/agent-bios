@@ -512,6 +512,102 @@ class InstructionsMigrationTests(unittest.TestCase):
         self.assertFalse(source.exists())
         self.assertFalse(instance.status()['pending'])
 
+    # A learning record ends at "\n" only: the collector writes U+2028 and U+2029 raw inside a lesson,
+    # and a bare CR between tokens is JSON whitespace. Each site below has its own control, so one
+    # site reverted to splitting on any other character fails by its own name.
+    def separated_event(self, learning_id, lesson='before\u2028between\u2029after'):
+        event = {'schema_version': 1, 'learning_id': learning_id, 'lesson': lesson, 'domain': 'builder-base',
+                 'created': '2026-09-07T12:00:00+00:00', 'supporting_sessions': ['codex:abcd1234']}
+        return json.dumps(event, ensure_ascii=False)
+
+    @staticmethod
+    def bare_cr(raw):
+        return '{\r' + raw[1:]
+
+    def test_jsonl_legacy_source_reads_line_separators_and_bare_cr(self):
+        instance, _ = self.legacy()
+        source = self.codex / 'personal/learnings.jsonl'
+        source.parent.mkdir()
+        first = self.separated_event('44444444-4444-4444-8444-444444444441')
+        second = self.bare_cr(self.separated_event('44444444-4444-4444-8444-444444444442', 'plain'))
+        source.write_bytes((first + '\n' + second + '\r\n').encode('utf-8'))
+        needs = []
+        events, _ = instance._legacy_events('codex', needs)
+        self.assertEqual([], needs)
+        self.assertEqual([first, second], [event['raw'] for event in events])
+
+    # A line terminator is "\n" or "\r\n", and a record's identity does not depend on which ended
+    # it; a CR anywhere else in the line stays part of it.
+    def test_jsonl_legacy_duplicate_across_lf_and_crlf_is_one_record(self):
+        instance, _ = self.legacy()
+        source = self.codex / 'personal/learnings.jsonl'
+        source.parent.mkdir()
+        raw = self.separated_event('44444444-4444-4444-8444-444444444443', 'plain')
+        source.write_bytes((raw + '\n' + raw + '\r\n').encode('utf-8'))
+        needs = []
+        events, _ = instance._legacy_events('codex', needs)
+        self.assertEqual([], needs)
+        self.assertEqual([raw], [event['raw'] for event in events])
+
+    def test_jsonl_destination_comparison_ignores_lf_or_crlf(self):
+        instance, _ = self.legacy()
+        source = self.codex / 'personal/learnings.jsonl'
+        source.parent.mkdir()
+        raw = self.separated_event('55555555-5555-4555-8555-555555555553', 'plain')
+        source.write_bytes((raw + '\r\n').encode('utf-8'))
+        target = self.user / 'learnings/codex/events.jsonl'
+        target.parent.mkdir(parents=True)
+        target.write_bytes((raw + '\n').encode('utf-8'))
+        needs = []
+        events, _ = instance._legacy_events('codex', needs)
+        instance._event_destination_conflicts('codex', events, needs)
+        self.assertEqual([], needs)
+
+    def test_jsonl_transfer_verification_ignores_lf_or_crlf(self):
+        instance, _ = self.legacy()
+        target = self.user / 'learnings/codex/events.jsonl'
+        target.parent.mkdir(parents=True)
+        raw = self.separated_event('66666666-6666-4666-8666-666666666663', 'plain')
+        target.write_bytes((raw + '\r\n').encode('utf-8'))
+        instance._verify_transferred_events({'events': {'codex': [
+            {'learning_id': '66666666-6666-4666-8666-666666666663', 'raw': raw}]}})
+
+    def test_jsonl_private_destination_reads_line_separators_and_bare_cr(self):
+        instance, _ = self.legacy()
+        target = self.user / 'learnings/codex/events.jsonl'
+        target.parent.mkdir(parents=True)
+        target.write_bytes((self.separated_event('55555555-5555-4555-8555-555555555551') + '\n'
+                            + self.bare_cr(self.separated_event('55555555-5555-4555-8555-555555555552', 'plain'))
+                            + '\r\n').encode('utf-8'))
+        needs = []
+        instance._event_destination_conflicts('codex', [], needs)
+        self.assertEqual([], needs)
+
+    def test_jsonl_transfer_verification_reads_line_separators_and_bare_cr(self):
+        instance, _ = self.legacy()
+        target = self.user / 'learnings/codex/events.jsonl'
+        target.parent.mkdir(parents=True)
+        first = self.separated_event('66666666-6666-4666-8666-666666666661')
+        second = self.bare_cr(self.separated_event('66666666-6666-4666-8666-666666666662', 'plain'))
+        target.write_bytes((first + '\n' + second + '\n').encode('utf-8'))
+        instance._verify_transferred_events({'events': {'codex': [
+            {'learning_id': '66666666-6666-4666-8666-666666666661', 'raw': first},
+            {'learning_id': '66666666-6666-4666-8666-666666666662', 'raw': second}]}})
+
+    def test_jsonl_apply_keeps_prior_records_with_line_separators_and_bare_cr(self):
+        instance, legacy = self.legacy()
+        target = self.user / 'learnings/codex/events.jsonl'
+        target.parent.mkdir(parents=True)
+        prior = (self.separated_event('77777777-7777-4777-8777-777777777771') + '\n'
+                 + self.bare_cr(self.separated_event('77777777-7777-4777-8777-777777777772', 'plain')) + '\n')
+        target.write_bytes(prior.encode('utf-8'))
+        source = self.codex / 'personal/learnings.jsonl'
+        source.parent.mkdir()
+        added = self.separated_event('77777777-7777-4777-8777-777777777773')
+        source.write_bytes((added + '\n').encode('utf-8'))
+        instance.migrate(apply=True, yes=True)
+        self.assertEqual((prior + added + '\n').encode('utf-8'), target.read_bytes())
+
     def test_transferred_learning_drift_after_cleanup_requires_recovery(self):
         instance, _ = self.legacy()
         source = self.codex / 'personal/learnings.jsonl'

@@ -525,7 +525,10 @@ def replace_atomically(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp-agent-bios")
     try:
-        tmp.write_text(text, encoding="utf-8")
+        if isinstance(text, bytes):  # written as given: no newline translation on any platform
+            tmp.write_bytes(text)
+        else:
+            tmp.write_text(text, encoding="utf-8")
         if path.exists():
             tmp.chmod(path.stat().st_mode & 0o777)
         os.replace(tmp, path)

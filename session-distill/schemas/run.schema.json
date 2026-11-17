@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md; retrieval (optional) and judge (optional): design/session-distill/2026-11-11T1545--58ad0cf--a-run-declares-what-s5-retrieves-and-which-candidates-s6-judges.md; sweeps (optional): plan WP-11 J3a, lead decision E2 (2026-11-11); environment (optional): what the run HANDS its writers rather than where they may write, WP-21",
+  "title": "Run declaration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question", "kind", "posture", "window", "sources", "checks", "budget", "seats",
+               "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
+               "declaration_seq", "host_allowance", "output_caps", "destinations"],
+  "$defs": {
+    "judged_scope": {
+      "$comment": "plan WP-11: `all` of a source's candidates, or a sample of that many (0 judges none, and is reported as left out)",
+      "type": ["string", "integer"], "pattern": "^all$", "minimum": 0
+    },
+    "text": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0},
+    "root": {"type": "string", "pattern": "^/"}
+  },
+  "properties": {
+    "environment": {
+      "$comment": "What the run HANDS its writers, as opposed to where they may write. `home` is the HOME every S11/S12 writer is given: a writer that derives a root from HOME derives it from this one, and `destinations.py` computes each fixed root from it and compares the result with its class root. Optional here and REQUIRED by the destination manifest (ENVIRONMENT_HOME_UNDECLARED), so a declaration written before this block existed stays valid while no manifest can be produced without it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["home"],
+      "properties": {"home": {"$ref": "#/$defs/root"}}
+    },
+    "question": {"$ref": "#/$defs/text"},
+    "kind": {"type": "string", "enum": ["periodic", "targeted"]},
+    "posture": {"type": "string", "enum": ["production", "rehearsal", "development"]},
+    "window": {
+      "type": "object", "additionalProperties": false, "required": ["start", "end", "tz"],
+      "properties": {"start": {"$ref": "#/$defs/text"}, "end": {"$ref": "#/$defs/text"}, "tz": {"$ref": "#/$defs/text"}}
+    },
+    "sources": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "object", "additionalProperties": false, "required": ["name", "path"],
+                "properties": {"name": {"$ref": "#/$defs/text"}, "path": {"$ref": "#/$defs/root"},
+                               "sha256": {"$ref": "#/$defs/sha256"}}}
+    },
+    "checks": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "patternProperties": {"^[a-z][a-z0-9_]*$": {"type": "number"}}
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false, "required": ["per_stage", "per_episode", "reserve"],
+      "properties": {
+        "per_stage": {"type": "object", "additionalProperties": false, "minProperties": 1,
+                      "patternProperties": {"^S[0-9]+b?$": {"$ref": "#/$defs/count"}}},
+        "per_episode": {"type": "object", "additionalProperties": false,
+                        "required": ["tokens", "compactions", "max_budget_usd", "max_turns"],
+                        "properties": {"tokens": {"$ref": "#/$defs/count"}, "compactions": {"$ref": "#/$defs/count"},
+                                       "max_budget_usd": {"type": "number", "minimum": 0},
+                                       "max_turns": {"$ref": "#/$defs/count"}}},
+        "reserve": {"type": "number", "minimum": 0}
+      }
+    },
+    "seats": {
+      "type": "object", "additionalProperties": false, "required": ["S3"],
+      "patternProperties": {"^S[0-9]+b?(\\.[A-Za-z0-9_-]+)?$": {"$ref": "#/$defs/text"}}
+    },
+    "actor_seats": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"type": "object", "additionalProperties": false, "required": ["stratum", "seat", "provenance"],
+                "properties": {
+                  "stratum": {"type": "string", "enum": ["claude-main", "claude-subagent", "codex-main", "codex-subagent"]},
+                  "seat": {"$ref": "#/$defs/text"},
+                  "provenance": {"type": "string", "enum": ["observed", "fallback"]}}}
+    },
+    "config_manifest_B": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "patternProperties": {"^.+$": {"$ref": "#/$defs/sha256"}}
+    },
+    "starting_hashes": {
+      "type": "object", "additionalProperties": false, "required": ["ledger", "coverage", "layers"],
+      "properties": {
+        "ledger": {"$ref": "#/$defs/sha256"}, "coverage": {"$ref": "#/$defs/sha256"},
+        "layers": {"type": "object", "additionalProperties": false, "minProperties": 1,
+                   "patternProperties": {"^.+$": {"$ref": "#/$defs/sha256"}}}
+      }
+    },
+    "account": {
+      "type": "object", "additionalProperties": false, "required": ["extra_usage", "declared_on"],
+      "properties": {"extra_usage": {"type": "string", "enum": ["off", "on-accepted"]},
+                     "declared_on": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}}
+    },
+    "hosts": {
+      "type": "object", "additionalProperties": false, "required": ["claude", "codex"],
+      "properties": {"claude": {"$ref": "#/$defs/text"}, "codex": {"$ref": "#/$defs/text"}}
+    },
+    "declaration_seq": {"$ref": "#/$defs/count"},
+    "host_allowance": {
+      "type": "object", "additionalProperties": false,
+      "patternProperties": {"^.+$": {"type": "object", "additionalProperties": false,
+                                     "required": ["allowance_tokens", "host_version", "flag_set_sha256"],
+                                     "properties": {"allowance_tokens": {"$ref": "#/$defs/count"},
+                                                    "host_version": {"$ref": "#/$defs/text"},
+                                                    "flag_set_sha256": {"$ref": "#/$defs/sha256"}}}}
+    },
+    "output_caps": {
+      "type": "object", "additionalProperties": false, "required": ["S3"],
+      "properties": {"S3": {"type": "integer", "minimum": 1}}
+    },
+    "retrieval": {
+      "$comment": "plan WP-11, lead decision on J0's numbers (2026-11-11): the counts S5 retrieves per candidate, declared so a run's declaration chooses its scope and budget - `per_layer` units of each layer by score and `top_entries` ledger entries, every named unit and entry kept beside them. Absent, S5's own constants (stage_retrieve.PER_LAYER, TOP_ENTRIES), and checks.json says which each count came from.",
+      "type": "object", "additionalProperties": false,
+      "properties": {"per_layer": {"type": "integer", "minimum": 1}, "top_entries": {"type": "integer", "minimum": 1}}
+    },
+    "judge": {
+      "$comment": "plan WP-11, lead decision on J0's numbers (2026-11-11): which candidates S6 judges, per source as S5's population names it - `all`, or a sample of that many drawn by code from the run id. A source the map leaves out is judged not at all, and S6 reports every candidate it did not judge by source and count; absent, every candidate is judged. `formed` is `all` whenever the map is declared (declare: FORMED_SAMPLED), since design §6.5's planted controls take the formed shape and S6 cannot tell them apart (F27, D4).",
+      "type": "object", "additionalProperties": false,
+      "properties": {"candidate_kinds": {
+        "type": "object", "additionalProperties": false, "minProperties": 1,
+        "properties": {"formed": {"$ref": "#/$defs/judged_scope"}, "due_decision": {"$ref": "#/$defs/judged_scope"},
+                       "legacy": {"$ref": "#/$defs/judged_scope"}, "obsolete_hint": {"$ref": "#/$defs/judged_scope"},
+                       "redundancy_hint": {"$ref": "#/$defs/judged_scope"}, "g_cluster": {"$ref": "#/$defs/judged_scope"}}}}
+    },
+    "sweeps": {
+      "$comment": "plan WP-11 done-when 6 and lead decisions D9 and E2 (2026-11-11): how S6's absence sweeps are cut - `shard_units` remaining units per shard, `candidates_per_shard` candidates per group of shards - and the output cap each sweep call declares (`output_cap`). Absent, S6's own constants (stage_judge.SWEEP_DEFAULTS: 100, 5 and 20,000), and judgments/judge.json says which each value came from.",
+      "type": "object", "additionalProperties": false,
+      "properties": {"shard_units": {"type": "integer", "minimum": 1}, "candidates_per_shard": {"type": "integer", "minimum": 1},
+                     "output_cap": {"type": "integer", "minimum": 1}}
+    },
+    "retry": {
+      "$comment": "W review of WP-08e r1, F4 (lead decision): the host's retries one call's 'at most' claim holds (count, default 1) and the error share each carries (margin, default RETRY_ERROR_TOKENS, raised by a larger measured one). A request past the claim stops the run (CLAIM_EXCEEDED), and only a later amendment of this key lifts it.",
+      "type": "object", "additionalProperties": false,
+      "properties": {"count": {"type": "integer", "minimum": 1}, "margin": {"type": "integer", "minimum": 0}}
+    },
+    "density": {
+      "type": "object", "additionalProperties": false,
+      "patternProperties": {"^.+$": {
+        "type": "object", "additionalProperties": false,
+        "patternProperties": {"^S[0-9]+[a-z]?:[a-z_]+$": {
+          "type": "object", "additionalProperties": false, "required": ["bytes_per_token"],
+          "properties": {"bytes_per_token": {"type": "number", "minimum": 0},
+                         "measured_in": {"type": "string"}, "samples": {"type": "integer"},
+                         "at": {"type": "string"}}}}}}
+    },
+    "destinations": {
+      "type": "object", "additionalProperties": false,
+      "$comment": "RELEASE 1's classes only (D-20261112-2cf1c4): S11 writes the declared checkout and commits, and runs no writer that would need the others, so requiring their roots would refuse the narrowed declaration the release promises to accept. The full vocabulary stays in `properties`, typed, so a wider declaration is still admitted and still judged; `destinations.resolution_problems` at scope=\"all\" is what requires a root for the rest. A control holds this list against the table's own release-1 classes.",
+      "required": ["checkout", "runtime_state", "recovery"],
+      "properties": {"checkout": {"$ref": "#/$defs/root"}, "install_roots": {"$ref": "#/$defs/root"},
+                     "personal_layers": {"$ref": "#/$defs/root"},
+                     "launcher_shell_integration": {"$ref": "#/$defs/root"},
+                     "runtime_state": {"$ref": "#/$defs/root"}, "nudge": {"$ref": "#/$defs/root"},
+                     "recovery": {"$ref": "#/$defs/root"}}
+    }
+  }
+}

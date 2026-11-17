@@ -65,7 +65,6 @@ ARCHIVE = (
     "design/session-distill/DESIGN-v13-exploration-record.md",
     "design/session-distill/BUNDLE-ko-review.md",
     "design/collection-loop/DISCUSSION-",
-    "session-distill/out/",
     # Dated records, never revised. Recording a rename means writing the old token down, so
     # scanning the archive would make every rename a gate failure.
     ARCHIVE_DIR,

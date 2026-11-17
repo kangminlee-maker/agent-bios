@@ -1,0 +1,731 @@
+{
+ "$comment": "design §6.3: one frozen fixture per row of tables/delivery_evidence.json, written once by `runlib/delivery_evidence.py --generate-fixtures`; the self-test never regenerates them.",
+ "fixtures": [
+  {
+   "id": "surfaces/always_rule",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-a",
+      "path": "claude/CLAUDE.md",
+      "text": "- Verify before you claim.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:core",
+      "operative_context": [
+       "u-a"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-a": {
+       "unit_id": "u-a",
+       "path": "claude/CLAUDE.md",
+       "text": "- Verify before you claim.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:core",
+       "operative_context": [
+        "u-a"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin",
+      "selected": {
+       "claude:core": "always"
+      },
+      "instruction_text": "# Activated private instructions\n- Verify before you claim.\n"
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": "selected"
+     }
+    },
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-a",
+      "path": "claude/CLAUDE.md",
+      "text": "- Verify before you claim.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:core",
+      "operative_context": [
+       "u-a"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-a": {
+       "unit_id": "u-a",
+       "path": "claude/CLAUDE.md",
+       "text": "- Verify before you claim.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:core",
+       "operative_context": [
+        "u-a"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin",
+      "selected": {
+       "claude:core": "always"
+      },
+      "instruction_text": "# Activated private instructions\n- Verify before you claim.\n",
+      "injection_at": 1
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "delivered",
+      "level": "exposed"
+     }
+    }
+   ]
+  },
+  {
+   "id": "surfaces/guide",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-g",
+      "path": "claude/guides/g.md",
+      "text": "- Read the log before you retry.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-g"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-g": {
+       "unit_id": "u-g",
+       "path": "claude/guides/g.md",
+       "text": "- Read the log before you retry.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-g"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin",
+      "selected": {
+       "claude:guides/g": "relevant"
+      },
+      "router_path": "/state/runtime/x/router/relevant.md",
+      "instruction_text": "Relevant procedures: /state/runtime/x/router/relevant.md\n",
+      "reads": []
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": "selected"
+     }
+    },
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-g",
+      "path": "claude/guides/g.md",
+      "text": "- Read the log before you retry.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-g"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-g": {
+       "unit_id": "u-g",
+       "path": "claude/guides/g.md",
+       "text": "- Read the log before you retry.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-g"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin",
+      "selected": {
+       "claude:guides/g": "relevant"
+      },
+      "router_path": "/state/runtime/x/router/relevant.md",
+      "instruction_text": "Relevant procedures: /state/runtime/x/router/relevant.md\n",
+      "reads": [],
+      "injection_at": 1
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "exposed_not_read",
+      "level": "pointer exposed"
+     }
+    },
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-g",
+      "path": "claude/guides/g.md",
+      "text": "- Read the log before you retry.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-g"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-g": {
+       "unit_id": "u-g",
+       "path": "claude/guides/g.md",
+       "text": "- Read the log before you retry.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-g"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin",
+      "selected": {
+       "claude:guides/g": "relevant"
+      },
+      "router_path": "/state/runtime/x/router/relevant.md",
+      "instruction_text": "Relevant procedures: /state/runtime/x/router/relevant.md\n",
+      "reads": [
+       {
+        "at": 2,
+        "path": "/state/runtime/x/router/relevant.md",
+        "returned": "- [g](/state/runtime/x/items/item-g/guides/g.md) — retries (claude:guides/g)\n"
+       }
+      ],
+      "injection_at": 1
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "exposed_not_read",
+      "level": "router read"
+     }
+    },
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-g",
+      "path": "claude/guides/g.md",
+      "text": "- Read the log before you retry.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-g"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-g": {
+       "unit_id": "u-g",
+       "path": "claude/guides/g.md",
+       "text": "- Read the log before you retry.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-g"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin",
+      "selected": {
+       "claude:guides/g": "relevant"
+      },
+      "router_path": "/state/runtime/x/router/relevant.md",
+      "instruction_text": "Relevant procedures: /state/runtime/x/router/relevant.md\n",
+      "reads": [
+       {
+        "at": 2,
+        "path": "/state/runtime/x/router/relevant.md",
+        "returned": "- [g](/state/runtime/x/items/item-g/guides/g.md) — retries (claude:guides/g)\n"
+       },
+       {
+        "at": 3,
+        "path": "/state/runtime/x/items/item-g/guides/g.md",
+        "returned": "     1\t- Read the log before you retry.\n"
+       }
+      ],
+      "injection_at": 1
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "delivered",
+      "level": "unit read"
+     }
+    },
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-q",
+      "path": "claude/guides/q.md",
+      "text": "- An item no source names.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/q",
+      "operative_context": [
+       "u-q"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-q": {
+       "unit_id": "u-q",
+       "path": "claude/guides/q.md",
+       "text": "- An item no source names.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/q",
+       "operative_context": [
+        "u-q"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin",
+      "selected": {
+       "claude:guides/g": "relevant"
+      }
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": null,
+      "reason": "surface_unclassified"
+     }
+    }
+   ]
+  },
+  {
+   "id": "surfaces/executable_invoked",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-executable_invoked",
+      "path": "claude/x",
+      "text": "- x",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-executable_invoked"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-executable_invoked": {
+       "unit_id": "u-executable_invoked",
+       "path": "claude/x",
+       "text": "- x",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-executable_invoked"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin"
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": null,
+      "reason": "producer_absent:executable_invoked"
+     },
+     "catalogue_surface": "executable"
+    }
+   ]
+  },
+  {
+   "id": "surfaces/executable_consumed",
+   "cases": [
+    {
+     "kind": "installer",
+     "binding": {
+      "bound": true,
+      "receipt_id": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "transaction_id": "t1",
+      "installer_digest": "d1",
+      "release_digest": "rd",
+      "begun_by_installer_digest": null
+     },
+     "receipt": {
+      "schema": "InstallationReceipt/v1",
+      "transaction_id": "t1",
+      "result": "success",
+      "artifacts": [
+       {
+        "path": "runtime/baselines/b/inventory.json",
+        "sha256": "s1",
+        "role": "release"
+       },
+       {
+        "path": "launch/bin/x",
+        "sha256": "s2",
+        "role": "owned"
+       }
+      ]
+     },
+     "artifacts": [
+      {
+       "path": "runtime/baselines/b/inventory.json",
+       "sha256": "s1"
+      }
+     ],
+     "expected": {
+      "state": "delivered",
+      "level": "consumed"
+     }
+    },
+    {
+     "kind": "installer",
+     "binding": {
+      "bound": false
+     },
+     "receipt": null,
+     "artifacts": [
+      {
+       "path": "runtime/baselines/b/inventory.json",
+       "sha256": "s1"
+      }
+     ],
+     "expected": {
+      "state": "unknown",
+      "level": null
+     }
+    }
+   ]
+  },
+  {
+   "id": "surfaces/skill",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-skill",
+      "path": "claude/x",
+      "text": "- x",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-skill"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-skill": {
+       "unit_id": "u-skill",
+       "path": "claude/x",
+       "text": "- x",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-skill"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin"
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": null,
+      "reason": "producer_absent:skill"
+     },
+     "catalogue_surface": "skill"
+    }
+   ]
+  },
+  {
+   "id": "surfaces/hook",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-hook",
+      "path": "claude/x",
+      "text": "- x",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-hook"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-hook": {
+       "unit_id": "u-hook",
+       "path": "claude/x",
+       "text": "- x",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-hook"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin"
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": null,
+      "reason": "producer_absent:hook"
+     },
+     "catalogue_surface": "event"
+    }
+   ]
+  },
+  {
+   "id": "surfaces/native_layer",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-n",
+      "path": "native_global",
+      "text": "- Answer in Korean.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "native_global",
+      "item_ref": null,
+      "operative_context": [
+       "u-n"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-n": {
+       "unit_id": "u-n",
+       "path": "native_global",
+       "text": "- Answer in Korean.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "native_global",
+       "item_ref": null,
+       "operative_context": [
+        "u-n"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "native_events": [
+       {
+        "at": 1,
+        "unit_ids": []
+       }
+      ],
+      "release": {
+       "complete": false,
+       "layers": {
+        "native_settings": "unknown"
+       },
+       "items": []
+      }
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": "identity"
+     }
+    },
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-n",
+      "path": "native_global",
+      "text": "- Answer in Korean.",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "native_global",
+      "item_ref": null,
+      "operative_context": [
+       "u-n"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-n": {
+       "unit_id": "u-n",
+       "path": "native_global",
+       "text": "- Answer in Korean.",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "native_global",
+       "item_ref": null,
+       "operative_context": [
+        "u-n"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "native_events": [
+       {
+        "at": 1,
+        "unit_ids": [
+         "u-n"
+        ]
+       }
+      ],
+      "release": {
+       "complete": false,
+       "layers": {
+        "native_settings": "unknown"
+       },
+       "items": []
+      }
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "delivered",
+      "level": "loaded"
+     }
+    }
+   ]
+  },
+  {
+   "id": "surfaces/child_session",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-child_session",
+      "path": "claude/x",
+      "text": "- x",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/g",
+      "operative_context": [
+       "u-child_session"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-child_session": {
+       "unit_id": "u-child_session",
+       "path": "claude/x",
+       "text": "- x",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/g",
+       "operative_context": [
+        "u-child_session"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "pin"
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": null,
+      "reason": "producer_absent:child_session"
+     },
+     "catalogue_surface": "delegated"
+    }
+   ]
+  },
+  {
+   "id": "licensed_levels/library_selected",
+   "cases": [
+    {
+     "kind": "delivery",
+     "unit": {
+      "unit_id": "u-h",
+      "path": "claude/guides/h.md",
+      "text": "- h",
+      "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "layer": "catalog",
+      "item_ref": "claude:guides/h",
+      "operative_context": [
+       "u-h"
+      ],
+      "n": 1
+     },
+     "units": {
+      "u-h": {
+       "unit_id": "u-h",
+       "path": "claude/guides/h.md",
+       "text": "- h",
+       "version_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "layer": "catalog",
+       "item_ref": "claude:guides/h",
+       "operative_context": [
+        "u-h"
+       ],
+       "n": 1
+      }
+     },
+     "session": {
+      "session_ref": "claude:s",
+      "basis": "selection_history",
+      "history_selected": {
+       "claude:guides/h": "relevant"
+      }
+     },
+     "decision_at": 5,
+     "expected": {
+      "state": "unknown",
+      "level": "library_selected"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,872 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §6.1: the unit record a reference point's inventory carries, and the layers it answers for. This file is the authority the code is held against; the design section it was derived from is provenance, not an executable contract, because a dated record is a claim about a past tree and is superseded as a matter of course.",
+  "$ref": "#/$defs/document_kind",
+  "$defs": {
+    "current_document": {
+      "$comment": "A reference point's document, judged whole: every member it publishes is declared here, and one it does not declare is refused (R1 #5). One root per published document, each naming its kind as a `document` const (step 0 S-21); the code's DOCUMENT_ROOTS picks it, because this schema policy has no oneOf.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "closure_rule", "reference", "produced_by", "units", "unknown_entries", "layers", "renames",
+                   "scopes", "scope_universe"],
+      "properties": {
+        "document": {"const": "current"},
+        "reference": {"$ref": "#/$defs/reference_block"},
+        "produced_by": {"$ref": "#/$defs/reference_produced_by"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
+        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}},
+        "renames": {"type": "array", "items": {"$ref": "#/$defs/rename"}},
+        "scopes": {"type": "array", "items": {"$ref": "#/$defs/scope_answer"}},
+        "scope_universe": {"type": "array", "items": {"$ref": "#/$defs/scope_universe"}}
+      }
+    },
+    "release_document": {
+      "$comment": "`release.json`, the segment index (step 0 S-17, #8): per census session, each segment of each of its owners with one row per layer, or a row set of its own for a session no segment covers. It never picks one segment and never unions versions: a row points into a shared inventory or at the in-force event, and copies no unit. Validated whole.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "closure_rule", "produced_by", "sessions"],
+      "properties": {
+        "document": {"const": "release"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "produced_by": {"type": "object", "additionalProperties": false, "required": ["module", "design", "commit"],
+                        "properties": {"module": {"type": "string"}, "design": {"type": "string"},
+                                       "commit": {"type": ["string", "null"]}}},
+        "sessions": {"type": "array", "items": {"$ref": "#/$defs/release_session"}}
+      }
+    },
+    "release_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_ref", "segments", "unsegmented"],
+      "properties": {
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/release_segment"}},
+        "unsegmented": {"$ref": "#/$defs/release_rows"}
+      }
+    },
+    "release_segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["segment_ref", "inventory_refs", "layers", "complete", "incomplete_reasons"],
+      "properties": {
+        "segment_ref": {"$ref": "#/$defs/segment_id"},
+        "inventory_refs": {"type": "array", "items": {"$ref": "#/$defs/inventory_id"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/release_row"}},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"$ref": "#/$defs/release_incomplete"}}
+      }
+    },
+    "release_rows": {
+      "$comment": "the row set of a session no segment covers (R3), or null",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["inventory_refs", "layers", "complete", "incomplete_reasons"],
+      "properties": {
+        "inventory_refs": {"type": "array", "items": {"$ref": "#/$defs/inventory_id"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/release_row"}},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"$ref": "#/$defs/release_incomplete"}}
+      }
+    },
+    "release_row": {
+      "$comment": "one layer of one segment: its status, its reasons as declared keys (an uncertain one prefixed `uncertain: `, S-21), and its source, or null",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "status", "reasons", "source"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "status": {"type": "string", "enum": ["complete", "incomplete", "unsupported", "unknown"]},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "source": {"$ref": "#/$defs/release_source"}
+      }
+    },
+    "release_source": {
+      "$comment": "one shared inventory's row of the layer ({inventory_ref, layer, basis}: the basis is the session's own pin, or the baseline-selection history at the session's time, which is what the owner's library held then and not what the session received, D-20261110-9c60bc), the in-force event's own members of the layer ({event_ref, members}), that event's occurrences ({event_ref, occurrence_refs}), or null",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "minProperties": 2,
+      "dependentRequired": {"inventory_ref": ["layer", "basis"], "layer": ["inventory_ref"], "basis": ["inventory_ref"],
+                            "members": ["event_ref"], "occurrence_refs": ["event_ref"]},
+      "properties": {
+        "inventory_ref": {"$ref": "#/$defs/inventory_id"},
+        "layer": {"type": "string", "enum": ["catalog", "adopted_packages", "overlays"]},
+        "basis": {"type": "string", "enum": ["pin", "selection_history"]},
+        "event_ref": {"$ref": "#/$defs/event_id"},
+        "members": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["carrier_id", "version_sha256"],
+          "properties": {"carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+                         "version_sha256": {"$ref": "#/$defs/sha256"}}}},
+        "occurrence_refs": {"type": "array", "items": {"type": "string", "pattern": "^q-[0-9a-f]{24}$"}}
+      }
+    },
+    "release_incomplete": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "status", "reasons", "inventory_ref"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "status": {"type": "string", "enum": ["incomplete", "unsupported", "unknown"]},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "inventory_ref": {"type": ["string", "null"], "pattern": "^i-[0-9a-f]{24}$"}
+      }
+    },
+    "selection_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "closure_rule", "reference", "produced_by", "units", "unknown_entries", "layers", "renames"],
+      "properties": {
+        "document": {"const": "selection"},
+        "reference": {"$ref": "#/$defs/reference_block"},
+        "produced_by": {"$ref": "#/$defs/reference_produced_by"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
+        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}},
+        "renames": {"type": "array", "items": {"$ref": "#/$defs/rename"}}
+      }
+    },
+    "reference_block": {
+      "$comment": "R1 #5: a reference point's own block (REFERENCE_TABLE). Which of `commit` and `content_ref` it carries depends on the reference point, so neither is required.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "complete", "incomplete_reasons"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["current", "selection"]},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"type": "string"}},
+        "commit": {"type": ["string", "null"]},
+        "content_ref": {"type": ["string", "null"]}
+      }
+    },
+    "reference_produced_by": {
+      "$comment": "R1 #5: who produced a reference point's document (PRODUCED_BY_TABLE). `notes` declares the note keys NOTE_KEYS declares, each a producer's own tree.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "design", "state_root", "notes"],
+      "properties": {
+        "module": {"type": "string"},
+        "design": {"type": "string"},
+        "state_root": {"type": ["string", "null"]},
+        "notes": {"type": "object", "additionalProperties": false,
+                  "properties": {"adopted_packages": {"$ref": "#/$defs/note_tree"}, "baselines": {"$ref": "#/$defs/note_tree"},
+                                 "frozen_missing": {"$ref": "#/$defs/note_tree"}, "hosts_in_scope": {"$ref": "#/$defs/note_tree"},
+                                 "installed_baseline_ref": {"$ref": "#/$defs/note_tree"},
+                                 "ledger_keep_held_back": {"$ref": "#/$defs/note_tree"},
+                                 "overlay_counts": {"$ref": "#/$defs/note_tree"}, "overlay_hosts": {"$ref": "#/$defs/note_tree"},
+                                 "pin": {"$ref": "#/$defs/note_tree"}, "release": {"$ref": "#/$defs/note_tree"},
+                                 "renames_base": {"$ref": "#/$defs/note_tree"}, "selection": {"$ref": "#/$defs/note_tree"},
+                                 "state": {"$ref": "#/$defs/note_tree"}, "transcripts": {"$ref": "#/$defs/note_tree"}}}
+      }
+    },
+    "note_tree": {
+      "$comment": "R1 #5: one producer note, the shape `as_tree` emits: null, a boolean, an integer, a string, or a list or object of notes. The KEY SET of `notes` is declared above; below it the shape is the producer's own, so an object here takes any string key, each value a note again. This is the schema's one licensed catch-all key pattern (CATCHALL_SITE in inventory.py): beside `additionalProperties: false` it is an open object the lint does not see, so every other site is refused (REFERENCE_CATCHALL_ELSEWHERE); a note is producer diagnostics, and copying fourteen producer shapes here would be a second copy of them.",
+      "type": ["null", "boolean", "integer", "string", "array", "object"],
+      "additionalProperties": false,
+      "patternProperties": {"^": {"$ref": "#/$defs/note_tree"}},
+      "items": {"$ref": "#/$defs/note_tree"}
+    },
+    "rename": {
+      "$comment": "R1 #5: a rename in either of its two shapes (RENAME_TABLE, RENAME_AMBIGUOUS_TABLE). The policy has no oneOf, so this is one closed row over both shapes' fields; each shape is held to its own fields by its table on the emission path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id"],
+      "properties": {
+        "unit_id": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"},
+        "from_unit_id": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"},
+        "from_carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "to_carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "from_path": {"type": "string"},
+        "to_path": {"type": "string"},
+        "from_layer": {"$ref": "#/$defs/layer_name"},
+        "to_layer": {"$ref": "#/$defs/layer_name"},
+        "moved": {"type": "array", "items": {"type": "string", "enum": ["path", "layer", "package", "carrier"]}},
+        "ambiguous": {"type": "boolean"},
+        "from_carriers": {"type": "array", "items": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"}},
+        "to_carriers": {"type": "array", "items": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"}},
+        "reason": {"type": "string"}
+      }
+    },
+    "sessions_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "closure_rule", "span_unit", "produced_by", "sessions", "events", "segments", "occurrences",
+                   "context_sets", "override_sets", "unknown_entries"],
+      "properties": {
+        "document": {"const": "sessions"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "span_unit": {"$comment": "the unit an occurrence's start and end count, in the decoded text of the FIELD its pointer names; a different coordinate from the store's, which counts in a carrier version's raw text", "const": "code_point"},
+        "produced_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module", "design", "commit"],
+          "properties": {
+            "module": {"type": "string"},
+            "design": {"type": "string"},
+            "commit": {"type": ["string", "null"]}
+          }
+        },
+        "sessions": {"type": "array", "items": {"$ref": "#/$defs/session"}},
+        "events": {"type": "array", "items": {"$ref": "#/$defs/event"}},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/segment"}},
+        "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}},
+        "context_sets": {"type": "array", "items": {"$ref": "#/$defs/context_set"}},
+        "override_sets": {"type": "array", "items": {"$ref": "#/$defs/override"}},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}}
+      }
+    },
+    "shared_inventory_document": {
+      "$comment": "`shared/<selection|release>-<i>.json` (step 0 S-22): one per verified snapshot and per baseline a session's own pin names. Its layer rows, the carrier versions and units it holds by reference into shared/store.json, a selection's unavailable list (ref among the snapshot's own items, surface among the catalog's SURFACES) and a release's baseline items its units do not map.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "closure_rule", "inventory_id", "kind", "ref", "complete", "incomplete_reasons", "produced_by",
+                   "layers", "carriers", "unit_refs", "edges", "unknown_entries"],
+      "properties": {
+        "document": {"const": "shared_inventory"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "inventory_id": {"$ref": "#/$defs/inventory_id"},
+        "kind": {"type": "string", "enum": ["selection", "release"]},
+        "ref": {"type": "string", "minLength": 1},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"type": "string"}},
+        "produced_by": {"type": "object", "additionalProperties": false, "required": ["module", "design", "commit"],
+                        "properties": {"module": {"type": "string"}, "design": {"type": "string"},
+                                       "commit": {"type": ["string", "null"]}}},
+        "layers": {"type": "array", "items": {"$ref": "#/$defs/layer_row"}},
+        "carriers": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["carrier_id", "version_sha256"],
+          "properties": {"carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+                         "version_sha256": {"$ref": "#/$defs/sha256"}}}},
+        "unit_refs": {"type": "array", "items": {"$ref": "#/$defs/unit_ref"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/requirement_edges"}},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
+        "unavailable": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ref", "surface", "reason"],
+          "properties": {"ref": {"type": "string"}, "surface": {"type": "string"}, "reason": {"type": "string"}}}},
+        "items": {"$comment": "a selection inventory's facts about the compiled instruction text (WP-11b): the items the session was given, with the surface the snapshot selected each at", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ref", "surface"],
+          "properties": {"ref": {"type": "string"}, "surface": {"type": ["string", "null"]}}}},
+        "instruction_text_sha256": {"$comment": "the digest of the compiled instruction text the session was activated with; the text itself is the owner's and never enters a run", "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "instruction_coverage": {"$comment": "per unit, how many of its operative-context lines that text held, as counts: what the delivery judge reads in the text's place (WP-11b)", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["unit_ref", "covered", "total"],
+          "properties": {"unit_ref": {"type": "string", "pattern": "^r-[0-9a-f]{24}$"},
+                         "covered": {"type": "integer", "minimum": 0},
+                         "total": {"type": "integer", "minimum": 0}}}},
+        "item_pointer_in_compiled_text": {"$comment": "per selected item, whether the compiled instruction text held ITS pointer — the router line for a relevant item, the primary member's emitted path for a requested one — as a fact, because the text never enters a run (WP-11b)", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ref", "pointer", "basis"],
+          "properties": {"ref": {"type": "string"},
+                         "pointer": {"type": ["boolean", "null"]},
+                         "basis": {"enum": ["router_line", "emitted_path", "surface_has_no_pointer", "item_names_no_member"]}}}},
+        "router_path": {"$comment": "the path the compiled text names as its router, read out of that text", "type": ["string", "null"]},
+        "item_pointer_unavailable": {"$comment": "why item_pointer_in_compiled_text is not published, which a selection inventory then always says: the snapshot holds no compiled text, or the run had no catalog to spell the emitted paths by", "enum": ["compiled_text_absent", "catalog_rule_unread"]},
+        "unit_surfaces": {"$comment": "the catalogue surface of every unit this selection holds and of every judged unit that belongs to an item, with where it was read: the snapshot answers for the items the session was given, the installed baseline for the rest, and a unit neither answers for is unpublished (WP-11b)", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["unit_ref", "surface", "source"],
+          "properties": {"unit_ref": {"type": "string", "pattern": "^r-[0-9a-f]{24}$"},
+                         "surface": {"type": ["string", "null"]},
+                         "source": {"enum": ["snapshot", "baseline", "unpublished"]}}}},
+        "baseline_unmapped": {"type": "array", "items": {"type": "string"}},
+        "baseline_items_expected": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "inventory_id": {"type": "string", "pattern": "^i-[0-9a-f]{24}$"},
+    "segment_id": {"type": "string", "pattern": "^g-[0-9a-f]{24}$"},
+    "in_force": {
+      "$comment": "one kind's state over a segment (step 0 S-17): the event in force, none recorded yet, the one in force past its certainty cut (the line named), or a kind nobody could look for, by its reason",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "event_ref", "reason", "line"],
+      "properties": {
+        "state": {"enum": ["in_force", "no_event_yet", "uncertain", "unsought"]},
+        "event_ref": {"type": ["string", "null"], "pattern": "^e-[0-9a-f]{24}$"},
+        "reason": {"type": ["string", "null"], "minLength": 1},
+        "line": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "segment": {
+      "$comment": "an owner's line interval [from, to) of its transcript in which the event in force of each kind is fixed (step 0 S-17); one owner's segments partition [1, lines_read + 1)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["segment_id", "session_ref", "owner_ref", "from", "to", "in_force", "context_set_ref"],
+      "properties": {
+        "segment_id": {"$ref": "#/$defs/segment_id"},
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "owner_ref": {"$ref": "#/$defs/owner_ref"},
+        "from": {"$ref": "#/$defs/line"},
+        "to": {"$ref": "#/$defs/line"},
+        "in_force": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["native", "session_injection"],
+          "properties": {
+            "native": {"$ref": "#/$defs/in_force"},
+            "session_injection": {"$ref": "#/$defs/in_force"}
+          }
+        },
+        "context_set_ref": {"$ref": "#/$defs/context_set_id"}
+      }
+    },
+    "shared_store_document": {
+      "$comment": "`shared/store.json` (step 0 S-22): every carrier version the run names, once, keyed by carrier_id and then version_sha256, and every unit keyed by its unit_ref.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "closure_rule", "span_unit", "produced_by", "versions", "units"],
+      "properties": {
+        "document": {"const": "shared_store"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "span_unit": {"$comment": "the unit every start and end counts, in the version's raw text", "const": "code_point"},
+        "produced_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module", "design", "commit"],
+          "properties": {
+            "module": {"type": "string"},
+            "design": {"type": "string"},
+            "commit": {"type": ["string", "null"]}
+          }
+        },
+        "versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^c-[0-9a-f]{24}$": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "patternProperties": {"^[0-9a-f]{64}$": {"$ref": "#/$defs/carrier_version"}}
+            }
+          }
+        },
+        "units": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {"^r-[0-9a-f]{24}$": {"$ref": "#/$defs/carrier_unit"}}
+        }
+      }
+    },
+    "document_kind": {
+      "$comment": "The file's own root. A document is validated against the $defs root its `document` names (the code's DOCUMENT_ROOTS); validated here, every real document is refused on purpose, because without oneOf no single root can admit them all.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document"],
+      "properties": {
+        "document": {"type": "string", "enum": ["current", "release", "selection", "sessions", "shared_store",
+                                                "shared_inventory"]}
+      }
+    },
+    "event_id": {"type": "string", "pattern": "^e-[0-9a-f]{24}$"},
+    "unit_ref": {
+      "$comment": "opaque (step 0 S-11): r- over [\"unit\", carrier_id, version_sha256, n], n the block's 1-based position in that version",
+      "type": "string",
+      "pattern": "^r-[0-9a-f]{24}$"
+    },
+    "closure_rule": {
+      "$comment": "step 0 S-12: the one closure semantics every document carries; a reader that implements another refuses the document by name (CLOSURE_RULE_UNSUPPORTED)",
+      "const": "operative-context/1"
+    },
+    "unknown_id": {
+      "$comment": "opaque (step 0 S-12): k- over [\"unknown\", origin carrier_id, origin version_sha256, named span, heading span or null, kind]",
+      "type": "string",
+      "pattern": "^k-[0-9a-f]{24}$"
+    },
+    "unknown_requirement": {
+      "$comment": "step 0 S-12: one unresolved mention, a terminal requirement. One origin per entry: several carriers naming one missing thing are several entries. `named` and `heading` are [start, end) code points of the origin version's raw text, the coordinate the store's unit spans count in, and both are null when the floor withholds that version whole: a mention's offsets are finer than the unit spans the store publishes for it. The id still commits to them. `display` is projected once, at production, under that version's floor decision.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown_id", "kind", "carrier_id", "version_sha256", "named", "heading", "display"],
+      "properties": {
+        "unknown_id": {"$ref": "#/$defs/unknown_id"},
+        "kind": {"type": "string", "enum": ["plain", "heading", "ambiguous"]},
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"$ref": "#/$defs/sha256"},
+        "named": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+        "heading": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+        "display": {"type": "string", "minLength": 1}
+      }
+    },
+    "requirement_edges": {
+      "$comment": "step 0 S-12: one unit's edges in a shared inventory. `direct` holds the unit itself, its frontmatter, enclosing headings and condition spans; `reached` what its mentions resolved to in the inventory's own universe, an unresolved one as its k- entry. Both sorted by reference string.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_ref", "direct", "reached"],
+      "properties": {
+        "unit_ref": {"$ref": "#/$defs/unit_ref"},
+        "direct": {"type": "array", "items": {"$ref": "#/$defs/unit_ref"}},
+        "reached": {"type": "array", "items": {"type": "string", "pattern": "^(r|k)-[0-9a-f]{24}$"}}
+      }
+    },
+    "context_set_id": {
+      "$comment": "opaque (step 0 S-11): x- over [\"context\", sorted [carrier_id, version_sha256] of every carrier version in the universe, sorted i- ids of the inventories the segment names]",
+      "type": "string",
+      "pattern": "^x-[0-9a-f]{24}$"
+    },
+    "override_set_id": {
+      "$comment": "opaque (step 0 S-11): v- over [\"override\", the i- id of the inventory whose units it overrides, sorted matched [resolution path, carrier_id, version_sha256] triples of that inventory's mentions]; the path is the raw resolution path, so the id commits to it without stating it",
+      "type": "string",
+      "pattern": "^v-[0-9a-f]{24}$"
+    },
+    "carrier_version_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["carrier_id", "version_sha256"],
+      "properties": {
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "context_set": {
+      "$comment": "step 0 S-12: one segment universe's context set, deduplicated by its id. A context set is computed over the KNOWN universe: the carrier versions of the events in force that the segment's index rows name, and the layers of the inventories they point to under the basis pin. A release inventory the selection history answers (basis selection_history) is what the owner's library held, not what the session received, and is no part of it until WP-10 rules on delivery evidence (D-20261110-195c15). An uncertain event, or an unknown inventory (a release the selection history does not answer, an unattributed sidechain), stays said by the segment's in_force and its index rows; the empty context set means an empty known universe, not no context. `edges` are the event units' edges; `override_refs` the override sets it applies; `closure_digest` the sha256 of the canonical closure map of every unit of the universe.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_set_id", "carriers", "inventory_refs", "edges", "override_refs", "closure_digest"],
+      "properties": {
+        "context_set_id": {"$ref": "#/$defs/context_set_id"},
+        "carriers": {"type": "array", "items": {"$ref": "#/$defs/carrier_version_ref"}},
+        "inventory_refs": {"type": "array", "items": {"$ref": "#/$defs/inventory_id"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/requirement_edges"}},
+        "override_refs": {"type": "array", "items": {"$ref": "#/$defs/override_set_id"}},
+        "closure_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "override": {
+      "$comment": "step 0 S-12: one shared inventory's override set, deduplicated by its id: the carrier versions its pointed units' mentions matched, and the reached list of every unit of its pointed layers whose reached differs in the universe. `direct` is never overridden.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["override_set_id", "inventory_ref", "matches", "overrides"],
+      "properties": {
+        "override_set_id": {"$ref": "#/$defs/override_set_id"},
+        "inventory_ref": {"$ref": "#/$defs/inventory_id"},
+        "matches": {"type": "array", "items": {"$ref": "#/$defs/carrier_version_ref"}},
+        "overrides": {"type": "array", "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["unit_ref", "reached"],
+          "properties": {
+            "unit_ref": {"$ref": "#/$defs/unit_ref"},
+            "reached": {"type": "array", "items": {"type": "string", "pattern": "^(r|k)-[0-9a-f]{24}$"}}
+          }
+        }}
+      }
+    },
+    "git": {
+      "$comment": "What a Codex session_meta records of its repository (step 0 S-19); the URL's userinfo is removed before the floor.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit_hash", "branch", "repository_url"],
+      "properties": {
+        "commit_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{7,64}$"},
+        "branch": {"type": ["string", "null"]},
+        "repository_url": {"type": ["string", "null"]}
+      }
+    },
+    "occurrence": {
+      "$comment": "One recorded occurrence of a carrier version in an event (step 0 S-12, S-13). [start, end) counts code points of the decoded field text the pointer names. An unmapped occurrence (a normalised match whose offsets could not be recovered) carries no version, span or digest, and the reason recorded_unmapped.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["occurrence_id", "event_id", "ordinal", "pointer", "carrier_id", "version_sha256", "start", "end",
+                   "sha256", "method", "reason", "context_set"],
+      "properties": {
+        "occurrence_id": {"type": "string", "pattern": "^q-[0-9a-f]{24}$"},
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "ordinal": {"type": "integer", "minimum": 0},
+        "pointer": {"type": "string", "minLength": 1},
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "start": {"type": ["integer", "null"], "minimum": 0},
+        "end": {"type": ["integer", "null"], "minimum": 0},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "method": {"type": "string", "enum": ["field", "exact", "normalised", "unmapped"]},
+        "reason": {"type": ["string", "null"], "enum": ["recorded_unmapped", null]},
+        "context_set": {"$comment": "the context set of the segment its event starts in its owner's partition; null only for an owner-less event (R10)", "type": ["string", "null"], "pattern": "^x-[0-9a-f]{24}$"},
+        "git": {"$ref": "#/$defs/git"}
+      }
+    },
+    "carrier_version": {
+      "$comment": "One carrier version in the store. `length` is the raw text's length in Unicode code points; `unit_refs` lists its units in order; `split` says whether the splitter read it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "path", "item_ref", "package_id", "form", "length", "split", "unit_refs"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "path": {"type": "string", "minLength": 1},
+        "item_ref": {"type": ["string", "null"]},
+        "package_id": {"type": ["string", "null"]},
+        "form": {"type": "string", "enum": ["markdown", "python", "json", "toml", "plain"]},
+        "length": {"type": "integer", "minimum": 0},
+        "split": {"type": "string", "enum": ["split", "malformed", "unsupported", "withheld"]},
+        "unit_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/unit_ref"}},
+        "withheld": {"$ref": "#/$defs/withheld_counts"}
+      }
+    },
+    "withheld_counts": {
+      "$comment": "A withheld version's would-be units (WP-11b X r1 (i)): how many there were, how many match a unit the store publishes by text sha, and how many match none. The text is the owner's and never enters a run.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units", "matched", "unmatched"],
+      "properties": {
+        "units": {"type": "integer", "minimum": 0},
+        "matched": {"type": "integer", "minimum": 0},
+        "unmatched": {"type": "integer", "minimum": 0}
+      }
+    },
+    "withheld": {
+      "$comment": "A layer row whose units are not published because its text is the owner's (D-20261111-d05b16; WP-11b X r1 (i)): the reason, the would-be units, how many match a unit the same document publishes by text sha and how many match none (units this reference point cannot judge), the unmatched by class, and the same counts per carrier version.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "units", "matched", "unmatched", "unmatched_by_class", "carriers"],
+      "properties": {
+        "reason": {"type": "string", "enum": ["owner_text_never_enters_a_run"]},
+        "units": {"type": "integer", "minimum": 0},
+        "matched": {"type": "integer", "minimum": 0},
+        "unmatched": {"type": "integer", "minimum": 0},
+        "unmatched_by_class": {"type": "object", "additionalProperties": false,
+                               "properties": {"operative": {"type": "integer", "minimum": 0},
+                                              "reference": {"type": "integer", "minimum": 0}}},
+        "carriers": {"type": "array", "minItems": 1, "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["carrier_id", "version_sha256", "units", "matched", "unmatched"],
+          "properties": {"carrier_id": {"type": "string"},
+                         "version_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                         "units": {"type": "integer", "minimum": 0},
+                         "matched": {"type": "integer", "minimum": 0},
+                         "unmatched": {"type": "integer", "minimum": 0}}}}
+      }
+    },
+    "carrier_unit": {
+      "$comment": "A context-free unit of one carrier version. [start, end) is its span in the version's RAW text, in Unicode code points; `sha` is the raw fragment's sha256, and `text` its projection.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["carrier_id", "version_sha256", "n", "start", "end", "sha", "heading", "text", "class", "block",
+                   "redaction_version"],
+      "properties": {
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"$ref": "#/$defs/sha256"},
+        "n": {"type": "integer", "minimum": 1},
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 0},
+        "sha": {"$ref": "#/$defs/sha256"},
+        "heading": {"type": "string"},
+        "text": {"type": "string"},
+        "class": {"type": "string", "enum": ["operative", "reference"]},
+        "block": {"type": "string", "minLength": 1},
+        "redaction_version": {"type": "string", "pattern": "^r[0-9]+$"}
+      }
+    },
+    "scope_id": {"type": "string", "pattern": "^s-[0-9a-f]{24}$"},
+    "scope_reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {"type": "string", "minLength": 1},
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "line": {"$ref": "#/$defs/line"}
+      }
+    },
+    "scope_answer": {
+      "$comment": "One scope's answer at the current reference point (step 0 S-10): a scope is a (layer, host, key) the host distinguishes, answered by its own newest eligible outcome.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_id", "layer", "host", "scope", "status", "as_of", "session", "session_ref", "line",
+                   "event_ids", "reasons", "evidence", "limitations", "freshness"],
+      "properties": {
+        "scope_id": {"$ref": "#/$defs/scope_id"},
+        "layer": {"type": "string", "enum": ["native_global", "native_project", "native_memory", "native_undivided"]},
+        "host": {"$ref": "#/$defs/host"},
+        "scope": {"type": ["string", "null"]},
+        "status": {"type": "string", "enum": ["answered", "empty", "incomplete", "uncertain", "unknown"]},
+        "as_of": {"type": ["string", "null"]},
+        "session": {"type": ["string", "null"]},
+        "session_ref": {"type": ["string", "null"], "pattern": "^p-[0-9a-f]{24}$"},
+        "line": {"type": ["integer", "null"], "minimum": 1},
+        "event_ids": {"type": "array", "items": {"$ref": "#/$defs/event_id"}},
+        "reasons": {"type": "array", "items": {"$ref": "#/$defs/scope_reason"}},
+        "evidence": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["event_id", "as_of"],
+          "properties": {"event_id": {"$ref": "#/$defs/event_id"}, "as_of": {"type": ["string", "null"]}}}},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "freshness": {"type": "string", "minLength": 1}
+      }
+    },
+    "scope_universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "no_scope", "cwd_unreadable", "memory_path_relative", "memory_path_unusable",
+                   "global_excluded_by_launch", "ineligible", "transcript_unread", "memory_membership_unknown"],
+      "properties": {
+        "host": {"$ref": "#/$defs/host"},
+        "no_scope": {"type": "integer", "minimum": 0},
+        "cwd_unreadable": {"type": "integer", "minimum": 0},
+        "memory_path_relative": {"type": "integer", "minimum": 0},
+        "memory_path_unusable": {"type": "integer", "minimum": 0},
+        "global_excluded_by_launch": {"type": "integer", "minimum": 0},
+        "ineligible": {"type": "integer", "minimum": 0},
+        "transcript_unread": {"type": "integer", "minimum": 0},
+        "memory_membership_unknown": {"type": "integer", "minimum": 0}
+      }
+    },
+    "owner_ref": {"type": "string", "pattern": "^o-[0-9a-f]{24}$"},
+    "session_ref": {"type": "string", "pattern": "^p-[0-9a-f]{24}$"},
+    "host": {"type": "string", "enum": ["claude", "codex"]},
+    "line": {"type": "integer", "minimum": 1},
+    "unknown_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {"type": "string", "minLength": 1},
+        "line": {"$ref": "#/$defs/line"}
+      }
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intervals", "unknown"],
+      "properties": {
+        "intervals": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["owner_ref", "from", "to"],
+          "properties": {"owner_ref": {"$ref": "#/$defs/owner_ref"}, "from": {"$ref": "#/$defs/line"},
+                         "to": {"$ref": "#/$defs/line"}}}},
+        "unknown": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["from", "to"],
+          "properties": {"from": {"$ref": "#/$defs/line"}, "to": {"$ref": "#/$defs/line"}}}}
+      }
+    },
+    "limitation": {
+      "$comment": "One row per limitation kind; the code's LIMITATION_TABLE holds each kind to its own fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["alt_paths", "undecodable", "member_rejected", "damaged", "agent_id_unusable",
+                                            "member_duplicate"]},
+        "count": {"type": "integer", "minimum": 1},
+        "category": {"type": "string", "enum": ["not_json", "not_object", "member_not_object", "member_type_unmapped",
+                                                "member_path_invalid", "member_content_invalid", "container_unusable",
+                                                "locator_unusable", "locator_element_rejected"]},
+        "line": {"$ref": "#/$defs/line"},
+        "ordinal": {"type": "integer", "minimum": 0}
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_ref", "session", "host", "kind", "transcript", "parent_ref", "binding", "read",
+                   "lines_read", "owners", "ownership", "inherited_session_meta", "own_meta_unidentified",
+                   "limitations", "event_refs", "segment_refs", "unknown", "pin", "delivery", "selection"],
+      "properties": {
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "session": {"type": "string"},
+        "host": {"$ref": "#/$defs/host"},
+        "kind": {"type": "string", "enum": ["main", "subagent"]},
+        "transcript": {"type": "object", "additionalProperties": false, "required": ["host", "id", "source"],
+                       "properties": {"host": {"$ref": "#/$defs/host"}, "id": {"type": "string"},
+                                      "source": {"type": ["string", "null"]}}},
+        "parent_ref": {"type": ["string", "null"], "pattern": "^p-[0-9a-f]{24}$"},
+        "binding": {"type": "string", "enum": ["whole", "prefix", "none"]},
+        "read": {"type": "string", "enum": ["bound", "appended", "changed", "unbound", "binding_invalid", "no_path",
+                                            "unreadable"]},
+        "lines_read": {"type": ["integer", "null"], "minimum": 0},
+        "owners": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["owner_ref", "display"],
+          "properties": {"owner_ref": {"$ref": "#/$defs/owner_ref"}, "display": {"type": "string"}}}},
+        "ownership": {"$ref": "#/$defs/ownership"},
+        "inherited_session_meta": {
+          "type": "object", "additionalProperties": false, "required": ["another_session_id", "no_session_id"],
+          "properties": {"another_session_id": {"type": "integer", "minimum": 0},
+                         "no_session_id": {"type": "integer", "minimum": 0}}},
+        "own_meta_unidentified": {"type": ["integer", "null"], "minimum": 1},
+        "limitations": {"type": "array", "items": {"$ref": "#/$defs/limitation"}},
+        "event_refs": {"type": "array", "items": {"$ref": "#/$defs/event_id"}},
+        "segment_refs": {"type": "array", "items": {"$ref": "#/$defs/segment_id"}},
+        "unknown": {"type": "array", "items": {"$ref": "#/$defs/unknown_entry"}},
+        "pin": {"$ref": "#/$defs/pin"},
+        "delivery": {"$ref": "#/$defs/delivery"},
+        "selection": {"$ref": "#/$defs/session_selection"}
+      }
+    },
+    "session_selection": {
+      "$comment": "A session's selection (step 0 S-14, S-15): the shared selection inventory its own verified snapshot is (inventory_ref), or the one reason of the first broken link of its pin and snapshot.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "inventory_ref"],
+      "properties": {
+        "status": {"type": "string", "enum": ["read", "unpinned", "unknown"]},
+        "reason": {"enum": ["unpinned", "rollout_claimed_twice", "rollout_unmatched", "pin_predates_rollout_binding",
+                            "rollout_unresolved", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+                            "input_failed", "input_unread", "snapshot_absent", null]},
+        "inventory_ref": {"type": ["string", "null"], "pattern": "^i-[0-9a-f]{24}$"}
+      }
+    },
+    "pin": {
+      "$comment": "A session's own pin (step 0 S-14, S-15, S-16). reason is null exactly when the pin was read; content_ref is the one the pin names when the pin was read, agreeing with the census or not (pin_content_ref_mismatch), else the one the census row names (a Codex row's is read for nothing); baseline_ref is what the pin's verified snapshot names.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "content_ref", "baseline_ref", "include_global_instructions"],
+      "properties": {
+        "status": {"type": "string", "enum": ["read", "unpinned", "unknown"]},
+        "reason": {"enum": ["unpinned", "rollout_claimed_twice", "rollout_unmatched", "pin_predates_rollout_binding",
+                            "rollout_unresolved", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+                            "input_failed", "input_unread", null]},
+        "content_ref": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "baseline_ref": {"type": ["string", "null"]},
+        "include_global_instructions": {"type": ["boolean", "null"]}
+      }
+    },
+    "delivery": {
+      "$comment": "Whether the session's own selected body was delivered (step 0 S-13, S-14): confirmed by a usable recorded occurrence its own owner holds, else unknown with ONE reason, the first broken link of the pin, its snapshot, the transcript read, a damaged injection event of its own owner and a recorded occurrence whose offsets could not be recovered (recorded_unmapped), and no_record only when none is broken.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "event_refs"],
+      "properties": {
+        "status": {"type": "string", "enum": ["confirmed", "unknown"]},
+        "reason": {"enum": ["unpinned", "rollout_claimed_twice", "rollout_unmatched", "pin_predates_rollout_binding",
+                            "rollout_unresolved", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+                            "input_failed", "input_unread", "snapshot_absent", "unbound", "binding_invalid",
+                            "no_path", "changed", "unreadable", "container_unusable", "locator_element_rejected",
+                            "recorded_unmapped", "no_record", null]},
+        "event_refs": {"type": "array", "items": {"$ref": "#/$defs/event_id"}}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "kind", "host", "session_ref", "owner_ref", "owner", "line", "at", "at_reason",
+                   "damaged", "interval_from", "interval_to", "certain_to", "uncertain_reason", "where",
+                   "rejected", "members"],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "kind": {"type": "string", "enum": ["native", "session_injection"]},
+        "host": {"$ref": "#/$defs/host"},
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "owner_ref": {"type": ["string", "null"], "pattern": "^o-[0-9a-f]{24}$"},
+        "owner": {"type": "string"},
+        "line": {"$ref": "#/$defs/line"},
+        "at": {"type": ["string", "null"]},
+        "at_reason": {"enum": ["undated", "undated_naive", null]},
+        "damaged": {"enum": ["container_unusable", "locator_element_rejected", null]},
+        "interval_from": {"type": ["integer", "null"], "minimum": 1},
+        "interval_to": {"type": ["integer", "null"], "minimum": 1},
+        "certain_to": {"type": ["integer", "null"], "minimum": 1},
+        "uncertain_reason": {"enum": ["undecodable_after", "ownership_unknown", null]},
+        "where": {"type": ["string", "null"]},
+        "rejected": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ordinal", "category"],
+          "properties": {"ordinal": {"type": "integer", "minimum": 0},
+                         "category": {"enum": ["member_not_object", "member_type_unmapped", "member_path_invalid",
+                                               "member_content_invalid"]}}}},
+        "members": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ordinal", "carrier_id", "version_sha256"],
+          "properties": {"ordinal": {"type": "integer", "minimum": 0},
+                         "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+                         "version_sha256": {"$ref": "#/$defs/sha256"}}}}
+      }
+    },
+    "layer_name": {
+      "type": "string",
+      "enum": [
+        "catalog",
+        "adopted_packages",
+        "overlays",
+        "native_global",
+        "native_project",
+        "native_settings",
+        "native_memory",
+        "native_undivided",
+        "session_injection",
+        "ledger_incubating",
+        "ledger_keep"
+      ]
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "unit_ref",
+        "layer",
+        "path",
+        "heading",
+        "n",
+        "text",
+        "sha",
+        "class",
+        "operative_context",
+        "version_sha256",
+        "redaction_version"
+      ],
+      "properties": {
+        "unit_id": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"},
+        "unit_ref": {"$ref": "#/$defs/unit_ref"},
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "path": {"type": "string", "minLength": 1},
+        "heading": {"type": "string"},
+        "n": {"type": "integer", "minimum": 1},
+        "text": {"type": "string"},
+        "sha": {"$ref": "#/$defs/sha256"},
+        "class": {"type": "string", "enum": ["operative", "reference"]},
+        "operative_context": {"$comment": "sorted unit ids and k- ids (step 0 S-12); a k- names a row of the document's unknown_entries",
+                              "type": "array", "items": {"type": "string", "pattern": "^(u-[0-9a-f]{16}(-[0-9]+)?|k-[0-9a-f]{24})$"}},
+        "version_sha256": {"$ref": "#/$defs/sha256"},
+        "redaction_version": {"type": "string", "pattern": "^r[0-9]+$"},
+        "block": {"type": "string", "minLength": 1},
+        "item_ref": {"type": ["string", "null"]},
+        "package_id": {"type": ["string", "null"]},
+        "carrier_id": {
+          "$comment": "opaque: an identity, not a spelling of what it was built from",
+          "type": "string",
+          "pattern": "^c-[0-9a-f]{24}$"
+        },
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "edges": {"$ref": "#/$defs/unit_edges"}
+      }
+    },
+    "unit_edges": {
+      "$comment": "plan WP-11, lead decision D1 (a1): one unit's edges in current.json, the shared inventories' edges shape by the document's own ids. `direct` holds the unit itself, its frontmatter, enclosing headings and condition spans; `reached` what its mentions resolved to one step out, an unresolved one as its k- entry. Both sorted; the closure over every unit's edges is its operative_context. Optional on a unit, and then carried by every unit of the document or by none.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct", "reached"],
+      "properties": {
+        "direct": {"type": "array", "items": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"}},
+        "reached": {"type": "array", "items": {"type": "string", "pattern": "^(u-[0-9a-f]{16}(-[0-9]+)?|k-[0-9a-f]{24})$"}}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {"type": ["string", "null"]},
+        "session": {"type": ["string", "null"]},
+        "transcript": {"type": ["string", "null"]},
+        "where": {"type": ["string", "null"]},
+        "scope": {"type": ["string", "null"]},
+        "reference": {"type": ["string", "null"]},
+        "record": {"type": ["integer", "null"]},
+        "identity": {"type": ["string", "null"]},
+        "status": {"type": ["string", "null"]},
+        "keep_units": {"type": "array", "items": {"type": "string"}},
+        "keep_reason": {"type": ["string", "null"]},
+        "hosts": {"type": "array", "items": {"type": "string"}},
+        "scope_id": {"$ref": "#/$defs/scope_id"},
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "git": {"$ref": "#/$defs/git"}
+      }
+    },
+    "layer_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "producer", "status", "reasons", "units", "empty"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "producer": {"type": ["string", "null"]},
+        "status": {"type": "string", "enum": ["complete", "incomplete", "unsupported", "unknown"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "units": {"type": "integer", "minimum": 0},
+        "empty": {"type": "boolean"},
+        "withheld": {"$ref": "#/$defs/withheld"}
+      }
+    }
+  }
+}

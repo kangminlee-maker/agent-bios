@@ -80,7 +80,7 @@ Instruction/config reach is per invocation. A rule in AGENTS.md cannot bind a he
 | Profile | Reach | Use |
 |---|---|---|
 | inherit | real `CODEX_HOME`, project cwd | full global/project AGENTS.md and user config |
-| hermetic | temporary home, auth only, user config ignored | independent lens with prompt-owned criteria |
+| hermetic | temporary `CODEX_HOME` and empty `HOME`, auth only; user config, user skills, and global or project AGENTS.md excluded, even with `--cd` into a repository | independent lens with prompt-owned criteria |
 | custom | caller-populated home | exact curated instructions/config |
 
 - Control instruction home, working directory, config overrides, task prompt, and output schema independently. The repo wrapper owns setup and teardown.
@@ -239,11 +239,11 @@ Binding (2026-10-21):
 
 | Slot | Binding | Notes |
 |---|---|---|
-| FRONTIER | Claude Fable 5.1 · GPT-6 Astra (read-only; max default; launcher may explicitly select Ultra) | bounded hardest decisions and verdicts |
+| FRONTIER | Claude Fable 5.2 · GPT-6 Astra (read-only; max default; launcher may explicitly select Ultra) | bounded hardest decisions and verdicts |
 | HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra requires explicit selection; bounded FRONTIER Ultra allowed | standing main; Codex defaults bypass, explicit sandbox narrows |
 | WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation and per-item judgment; the Codex seat shares HELM's model, so it differs by effort alone and buys no cross-model perspective |
 | SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | read-only; one explicit rule per item; not a rebind candidate |
-| VERIFIER-A | plain `codex exec` deep pass — GPT-5.6 Sol at ultra effort, packet on stdin (`-c service_tier="fast"` as explicit fast opt-in) | strongest single reader; cross-family from a Claude main |
+| VERIFIER-A | plain `codex exec` deep pass — GPT-6.1 Sol at ultra effort, packet on stdin (`-c service_tier="fast"` as explicit fast opt-in) | strongest single reader; cross-family from a Claude main |
 | VERIFIER-B | Claude Code ultracode workflow (keyword-opened, many-agent) | code/execution kind; fan-out counterpart |
 | INDEPENDENT-PR-REVIEWER | Codex CLI | adversarial `gh pr diff` review |
 | Claude relocation | EnterWorktree, `/cd`, `--worktree`; resume is directory-scoped | verified 2.1.207 |
@@ -258,6 +258,7 @@ Codex direct-drive (verified 0.144.1, 2026-07-12):
 - This is an instruction-backed, live-E2E-verified default, not a security boundary: main bypass and arbitrary expert `-c` remain available by design. `frontier.toml` pins the direct native FRONTIER default to max; launcher projections overwrite it from the selected tier.
 - `codex-run` owns reach, stdin, schema, profiles, expert `-c`, channel preservation, and exit status. Keep it internal.
 - `claude-run` is its Claude-side twin and the command a composable review contract names for a panel dispatch on that host. Same shape: prompt on stdin, final message on stdout, exit status mirrored, `--model`/`--effort` pinning the seat, everything it does not recognise forwarded to `claude`. It denies the mutating tools by default, which is not the OS-level sandbox `codex-run` gets — do not read the two defaults as equivalent guarantees. Dispatch whatever command the contract names rather than the bare CLI: only the adapter can report what the dispatch actually did, and a review with no receipt stays PROPOSED.
+- `claude-run --profile hermetic` is the isolated Claude route: one call per fresh cell (`HOME`, `CLAUDE_CONFIG_DIR`, working directory) outside your `HOME`, an environment built from scratch with the subscription token, and `--safe-mode --setting-sources "" --strict-mcp-config --disable-slash-commands --tools ""`. It denies your and the working directory's (and its ancestors') `CLAUDE.md`, skills, memory, MCP servers, hooks and settings; declared instructions enter only through `--append-system-prompt-file` with their sha256, and `REVIEW_CAPTURE_DIR` receives the host's record of what loaded. `--use producing` grants `Read` inside `--manifest` only.
 
 Dispatch packets:
 

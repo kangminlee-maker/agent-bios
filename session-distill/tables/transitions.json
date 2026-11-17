@@ -1,0 +1,69 @@
+{
+  "$comment": "design §12.3: every applied disposition against every state, then the events that are not dispositions. A null cell is a pair code rejects (the table's dash). The cell wording of the design is regenerated from the cell records by runlib/ledger.py render_cell, and the event rows are the design's own wording; the --self-test holds both against the design's tables, and holds the event ids against the handlers runlib/ledger.py implements.",
+  "dispositions": ["place", "correct", "re-deliver", "keep", "reduce_delete", "reduce_merge", "incubate", "drop", "none"],
+  "state_rows": {"incubating": "incubating", "placed": "placed", "adopted-no-text": "placed", "absorbed": "absorbed_retired", "retired": "absorbed_retired"},
+  "cells": {
+    "no_entry_new_learning": {
+      "place": {"new_entry": true, "status": "placed", "effects": []},
+      "correct": null,
+      "re-deliver": null,
+      "keep": null,
+      "reduce_delete": null,
+      "reduce_merge": null,
+      "incubate": {"new_entry": true, "status": "incubating", "effects": []},
+      "drop": {"new_entry": true, "status": "retired", "effects": ["never_placed"]},
+      "none": {"new_entry": false, "status": null, "effects": []}
+    },
+    "no_entry_existing_unit": {
+      "place": null,
+      "correct": {"new_entry": true, "status": "placed", "effects": []},
+      "re-deliver": {"new_entry": true, "status": "placed", "effects": []},
+      "keep": {"new_entry": true, "status": "placed", "effects": ["keep_record"]},
+      "reduce_delete": {"new_entry": true, "status": "retired", "effects": []},
+      "reduce_merge": {"new_entry": true, "status": "absorbed", "effects": ["allocate_destination_entry"]},
+      "incubate": {"new_entry": true, "status": "placed", "effects": ["pending_intervention"]},
+      "drop": {"new_entry": true, "status": "placed", "effects": ["dropped_intervention"]},
+      "none": {"new_entry": false, "status": null, "effects": []}
+    },
+    "incubating": {
+      "place": {"new_entry": false, "status": "placed", "effects": []},
+      "correct": {"new_entry": false, "status": "incubating", "effects": ["text_revised"]},
+      "re-deliver": null,
+      "keep": null,
+      "reduce_delete": null,
+      "reduce_merge": null,
+      "incubate": {"new_entry": false, "status": "incubating", "effects": ["expiry_renewed"]},
+      "drop": {"new_entry": false, "status": "retired", "effects": []},
+      "none": {"new_entry": false, "status": "unchanged", "effects": []}
+    },
+    "placed": {
+      "place": null,
+      "correct": {"new_entry": false, "status": "unchanged", "effects": []},
+      "re-deliver": {"new_entry": false, "status": "unchanged", "effects": []},
+      "keep": {"new_entry": false, "status": "unchanged", "effects": ["keep_record"]},
+      "reduce_delete": {"new_entry": false, "status": "retired", "effects": []},
+      "reduce_merge": {"new_entry": false, "status": "absorbed", "effects": ["absorbed_by", "receiver_merge_decision"]},
+      "incubate": {"new_entry": false, "status": "unchanged", "effects": ["pending_intervention"]},
+      "drop": {"new_entry": false, "status": "unchanged", "effects": ["dropped_intervention"]},
+      "none": {"new_entry": false, "status": "unchanged", "effects": []}
+    },
+    "absorbed_retired": {
+      "place": {"new_entry": false, "status": "placed", "effects": ["revival"]},
+      "correct": null,
+      "re-deliver": null,
+      "keep": null,
+      "reduce_delete": null,
+      "reduce_merge": null,
+      "incubate": {"new_entry": false, "status": "incubating", "effects": ["revival"]},
+      "drop": {"new_entry": false, "status": "unchanged", "effects": []},
+      "none": {"new_entry": false, "status": "unchanged", "effects": []}
+    }
+  },
+  "events": [
+    {"id": "awaiting_R", "from": "incubating", "event": "awaiting R (§10.2)", "to": "incubating, reason recorded"},
+    {"id": "recurrence", "from": "any", "event": "recurrence (new evidence for the same learning)", "to": "unchanged; evidence and lineages appended"},
+    {"id": "contradiction", "from": "any", "event": "contradiction (admitted evidence against it)", "to": "unchanged until its candidate's disposition (correct, reduce, or drop) is applied"},
+    {"id": "delivery", "from": "any applied decision", "event": "delivery failed or unverified", "to": "unchanged; `decisions[].applied.delivery` records it"},
+    {"id": "revert", "from": "any applied decision", "event": "application reverted by the owner", "to": "the status before that decision; a revert decision appended"}
+  ]
+}

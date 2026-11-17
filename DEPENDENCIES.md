@@ -37,10 +37,11 @@ have separate runtime requirements below.
 
 | Tool | Required by | Required capability | Verified |
 | --- | --- | --- | --- |
-| `python3` | `compose/instructions*.py`, app bridge helper, `session-cost.py`, `launch/agent-launch.py` | Python 3.12+ (`tomllib`) for the private store, offline installer UI loader, import evidence, app receipts and native session adapter | 3.14.5 · version report · 2026-09-12 |
+| `python3` | `compose/instructions*.py`, app bridge helper, `session-cost.py`, `launch/agent-launch.py`, `session-distill/distill.py` and `session-distill/runlib/` | Python 3.12+ (`tomllib`) for the private store, offline installer UI loader, import evidence, app receipts, native session adapter and the session-distill driver | 3.14.7 · version report · 2026-11-11 |
 | `bash` | `install.sh`, shell adapters, provisioner and app helper command dispatch | Bash arrays and argument-preserving execution; macOS system Bash is supported | 3.2.57 · version report · 2026-09-12 |
-| `git` | conversation source acquisition, clone updates and version-control workflows | clone and detached checkout for a fixed source commit; worktrees and modern revision operations for development. No Git checkout is required to use an installed npm package | 2.50.1 · version report · 2026-09-12 |
+| `git` | conversation source acquisition, clone updates, version-control workflows and `session-distill/runlib/gitread.py` | clone and detached checkout for a fixed source commit; worktrees and modern revision operations for development; `git show <rev>:<path>` for the driver's comparison of a tracked file's committed bytes against the working tree, where a path absent at a revision is a measurement and not an error. No Git checkout is required to use an installed npm package, and the driver asks git only for a run that compares commits | 2.50.1 · version report · 2026-11-11 |
 | `zsh` | `launch/agent-launch.zsh`, optional `launch/shell_integration.py` connection | shell functions, TTY checks and argument-preserving dispatch. Used by the explicit private shell connection as well as compatibility installation; it is not required for ordinary private storage or app context use | 5.9 · version report · 2026-09-12 |
+| `zstd` | `session-distill/runlib/census.py` and `session-distill/runlib/sources.py` | reading a compressed session capture the host wrote: the driver declares the binary it used (`declare.py` requires a `zstd` entry) rather than assuming one, and a census without it refuses by name (`ZSTD_UNAVAILABLE`) instead of reporting fewer sessions | 1.5.7 · version report · 2026-11-11 |
 | `mktemp`, `cp` | wrapper temporary homes and shell utilities | BSD or GNU command interfaces | local inventory checks command availability; no package-version claim |
 | `ioreg`, `ps` | conversation setup machine/process identity on macOS | local OS identity probes. Linux uses machine-id and `/proc`; machine identity has a host/filesystem fallback, while missing process evidence leaves a running attempt unconfirmed | source-defined probes; no separate tool version pin |
 | Node.js | npm delivery, optional npm host installation and selected slide jobs | `package.json` requires Node >=18 for npm package delivery. The optional Claude npm recipe requires Node >=22; Codex npm installation and slide runtimes retain their own requirements. The Python instructions runtime does not require Node | 26.0.0 · version report · 2026-09-12 |
@@ -50,7 +51,7 @@ have separate runtime requirements below.
 | Bundled Textual UI runtime | interactive `install`/`onboard`, package/current-checkout Instructions Studio TTY entrypoint, private/current-checkout launcher rich entrypoint | pure-Python wheels shipped under `compose/ui_runtime/`; the loader verifies and extracts them temporarily before UI imports. No system/managed Textual, pip installation or runtime network access is needed | manifest versions/hashes/licenses; offline clean-interpreter, TTY and backend-handoff checks · 2026-09-12 |
 | Managed `textual` | standalone compatibility launcher copies, retained in-process APIs and author tests | optional environment at `${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}`. Its installation target is `TEXTUAL_PIN`; current package CLI UI paths use the shipped bundle | 8.2.8 · clean-venv installation/import, `pip check` and UI tests · 2026-09-12 |
 | `rich` | Textual clients | included with the installer UI bundle and otherwise provided transitively by Textual; not a separate setup choice. Plain editing needs no optional syntax-highlighting packages | managed Textual environment and UI tests · 2026-09-12; bundled version belongs to the manifest |
-| `jsonschema` | `learn/collect-learning.py`, `learn/check-learning.py` | Draft 2020-12 validation for user learning capture and author verification. `learn` uses a usable system validator, otherwise the configured managed interpreter. Installation target is `JSONSCHEMA_PIN` in the provisioner; `--learning-only` installs it without adding Textual | 4.26.0 · clean-venv installation/import and `pip check` · 2026-09-12 |
+| `jsonschema` | `learn/collect-learning.py`, `learn/check-learning.py`, `session-distill/runlib/validate.py` | Draft 2020-12 validation for user learning capture, author verification and every document the session-distill driver writes or reads (`validate.py` refuses by name — `JSONSCHEMA_MISSING`, `JSONSCHEMA_VERSION_MISMATCH`, `JSONSCHEMA_PIN_UNREADABLE` — rather than validating with an unverified version). `learn` uses a usable system validator, otherwise the configured managed interpreter. Installation target is `JSONSCHEMA_PIN` in the provisioner; `--learning-only` installs it without adding Textual | 4.26.0 · clean-venv installation/import and `pip check` 2026-09-12; import of the module the driver loads, equal to `JSONSCHEMA_PIN`, 2026-11-11 |
 
 `agent-bios install` and `onboard` are interactive unless `--non-interactive` is explicit.
 Selection flags seed the UI, and a non-TTY default call fails before writes. Python
@@ -94,8 +95,9 @@ managed interpreter does not need to bootstrap again. The provisioner checks Pyt
 
 | CLI | Required by | Required capability | Verification |
 | --- | --- | --- | --- |
-| Claude Code | native Claude sessions and Claude worker/review routes | `--model`, `--effort`, `--agents`, per-call `--append-system-prompt`, `--session-id`, `--resume`, `--mcp-config`, `--plugin-dir`, and the selected permission mode; native global/project loading remains native | 2.1.268 · 2026-09-12 |
-| Codex CLI | `compose/instructions_session.py`, launcher and Codex worker/review adapters | per-call `-c`; cwd-aware `app-server --stdio` `config/read`; durable `thread/start`, `thread/inject_items`, `thread/read`; `codex resume`; `codex exec` and agent-config projection | local 0.153.4; isolated compatibility 0.154.0 · 2026-09-12 |
+| Claude Code | native Claude sessions, Claude worker/review routes and the session-distill driver's own calls (`session-distill/runlib/dispatch.py`) | `--model`, `--effort`, `--agents`, per-call `--append-system-prompt`, `--session-id`, `--resume`, `--mcp-config`, `--plugin-dir`, and the selected permission mode; native global/project loading remains native | 2.1.268 · 2026-09-12 |
+| Claude Code, hermetic profile | `wrappers/claude-run.sh --profile hermetic` and `wrappers/claude_hermetic_evidence.py` | `--safe-mode`, `--setting-sources ""`, `--strict-mcp-config`, `--disable-slash-commands`, `--tools`, `--allowedTools`, `--permission-mode dontAsk`, `--json-schema`, `--session-id`, `--append-system-prompt-file`, `--output-format stream-json --verbose --include-partial-messages`; login through `CLAUDE_CODE_OAUTH_TOKEN` (`--bare` reads no token); `CLAUDE_CODE_MAX_OUTPUT_TOKENS`; session transcripts under `CLAUDE_CONFIG_DIR/projects` in the record shapes the helper reads | 2.1.317 versioned binary · `--help` · 2026-11-04 (A-1 re-pin: six hermetic calls, record kinds measured; earlier 2.1.304 · 2026-10-21); the isolation effect of the flag set measured on 2.1.304 · 2026-10-20; the producing profile's `dontAsk` refusal not yet measured |
+| Codex CLI | `compose/instructions_session.py`, launcher, Codex worker/review adapters and the session-distill driver's own calls (`session-distill/runlib/dispatch.py`) | per-call `-c`; cwd-aware `app-server --stdio` `config/read`; durable `thread/start`, `thread/inject_items`, `thread/read`; `codex resume`; `codex exec` and agent-config projection | local 0.153.4; isolated compatibility 0.154.0 · 2026-09-12 |
 
 The Claude row reports the installed command version. The Codex row distinguishes the
 installed runtime from the newer isolated compatibility check. Native protocol and
@@ -224,6 +226,16 @@ Agent-bios does not install credentials or infer a model account from dependency
   `codex-helm.sh` and `claude-run.sh` from the selected package. Their command paths,
   binding, reach and fallback are declared in the launch contract. An unavailable or
   unauthenticated opposite-family route is reported, not credited as a completed review.
+- **Codex capture** — `codex-run --capture DIR` records one call's evidence through
+  `wrappers/codex_frame_filter.py` (standard-library Python 3), resolved beside the adapter.
+  It reads codex-cli's trace frames, which appear only under the caller's
+  `RUST_LOG=tungstenite::protocol=trace,codex_otel.log_only=info,codex_core::responses_retry=warn`;
+  the channel is unsupported and version-bound, so a capture without it attests no model. The
+  frame shape was verified on codex-cli 0.163.0; session distill pins 0.167.0 since 2026-11-12, and
+  its first 0.167.0 capture is what confirms the shape there. A capture refuses a codex whose
+  version is not `CODEX_RUN_VERSION` (`HOST_VERSION_MISMATCH`), and every exit the adapter takes
+  before it starts codex names its code (`codex-run: CODE ...`), which the distill driver records
+  as the call's `runner_refused`.
 <!-- mcp-inventory:start -->
 <!-- facts: {"bundlers": {"compose/app_desktop/server.py": ["compose/instructions_app.py"]}, "capabilities": [], "servers": ["compose/app_desktop/server.py"]} -->
 - **MCP servers** — derived from source by `gates/check-mcp-inventory.py`.
@@ -307,6 +319,8 @@ managed test environment, so it is not a read-only machine inventory:
 ```bash
 python3 gates/check-python-floor.py
 bash -n install.sh launch/provision-venv.sh wrappers/codex-run.sh wrappers/codex-helm.sh wrappers/claude-run.sh
+python3 wrappers/claude_hermetic_evidence.py --self-test
+python3 wrappers/codex_frame_filter.py --self-test
 zsh -n launch/agent-launch.zsh
 ./gates/check-parity.sh
 ```

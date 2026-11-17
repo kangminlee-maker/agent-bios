@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §4 (S4), §9, §7.4 (type G), D-20261020-71699d (the eight admission requirements): one formation over the window's events. Every event, claim, quote, session and cluster is named by the packet's own label of it (v, c, q, s, u), which code turns back into the stored id; a candidate and a rejected finding are named by labels the answer gives them (k, r). The partition of the events (each exactly once: a candidate's member, a rejected finding's, or a non-finding) and the type G anti-abstraction guard are checked by code (stage_form.answer_problems), which names what fails; this schema holds the shape.",
+  "title": "S4 formation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidates", "rejected_findings", "non_findings"],
+  "properties": {
+    "candidates": {"type": "array", "items": {"$ref": "#/$defs/candidate"}},
+    "rejected_findings": {"type": "array", "items": {"$ref": "#/$defs/rejected_finding"}},
+    "non_findings": {"type": "array", "items": {"$ref": "#/$defs/non_finding"}}
+  },
+  "$defs": {
+    "event": {"type": "string", "pattern": "^v[1-9][0-9]*(?![\\s\\S])"},
+    "event_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/event"}},
+    "candidate_event_ids": {
+      "$comment": "a candidate's events; code refuses an empty list except on a type G candidate distilled from a placed cluster, which cites that cluster's entries (CANDIDATE_WITHOUT_EVENTS; lead decision after X round 1, F2)",
+      "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/event"}},
+    "entry_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^u[1-9][0-9]*\\.[1-9][0-9]*(?![\\s\\S])"}},
+    "claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*(?![\\s\\S])"}},
+    "quote_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}},
+    "text": {"type": "string", "minLength": 1},
+    "requirement": {
+      "$comment": "what the candidate's claims and quotes show for one admission requirement; the judges mark it met or unmet later (design §6.4)",
+      "type": "object", "additionalProperties": false,
+      "required": ["basis", "claim_ids", "evidence_ids"],
+      "properties": {
+        "basis": {"$ref": "#/$defs/text"},
+        "claim_ids": {"$ref": "#/$defs/claim_ids"},
+        "evidence_ids": {"$ref": "#/$defs/quote_ids"}
+      }
+    },
+    "admission": {
+      "$comment": "D-20261020-71699d, purpose record 2026-10-20T1133 lines 45-67: all eight, each by its own name",
+      "type": "object", "additionalProperties": false,
+      "required": ["observed_event", "consequence", "causal_support", "recognizable_in_advance", "actionable", "bounded",
+                   "positioned", "audience"],
+      "properties": {
+        "observed_event": {"$ref": "#/$defs/requirement"},
+        "consequence": {"$ref": "#/$defs/requirement"},
+        "causal_support": {"$ref": "#/$defs/requirement"},
+        "recognizable_in_advance": {"$ref": "#/$defs/requirement"},
+        "actionable": {"$ref": "#/$defs/requirement"},
+        "bounded": {"$ref": "#/$defs/requirement"},
+        "positioned": {"$ref": "#/$defs/requirement"},
+        "audience": {"$ref": "#/$defs/requirement"}
+      }
+    },
+    "tension": {
+      "$comment": "design §7.4: a type G candidate carries both sides of the tension, the preference ordering, what it now forbids and at least three instances: three claims, or - distilled from a placed cluster - three distinct entries of the cluster it names, whatever claims are beside them (lead decision after X round 1, F2; X round 2, F1), which let it be proposed and do not establish three independent lineages, so its evidence bar stays held; code refuses one without them (G_ANTI_ABSTRACTION), and refuses any of them on another type, where every list is empty and every text \"\" (TENSION_OUTSIDE_G). cluster is the label of the ledger cluster a G candidate distills, or \"\".",
+      "type": "object", "additionalProperties": false,
+      "required": ["sides", "ordering", "forbids", "instance_claim_ids", "instance_entry_ids", "cluster"],
+      "properties": {
+        "sides": {"type": "array", "items": {"type": "string"}},
+        "ordering": {"type": "string"},
+        "forbids": {"type": "string"},
+        "instance_claim_ids": {"$ref": "#/$defs/claim_ids"},
+        "instance_entry_ids": {"$ref": "#/$defs/entry_ids"},
+        "cluster": {"type": "string", "pattern": "^(u[1-9][0-9]*)?(?![\\s\\S])"}
+      }
+    },
+    "candidate": {
+      "$comment": "design §4 (S4): situation / action / exception, the eight admission fields, type A-G (PLACEMENT-FRAMEWORK.md); lesson is the one-line cluster name, as the v1 consolidator wrote it, kept (plan WP-09 Files)",
+      "type": "object", "additionalProperties": false,
+      "required": ["candidate_id", "lesson", "type", "situation", "action", "exception", "admission", "event_ids", "tension"],
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^k[1-9][0-9]*(?![\\s\\S])"},
+        "lesson": {"$ref": "#/$defs/text"},
+        "type": {"type": "string", "enum": ["A", "B", "C", "D", "E", "F", "G"]},
+        "situation": {"$ref": "#/$defs/text"},
+        "action": {"$ref": "#/$defs/text"},
+        "exception": {"$ref": "#/$defs/text"},
+        "admission": {"$ref": "#/$defs/admission"},
+        "event_ids": {"$ref": "#/$defs/candidate_event_ids"},
+        "tension": {"$ref": "#/$defs/tension"}
+      }
+    },
+    "rejected_finding": {
+      "$comment": "design §9: a claim about what to do differently that fails an admission requirement at formation; it names each requirement it fails",
+      "type": "object", "additionalProperties": false,
+      "required": ["finding_id", "finding", "event_ids", "failed", "reason"],
+      "properties": {
+        "finding_id": {"type": "string", "pattern": "^r[1-9][0-9]*(?![\\s\\S])"},
+        "finding": {"$ref": "#/$defs/text"},
+        "event_ids": {"$ref": "#/$defs/event_ids"},
+        "failed": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "enum": [
+          "observed_event", "consequence", "causal_support", "recognizable_in_advance", "actionable", "bounded",
+          "positioned", "audience"]}},
+        "reason": {"$ref": "#/$defs/text"}
+      }
+    },
+    "non_finding": {
+      "$comment": "design §9: one of a fixed list of reasons; a duplicate names the event it duplicates, every other reason \"\", which code checks",
+      "type": "object", "additionalProperties": false,
+      "required": ["event_id", "reason", "duplicate_of"],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/event"},
+        "reason": {"type": "string", "enum": ["no_consequence", "routine_step", "duplicate_of_another_event"]},
+        "duplicate_of": {"type": "string", "pattern": "^(v[1-9][0-9]*)?(?![\\s\\S])"}
+      }
+    }
+  }
+}

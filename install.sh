@@ -629,11 +629,15 @@ install_capability() {
 
 handle_capabilities() {
   local requested="$1" name command line
+  # One requested name per line, split on commas and spaces as the loop below splits them,
+  # so `grep -qx` reads a here-string rather than a pipe (see the claude-run check in verify).
+  local nl=$'\n' requested_lines
+  requested_lines="${requested//[, ]/$nl}"
   # Fail on a typo rather than silently installing nothing.
   local known; known=$(capability_table | cut -f1)
   local want
   for want in ${requested//,/ }; do
-    printf '%s\n' "$known" | grep -qx "$want" || {
+    grep -qx "$want" <<<"$known" || {
       log "unknown --with capability: $want (known: $(printf '%s' "$known" | tr '\n' ' '))"; return 1; }
   done
   while IFS=$'\t' read -r name command line; do
@@ -644,7 +648,7 @@ handle_capabilities() {
       # the rename `--with ultracode` names the claude-backed reviewer — which needs no
       # install — while the tool the user probably meant stays missing and is only hinted
       # at further down. The request silently no-opped and install still exited 0.
-      if [ -z "$line" ] && printf '%s\n' "${requested//,/ }" | tr ' ' '\n' | grep -qx "$name"; then
+      if [ -z "$line" ] && grep -qx "$name" <<<"$requested_lines"; then
         log "note: $name needs no install (it is the host CLI); nothing was installed for it"
         local installable
         installable=$(capability_table | awk -F'\t' -v me="$name" '$1 != me && $3 != "" { print $1 }' | tr '\n' ' ')
@@ -652,7 +656,7 @@ handle_capabilities() {
       fi
       continue
     fi
-    if printf '%s\n' "${requested//,/ }" | tr ' ' '\n' | grep -qx "$name"; then
+    if grep -qx "$name" <<<"$requested_lines"; then
       [ -n "$line" ] && install_capability "$name" "$line" \
         || log "note: $name has no configured install line"
     elif [ -n "$line" ] && [ -t 0 ] && [ "$DRY_RUN" != 1 ]; then
@@ -814,14 +818,27 @@ cmd_install() {
   done
   codex_config_additions merge || exit 1
   deploy_file "$REPO/wrappers/codex-run.sh"  "$CODEX_DIR/bin/codex-run"  "+x"
+  # codex-run resolves its capture helper beside itself, so the helper lands in the same bin.
+  deploy_file "$REPO/wrappers/codex_frame_filter.py" "$CODEX_DIR/bin/codex_frame_filter.py"
+  # ...and the helper resolves the app-server client and its protocol check beside itself.
+  deploy_file "$REPO/wrappers/codex_protocol.py" "$CODEX_DIR/bin/codex_protocol.py"
   deploy_file "$REPO/wrappers/codex-helm.sh" "$CODEX_DIR/bin/codex-helm" "+x"
   # The claude-side adapter lands under CLAUDE_DIR for the same reason its codex twin
   # lands under CODEX_DIR: each is that host's, and a single shared bin would make the
   # two families' review routes indistinguishable from their install paths.
   deploy_file "$REPO/wrappers/claude-run.sh" "$CLAUDE_DIR/bin/claude-run" "+x"
+  # Its hermetic profile resolves this helper beside itself and nowhere else.
+  deploy_file "$REPO/wrappers/claude_hermetic_evidence.py" "$CLAUDE_DIR/bin/claude_hermetic_evidence.py"
+  # ...and that helper resolves the one JSONL splitter beside itself and nowhere else.
+  deploy_file "$REPO/wrappers/jsonl_lines.py" "$CLAUDE_DIR/bin/jsonl_lines.py"
   migrate_user_presets || exit 1   # must precede the deploy below, which overwrites profiles.toml
   deploy_file "$REPO/launch/agent-launch.toml" "$LAUNCH_DIR/profiles.toml"
   deploy_file "$REPO/launch/agent-launch.zsh"   "$LAUNCH_DIR/shell.zsh"
+  # The wrapper runs the subcommand lister it finds beside itself.
+  deploy_file "$REPO/launch/claude_subcommands.py" "$LAUNCH_DIR/claude_subcommands.py"
+  # The launcher below lands alone in BIN_DIR, so the lock helper it loads by path (the shared
+  # bounded wait) lands beside its config, where it looks when no package is beside itself.
+  deploy_file "$REPO/compose/host_platform.py"  "$LAUNCH_DIR/host_platform.py"
   # UI text catalogs: deploy-managed siblings of the config, one per language.
   # The launcher resolves them from the config path, so the deployed home is
   # $LAUNCH_DIR/i18n exactly as the checkout's is launch/i18n.
@@ -897,7 +914,7 @@ cmd_install() {
     info "[dry-run] project instructions-status"
   else
     local projection_log
-    projection_log="$(mktemp -t instructions-projection)"
+    projection_log="$(mktemp "${TMPDIR:-/tmp}/instructions-projection.XXXXXX")"
     if python3 "$REPO/compose/instructions-state.py" project --repo "$REPO" >"$projection_log" 2>&1; then
       info "instructions-status projected"
       rm -f "$projection_log"
@@ -1054,6 +1071,8 @@ cmd_verify() {
   verify_match "$REPO/launch/agent-launch.py" "$BIN_DIR/agent-launch"        || fail=1
   verify_match "$REPO/launch/agent-launch.toml" "$LAUNCH_DIR/profiles.toml"   || fail=1
   verify_match "$REPO/launch/agent-launch.zsh"  "$LAUNCH_DIR/shell.zsh"        || fail=1
+  verify_match "$REPO/launch/claude_subcommands.py" "$LAUNCH_DIR/claude_subcommands.py" || fail=1
+  verify_match "$REPO/compose/host_platform.py" "$LAUNCH_DIR/host_platform.py" || fail=1
   # Evidence, never a verdict: a shadow that was repaired is the mechanism working.
   shell_shadow_summary
   # Not `whence -v`: a function redefined at preexec carries no "from FILE" annotation,
@@ -1110,6 +1129,10 @@ PY
   # adapter would satisfy it by never running — a deploy target whose only check skips
   # itself when the deploy failed is not checked at all.
   verify_present "$CLAUDE_DIR/bin/claude-run" || fail=1
+  verify_present "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" || fail=1
+  verify_present "$CLAUDE_DIR/bin/jsonl_lines.py" || fail=1
+  verify_present "$CODEX_DIR/bin/codex_frame_filter.py" || fail=1
+  verify_present "$CODEX_DIR/bin/codex_protocol.py" || fail=1
   # Then WHICH version landed, because this file is on the panel's dispatch path now and
   # an older copy would dispatch reviews that quietly emit nothing. The earlier check
   # here asserted that an unpinned dispatch is refused; that guard was deliberately
@@ -1117,12 +1140,16 @@ PY
   # "the review did not run" — so asserting it would now fail against correct behaviour.
   # `--help` is the only probe that reaches no network: an unpinned run warns and then
   # dispatches for real.
+  # The help is captured before it is matched. Piped straight into `grep -q`, the match ends
+  # grep early, claude-run takes SIGPIPE writing the rest of its help, and under pipefail
+  # that exit reads as "no match" (gates/check-package.sh fails on the piped shape).
   if [ -x "$CLAUDE_DIR/bin/claude-run" ]; then
-    if "$CLAUDE_DIR/bin/claude-run" --help 2>/dev/null | grep -q 'REVIEW_RECEIPT_DIR'; then
-      info "claude-run is receipt-aware"
-    else
-      log "claude-run predates the receipt contract — reviews through it emit nothing"; fail=1
-    fi
+    local run_help
+    run_help="$("$CLAUDE_DIR/bin/claude-run" --help 2>/dev/null)" || true
+    case "$run_help" in
+      *REVIEW_RECEIPT_DIR*) info "claude-run is receipt-aware" ;;
+      *) log "claude-run predates the receipt contract — reviews through it emit nothing"; fail=1 ;;
+    esac
   fi
   local vpy="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}/bin/python"
   if [ -x "$vpy" ] && "$vpy" -c 'import textual' 2>/dev/null; then
@@ -1159,7 +1186,7 @@ PY
     # and the install-scenario harness each learned this after a failure cost an eleven-
     # minute re-run that came back green; verify is where a USER meets it, with no clone to
     # re-run from.
-    parity_log="$(mktemp -t verify-parity)"
+    parity_log="$(mktemp "${TMPDIR:-/tmp}/verify-parity.XXXXXX")"
     if "$REPO/gates/check-parity.sh" >"$parity_log" 2>&1; then
       info "repo mirror parity OK"; rm -f "$parity_log"
     else
@@ -1248,8 +1275,9 @@ cmd_uninstall() {
     # BACKUP_DIR is set only on the manifest path above.
     local p
     for p in "$CODEX_DIR/bin/codex-run" "$CODEX_DIR/bin/codex-helm" \
-             "$CLAUDE_DIR/bin/claude-run" \
-             "$LAUNCH_DIR/profiles.toml" "$LAUNCH_DIR/shell.zsh" "$BIN_DIR/agent-launch"; do
+             "$CLAUDE_DIR/bin/claude-run" "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" "$CLAUDE_DIR/bin/jsonl_lines.py" \
+             "$LAUNCH_DIR/profiles.toml" "$LAUNCH_DIR/shell.zsh" "$LAUNCH_DIR/claude_subcommands.py" \
+             "$BIN_DIR/agent-launch"; do
       [ -f "$p" ] && { run rm -f "$p"; [ "$DRY_RUN" = 1 ] || info "removed  $p"; }
     done
     # Skills: only the names the shipped tree carries, mirrored under each host's skills
@@ -1479,7 +1507,7 @@ cmd_onboard() {
   # onboarding prints a completed summary over a status file that never learned the
   # selection was applied. That is the state this whole change exists to remove, so it
   # cannot be the one still guarded by `|| true`.
-  record_log="$(mktemp -t instructions-record-apply)"
+  record_log="$(mktemp "${TMPDIR:-/tmp}/instructions-record-apply.XXXXXX")"
   if ! python3 "$REPO/compose/instructions-state.py" record-apply \
        --requested "$sel" --outcome applied >"$record_log" 2>&1; then
     log "ONBOARDING INCOMPLETE: the instructions applied, but recording that outcome failed —"
@@ -1646,7 +1674,7 @@ cmd_status() {
   zsh_found="$(zsh_hook_locations)"
   if [ -z "$zsh_found" ]; then
     info "zsh hook absent"
-  elif printf '%s\n' "$zsh_found" | grep -qxF "$ZSHRC"; then
+  elif grep -qxF "$ZSHRC" <<<"$zsh_found"; then
     info "zsh hook present  $(printf '%s' "$zsh_found" | tr '\n' ' ')"
   else
     # Present and working, but somewhere this installer will neither update nor remove.

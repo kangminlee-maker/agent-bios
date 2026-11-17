@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §5.2",
+  "title": "Coverage state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["transcripts", "pending_events", "backlog", "windows"],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0},
+    "ranges": {"type": "array", "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}},
+    "version": {
+      "$comment": "design §5.2",
+      "type": "object", "additionalProperties": false,
+      "required": ["sha", "record_count", "prefix_sha", "read", "processed"],
+      "properties": {
+        "sha": {"$ref": "#/$defs/sha256"},
+        "record_count": {"$ref": "#/$defs/count"},
+        "prefix_sha": {"$ref": "#/$defs/sha256"},
+        "read": {"$ref": "#/$defs/ranges"},
+        "processed": {"type": "object", "additionalProperties": false, "patternProperties": {"^.+$": {"$ref": "#/$defs/ranges"}}}
+      }
+    },
+    "window_flags": {
+      "$comment": "design §5.2",
+      "type": "object", "additionalProperties": false,
+      "required": ["accounted", "fully_read"],
+      "properties": {"accounted": {"type": "boolean"}, "fully_read": {"type": "boolean"}}
+    },
+    "pending_event": {
+      "$comment": "design §5.2: the id is the design's; the rest places the event for the run that stitches it",
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "transcript", "version", "window", "first_record"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "transcript": {"type": "string", "minLength": 1},
+        "version": {"$ref": "#/$defs/count"},
+        "window": {"type": "string", "minLength": 1},
+        "first_record": {"$ref": "#/$defs/count"}
+      }
+    },
+    "backlog_entry": {
+      "$comment": "design §5.2: the unread ranges are the design's; the rest says whose they are. status is the result that left them unread, or appended: records S1 found appended after their window was run (review c0fix r1 #1)",
+      "type": "object", "additionalProperties": false,
+      "required": ["transcript", "version", "window", "status", "unread"],
+      "properties": {
+        "transcript": {"type": "string", "minLength": 1},
+        "version": {"$ref": "#/$defs/count"},
+        "window": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "enum": ["read_partial", "failed", "deferred", "appended"]},
+        "unread": {"$ref": "#/$defs/ranges"}
+      }
+    }
+  },
+  "properties": {
+    "transcripts": {
+      "type": "object", "additionalProperties": false,
+      "patternProperties": {"^.+$": {
+        "type": "object", "additionalProperties": false, "required": ["versions"],
+        "properties": {"versions": {"type": "array", "items": {"$ref": "#/$defs/version"}}}}}
+    },
+    "pending_events": {"type": "array", "items": {"$ref": "#/$defs/pending_event"}},
+    "backlog": {"type": "array", "items": {"$ref": "#/$defs/backlog_entry"}},
+    "windows": {"type": "object", "additionalProperties": false, "patternProperties": {"^.+$": {"$ref": "#/$defs/window_flags"}}}
+  }
+}

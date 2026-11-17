@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §5.4 (stitching): after every window of a unit is read, one call receives the unit's pending events and the claims recorded after each, and answers once for every pending event - resolved with the claims and evidence records that show its outcome, or unresolved with none. Every id here is the packet's own label of an event, a claim or a quote it lists (WP-08b: v, c, q), which code turns back into the stored id; nothing is retyped.",
+  "title": "S3 unit stitch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["resolutions"],
+  "properties": {
+    "resolutions": {"type": "array", "items": {"$ref": "#/$defs/resolution"}}
+  },
+  "$defs": {
+    "claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*(?![\\s\\S])"}},
+    "quote_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}},
+    "resolution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["event_id", "outcome", "claim_ids", "evidence_ids"],
+      "properties": {
+        "event_id": {"type": "string", "pattern": "^v[1-9][0-9]*(?![\\s\\S])"},
+        "outcome": {"type": "string", "enum": ["resolved", "unresolved"]},
+        "claim_ids": {"$ref": "#/$defs/claim_ids"},
+        "evidence_ids": {"$ref": "#/$defs/quote_ids"}
+      }
+    }
+  }
+}

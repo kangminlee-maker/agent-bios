@@ -13,7 +13,7 @@ core_rules:
   - ledger가 상태의 SSOT다; pipeline을 건드리기 전에 먼저 읽는다
   - placement는 PLACEMENT-FRAMEWORK.md를 따른다, ad-hoc 판단은 쓰지 않는다
   - 모든 promotion은 명시적 사용자 승인 gate를 통과한다
-  - canonical always surface는 축소만 허용한다; 추가 내용은 guide, skill 또는 세션 주입에 둔다
+  - canonical always surface는 20 KiB까지만 허용한다; distill은 여기서 삭제와 병합만 제안하며, 추가할 내용은 guide, skill 또는 세션 주입에 둔다
   - window를 닫을 때 mirror, parity, 배포, nudge baseline을 갱신한다
 ---
 
@@ -60,7 +60,9 @@ core_rules:
    사용 주체에게 도달하는 기존 수단에 반영한다. 근거와 결정은 ledger에
    보존하고, 반영·검증된 내용과 미해결 사항을 보고한다. 검토 가능한
    제안과 적용된 변경은 서로 다른 결과이며, promotion에는 계속해서
-   명시적인 사용자 승인이 필요하다.
+   명시적인 사용자 승인이 필요하다. release 1에서는 드라이버가 이 중
+   어느 것도 반영하지 않는다: 승인된 library 변경은 작성자가 손으로 하는
+   일이다(Stage 2~5).
 
 성공은 유용하고 타당한 학습과 적절한 적용으로 판단한다. 후보 수나
 늘어난 문장의 양은 산출물의 분량을 나타낸다. 기존 내용을 유지한다는
@@ -76,21 +78,75 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 
 ## 다음으로 읽기 (SSOT)
 
-1. `design/session-distill/ledger.json` — initiative의 상태. 모든 item이 status(placed / incubating / incubating-G / absorbed / adopted-no-text)와 strength, provenance를 들고 있으므로 무엇이 열려 있고 무엇이 promote됐고 무엇이 아직 incubating인지는 전부 이 파일에 대한 query다. 상태는 여기서만 읽는다: 산문에 적힌 수치나 상태는 적은 날에만 맞고 그 뒤로는 조용히 틀린다.
+1. `design/session-distill/ledger.json` — initiative의 상태. WP-22 cutover 이후 schema 2다. entry의 `status`는 incubating / placed / adopted-no-text / absorbed / retired 중 하나이고, 이력은 `decisions[]`, 유형은 `classification.type`이다. 그래서 무엇이 열려 있고 무엇이 promote됐고 무엇이 아직 incubating인지는 전부 이 파일에 대한 query다. 상태는 여기서만 읽는다: 산문에 적힌 수치나 상태는 적은 날에만 맞고 그 뒤로는 조용히 틀린다. schema 1의 `verdict`, `strength`, `criteria`는 entry에서 사라졌다 — `criteria`는 `consequence.kinds`가 됐고, 떨어뜨린 값들은 날짜가 박힌 이행 기록에 적혀 있으며 파일에서는 되살릴 수 없다. ledger를 읽는 쪽은 `runlib/ledger.py`이고 스키마는 `session-distill/schemas/ledger.schema.json`이다.
 2. `design/session-distill/versions.json` — 닫힌 mining window와 해당 commit을 연결하는 저작 provenance. Private rollback은 instructions plan에서 설치된 `baseline_ref`를 선택하며, 이 registry가 그 선택의 기준은 아니다.
-3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — placement framework(typology A–G, layer, admission bar, lifecycle). 위치를 고를 때는 현재 `AGENTS.md`의 축소 전용 규칙과 `SURFACES.md`의 전달 계약을 적용한다. 이 framework가 global 증가를 허용하지는 않는다.
+3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — placement framework(typology A–G, layer, admission bar, lifecycle). 위치를 고를 때는 현재 `AGENTS.md`의 canonical always surface 상한과 `SURFACES.md`의 전달 계약을 적용한다. 이 framework가 global 파일에 내용을 추가하도록 허용하지는 않는다.
 
-## Stage 1 — Mine (pipeline in `session-distill/`)
+## Stage 1 — 드라이버를 실행한다 (`session-distill/distill.py`)
 
-현재 수집기는 Claude Code와 Codex의 세션 기록을 읽는다.
-순서대로 실행한다; 각 단계는 이전 단계의 `out/`을 읽는다:
+한 run, 한 run 디렉터리, stage마다 subcommand 하나. 여기 있던 v1 pipeline — 세션별 digest,
+batch, provider별 screener 둘, union, consolidation, bundle — 은 WP-22 cutover에서 삭제됐고
+드라이버가 그 자리를 대신한다. 모든 stage는 `<run root>/<run-id>/` 아래에 쓴다. run root는
+`--out`이고, 주지 않으면 드라이버가 XDG state 디렉터리로 해석한다. **이 checkout 안을 run
+root로 주면 거부된다** — `inventory`는 checkout을 무조건 보호하고, 아무것도 쓰기 전에
+`PROTECTED_OVERLAP`으로 끝낸다. 그것이 보호가 작동하는 모습이다: run은 소유자의 세션 기록
+복사본을 쓰고, 저장소는 그것을 둘 자리가 아니다. 그래서 `--out`을 주지 않고 드라이버가 XDG
+state 디렉터리를 해석하게 두거나, 보호된 어떤 root(checkout, 소유자 state root, `~/.claude`,
+`~/.codex`)에도 들지 않는 디렉터리를 준다.
 
-1. `census.py --end YYYY-MM-DD` — 두 provider의 history.jsonl에서 열거한다; transcript-side provenance(dispatched = Codex source=exec / Claude sidechain/sdk-cli/agentId)로 직접 처리된 main-context 세션만 남긴다.
-2. `digest.py` — 세션당 secret-redacted digest 하나에 deterministic 6-criteria signal을 담는다. 모든 digest를 screen한다; triage는 order를 매기되 버리지 않는다.
-3. `batch.py` — baseline blob(`claude/CLAUDE.md` + 모든 guide, 레포의 canonical instructions)과 provider별 batch를 만든다; screener가 `args`로 받는 `out/batch_index.json`을 쓴다.
-4. 그 baseline에 대한 provider-affine screening: `screen-claude.js`(Claude 세션; Workflow script — index를 `args`로 넘기고 batch당 WORKHORSE screener 하나)와 `screen-codex.py`(Codex 세션; batch당 hermetic read-only `codex exec` 하나, packet은 stdin). novelty는 memory가 아니라 real baseline text에 대해 판단한다. 이어서 `collect.py`가 두 출력을 `out/candidates-all.json`으로 합치고, provider의 screened set이 batch보다 작으면 실패한다.
-5. `consolidate.js`(Workflow; `args` = baseline, candidates 경로, 개수, ledger의 `{id, lesson}` 목록) — dedup과 독립적인 novelty 검증, 이어서 어떤 survivor가 기존 ledger entry의 재발인지 이름 붙이는 match pass. strength(recurrence × materiality)로 순위를 매기고, 자기 보고된 confidence로는 매기지 않는다. 반환값을 `out/consolidated.json`으로 저장한다.
-6. `bundle_final.py` — tiered bundle. `merge-ledger.py --window-end <date>`(dry-run; `--apply`가 쓴다)가 survivor를 `ledger.json`에 merge한다: 재발은 그 window의 세션을 `recurrence` 아래에 얻고, 새 lesson은 `candidate` entry가 된다 — 그래서 recurrence가 window를 가로질러 누적되고 incubated item은 재발생하면 promote된다.
+**S8을 뺀 모든 stage가 실행되며, 실행되지 않는 것은 대충 비슷한 일을 하는 대신 이름을 대고
+거부한다.** stderr에 `STAGE_NOT_IMPLEMENTED <command> (<stage>)`, 종료 코드 2.
+아래 표는 설계가 아니라 이 checkout이 오늘 하는 일이다:
+
+| Stage | 명령 | 오늘 |
+| --- | --- | --- |
+| S0 | `distill.py declare --run-id ID --from DECLARATION.json` | 실행된다; stage가 읽기 전까지는 `--set PATH=VALUE`로 고치고, 그 뒤에는 `--amend --reason TEXT` |
+| S1 | `distill.py census --run-id ID --coverage session-distill/local/coverage.json` | 실행된다; `--reconcile RESULTS.json`은 S3의 결과를 status와 coverage로 되돌려 접는다. `--coverage`는 마지막 periodic close가 올린 상태를 가리키고, declaration의 `starting_hashes.coverage`가 그 sha256을 고정한다(다르면 `COVERAGE_BASE_STALE`). 빼면 census는 추적되는 `session-distill/coverage.json`, 곧 periodic close가 한 번도 쓰지 않은 checkout의 빈 상태를 읽는다 |
+| S2 | `distill.py views --run-id ID` | 실행된다: 불변 복사본, redaction projection, window, 검색 index, evidence store |
+| S2 | `distill.py inventory --run-id ID --ledger design/session-distill/ledger.json` | 실행된다: reference point별 unit. ledger 경로는 부르는 쪽이 이름을 댄다 |
+| S3 | `distill.py read --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | 실행된다: 모든 window packet을 재고, 호출은 하지 않으며, record는 partial로 남는다 |
+| S3 | `distill.py read --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--tranche calibration] [--jobs N] [--golden-plan PLAN.json]` | 실행된다: window 읽기와 stitch를 supervisor를 거쳐 수행한다. live(token은 `CLAUDE_RUN_TOKEN_FILE`로만) 또는 plan을 준 golden |
+| S4 | `distill.py form --run-id ID --dry --checkout-ledger design/session-distill/ledger.json` | 실행된다: barrier, lifecycle intake, 한도에 맞춘 packet까지; record는 partial |
+| S4 | `distill.py form --run-id ID --cells DIR --checkout-ledger design/session-distill/ledger.json [--golden-plan PLAN.json]` | 실행된다: formation 호출 한 번. live(token은 `CLAUDE_RUN_TOKEN_FILE`로만) 또는 plan을 준 golden |
+| S5 | `distill.py retrieve --run-id ID --checkout-ledger design/session-distill/ledger.json` | 실행된다: 코드만으로 후보별 검색된 unit, lineage, check를 만들고 planted control을 함께 둔다 |
+| S5b | `distill.py deliver --run-id ID` | 실행된다: 코드만으로 (session, unit, decision)마다 그 unit이 전달됐는지 답한다. session을 하나도 가리키지 않는 후보의 짝은 따로 센다(`not_session_derived`) |
+| S6 | `distill.py judge --run-id ID --checkout-ledger design/session-distill/ledger.json --dry`, 그다음 `--dry` 대신 `--cells DIR [--golden-plan PLAN.json]`을 준 같은 명령 | 실행된다: 후보마다 judge 둘을 supervisor를 거쳐 부르고 derivation을 만든다 |
+| S7, S7b | `distill.py propose --run-id ID --checkout-ledger design/session-distill/ledger.json`에 `--dry`, `--cells DIR [--golden-plan PLAN.json]`, 또는 손에 든 답(`--answers ANSWERS.json`); 그다음 `distill.py review-proposals --run-id ID`에 `--dry`, `--cells DIR [--golden-plan PLAN.json]`, 또는 `--reviews REVIEWS.json` | 실행된다: S6가 받아들인 후보마다 proposal 하나를 받아 contract와, S11이 그 operation에서 거부할 것에 비춰 확인한다. 두 번째 seat가 모델이 쓴 proposal을 각각 검토한다. release 1에서는 library 파일을 바꾸게 될 proposal이나 대안이 이름을 걸고 거부된다(`RELEASE_1_NO_LIBRARY_CHANGE`) |
+| S8 | `distill.py test` | 거부되고, **release 1에서는 계속 거부된다: S8은 이름을 걸고 release 2로 미뤄졌다(D-20261111-818391).** 적용한 변경이 도움이 됐는지는 어떤 run도 시험하지 않는다. 시험 결과가 들어갈 row는 `untested: s8_deferred`라는 이름 붙은 상태를 가진다 |
+| S9, S9b | `distill.py render --run-id ID --checkout-ledger design/session-distill/ledger.json`, 그다음 `distill.py review-korean --run-id ID --cells DIR` | 실행된다: run 디렉터리에 한국어 검토 파일 `decisions.ko.v<n>.md`를 만들고, 그 한국어가 proposal과 일치하는지 확인한다. S8이 없으므로 순서는 judge와 S7b로 물러나고 header가 그 사실을 적는다. header는 S6 뒤에 심어 둔 대조군 중 몇 개가 기대한 판정을 받았는지도 적고, 그 평가는 `review.v<n>.json`에 기록된다. 어긋난 대조군은 보여 줄 뿐 실행을 멈추지 않는다(D-20261115-18d56b) |
+| S10, S10b | `distill.py parse-decisions --run-id ID`, `distill.py adjudicate --run-id ID --cells DIR`(소유자가 `판정`을 적었을 때), `distill.py confirm --run-id ID`, 그다음 `distill.py confirm --run-id ID --decide` | 실행된다: 소유자가 고친 사본에서 결정을 읽고, adjudication을 다시 계산하고, 최종 집합을 만들고, 소유자의 확인 줄을 읽는다. release 1에서는 library 파일을 바꾸는 항목이 든 최종 집합이 소유자가 확정하기 전에 이름을 걸고 거부된다 |
+| S11 | `distill.py apply --run-id ID` | 실행된다: **release 1에서는 library 파일을 하나도 쓰지 않는다(D-20261116-7853bc).** 변경이 든 확정 집합은 계획이나 쓰기 전에 이름을 걸고 거부되고(`RELEASE_1_NO_LIBRARY_CHANGE`), 아무 파일도 바꾸지 않는 집합은 그렇게 기록되며 명령은 출력하지 않는다. git도, installer도, personal layer도 건드리지 않는다 |
+| S12 | `distill.py close --run-id ID --checkout-ledger design/session-distill/ledger.json --checkout-coverage session-distill/local/coverage.json` | 실행된다: window와, 기존 ledger entry에 대한 결정을 checkout의 ledger에 기록하고(ledger entry가 없는 새 후보의 `none`은 ledger 줄을 만들지 않고 run의 `close.json`에만 남는다, F-40), periodic run이면 coverage 상태를 지정한 파일로 올린다. 명령에 적힌 대로, git이 무시하는 `session-distill/local/` 아래 파일을 지정한다: 이 상태는 session id로 키가 매겨지므로 git 밖에 둔다. periodic close에서 이 인자를 빼면 거부된다(`COVERAGE_UNNAMED`). 보고에는 S9가 기록한 대조군 평가가 그대로 실린다. process를 실행하지 않으며 소유자에게 남기는 일을 이름으로 적는다: commit, install, launcher 상태, version registry 줄. `--recovery`는 예약되어 있다 |
+
+**release 1의 run이 내놓는 것.** window에 대한 증거, 그에 대한 소유자의 검토, 소유자가 결정한 것의
+기록이다. **release 1은 library 파일을 바꾸지 않는다(D-20261116-7853bc).** 파일을 바꾸게 될 처리 -
+`place`, `correct`, `re-deliver`, `reduce` - 와 모든 operation은 S7과 S7b가 답을 받는 곳, S10b가
+최종 집합을 만드는 곳, S11이 항목을 가져가는 곳에서 이름을 걸고 거부된다(`RELEASE_1_NO_LIBRARY_CHANGE`).
+어떤 종류의 후보든 `keep`, `incubate`, `drop`, `none` 가운데 답이 남는다. 증거가 library 파일의 변경을
+뒷받침하면 proposal이 그 변경을 한국어 이유에 적어 소유자가 읽게 한다. 그 처리들을 다시 여는 일은
+release 1을 발행한 뒤의 쓰기 경로 재설계를 기다린다. 변경이 도움이 될지는 아무것도 시험하지 않는다:
+그것은 release 2의 S8이다. run은 선언된 checkout의 ledger(S12)와, periodic run이면 지정한 coverage
+파일을 바꾸며, commit과 install과 publish는 소유자가 한다.
+
+실행되는 stage가 실제로 실행된다는 증거는 드라이버 자신의 suite인
+`python3 session-distill/distill.py --self-test`(실제 파일 위에서 declare → stage → amend →
+stage)와 모듈 suite `python3 session-distill/runlib/<name>.py --self-test`다. 모듈 suite는
+패키지 사용자의 것이 아니라 checkout의 도구다.
+
+드라이버의 stage는 아니지만 여전히 실행되는 저자측 window 도구: `census.py`(v1 window
+census), `plain-asks.py`, `update-state.py --window-end <date>`(launcher의 nudge baseline).
+`migrate-ledger.py`는 ledger의 schema 1 → 2 이행이며, 한 번 수행하고 그 뒤로는 멱등이다.
+
+`merge-ledger.py`는 v1 window 흐름에 속하고 **이 workflow의 일부가 아니다.** 그것은 schema 1의
+필드 — 최상위 `window`, 항목별 `strength`와 `supporting_sessions` — 를 쓰는데 schema 2에는 그런
+필드가 없다. 그래서 이행된 ledger에 돌리면 schema가 더는 설명하지 않는 문서를 남긴다. 지금은
+schema 1이 아닌 ledger를 이름을 대고 거부한다(`LEDGER_SCHEMA_UNSUPPORTED`), 읽기도 쓰기도 전에.
+이행 뒤의 window는 lifecycle intake가 접어 넣는다.
+
+**Stage 2~5는 드라이버가 아니라 작성자가 직접 하는 일이다.** release 1에서 드라이버는 library 파일을
+바꾸지 않는다(D-20261116-7853bc). 소유자가 run의 발견으로 library를 바꾸기로 정하면, 작성자가 Stage 3에
+적힌 대로 손으로 바꾼다: branch에서, placement framework를 따라, 이 저장소의 다른 변경처럼 검증하고
+commit한다. run의 ledger에는 그 편집이 아니라 소유자의 결정이 기록된다.
 
 ## Stage 2 — Review with the user
 

@@ -18,8 +18,12 @@
 #
 # check-package.sh is cheap and guards the one failure class that is invisible
 # from a clone: a runtime path the installer reads but the npm payload omits.
-# check-parity.sh (~15s) owns everything else, each leg with its own --self-test.
+# check-parity.sh owns everything else, each leg with its own --self-test, and takes minutes:
+# AGENTS.md section 3 holds the measured figure and what bounds it.
 set -u
+# A self-test's stop-at-first-failure mode is for a person narrowing one failure. The gates below judge
+# every control, so a setting inherited from the committer's shell is dropped before either runs.
+unset AGENT_BIOS_SELF_TEST_STOP_AT_FIRST_FAILURE
 REPO="$(git rev-parse --show-toplevel)" || exit 1
 cd "$REPO" || exit 1
 # Ask git where its directory and index are rather than assuming `$REPO/.git` is a directory.

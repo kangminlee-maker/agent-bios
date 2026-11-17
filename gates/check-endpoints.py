@@ -92,6 +92,82 @@ URL_EXEMPT_STATIC = (
      frozenset({"www.w3.org"}), 1, "the SVG XML namespace is a format identifier, not a network endpoint"),
     ("learn/learning.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
      "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    # The schemas S5 and S6 added on the other history: each carries the same dialect pointer as its
+    # siblings, and the merge of the two branches is where they first meet this list.
+    ("session-distill/schemas/checks.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/cross_review.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/judge.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/sweep.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/reconsider.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/propose.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/approval.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/adjudication.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/confirmation.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/s9b.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/s7b.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/census.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/claim.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/coverage.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/event.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/evidence.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/expected_observation.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/form.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/intake.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/inventory.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/ledger.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/observation.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/read.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/run.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/stitch.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/runlib/validate.py", '"$schema": "https://json-schema.org/draft/2020-12/schema"',
+     frozenset({"json-schema.org"}), 1,
+     "the same dialect pointer inside the validator's own fixture document"),
+    # S5b's fixture check compiles one definition of a schema as a schema of its own, which names the dialect the
+    # file names; the merge of wp/11b-delivery with wp/20-review is where the line first meets this list
+    ("session-distill/runlib/stage_delivery.py", 'held["$schema"] = "https://json-schema.org/draft/2020-12/schema"',
+     frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer a compiled definition names, a namespace and not an endpoint"),
+    ("session-distill/runlib/validate.py", '"https://example.invalid/schema.json"',
+     frozenset({"example.invalid"}), 1,
+     "a planted unresolvable $ref: the control asserts the validator refuses a remote reference "
+     "rather than fetching it, and `.invalid` is reserved (RFC 2606) so nothing can answer"),
+    ("session-distill/runlib/dispatch.py", "subprocess.run(['curl', 'https://example.invalid/'])",
+     frozenset({"example.invalid"}), 1,
+     "the egress primitive this suite plants in a generated script to prove the closure refuses "
+     "it; a reserved name nothing can answer"),
+    ("session-distill/runlib/inventory.py", 'f"https://x-access-token:{github_token}@forge.test/',
+     frozenset({"x-access-token:{github_token}@forge.test"}), 1,
+     "a userinfo-bearing `.test` fixture remote. The host IS a reserved fixture label, but the "
+     "fixture regex's host class excludes `:` on purpose, so it cannot see one behind userinfo"),
+    ("session-distill/runlib/inventory.py", '"https://user:shortpass@fixture.test/',
+     frozenset({"user:shortpass@fixture.test"}), 1,
+     "the same shape with a password-looking userinfo: the unit under test is that neither the "
+     "userinfo nor the token reaches any artifact"),
     ("claude/guides/cli-multi-model-workflow.md", "Official basis",
      frozenset({"developers.openai.com", "learn.chatgpt.com", "code.claude.com"}),
      None, "provider documentation links on the guide's evidence line"),
@@ -137,8 +213,17 @@ def shipped_files(root):
     Returns (subjects, problems) — a derivation problem is a failure to report,
     never a smaller denominator."""
     package = json.loads((root / "package.json").read_text(encoding="utf-8"))
+    # Compiled bytecode is not shipped and is not a subject. `.npmignore` excludes
+    # `**/__pycache__/` and `*.pyc`, and the private installer skips them when it expands a
+    # directory entry, so a `.pyc` in the worktree is a local artifact of running the code — which
+    # this repo does constantly, `session-distill/runlib/` most of all. Scanning one read its
+    # compiled constants as shipped prose and reported URLs inside a cache file, and because the
+    # `urls` leg then failed in EVERY mutated copy, fourteen of this gate's own planted violations
+    # stopped proving what they declare. The exclusion is derived from the two places that already
+    # agree, not invented here.
     tracked = sorted(str(p.relative_to(root)) for p in root.rglob("*")
-                     if p.is_file() and ".git/" not in str(p.relative_to(root)))
+                     if p.is_file() and ".git/" not in str(p.relative_to(root))
+                     and p.suffix != ".pyc" and "__pycache__" not in p.parts)
     return _load_hygiene().derive_subjects(root, package, tracked)
 
 
@@ -827,12 +912,10 @@ def leg_wire(root):
         mark = len(seen)
         cli_home = home_env / "cli-home"
         cli_home.mkdir()
-        cli_env = dict(os.environ)
-        cli_env["CLAUDE_CONFIG_DIR"] = str(cli_home)
         # The subprocess resolves its slot from $HOME; pointing that at the
         # scratch tree is how the shipped CLI reaches the loopback server
         # without this process mutating its own environment.
-        cli_env["HOME"] = str(home_env)
+        cli_env = probe_environ(home_env, cli_home)
         # Through `install.sh learn` on plain stdin — the SHIPPED entry,
         # plumbing included: install.sh parks the caller's stdin on fd 3 itself
         # and cmd_learn reads it back, so a `<&3` regression breaks the real
@@ -866,9 +949,7 @@ def leg_wire(root):
         # how a probe passes while the defect it names is live.
         egress_cli_home = home_env / "no-slot-cli-home"
         plant_legacy_decoy(egress_cli_home / "hooks", f"http://127.0.0.1:{port}")
-        egress_env = dict(os.environ)
-        egress_env["CLAUDE_CONFIG_DIR"] = str(egress_cli_home)
-        egress_env["HOME"] = str(egress_home)
+        egress_env = probe_environ(egress_home, egress_cli_home)
         # Both hosts. A Claude-only probe leaves the same bypass open on the
         # Codex path, and the two hosts resolve their config home differently —
         # which is exactly where a host-specific fallback would live.
@@ -920,6 +1001,16 @@ def plant_legacy_decoy(hooks_dir, url):
     (hooks_dir / "token").write_text("decoy\n", encoding="utf-8")
     (hooks_dir / "dashboard-url").write_text(url + "\n", encoding="utf-8")
     (hooks_dir / "ingest-url").write_text(url + "\n", encoding="utf-8")
+
+
+def probe_environ(home, config_home):
+    """The environment the CLI probes start the shipped `learn` with: this process's own minus every
+    `AGENT_BIOS_*` and `CODEX_HOME`, with HOME and both hosts' config homes set to the probe's scratch tree.
+    Copied whole, an inherited AGENT_BIOS_CORPUS_DIR (or INSTRUCTIONS_DIR, STATE_DIR) pointed `learn` at the
+    caller's own corpus queue, and an inherited CODEX_HOME sent the codex run past the decoy planted for it."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("AGENT_BIOS_") and k != "CODEX_HOME"}
+    env.update(HOME=str(home), CLAUDE_CONFIG_DIR=str(config_home), CODEX_HOME=str(config_home))
+    return env
 
 LEG_ORDER = ("anchors", "default", "hooks", "urls", "wire")
 CHEAP_LEGS = ("anchors", "default", "hooks", "urls")
@@ -1727,7 +1818,7 @@ def _self_test_body(base):
     # not in transport_config) and to m68 (it is not in drain_uploads), so only
     # the shipped-command probe can see it.
     root = _copy_tree(base / "m76")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'dashboard-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1735,7 +1826,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     ok &= _expect("the shipped command configures itself from ambient state", root,
                   "zero egress is broken on the real path", legs=("wire",))
 
@@ -1767,7 +1858,7 @@ def _self_test_body(base):
     # before both fixtures shared one planter this bypass passed the gate AND
     # its self-test.
     root = _copy_tree(base / "m78")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'ingest-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1775,7 +1866,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     ok &= _expect("a CLI-layer fallback reads the ingest-url locator", root,
                   "zero egress is broken on the real path", legs=("wire",))
 
@@ -1814,7 +1905,7 @@ def _self_test_body(base):
     # falls through to the generic "not by name" path, which this assertion
     # refuses to accept.
     root = _copy_tree(base / "m79")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'ingest-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1822,7 +1913,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     swallowed = _io.StringIO()
     with _ctx.redirect_stderr(swallowed):
         accepted = _expect("meta: right reach, needle nothing says", root,
@@ -1837,6 +1928,39 @@ def _self_test_body(base):
               "control, but not for the per-leg reason — the rejection came from "
               f"the generic path, so the per-leg rule is unproven: "
               f"{swallowed.getvalue()[:200]!r}", file=sys.stderr)
+        ok = False
+
+    # The CLI probes' environment, judged through the real call sites: with an AGENT_BIOS_* root and
+    # CODEX_HOME planted in this process's environment, no `install.sh learn` the wire leg starts may carry
+    # them, and none of the planted directories may come into being. The positive term: the leg ran its learn
+    # probes at all (three: one wire dispatch, two zero-egress hosts) and passed.
+    import subprocess as _sp
+    planted = {"AGENT_BIOS_CORPUS_DIR": base / "planted-corpus", "AGENT_BIOS_INSTRUCTIONS_DIR": base / "planted-user",
+               "AGENT_BIOS_STATE_DIR": base / "planted-state", "CODEX_HOME": base / "planted-codex-home"}
+    saved = {name: os.environ.get(name) for name in planted}
+    real_run, learn_envs = _sp.run, []
+
+    def recording_run(argv, *args, **kwargs):
+        if isinstance(argv, list) and "learn" in argv:
+            learn_envs.append(dict(kwargs.get("env") or os.environ))
+        return real_run(argv, *args, **kwargs)
+    os.environ.update({name: str(path) for name, path in planted.items()})
+    _sp.run = recording_run
+    try:
+        wire_problems, _ = leg_wire(clean)
+    finally:
+        _sp.run = real_run
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+    reached = sorted({name for env in learn_envs for name, path in planted.items() if env.get(name) == str(path)}
+                     | {name for name, path in planted.items() if path.exists()})
+    if len(learn_envs) != 3 or reached or wire_problems:
+        print("check-endpoints --self-test: FAIL: a CLI probe inherited the caller's AGENT_BIOS_* or CODEX_HOME: "
+              f"{len(learn_envs)} learn runs (3 expected), reached {reached}, wire problems "
+              f"{[p[:120] for p in wire_problems]}", file=sys.stderr)
         ok = False
 
     if not ok:

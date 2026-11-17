@@ -1,0 +1,20 @@
+realization: replay (probe 9, codex-cli 0.163.0 against the probe's local fault injector)
+source: distill-probes-20261020/codex-accounting (outside the repository)
+SHA256SUMS: codex-accounting/SHA256SUMS (sha256 e1779a27b0d07ee0d1bda33792b195f75f8fe256d3071bb2151b34c18e5039a5)
+read (sha256 as listed in SHA256SUMS and verified at copy time):
+  raw/f-normal-ws/frames.jsonl  9d6bcf805b1ef8c12aebf81b590ea310f53abd3b29e7a65dbf7bdad5957a8b44
+  raw/f-normal-ws/events.jsonl  bd2b7711b8499a12480326f77ad0c6f1736646cfa8be983fe2c00310993af188
+projection:
+  frames.jsonl: a channels record naming the channels whose records the probe's reduction kept (frames, otel;
+    the probe's RUST_LOG also opened codex_core, but its reduction kept no warning line), then each record of
+    the recording reduced to wrappers/codex_frame_filter.py's allow-list: the root thread; client
+    response.create turn metadata; server frames carrying a response (RESP_KEYS, reasoning effort, token
+    counts), rate-limit, error and refusal frames; otel request, websocket and codex.sse_event
+    created/completed rows (OTEL_KEYS); every other record dropped
+  events.jsonl: each --json event passed through wrappers/codex_frame_filter.py reduce_event(): the
+    thread.started thread id, turn.started, turn.completed's integer usage counts, and the type alone
+    of turn.failed and top-level error events (no message); item events dropped
+golden variant: the codex_run leg's mixed-coverage control appends this recording's first otel
+  completion on a second thread. No retained mixed-coverage recording exists (plan WP-04 done-when 4,
+  line 482, names one); a retained recording replaces this variant when WP-04v or the rehearsal
+  produces one (addendum 2026-10-21T1752--4ca7c8a--plan-addendum-wp04.md)

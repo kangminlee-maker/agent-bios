@@ -59,6 +59,17 @@ import types
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
+# The payload owns which `files[]` negations exist and what counts as bytecode; this scan applies
+# them rather than keeping a second copy, so the two cannot drift into hiding a packed file
+# (review Y r2 #2). Author-side imports shipped, never the reverse.
+sys.path.insert(0, str(REPO / "compose"))
+try:
+    from instructions_install import negation_supported
+    from instructions_install import _is_bytecode as is_bytecode
+except ImportError as exc:                                   # pragma: no cover - a broken checkout
+    sys.exit(f"check-hygiene: cannot read the payload's negation rule — {exc}. "
+             f"compose/instructions_install.py owns it, and this gate keeps no second copy")
+
 PRIVATE_MARKER = "(private)"
 
 # The wrapper's own exact token — the ONLY day1 form the bare pattern tolerates.
@@ -225,6 +236,36 @@ def _ls_files(root: pathlib.Path, prefix: str = "") -> list:
     return [line for line in proc.stdout.splitlines() if line]
 
 
+def _exclusion_regex(pattern: str):
+    """One negated `files[]` entry as a regex over a POSIX path, in npm's own terms.
+
+    `**/` is any number of directories and `*` stops at a separator. Every pattern is ROOT-ANCHORED,
+    which is npm 12's glob expansion: `*.pyc` names a compiled file beside `package.json` and not one
+    three directories down, and the any-depth form is spelled `**/*.pyc`. It read as the gitignore
+    basename convention here until review Y r2 #2 held it against npm's own behaviour. Written out
+    rather than handed to `fnmatch`, whose `*` crosses separators: `**/__pycache__/**` under
+    fnmatch's `*` matched every path in the tree and emptied the subject set."""
+    pat = pattern.strip("/")
+    out, i = [], 0
+    while i < len(pat):
+        if pat.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif pat.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif pat[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif pat[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(pat[i]))
+            i += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
 def derive_subjects(root: pathlib.Path, package: dict, tracked: list) -> tuple:
     """(subjects, problems) — pure, so the self-test can plant derivation holes."""
     problems = []
@@ -248,6 +289,31 @@ def derive_subjects(root: pathlib.Path, package: dict, tracked: list) -> tuple:
     for key in ("main", "browser"):   # both probed force-included, 2026-08-20
         if isinstance(package.get(key), str):
             subjects.add(package[key])
+    # npm's negated entries are EXCLUSIONS, and they are the only rule npm honours once `files[]`
+    # exists (it nulls the root `.npmignore`). They are applied here, so this derivation — which the
+    # endpoint gate imports rather than re-modelling — says what the tarball actually carries.
+    #
+    # Only the negations the PAYLOAD supports, which are bytecode (`compose/instructions_install.py`
+    # owns the list). An unsupported one is reported and NOT applied: npm force-includes README,
+    # LICENSE, bin and main whatever files[] says, so `!README.md` dropped README from this scan and
+    # from the endpoint scan while the tarball still carried it, and a forbidden identifier and a
+    # live endpoint inside it became invisible (review Y r2 #2). Reporting without applying is the
+    # safe direction — a subject too many is a false finding a person reads, a subject too few is a
+    # leak nobody sees.
+    unsupported = [entry for entry in entries
+                   if isinstance(entry, str) and entry.startswith("!") and not negation_supported(entry)]
+    for entry in unsupported:
+        problems.append(
+            f"files[] negation {entry!r} is not one the payload supports (compose/"
+            f"instructions_install.py SUPPORTED_NEGATIONS names compiled Python only), so this scan "
+            f"keeps the paths it would have excluded; gates/check-package.sh refuses it by name"
+        )
+    exclusions = [_exclusion_regex(entry[1:]) for entry in entries
+                  if isinstance(entry, str) and entry.startswith("!") and negation_supported(entry)]
+    entries = [entry for entry in entries
+               if not (isinstance(entry, str) and entry.startswith("!"))]
+    if not entries:
+        return [], ["package.json files[] declares only exclusions, so no subject set can be derived"]
     for entry in entries:
         if any(char in entry for char in "*?["):
             problems.append(
@@ -274,6 +340,19 @@ def derive_subjects(root: pathlib.Path, package: dict, tracked: list) -> tuple:
                 f"never saw, or ship nothing where the manifest promises a file"
             )
     subjects.update(name for name in tracked if name.startswith("ko/"))
+    if exclusions:
+        excluded = {name for name in subjects if any(rx.match(name) for rx in exclusions)}
+        # The second half of the same rule: a supported negation can only take BYTECODE out. If one
+        # ever matches anything else, the subject stays and the mismatch is reported, so no path can
+        # leave this scan silently however the patterns are written.
+        kept = sorted(name for name in excluded if not is_bytecode(name))
+        for name in kept[:5]:
+            problems.append(
+                f"a files[] negation excludes {name!r}, which is not compiled Python; the subject "
+                f"is kept, because an exclusion that drops a real payload file hides its content "
+                f"from this scan"
+            )
+        subjects = subjects - (excluded - set(kept))
     # A derived subject absent from the worktree is a named failure, not a
     # silent shrink of the denominator (round 2, #0).
     missing = sorted(name for name in subjects if not (root / name).is_file())
@@ -612,6 +691,61 @@ def self_test() -> int:
         _, problems = derive_subjects(REPO, holed, tracked)
         if not any("no-such-file.js" in p for p in problems):
             fail("self-test: a files[] entry shipping nothing was not refused by name")
+        # npm 12 expands a files[] glob ROOT-RELATIVE, so `*.pyc` names a compiled file beside
+        # package.json and the any-depth form is `**/*.pyc`. This read as gitignore's basename
+        # convention, which matches at every depth (review Y r2 #2).
+        if _exclusion_regex("*.pyc").match("compose/__pycache__/pkgid.cpython-314.pyc"):
+            fail("self-test: an unqualified files[] negation matched at depth; npm expands it "
+                 "root-relative, so a pattern this scan reads more widely than npm would drop "
+                 "subjects the tarball carries")
+        if not _exclusion_regex("*.pyc").match("pkgid.pyc"):
+            fail("self-test: a root-relative negation did not match the root file it names")
+        if not _exclusion_regex("**/*.pyc").match("compose/__pycache__/pkgid.cpython-314.pyc"):
+            fail("self-test: the any-depth negation spelling did not match at depth")
+        # review Y r2 #2: a negation naming anything but bytecode must not take a subject out of
+        # this scan. npm force-includes README whatever files[] says, so `!README.md` left a
+        # forbidden identifier and a live endpoint inside a packed file with nothing scanning it.
+        negated = dict(package, files=list(package["files"]) + ["!README.md"])
+        kept_subjects, problems = derive_subjects(REPO, negated, tracked)
+        if "README.md" not in kept_subjects:
+            fail("self-test: an unsupported files[] negation removed README.md from the subject set, "
+                 "so content npm still ships would go unscanned")
+        if not any("!README.md" in p and "not one the payload supports" in p for p in problems):
+            fail(f"self-test: an unsupported files[] negation was not reported by name: {problems[:2]}")
+        # And the supported ones still exclude: bytecode is the author's, never a subject.
+        #
+        # The path and the file are both load-bearing, and this control had neither. It named
+        # `compose/__pycache__/pkgid.cpython-314.pyc`, and `compose`'s files are listed one by one,
+        # so no files[] entry covers that path; it also named a file nobody has, and this derivation
+        # ends by dropping any subject that is not a file in the worktree. The cache was absent for
+        # two reasons that are not the negation rule, and replacing that rule with `pass` left this
+        # assertion passing (WP-22a). So: real files, planted under a DIRECTORY entry, and a second
+        # control proving the path is a candidate at all.
+        cache_dir = REPO / "session-distill" / "runlib" / "__pycache__"
+        bytecode = "session-distill/runlib/__pycache__/pkgid.cpython-314.pyc"
+        existed = cache_dir.is_dir()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            (REPO / bytecode).write_bytes(b"\x00\x0c\r\n")
+            with_cache, problems = derive_subjects(REPO, package, tracked + [bytecode])
+            if bytecode in with_cache:
+                fail("self-test: a compiled Python file entered the subject set, which the files[] "
+                     "negations exist to keep out of the tarball")
+            if any(bytecode in p for p in problems):
+                fail(f"self-test: excluding bytecode was reported as a problem: {problems[:2]}")
+            # The vacuity guard: the SAME path, derived with the negations taken out. It must come
+            # back a subject, or the exclusion above is the work of something else — which is
+            # exactly what the old spelling of this control could not tell.
+            without = dict(package, files=[entry for entry in package["files"]
+                                           if not (isinstance(entry, str) and entry.startswith("!"))])
+            candidate, _ = derive_subjects(REPO, without, tracked + [bytecode])
+            if bytecode not in candidate:
+                fail("self-test: the planted cache is not a subject even with no negation in "
+                     "files[], so the control above proves nothing about the negation rule")
+        finally:
+            (REPO / bytecode).unlink(missing_ok=True)
+            if not existed:
+                shutil.rmtree(cache_dir, ignore_errors=True)
         globbed = dict(package, files=list(package["files"]) + ["docs/*.md"])
         _, problems = derive_subjects(REPO, globbed, tracked)
         if not any("glob" in p for p in problems):

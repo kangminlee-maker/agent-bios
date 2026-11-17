@@ -1,0 +1,398 @@
+{
+ "$comment": "design §12.3: one frozen fixture per allowed cell of tables/transitions.json, written once by `runlib/ledger.py --generate-transition-fixtures`; the self-test never regenerates them.",
+ "fixtures": [
+  {
+   "id": "absorbed_retired/drop",
+   "row": "absorbed_retired",
+   "disposition": "drop",
+   "before": "retired",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": []
+   }
+  },
+  {
+   "id": "absorbed_retired/incubate",
+   "row": "absorbed_retired",
+   "disposition": "incubate",
+   "before": "retired",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "incubating",
+    "effects": [
+     "revival"
+    ]
+   }
+  },
+  {
+   "id": "absorbed_retired/none",
+   "row": "absorbed_retired",
+   "disposition": "none",
+   "before": "retired",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": []
+   }
+  },
+  {
+   "id": "absorbed_retired/place",
+   "row": "absorbed_retired",
+   "disposition": "place",
+   "before": "retired",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "placed",
+    "effects": [
+     "revival"
+    ]
+   }
+  },
+  {
+   "id": "incubating/correct",
+   "row": "incubating",
+   "disposition": "correct",
+   "before": "incubating",
+   "updates": {
+    "lesson": "a revised lesson"
+   },
+   "after": {
+    "new_entry": false,
+    "status": "incubating",
+    "effects": [
+     "text_revised"
+    ]
+   }
+  },
+  {
+   "id": "incubating/drop",
+   "row": "incubating",
+   "disposition": "drop",
+   "before": "incubating",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "retired",
+    "effects": []
+   }
+  },
+  {
+   "id": "incubating/incubate",
+   "row": "incubating",
+   "disposition": "incubate",
+   "before": "incubating",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "incubating",
+    "effects": [
+     "expiry_renewed"
+    ]
+   }
+  },
+  {
+   "id": "incubating/none",
+   "row": "incubating",
+   "disposition": "none",
+   "before": "incubating",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": []
+   }
+  },
+  {
+   "id": "incubating/place",
+   "row": "incubating",
+   "disposition": "place",
+   "before": "incubating",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "placed",
+    "effects": []
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/correct",
+   "row": "no_entry_existing_unit",
+   "disposition": "correct",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "placed",
+    "effects": []
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/drop",
+   "row": "no_entry_existing_unit",
+   "disposition": "drop",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "placed",
+    "effects": [
+     "dropped_intervention"
+    ]
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/incubate",
+   "row": "no_entry_existing_unit",
+   "disposition": "incubate",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "placed",
+    "effects": [
+     "pending_intervention"
+    ]
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/keep",
+   "row": "no_entry_existing_unit",
+   "disposition": "keep",
+   "before": null,
+   "updates": {
+    "keep": {
+     "units": [
+      "unit-1"
+     ]
+    }
+   },
+   "after": {
+    "new_entry": true,
+    "status": "placed",
+    "effects": [
+     "keep_record"
+    ]
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/none",
+   "row": "no_entry_existing_unit",
+   "disposition": "none",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": null,
+    "effects": []
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/re-deliver",
+   "row": "no_entry_existing_unit",
+   "disposition": "re-deliver",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "placed",
+    "effects": []
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/reduce_delete",
+   "row": "no_entry_existing_unit",
+   "disposition": "reduce_delete",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "retired",
+    "effects": []
+   }
+  },
+  {
+   "id": "no_entry_existing_unit/reduce_merge",
+   "row": "no_entry_existing_unit",
+   "disposition": "reduce_merge",
+   "before": null,
+   "updates": {
+    "absorbed_by": "G-0"
+   },
+   "after": {
+    "new_entry": true,
+    "status": "absorbed",
+    "effects": [
+     "allocate_destination_entry"
+    ]
+   }
+  },
+  {
+   "id": "no_entry_new_learning/drop",
+   "row": "no_entry_new_learning",
+   "disposition": "drop",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "retired",
+    "effects": [
+     "never_placed"
+    ]
+   }
+  },
+  {
+   "id": "no_entry_new_learning/incubate",
+   "row": "no_entry_new_learning",
+   "disposition": "incubate",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "incubating",
+    "effects": []
+   }
+  },
+  {
+   "id": "no_entry_new_learning/none",
+   "row": "no_entry_new_learning",
+   "disposition": "none",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": null,
+    "effects": []
+   }
+  },
+  {
+   "id": "no_entry_new_learning/place",
+   "row": "no_entry_new_learning",
+   "disposition": "place",
+   "before": null,
+   "updates": {},
+   "after": {
+    "new_entry": true,
+    "status": "placed",
+    "effects": []
+   }
+  },
+  {
+   "id": "placed/correct",
+   "row": "placed",
+   "disposition": "correct",
+   "before": "placed",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": []
+   }
+  },
+  {
+   "id": "placed/drop",
+   "row": "placed",
+   "disposition": "drop",
+   "before": "placed",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": [
+     "dropped_intervention"
+    ]
+   }
+  },
+  {
+   "id": "placed/incubate",
+   "row": "placed",
+   "disposition": "incubate",
+   "before": "placed",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": [
+     "pending_intervention"
+    ]
+   }
+  },
+  {
+   "id": "placed/keep",
+   "row": "placed",
+   "disposition": "keep",
+   "before": "placed",
+   "updates": {
+    "keep": {
+     "units": [
+      "unit-1"
+     ]
+    }
+   },
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": [
+     "keep_record"
+    ]
+   }
+  },
+  {
+   "id": "placed/none",
+   "row": "placed",
+   "disposition": "none",
+   "before": "placed",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": []
+   }
+  },
+  {
+   "id": "placed/re-deliver",
+   "row": "placed",
+   "disposition": "re-deliver",
+   "before": "placed",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "unchanged",
+    "effects": []
+   }
+  },
+  {
+   "id": "placed/reduce_delete",
+   "row": "placed",
+   "disposition": "reduce_delete",
+   "before": "placed",
+   "updates": {},
+   "after": {
+    "new_entry": false,
+    "status": "retired",
+    "effects": []
+   }
+  },
+  {
+   "id": "placed/reduce_merge",
+   "row": "placed",
+   "disposition": "reduce_merge",
+   "before": "placed",
+   "updates": {
+    "absorbed_by": "G-0"
+   },
+   "after": {
+    "new_entry": false,
+    "status": "absorbed",
+    "effects": [
+     "absorbed_by",
+     "receiver_merge_decision"
+    ]
+   }
+  }
+ ]
+}

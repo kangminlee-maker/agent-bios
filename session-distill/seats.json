@@ -1,0 +1,149 @@
+{
+  "$comment": "The hosts distill dispatches to, pinned per host version: the versioned binary (plan P2: the file itself, never a symlink an update moves), the flag set of each runner profile (its sha256 is what a receipt and a capture must carry; `wrappers/claude-run.sh` sends `hermetic` for `--use judge|authoring` and `hermetic-producing` for `--use producing`, whose manifest directory is hashed as `<manifest>`), and `context`, what the host loads by itself under a profile, which dispatch.py declares in every call's manifest (codex-cli's built-in skills, as codex-run's capture records them by name: wrappers/codex_frame_filter.py, WP-04), and the auxiliary roles a host runs beside the declared seat (design §3.2 step 2, plan S-7). Read by runlib/gate.py (flag-set hash, auxiliary roles) and runlib/dispatch.py (pinned paths). An auxiliary role is accepted only in a call's closing aggregate, never as a main or child response, and for a live call only once `measured` is true (gate.auxiliary_models); a provisional entry serves replayed and golden captures. The request kind an auxiliary role serves is added by preflight (WP-23) together with the check that reads it. `stage_seats` pins each model stage's seats from design §4's stage table (the defaults a run may use without declaring them; run.json seats add to them), read by dispatch.py, which refuses a seat neither names for the call's stage. `host_allowance` is the host's own share of a view-window request, per host version and runner profile (the input-bound amendment of 2026-10-21): preflight (WP-23) measures it; a slot preflight has not measured is unmeasured, and dispatch.py refuses a view-window call that needs it; the Claude hermetic slot was measured live in WP-03v. Everything measured or observed for a host is valid at the version it was established at, and says which: a measured host allowance its `measured_version`, a profile's `context` its `observed_version` (or `carried`, with the basis for carrying it to the pinned version until a capture observes it), a seat capacity its `host_version`. A version move takes each of them with it: re-measure it, mark it unmeasured, or declare it carried. gate.seats_problems holds the file to that, and to a pinned path that names its version.",
+  "schema": "DistillSeats/v1",
+  "hosts": {
+    "claude": {
+      "version": "2.1.317",
+      "path": "~/.local/share/claude/versions/2.1.317",
+      "profiles": {
+        "hermetic": [
+          "--safe-mode",
+          "--setting-sources",
+          "",
+          "--strict-mcp-config",
+          "--disable-slash-commands",
+          "--tools",
+          ""
+        ],
+        "hermetic-producing": [
+          "--safe-mode",
+          "--setting-sources",
+          "",
+          "--strict-mcp-config",
+          "--disable-slash-commands",
+          "--tools",
+          "Read",
+          "--allowedTools",
+          "Read(//<manifest>/**)",
+          "--permission-mode",
+          "dontAsk"
+        ]
+      },
+      "auxiliary": [
+        {
+          "model": "claude-haiku-4-5",
+          "measured": false,
+          "basis": "provisional: the auxiliary model this host was seen to run beside a declared seat before this file declared it; preflight (WP-23) measures the roles per host version and replaces this entry"
+        }
+      ],
+      "host_allowance": {
+        "hermetic": {
+          "allowance_tokens": 3795,
+          "measured": true,
+          "measured_version": "2.1.317",
+          "basis": "A-1 re-pin 2026-11-04 (WP-08 commit 6): observed main-request input tokens, max over 5 hermetic judge calls through dispatch (claude 2.1.317, claude-sonnet-5-5/high, stage S3, structured output; 3795, 3784, 3784, 3784, 3794); includes the packet, so it overstates the host's share. WP-03v measured 3886 the same way on 2.1.304 at /medium"
+        }
+      }
+    },
+    "codex": {
+      "version": "0.167.0",
+      "path": "/opt/homebrew/Caskroom/codex/0.167.0/bin/codex",
+      "profiles": {
+        "hermetic": [
+          "--ignore-user-config",
+          "--ephemeral",
+          "-c",
+          "project_doc_max_bytes=0"
+        ]
+      },
+      "auxiliary": [],
+      "host_allowance": {
+        "hermetic": {
+          "allowance_tokens": 19167,
+          "measured": true,
+          "measured_version": "0.167.0",
+          "basis": "D13 re-pin 2026-11-12 from D7's live run at commit 6670341: observed main-request input tokens (input + cache read + cache creation), max over the 4 hermetic S6 calls through dispatch (codex-cli 0.167.0, structured output through the strict projection): gpt-6-astra/xhigh judge 19167 and 18829, gpt-6-astra/xhigh cross-review 16392, gpt-6-luna/medium sweep 15670; each call's warm-up request was 2 input tokens. Includes the packet and the handed schema (7.0 to 18.7 KB), so it overstates the host's share, as the Claude allowance does. It is the largest observed main-request input of a call, the packet and the schema it was handed included, so as an allowance it is an upper bound on the host's own share, not that share"
+        }
+      },
+      "context": {
+        "hermetic": {
+          "skills": [
+            "imagegen",
+            "openai-docs",
+            "skill-creator",
+            "skill-installer"
+          ],
+          "observed_version": "0.167.0",
+          "basis": "the four built-in skills codex-cli loads under this profile, as its capture names them: observed at 0.163.0 (WP-04) and again at 0.167.0 in each of D7's four live calls on 2026-11-12 (commit 6670341), the same four"
+        }
+      }
+    }
+  },
+  "stage_seats": {
+    "$comment": "design §4: S3 claude-sonnet-5-5/high (plan amendment row 13, D-20261103-4b967e); S4 claude-opus-5-5/high; S6 A claude-opus-5-5/high, B gpt-6.1-sol/xhigh (owner, 2026-11-12, for the C3 run; the design named gpt-6-astra/xhigh), sweeps claude-sonnet-5-5/medium and gpt-6-luna/medium; S7 claude-opus-5-5/high; S7b gpt-6.1-sol/xhigh and S9b gpt-6.1-sol/high (owner, 2026-11-13, the same model as Judge B; the design named gpt-6-astra for both). S8 and S10b seat their actors from run.json actor_seats (design §8.4).",
+    "S3": [
+      "claude:claude-sonnet-5-5/high"
+    ],
+    "S4": [
+      "claude:claude-opus-5-5/high"
+    ],
+    "S6": [
+      "claude:claude-opus-5-5/high",
+      "codex:gpt-6.1-sol/xhigh",
+      "claude:claude-sonnet-5-5/medium",
+      "codex:gpt-6-luna/medium"
+    ],
+    "S7": [
+      "claude:claude-opus-5-5/high"
+    ],
+    "S7b": [
+      "codex:gpt-6.1-sol/xhigh"
+    ],
+    "S9b": [
+      "codex:gpt-6.1-sol/high"
+    ]
+  },
+  "seat_capacity": {
+    "$comment": "The seat's context window, as the host states it: host-reported where the host reports one, else the host's own model catalogue at the pinned version, the basis saying which. A view-window call on a seat with no entry here is refused (CAPACITY_UNDECLARED): check (d) is about the context, and an invented capacity is a check about nothing. Every seat stage_seats names has an entry (gate.seats_problems, CAPACITY_UNDECLARED).",
+    "claude:claude-sonnet-5-5/high": {
+      "context_capacity": 1000000,
+      "host_version": "2.1.317",
+      "basis": "host-reported modelUsage.contextWindow, A-1 re-pin 2026-11-04 (claude 2.1.317, claude-sonnet-5-5/high: one standalone hermetic call and five judge calls through dispatch, all 1000000; maxOutputTokens 128000 in the same records)"
+    },
+    "claude:claude-opus-5-5/high": {
+      "context_capacity": 1000000,
+      "host_version": "2.1.317",
+      "basis": "host catalogue, read 2026-11-06 for S4's bound (W review of WP-09 r1, F5): the model catalogue the installed claude caches under ~/.claude/cache/model-catalog gives claude-opus-5-5 runtime.max_input_tokens 1000000 (max_output_tokens 128000) in each of the three catalogue files that carry runtime, the freshest fetched 2026-11-06T01:08+09:00. The same catalogue gives claude-sonnet-5-5 1000000, which is that seat's measured modelUsage.contextWindow above. Not yet compared with a host-reported contextWindow of an opus call: the first live S4 call's result carries one. Compared 2026-11-12: D7's two live S6 judge calls (claude 2.1.317, claude-opus-5-5/high, commit 6670341) reported modelUsage.contextWindow 1000000, the catalogue's figure."
+    },
+    "claude:claude-sonnet-5-5/medium": {
+      "context_capacity": 1000000,
+      "host_version": "2.1.317",
+      "basis": "host-reported modelUsage.contextWindow, D13 re-pin 2026-11-12: D7's live S6 sweep call (claude 2.1.317, claude-sonnet-5-5/medium, commit 6670341) reported 1000000"
+    },
+    "codex:gpt-6-astra/xhigh": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the xhigh seat; bound to 0.167.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6.1-sol/xhigh": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-12: the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6.1-sol context_window 272000 and lists xhigh among its supported reasoning levels. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.167.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6.1-sol/high": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-13: the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6.1-sol context_window 272000 and lists high among its supported reasoning levels. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.167.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6-astra/high": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the high seat; bound to 0.167.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6-luna/medium": {
+      "context_capacity": 272000,
+      "host_version": "0.167.0",
+      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-luna context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the medium seat; bound to 0.167.0 and re-read from the binary on a re-pin"
+    }
+  }
+}

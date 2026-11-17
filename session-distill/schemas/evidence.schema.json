@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §5.5, plus window_role from design §5.2",
+  "title": "Evidence record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["evidence_id", "source_copy", "version_sha", "line", "json_pointer", "char_span",
+               "redaction_version", "redacted_text", "window_role"],
+  "properties": {
+    "evidence_id": {"type": "string", "minLength": 1},
+    "source_copy": {"type": "string", "minLength": 1},
+    "version_sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "line": {"type": "integer", "minimum": 1},
+    "json_pointer": {"type": "string", "pattern": "^(/[^/]*)*$"},
+    "char_span": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+    "redaction_version": {"type": "string", "minLength": 1},
+    "redacted_text": {"type": "string"},
+    "window_role": {"type": "string", "pattern": "^(in_window|context|backlog\\(.+\\))$"}
+  }
+}

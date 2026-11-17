@@ -22,6 +22,13 @@ __pycache__/
 # Benchmark run outputs (raw model responses) — regenerated, not tracked.
 benchmarks/out/
 
+# Session distill per-run directories hold redacted transcript views and call captures
+# — never tracked. The WP-22 cutover deleted the v1 stages and the BUNDLE.* files they
+# wrote, so nothing under session-distill/out/ is tracked any more; the runbook still
+# points a checkout's runs at it with `--out`, and the driver's own default is the XDG
+# state directory, outside the repository.
+session-distill/out/*/
+
 # Publication provenance: written by `npm pack`/`publish` (gates/check-publish.sh
 # --stamp), shipped in the tarball via files[], never committed — a committed copy
 # would go stale the commit after it was written.
@@ -38,7 +45,10 @@ claude/settings.json
 # been missed the same way.
 *.local.toml
 
-# session-distill: heavy regenerable intermediates (keep BUNDLE.*)
+# session-distill: what a v1 window wrote directly under out/. `census.py` and
+# `plain-asks.py` still run and still write here; the stages that wrote the digests,
+# batches, candidates and the consolidated set were deleted at the cutover, and their
+# patterns stay because an untracked file of that name is still regenerable output.
 session-distill/out/digests.json
 session-distill/out/census.json
 session-distill/out/consolidated.json
@@ -66,8 +76,10 @@ research/agents-md/derived/headings.json
 !research/agents-md/labels/*.jsonl
 !research/agents-md/derived/sample_open.jsonl
 !research/agents-md/derived/sample_closed.jsonl
-session-distill/out/screen-schema.json
-session-distill/out/verify-codex.json
 
 # Native application build outputs
 /dist/
+
+# Session distill's promoted coverage state (S12's --checkout-coverage) is keyed by the owner's session
+# identifiers: local state of one checkout, never tracked.
+session-distill/local/

@@ -3,7 +3,8 @@
 
 Both flows that egress session-derived text redact through here, so the floor
 is single-sourced (concept economy) rather than duplicated per call site:
-  * heavy flow  — session-distill/digest.py (per-session digests);
+  * heavy flow  — session-distill/runlib/projection.py (the driver's transcript
+    views; it loads this module by path, never a copy of its patterns);
   * light flow  — learn/collect-learning.py (`learn!` prose + upload + the
     curator export downstream, since the server stores what it receives —
     redaction that does not happen HERE cannot be undone there).

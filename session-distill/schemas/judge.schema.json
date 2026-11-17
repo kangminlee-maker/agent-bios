@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §6.2 (S6), §6.4, §7.5; plan WP-11; lead decisions D11 (D-20261111-f3d39c: the consequence classes are owned here), D12 (D-20261111-f174ea: a judgment is keyed per candidate, unit and seat; the first call of a candidate judges its requirements, class, matching units and ledger relations and every unit, a later reference point's call only the units whose key is new), D14 (D-20261111-1aa1b3: two judgments and a one-line reason for every unit, a quote only where the situation or the action matches). Every unit, quote and ledger entry is named by the packet's own label (n, q, e); code turns labels back into stored ids, checks that every unit is judged once, that a quote is a span of its unit and is present exactly where a match is yes, and that every matching unit has its following and contribution (stage_judge.answer_problems). This schema holds the shape.",
+  "title": "S6 judgment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requirements", "consequence_class", "no_longer_arises", "units", "matching_units", "ledger_relations"],
+  "properties": {
+    "requirements": {"$ref": "#/$defs/requirements"},
+    "consequence_class": {"$ref": "#/$defs/consequence_class"},
+    "no_longer_arises": {"$ref": "#/$defs/no_longer_arises"},
+    "units": {"$ref": "#/$defs/units"},
+    "matching_units": {"type": "array", "items": {"$ref": "#/$defs/matching_unit"}},
+    "ledger_relations": {"type": "array", "items": {"$ref": "#/$defs/ledger_relation"}}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "unit_label": {"type": "string", "pattern": "^n[1-9][0-9]*(?![\\s\\S])"},
+    "quote_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}},
+    "mark": {"type": "string", "enum": ["met", "unmet", "uncertain"]},
+    "match": {"type": "string", "enum": ["yes", "no"]},
+    "requirement": {
+      "type": "object", "additionalProperties": false, "required": ["mark", "reason"],
+      "properties": {"mark": {"$ref": "#/$defs/mark"}, "reason": {"$ref": "#/$defs/text"}}
+    },
+    "requirements": {
+      "$comment": "D-20261020-71699d: the eight admission requirements, each judged met, unmet or uncertain with its reason (§6.4 admission)",
+      "type": "object", "additionalProperties": false,
+      "required": ["observed_event", "consequence", "causal_support", "recognizable_in_advance", "actionable", "bounded", "positioned", "audience"],
+      "properties": {
+        "observed_event": {"$ref": "#/$defs/requirement"}, "consequence": {"$ref": "#/$defs/requirement"},
+        "causal_support": {"$ref": "#/$defs/requirement"}, "recognizable_in_advance": {"$ref": "#/$defs/requirement"},
+        "actionable": {"$ref": "#/$defs/requirement"}, "bounded": {"$ref": "#/$defs/requirement"},
+        "positioned": {"$ref": "#/$defs/requirement"}, "audience": {"$ref": "#/$defs/requirement"}
+      }
+    },
+    "consequence_class": {
+      "$comment": "D11: the one owner of the consequence classes (§7.5's six); tables/unit_outcome.json's promotion row and the ranking read this enum",
+      "type": "string", "enum": ["irreversible", "security", "verification-corrupting", "cost", "quality", "none"]
+    },
+    "no_longer_arises": {
+      "$comment": "§6.4 obsolete: evidence that the situation no longer arises, which a lifecycle candidate needs; false with no evidence otherwise",
+      "type": "object", "additionalProperties": false, "required": ["value", "reason", "evidence_ids"],
+      "properties": {"value": {"type": "boolean"}, "reason": {"type": "string"}, "evidence_ids": {"$ref": "#/$defs/quote_ids"}}
+    },
+    "unit_judgment": {
+      "$comment": "§6.2 per unit: situation match, action match, a one-line reason, and (D14) a quote of the unit only where either match is yes, empty otherwise",
+      "type": "object", "additionalProperties": false, "required": ["unit", "situation", "action", "reason", "quote"],
+      "properties": {
+        "unit": {"$ref": "#/$defs/unit_label"}, "situation": {"$ref": "#/$defs/match"}, "action": {"$ref": "#/$defs/match"},
+        "reason": {"$ref": "#/$defs/text"}, "quote": {"type": "string"}
+      }
+    },
+    "units": {"type": "array", "items": {"$ref": "#/$defs/unit_judgment"}},
+    "matching_unit": {
+      "$comment": "§6.2 per candidate, for each matching unit: its following and its contribution to the outcome, each with evidence ids, kept apart from the event's consequence",
+      "type": "object", "additionalProperties": false,
+      "required": ["unit", "following", "following_evidence_ids", "contribution", "contribution_evidence_ids"],
+      "properties": {
+        "unit": {"$ref": "#/$defs/unit_label"},
+        "following": {"type": "string", "enum": ["followed", "not_followed", "unknown"]},
+        "following_evidence_ids": {"$ref": "#/$defs/quote_ids"},
+        "contribution": {"type": "string", "enum": ["helped", "harmed", "neutral", "unknown"]},
+        "contribution_evidence_ids": {"$ref": "#/$defs/quote_ids"}
+      }
+    },
+    "ledger_relation": {
+      "$comment": "§6.2: the relation to each retrieved ledger entry",
+      "type": "object", "additionalProperties": false, "required": ["entry", "relation", "reason"],
+      "properties": {
+        "entry": {"type": "string", "pattern": "^e[1-9][0-9]*(?![\\s\\S])"},
+        "relation": {"type": "string", "enum": ["recurrence", "revision", "contradiction", "retired_relation", "none"]},
+        "reason": {"$ref": "#/$defs/text"}
+      }
+    }
+  }
+}

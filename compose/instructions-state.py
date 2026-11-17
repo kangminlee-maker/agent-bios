@@ -22,9 +22,9 @@ import io
 import json
 import contextlib
 try:
-    from host_platform import file_locks as fcntl
+    from host_platform import LockWaitExpired, file_locks as fcntl, lock_within
 except ImportError:
-    from .host_platform import file_locks as fcntl
+    from .host_platform import LockWaitExpired, file_locks as fcntl, lock_within
 import os
 import pathlib
 import shutil
@@ -160,7 +160,9 @@ def domains_projection(repo: pathlib.Path) -> dict:
     return {"available": available, "applied": applied}
 
 
-def cmd_project(args: argparse.Namespace) -> int:
+def cmd_project(args: argparse.Namespace, status_locked: bool = False) -> int:
+    """Project the instructions status. `status_locked`: the caller already holds the status lock
+    (a rollback, which takes it before its first live write and keeps it to its last status write)."""
     repo = repo_root(args.repo)
     versions_doc = load_versions(repo)
     versions = versions_doc["versions"] if versions_doc is not None else None
@@ -169,7 +171,7 @@ def cmd_project(args: argparse.Namespace) -> int:
     deployed_instructions = None
     # Read and write under one lock: unlocked, a concurrent record-apply or
     # rollback landing between this read and the write below is reverted whole.
-    with _status_lock():
+    with contextlib.nullcontext() if status_locked else _status_lock():
         if STATUS.is_file():
             try:
                 prior = json.load(STATUS.open())
@@ -424,7 +426,26 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
         print(f"refusing rollback to {args.version}: {exc} — nothing was written.",
               file=sys.stderr)
         return 1
-    written = removed = 0
+    # The status is part of the transaction. Its lock is taken here, before the first live
+    # write, and held to the last status write: taken after the files had moved, a lock that
+    # refused at its bound left them deployed while the status still named the previous
+    # version and file inventory. Waiting here refuses with nothing written.
+    with contextlib.ExitStack() as held:
+        if not args.dry_run:
+            try:
+                held.enter_context(_status_lock())
+            except SystemExit as exc:
+                print(f"refusing rollback to {args.version}: {exc.code} — nothing was written.",
+                      file=sys.stderr)
+                return 1
+        return _rollback_transaction(args, repo, commit, target_files, removal_candidates, backup,
+                                     bundle, codex_central)
+
+
+def _rollback_transaction(args: argparse.Namespace, repo: pathlib.Path, commit: str, target_files: list[str],
+                          removal_candidates: list[str], backup: pathlib.Path, bundle: bytes,
+                          codex_central: str) -> int:
+    """The live half of a rollback, run under the status lock: every file, then the status."""
     # Every step is recorded so it can be undone. A instructions are a SET of files that agree
     # about which version they are: a run that stopped in the middle left nine files at
     # the target and twenty-six at the previous one, wrote no status, and reported a raw
@@ -433,9 +454,15 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
     # makes putting it back the cheap half of this; saying so when even that fails is
     # the half that matters.
     undo: list[tuple[pathlib.Path, pathlib.Path | None]] = []
+    try:
+        status_before = STATUS.read_bytes() if STATUS.is_file() else None
+    except OSError as exc:
+        print(f"refusing rollback to {args.version}: the status at {STATUS} is unreadable ({exc}) "
+              "— nothing was written.", file=sys.stderr)
+        return 1
 
     def restore() -> list[str]:
-        """Put every applied file back. Returns the ones that could not be restored."""
+        """Put every applied file, and the status, back. Returns the ones that could not be restored."""
         stuck = []
         for target, saved in reversed(undo):
             try:
@@ -445,8 +472,16 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
                     target.write_bytes(saved.read_bytes())
             except OSError:
                 stuck.append(str(target))
+        try:
+            if status_before is None:
+                STATUS.unlink(missing_ok=True)
+            elif not STATUS.is_file() or STATUS.read_bytes() != status_before:
+                replace_atomically(STATUS, status_before)
+        except OSError:
+            stuck.append(str(STATUS))
         return stuck
 
+    written = removed = 0
     try:
         for rel in target_files:
             dst = deploy_target(rel)
@@ -465,8 +500,10 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
                 bak.parent.mkdir(parents=True, exist_ok=True)
                 bak.write_bytes(dst.read_bytes())
             dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(content)
+            # Registered before the write: a write that fails partway has already changed the file
+            # (truncated, or half its new bytes), and only a recorded entry puts it back.
             undo.append((dst, bak))
+            dst.write_bytes(content)
             if rel.startswith("claude/hooks/"):
                 dst.chmod(0o755)
             written += 1
@@ -480,8 +517,8 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
             bak = backup / rel
             bak.parent.mkdir(parents=True, exist_ok=True)
             bak.write_bytes(dst.read_bytes())
-            dst.unlink()
             undo.append((dst, bak))
+            dst.unlink()
             removed += 1
         # The assembled surfaces land LAST: the bundle is what the agent reads, so
         # it names the target version only once every guide it references has.
@@ -495,8 +532,8 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
                 bak.parent.mkdir(parents=True, exist_ok=True)
                 bak.write_bytes(bundle_dst.read_bytes())
             bundle_dst.parent.mkdir(parents=True, exist_ok=True)
-            bundle_dst.write_bytes(bundle)
             undo.append((bundle_dst, bak))
+            bundle_dst.write_bytes(bundle)
             written += 1
         codex_dst = CODEX_DIR / "AGENTS.md"
         if args.dry_run:
@@ -511,10 +548,24 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
             # install uses — atomic, mode-preserving, marker-bounded — never a
             # whole-file write of a snapshot: an edit the user landed while the
             # guides were copying rides through; only the region is ours to move.
-            merge_codex(CODEX_DIR, codex_central)
             undo.append((codex_dst, bak))
+            merge_codex(CODEX_DIR, codex_central)
             written += 1
-    except (OSError, subprocess.CalledProcessError) as exc:
+        if not args.dry_run:
+            # Re-project, then mark the rollback (a plain project would report latest), both
+            # under the lock this rollback already holds; a status that cannot be written puts
+            # every file back with it.
+            cmd_project(args, status_locked=True)
+            status = json.loads(STATUS.read_text())
+            status["current_version"] = args.version
+            status["rolled_back_to"] = None if args.version == status["latest_version"] else args.version
+            # The next rollback's removal operand: exactly what is deployed now.
+            status["deployed_corpus"] = {
+                "version": args.version,
+                "files": sorted(rel for rel in target_files if deploy_target(rel) is not None),
+            }
+            _write_status(status)
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
         stuck = restore()
         if stuck:
             print(
@@ -525,27 +576,13 @@ def _locked_rollback(args: argparse.Namespace, repo: pathlib.Path,
             )
             return 1
         print(
-            f"rollback to {args.version} failed ({exc}); every file it had already written "
-            f"was restored, so the instructions are unchanged. Nothing is split.",
+            f"rollback to {args.version} failed ({exc}); every file it had already written, "
+            f"and the status, were restored, so the instructions are unchanged. Nothing is split.",
             file=sys.stderr,
         )
         return 1
     if args.dry_run:
         return 0
-    # Re-project, then mark the rollback (a plain project would report latest).
-    cmd_project(args)
-    # Sequential with cmd_project's lock, never nested inside it: flock on a
-    # second open of the same lock file would deadlock this process.
-    with _status_lock():
-        status = json.load(STATUS.open())
-        status["current_version"] = args.version
-        status["rolled_back_to"] = None if args.version == status["latest_version"] else args.version
-        # The next rollback's removal operand: exactly what is deployed now.
-        status["deployed_corpus"] = {
-            "version": args.version,
-            "files": sorted(rel for rel in target_files if deploy_target(rel) is not None),
-        }
-        _write_status(status)
     print(
         f"instructions rolled back to {args.version} ({commit[:12]}): "
         f"{written} files written, {removed} removed; backup at {backup}. "
@@ -559,14 +596,18 @@ APPLY_OUTCOMES = ("applied", "canary_failed", "install_failed")
 
 
 @contextlib.contextmanager
-def _flock(lock_path: pathlib.Path):
-    """Exclusive advisory lock at `lock_path`, held for the with-block."""
+def _flock(lock_path: pathlib.Path, name: str):
+    """Exclusive advisory lock at `lock_path`, held for the with-block. Waits at most the shared
+    bound (host_platform.lock_within), then refuses naming `name` and the path."""
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     # O_NOFOLLOW and no truncation: a "w" open follows a planted symlink and
     # truncates its target merely by running the command.
     fd = os.open(str(lock_path), os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
     with os.fdopen(fd, "w") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            lock_within(handle, f"{name} ({lock_path})")
+        except LockWaitExpired as exc:
+            raise SystemExit(f"instructions-state: {exc}") from exc
         yield
 
 
@@ -574,7 +615,7 @@ def _status_lock():
     """Exclusive advisory lock over instructions-status writes. `project` and
     `record-apply` both read-modify-write the whole file; unlocked, whichever
     writes second silently reverts the other's fields."""
-    return _flock(STATUS.with_name(STATUS.name + ".lock"))
+    return _flock(STATUS.with_name(STATUS.name + ".lock"), "the instructions status lock")
 
 
 def _deploy_lock():
@@ -583,7 +624,7 @@ def _deploy_lock():
     rollbacks both report success over a split instructions. A DIFFERENT file from the
     status lock, deliberately — rollback takes the status lock inside this one,
     and flock on a second open of one file deadlocks a single process."""
-    return _flock(STATUS.with_name(STATUS.name + ".deploy.lock"))
+    return _flock(STATUS.with_name(STATUS.name + ".deploy.lock"), "the instructions deploy lock")
 
 
 def _write_status(status: dict) -> None:
@@ -814,8 +855,9 @@ agents.write_text(body)
         codex_seed = ("<!-- agent-bios:central:start -->\nCODEX two\n"
                       "<!-- agent-bios:central:end -->\n\n## Personal\nMY OWN CODEX LINE\n")
 
-        def attempt(fail_at):
-            home = root / f"home-{fail_at}"
+        def attempt(fail_at, refuse_lock_at=None, break_status=False, partial=None):
+            home = root / (f"home-{fail_at}" if refuse_lock_at is None and not break_status and partial is None
+                           else f"home-{fail_at}-lock{refuse_lock_at}-status{int(break_status)}-{partial}")
             claude = home / ".claude"
             codex_home = home / ".codex"
             saved_claude = globals()["CLAUDE_DIR"]
@@ -832,7 +874,7 @@ agents.write_text(body)
             (codex_home / "AGENTS.md").write_text(codex_seed)
             # A user-restricted mode must ride through the region merge.
             (codex_home / "AGENTS.md").chmod(0o600)
-            counter = [0]
+            counter, broke = [0], []
             real_write = pathlib.Path.write_bytes
 
             def flaky(self, data):
@@ -840,6 +882,11 @@ agents.write_text(body)
                     counter[0] += 1
                     if counter[0] == fail_at:
                         raise OSError("self-test write failure")
+                    if partial is not None and self.name == partial and not broke:
+                        # A disk filling up mid-write, once: the file already holds two bytes of the new content.
+                        broke.append(self)
+                        real_write(self, data[:2])
+                        raise OSError(28, "self-test: no space left on device after a partial write")
                 return real_write(self, data)
 
             real_assemble_at = globals()["_assemble_at"]
@@ -854,9 +901,39 @@ agents.write_text(body)
                     "MY OWN CODEX LINE", "MY OWN CODEX LINE\nMID-FLIGHT EDIT"))
                 return result
 
+            real_status_lock = globals()["_status_lock"]
+            taken = [0]
+
+            def contended():
+                # The status lock refusing at its bound on the `refuse_lock_at`-th acquisition,
+                # as _flock refuses: a SystemExit naming the lock.
+                taken[0] += 1
+                if taken[0] == refuse_lock_at:
+                    raise SystemExit("instructions-state: the instructions status lock (planted) is still "
+                                     "held after 30 s; another agent-bios process holds it")
+                return real_status_lock()
+
+            real_write_status = globals()["_write_status"]
+            writes = [0]
+
+            def broken_write_status(status):
+                # The projection's write lands; the rollback's mark, the next one, fails.
+                writes[0] += 1
+                if writes[0] > 1:
+                    raise OSError("self-test status write failure")
+                real_write_status(status)
+
+            def projecting(_args, status_locked=False):
+                # The projection's own use of the status lock and its status write, without the ledger
+                # it would read: it carries the record forward under a version of its own.
+                with contextlib.nullcontext() if status_locked else _status_lock():
+                    _write_status({**json.loads(globals()["STATUS"].read_text()), "current_version": "projected"})
+                    return 0
+
             saved = (globals()["CLAUDE_DIR"], globals()["CODEX_DIR"],
                      globals()["STATE_DIR"], globals()["STATUS"],
-                     globals()["cmd_project"], globals()["_assemble_at"])
+                     globals()["cmd_project"], globals()["_assemble_at"], globals()["_status_lock"],
+                     real_write_status)
             globals()["CLAUDE_DIR"] = claude
             globals()["CODEX_DIR"] = codex_home
             globals()["STATE_DIR"] = home / "state"
@@ -869,7 +946,10 @@ agents.write_text(body)
                 json.dumps({"version": 1, "domains": []}))
             globals()["STATUS"].write_text(json.dumps(
                 {"current_version": "before", "latest_version": "t1"}))
-            globals()["cmd_project"] = lambda _args: 0
+            globals()["cmd_project"] = projecting
+            globals()["_status_lock"] = contended
+            if break_status:
+                globals()["_write_status"] = broken_write_status
             globals()["_assemble_at"] = editing_assemble_at
             pathlib.Path.write_bytes = flaky
             try:
@@ -877,21 +957,25 @@ agents.write_text(body)
                     repo=str(repo), version="t1", dry_run=False))
             except Exception as exc:      # a raise is itself the defect this asserts against
                 code = f"raised {type(exc).__name__}"
+            except SystemExit as exc:
+                code = f"exited {exc.code!r}"
             finally:
                 pathlib.Path.write_bytes = real_write
                 (globals()["CLAUDE_DIR"], globals()["CODEX_DIR"],
                  globals()["STATE_DIR"], globals()["STATUS"],
-                 globals()["cmd_project"], globals()["_assemble_at"]) = saved
+                 globals()["cmd_project"], globals()["_assemble_at"], globals()["_status_lock"],
+                 globals()["_write_status"]) = saved
             landed = sorted(q.name for q in seeded.parent.glob("*.md"))
             return (code, landed, seeded.read_text(),
                     (claude / "central" / "bundle.md").read_text(),
                     (codex_home / "AGENTS.md").read_text(),
-                    (codex_home / "AGENTS.md").stat().st_mode & 0o777)
+                    (codex_home / "AGENTS.md").stat().st_mode & 0o777,
+                    json.loads((home / "state" / "corpus-status.json").read_text()))
 
         # `cmd_rollback` reads the fixture through `git -C <repo>`, which the hook's
         # GIT_DIR would redirect at the real repository — same scrub, same reason.
         with own_repo_env():
-            code, landed, seeded, bundle_text, agents_text, agents_mode = attempt(0)
+            code, landed, seeded, bundle_text, agents_text, agents_mode, _ = attempt(0)
         if code != 0 or len(landed) < 6 or seeded.strip() != "TARGET 0":
             problems.append(
                 f"clean rollback did not apply the instructions (code={code} files={len(landed)})")
@@ -918,7 +1002,7 @@ agents.write_text(body)
         if "MY OWN CODEX LINE" not in agents_text:
             problems.append("rollback destroyed the user's text outside the codex markers")
         with own_repo_env():
-            code, landed, seeded, bundle_text, agents_text, agents_mode = attempt(3)
+            code, landed, seeded, bundle_text, agents_text, agents_mode, _ = attempt(3)
         if code == 0:
             problems.append("a rollback whose write failed reported success")
         elif not isinstance(code, int):
@@ -931,6 +1015,38 @@ agents.write_text(body)
                 "a failed rollback moved the live bundle — the reader surface is split")
         if "CODEX two" not in agents_text or "MY OWN CODEX LINE" not in agents_text:
             problems.append("a failed rollback did not leave the codex surface as it was")
+        # A write that changes the file before it fails, an existing guide's and the live bundle's: the
+        # rollback puts back the bytes the write had already replaced, the status stays the previous
+        # version, and the refusal says the instructions are unchanged, which is then true.
+        for name in ("g0.md", "bundle.md"):
+            said = io.StringIO()
+            with own_repo_env(), contextlib.redirect_stderr(said):
+                code, landed, seeded, bundle_text, agents_text, _, status = attempt(0, partial=name)
+            if (code == 0 or seeded != "PREVIOUS\n" or bundle_text != "LIVE BUNDLE\n" or landed != ["g0.md"]
+                    or "CODEX two" not in agents_text or status.get("current_version") != "before"
+                    or "were restored, so the instructions are unchanged" not in said.getvalue()):
+                problems.append(
+                    f"a write to {name} that changed the file before it failed was not undone: code={code}, guide "
+                    f"{seeded[:12]!r}, bundle {bundle_text[:12]!r}, guides {landed}, status "
+                    f"{status.get('current_version')!r}, said {said.getvalue().strip()[-120:]!r}")
+        # The status lock refusing at its bound, at each acquisition the rollback once made after
+        # its files had moved (the projection's, then the mark's), and a status write that fails:
+        # the files and the status must end at one version, and a rollback left at the previous one
+        # must not report success.
+        for refused, broken in ((1, False), (2, False), (None, True)):
+            with own_repo_env():
+                code, _, seeded, bundle_text, _, _, status = attempt(0, refuse_lock_at=refused, break_status=broken)
+            files = ("previous" if (seeded.strip(), bundle_text.strip()) == ("PREVIOUS", "LIVE BUNDLE") else
+                     "target" if (seeded.strip(), bundle_text.strip()) == ("TARGET 0", "BUNDLE one") else "split")
+            recorded = {"before": "previous", "t1": "target"}.get(status.get("current_version"), "other")
+            if files != recorded:
+                problems.append(
+                    f"a {'status write that failed' if broken else f'status lock refused at acquisition {refused}'} "
+                    f"left the files at the {files} version and the status at the {recorded} one (code={code}) "
+                    "— deployed but unrecorded")
+            elif files == "previous" and code == 0:
+                problems.append(f"a rollback refused at {'its status write' if broken else f'status-lock acquisition {refused}'} "
+                                "reported success")
 
         # ---- The real CLI end to end, subprocess-driven against one fixture. ----
         fx_home = root / "fx-home"
@@ -1128,6 +1244,32 @@ agents.write_text(body)
         if after is not None and after != seeded_status:
             problems.append("an interrupted status write altered the recorded status")
         (globals()["STATE_DIR"], globals()["STATUS"]) = saved_state
+
+        # ---- A lock held past the bound is refused BY NAME, not waited on forever. ----
+        # The bounds are scaled; the holder is a child that lets go after 8 s, so a writer that
+        # waits without a bound returns late and is caught here rather than hanging the suite.
+        bounds = sys.modules[lock_within.__module__]
+        saved_bounds = (bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S)
+        held_path = root / "held.lock"
+        holder = subprocess.Popen([sys.executable, "-c", "import fcntl, sys, time; f = open(sys.argv[1], 'a'); "
+                                   "fcntl.flock(f, fcntl.LOCK_EX); print('held', flush=True); time.sleep(8)",
+                                   str(held_path)], stdout=subprocess.PIPE, text=True)
+        notice = io.StringIO()
+        try:
+            holder.stdout.readline()
+            bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = 0.6, 0.2
+            with contextlib.redirect_stderr(notice), _flock(held_path, "the planted lock"):
+                problems.append("a writer took a lock another holder still held")
+        except SystemExit as exc:
+            if f"the planted lock ({held_path}) is still held after 0.6 s" not in str(exc.code):
+                problems.append(f"a lock held past the bound was refused without naming it: {exc.code!r}")
+            if "waiting for the planted lock" not in notice.getvalue():
+                problems.append("a writer waiting on a held lock did not say what it waited for")
+        finally:
+            bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = saved_bounds
+            holder.kill()
+            holder.wait()
+            holder.stdout.close()
     except subprocess.CalledProcessError as exc:
         # A fixture command failing outside the control above is the same defect seen
         # from the main run — named here so the gate reports it instead of a traceback.

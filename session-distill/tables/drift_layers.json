@@ -1,0 +1,68 @@
+{
+  "$comment": "design §10.5 drift ('the recomputed live manifest against F's manifest minus the approved interventions over every §6.1 layer') with the lead's reading (나) of 2026-11-12: the comparison runs over the layers the declaration's `config_manifest_B` actually carries, layers it does not carry are named in the run record as not drift-checked, and an approved operation whose TARGET lies in a layer nobody compared is refused before any effect. This table is what makes that last rule decidable: it maps each configuration layer to the path prefixes that belong to it. It exists because `config_manifest_B`'s key vocabulary is declared NOWHERE - `schemas/run.schema.json` admits any key with a sha256 value, no code computes the manifest (a real declaration is a file an operator writes, read by `distill.py declare --from`), and the only filler in the tree is `declare.fixture()`'s single `global` entry, which matches neither §7.4's destination layers nor §6.1's inventory layers. So this table is also a PROPOSAL for that vocabulary, and the open question is recorded with it rather than settled here.",
+  "open_question": "Which vocabulary does `config_manifest_B` key on - §7.4's destination layers (enforcement, gates, hooks, guides, skills, personal, session_injection, incubator), §6.1's inventory layers (catalog, adopted_packages, overlays, native_*, session_injection, ledger_*), or the configuration's own names as used here? Until a declaration says, drift is checked over whatever keys B carries and every other layer is reported unchecked by name.",
+  "layers": [
+    {
+      "layer": "global",
+      "prefixes": [
+        "claude/CLAUDE.md",
+        "codex/AGENTS.md",
+        "ko/claude/CLAUDE.md",
+        "ko/codex/AGENTS.md"
+      ],
+      "$comment": "The always-loaded global file and its projections. `declare.fixture()` keys B on this name, so it is the one layer a run declares today."
+    },
+    {
+      "layer": "guides",
+      "prefixes": [
+        "claude/guides/",
+        "codex/guides/",
+        "ko/claude/guides/",
+        "ko/codex/guides/"
+      ],
+      "$comment": "§7.4's `guides` destination; the Codex and ko trees are projections, so an operation on one is an operation on the layer."
+    },
+    {
+      "layer": "skills",
+      "prefixes": [
+        "claude/skills/"
+      ],
+      "$comment": "One tree serves both hosts (AGENTS.md: `claude/skills/` is not mirrored), so there is no codex prefix to name."
+    },
+    {
+      "layer": "hooks",
+      "prefixes": [
+        ".githooks/",
+        "claude/hooks/"
+      ],
+      "$comment": "§7.4's `hooks` destination: a hook registered with a host, and the repository's own commit hook."
+    },
+    {
+      "layer": "gates",
+      "prefixes": [
+        "gates/"
+      ],
+      "$comment": "§7.4's `gates` destination. Author-side: an operation here is verified in the checkout, never at an installed path."
+    },
+    {
+      "layer": "enforcement",
+      "prefixes": [
+        "compose/",
+        "launch/",
+        "learn/",
+        "wrappers/",
+        "install.sh"
+      ],
+      "$comment": "§7.4's `enforcement` destination: the machinery that decides what a session receives, rather than text a session reads."
+    },
+    {
+      "layer": "ledger",
+      "prefixes": [
+        "design/session-distill/ledger.json",
+        "session-distill/coverage.json",
+        "design/session-distill/versions.json"
+      ],
+      "$comment": "What S12's close writes. Not a §7.4 destination - no learning is placed here - but an operation can target it, and a target in an uncompared layer is what the refusal is about. THE PREFIXES HERE ARE THIS REPO'S OWN LAYOUT. `design/session-distill/ledger.json` and `design/session-distill/versions.json` exist in a checkout and not in a packaged install, where the ledger a run applies to is a RUN INPUT (lifecycle intake takes it as an argument) rather than a fixed path. So for a packaged user these two prefixes name nothing and the layer matches no target. The fix belongs with the `config_manifest_B` vocabulary this table's open_question records — the layer's paths should come from the declaration — not with deleting the layer, which would make a ledger operation unlayered and therefore refused before any effect. `gates/check-package.sh` carries the same statement as a named, retiring exemption, so neither copy can outlive the finding quietly."
+    }
+  ]
+}

@@ -39,7 +39,8 @@ METHODS = ("tools/list", "tools/call")
 
 
 def shipped_python(root: Path) -> list[Path]:
-    files = json.loads((root / "package.json").read_text(encoding="utf-8")).get("files", [])
+    files = [e for e in json.loads((root / "package.json").read_text(encoding="utf-8")).get("files", [])
+             if not (isinstance(e, str) and e.startswith("!"))]   # npm exclusions, not paths
     found: set[Path] = set()
     for entry in files:
         path = root / entry

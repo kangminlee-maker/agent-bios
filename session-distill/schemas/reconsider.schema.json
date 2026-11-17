@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §6.2: a unit either sweep or Judge B flagged returns to both judges; plan WP-11 J3c. The judge schema's `units` and `matching_units` and the definitions they reach, nothing else: the candidate is not judged again. Projected from judge.schema.json (stage_judge.reconsider_projection), and held equal to it by stage_judge's self-test.",
+  "title": "S6 reconsideration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "units",
+    "matching_units"
+  ],
+  "properties": {
+    "units": {
+      "$ref": "#/$defs/units"
+    },
+    "matching_units": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/matching_unit"
+      }
+    }
+  },
+  "$defs": {
+    "match": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ]
+    },
+    "matching_unit": {
+      "$comment": "§6.2 per candidate, for each matching unit: its following and its contribution to the outcome, each with evidence ids, kept apart from the event's consequence",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "following",
+        "following_evidence_ids",
+        "contribution",
+        "contribution_evidence_ids"
+      ],
+      "properties": {
+        "unit": {
+          "$ref": "#/$defs/unit_label"
+        },
+        "following": {
+          "type": "string",
+          "enum": [
+            "followed",
+            "not_followed",
+            "unknown"
+          ]
+        },
+        "following_evidence_ids": {
+          "$ref": "#/$defs/quote_ids"
+        },
+        "contribution": {
+          "type": "string",
+          "enum": [
+            "helped",
+            "harmed",
+            "neutral",
+            "unknown"
+          ]
+        },
+        "contribution_evidence_ids": {
+          "$ref": "#/$defs/quote_ids"
+        }
+      }
+    },
+    "quote_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^q[1-9][0-9]*(?![\\s\\S])"
+      }
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "unit_judgment": {
+      "$comment": "§6.2 per unit: situation match, action match, a one-line reason, and (D14) a quote of the unit only where either match is yes, empty otherwise",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "situation",
+        "action",
+        "reason",
+        "quote"
+      ],
+      "properties": {
+        "unit": {
+          "$ref": "#/$defs/unit_label"
+        },
+        "situation": {
+          "$ref": "#/$defs/match"
+        },
+        "action": {
+          "$ref": "#/$defs/match"
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        },
+        "quote": {
+          "type": "string"
+        }
+      }
+    },
+    "unit_label": {
+      "type": "string",
+      "pattern": "^n[1-9][0-9]*(?![\\s\\S])"
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/unit_judgment"
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+source: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/codex-runner
+SHA256SUMS: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/codex-runner/SHA256SUMS (sha256 5c531b30935d95ffa6c11dc372155502ba5b3e444de4f7d51a51737f1e4f08ae)
+read (path relative to the source, sha256 as listed in SHA256SUMS and verified at copy time):
+  captures/ctl-channel-broken-001/capture.json  b8db61f1536248a2d9333a849858d5243d526f0364511ce9d4bc6006b019b0e5
+  captures/ctl-channel-broken-001/context-pre.json  30f396d9b59927aeab77475ad591eedb8da45166d539d8aaba05a30b9e27b4a3
+  captures/ctl-channel-broken-001/frames.jsonl  3eb426defbf201bc737520bfe882f9f5b3c69f284b332ba2b3cfe50b6d4a9466
+  captures/ctl-channel-broken-001/events.jsonl  c051f9011d64d6bd0df6bf7d04a426eb64faad1078ea27a583df59888784cb00
+  captures/ctl-channel-broken-001/packet  17305a8afb67f7983d881b7b11573ab9b4f392d09ecaf5060a1fb87d3b7bddaa
+  captures/ctl-channel-broken-001/result  894519187488d0630d58d4414c1bf730f08d7510a598c5700484989d7eca309a
+  captures/ctl-channel-broken-001/schema.json  f3d8e6a37d800bde18149b145d41ac903ed45db53e900f24bed19c55f9c242e2
+projection:
+  frames.jsonl: the root thread from capture.json, then the capture's server frames in the reduced form of codex-accounting/proto/acct.py (response.created/completed/incomplete/failed, error, codex.rate_limits); this probe captured no client frames and no otel rows
+  events.jsonl: the `--json` thread/turn/error events; item events dropped
+  host.json: profile and working directory as the capture recorded them (no flag-set hash was recorded); the pre-call working-directory listing and, from context-pre.json, the host's instruction sources with their sha256, the rendered skills
+  packet.md, result.json: verbatim; schema.json: canonical JSON of the capture's schema
+  facts.json: the seat sent (provider renamed openai -> codex), exit status, declared working directory

@@ -1,0 +1,555 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §7.2 (the four closed vocabularies), §7.3 (proposal content and the structural rules), §7.4 (placement, through tables/placement_rules.json and packets/placement_contract.md), §7.5 (the ranking keys this carries), §10.4 (ledger-only dispositions carry no operations); plan WP-12. This schema holds the SHAPE of one S7 answer. What it may not hold is the contract: the allowed (kind, diagnosis) -> disposition pairs, the structural rules and the placement rules live in tables/allowed_pairs.json, tables/structural_rules.json and tables/placement_rules.json, read by runlib/placement.py, because a vocabulary written twice is two authorities. So `disposition` is an enum here and WHICH disposition is allowed for this candidate is not. `unknowns` is where a named state of the derivation (a unit outcome not derived, delivery not assembled, an arc confirmation undetermined) is carried forward instead of being read as a negative answer.",
+  "title": "S7 proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "disposition",
+    "consequence",
+    "operations",
+    "destination",
+    "reasons",
+    "unknowns",
+    "placement"
+  ],
+  "properties": {
+    "disposition": {
+      "$ref": "#/$defs/disposition"
+    },
+    "consequence": {
+      "$ref": "#/$defs/consequence"
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    },
+    "artifact_set": {
+      "$ref": "#/$defs/artifact_set"
+    },
+    "behavior_contract": {
+      "$ref": "#/$defs/behavior_contract"
+    },
+    "expected_observation": {
+      "$ref": "#/$defs/expected_observation_or_null"
+    },
+    "destination": {
+      "$ref": "#/$defs/destination"
+    },
+    "reasons": {
+      "$ref": "#/$defs/reasons"
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/unknown"
+      }
+    },
+    "keep_record_named": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "The active keep record a reduce or merge supersedes; structural rule KEEP_GUARDED reads it."
+    },
+    "harmful": {
+      "type": "boolean",
+      "$comment": "A reduce of a unit that is covered and followed is allowed only when the unit is harmful (§7.2's condition `reduce_when_harmful`, read by runlib/placement.py). The flag is the model's claim, and the reason field says on what."
+    },
+    "requires_R": {
+      "type": "boolean",
+      "$comment": "A core item needs an R comparison; §10.4 and WP-20 read it, and an item admitted by adjudication in the second pass is awaiting_R and enters no F this run."
+    },
+    "placement": {
+      "$ref": "#/$defs/placement_claims"
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "disposition": {
+      "type": "string",
+      "enum": [
+        "place",
+        "correct",
+        "re-deliver",
+        "keep",
+        "reduce",
+        "incubate",
+        "drop",
+        "none"
+      ]
+    },
+    "consequence": {
+      "type": "string",
+      "enum": [
+        "irreversible",
+        "security",
+        "verification-corrupting",
+        "cost",
+        "quality",
+        "none"
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "target",
+        "before_state_sha256"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "create",
+            "edit",
+            "delete",
+            "merge",
+            "route"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/text"
+        },
+        "before_state_sha256": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{64}|absent)(?![\\s\\S])",
+          "$comment": "Every operation carries the expected before-state hash of its target (§7.3); `absent` is the create case, where the target does not exist yet and the hash of nothing would be a hash of something."
+        },
+        "content": {
+          "type": "string"
+        },
+        "anchor": {
+          "type": "string"
+        },
+        "diff": {
+          "type": "string"
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "unit_states": {
+          "type": "array",
+          "$comment": "Set by code, never by the model (runlib/stage_propose.py with_before_states): for a merge, the state of each unit that lives in another file than the target, as S7 read it. S11 holds that file to it before it removes the unit; a merge whose other-file unit carries no state is refused.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["unit", "state"],
+            "properties": {
+              "unit": {"$ref": "#/$defs/text"},
+              "state": {"type": "string", "pattern": "^([0-9a-f]{64}|absent)(?![\\s\\S])"}
+            }
+          }
+        },
+        "names": {
+          "type": "string",
+          "$comment": "For a route: the path the entry points at. runlib/sequencing.py reads it to ask whether an intermediate tree would hold a route to nothing."
+        },
+        "entry": {
+          "type": "string"
+        }
+      }
+    },
+    "artifact_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "english",
+        "korean",
+        "registration",
+        "gate_change"
+      ],
+      "properties": {
+        "english": {
+          "$ref": "#/$defs/text"
+        },
+        "korean": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "$comment": "null only where the item is not user-facing; the reason belongs in reasons.proposal."
+        },
+        "registration": {
+          "$ref": "#/$defs/text"
+        },
+        "gate_change": {
+          "$ref": "#/$defs/gate_change_or_null"
+        }
+      }
+    },
+    "gate_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change",
+        "negative_control"
+      ],
+      "properties": {
+        "change": {
+          "$ref": "#/$defs/text"
+        },
+        "negative_control": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "behavior_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recognition",
+        "completed_action",
+        "meaning",
+        "boundary",
+        "competing_value",
+        "roles_and_routes",
+        "failure_criteria"
+      ],
+      "properties": {
+        "recognition": {
+          "$ref": "#/$defs/text"
+        },
+        "completed_action": {
+          "$ref": "#/$defs/text"
+        },
+        "meaning": {
+          "$ref": "#/$defs/text"
+        },
+        "boundary": {
+          "$ref": "#/$defs/text"
+        },
+        "competing_value": {
+          "$ref": "#/$defs/text"
+        },
+        "roles_and_routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "failure_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    },
+    "expected_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "occasion",
+        "exposure_rule",
+        "expected_behavior",
+        "retrieval_terms",
+        "expiry"
+      ],
+      "properties": {
+        "occasion": {
+          "$ref": "#/$defs/text"
+        },
+        "exposure_rule": {
+          "$ref": "#/$defs/text"
+        },
+        "expected_behavior": {
+          "$ref": "#/$defs/text"
+        },
+        "retrieval_terms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "expiry": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])"
+        },
+        "counter": {
+          "$ref": "#/$defs/counter_or_null"
+        }
+      }
+    },
+    "counter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "threshold"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "carrier"
+      ],
+      "properties": {
+        "layer": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Judged against tables/placement_rules.json `destinations.order`, not enumerated here: one authority for the layers."
+        },
+        "carrier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "$comment": "null for a disposition that carries no operations; a placed item names the file or entry that carries it. The pattern refuses a control character only - a single line. WHICH layers exist and whether the path is relative are `runlib/placement.destination_problems`'s, so one rule has one authority; the pattern is here because a schema can say 'one line' without restating anything.",
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+        },
+        "consumer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "situation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "reasons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "what_happened",
+        "proposal",
+        "reason",
+        "cost",
+        "serves",
+        "falsifier"
+      ],
+      "properties": {
+        "what_happened": {
+          "$ref": "#/$defs/text"
+        },
+        "proposal": {
+          "$ref": "#/$defs/text"
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        },
+        "cost": {
+          "$ref": "#/$defs/text"
+        },
+        "serves": {
+          "$ref": "#/$defs/text"
+        },
+        "falsifier": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "$comment": "The person reads these, so they are Korean; the share is a non-blocking diagnostic of S9b, never a gate here."
+    },
+    "unknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "state",
+        "effect"
+      ],
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/text"
+        },
+        "state": {
+          "$ref": "#/$defs/text"
+        },
+        "effect": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "$comment": "A named state of the derivation this proposal would have rested on, carried forward by name: the field, the state as the derivation spelled it, and what the proposal does about it."
+    },
+    "counter_or_null": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "threshold"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "$comment": "Nullable: null where no counter can resolve the observation. "
+    },
+    "gate_change_or_null": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "change",
+        "negative_control"
+      ],
+      "properties": {
+        "change": {
+          "$ref": "#/$defs/text"
+        },
+        "negative_control": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "$comment": "Nullable: null where the item is not author-side. "
+    },
+    "expected_observation_or_null": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "occasion",
+        "exposure_rule",
+        "expected_behavior",
+        "retrieval_terms",
+        "expiry"
+      ],
+      "properties": {
+        "occasion": {
+          "$ref": "#/$defs/text"
+        },
+        "exposure_rule": {
+          "$ref": "#/$defs/text"
+        },
+        "expected_behavior": {
+          "$ref": "#/$defs/text"
+        },
+        "retrieval_terms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "expiry": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])"
+        },
+        "counter": {
+          "$ref": "#/$defs/counter_or_null"
+        }
+      },
+      "$comment": "Nullable: null where the disposition asks for no observation. The policy of runlib/validate.py admits a nullable as a type list and refuses oneOf, so the shape is stated once and this twin carries the null. "
+    },
+    "placement_claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer",
+        "artifact_form",
+        "blocking",
+        "criterion",
+        "judges",
+        "situation_promoted_items",
+        "situation_covered_by_guide",
+        "names_situation_of_guide",
+        "owner_only"
+      ],
+      "properties": {
+        "consumer": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "$comment": "Who the instruction is aimed at. tables/placement_rules.json `consumers.reads` says what each consumer reads; a consumer it does not name is not refused here, because the table is the authority on the set."
+        },
+        "artifact_form": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "$comment": "`instruction` when the item instructs someone; something else when it is code, a gate or a hook registration."
+        },
+        "blocking": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "$comment": "Whether the proposed gate or hook BLOCKS. Required by the rules' scopes when the destination is gates or hooks."
+        },
+        "criterion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "$comment": "`semantic` when a person must judge it, `decidable` when code can. A blocking gate on a semantic criterion is refused."
+        },
+        "judges": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "$comment": "Whether the proposed hook JUDGES. A hook that blocks or judges is outside a hook's charter."
+        },
+        "situation_promoted_items": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "$comment": "How many promoted items already share this situation. §7.4 asks for at least five before a new guide."
+        },
+        "situation_covered_by_guide": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "$comment": "Whether a guide already covers the situation."
+        },
+        "names_situation_of_guide": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "$comment": "For a C principle placed in a guide: whether it names the situation of the guide that holds it."
+        },
+        "owner_only": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "$comment": "For session-level injection: whether the item is the owner's alone."
+        }
+      },
+      "$comment": "The claims §7.4's decidable rules read. Every field is present and may be null, and `placement.py` refuses a null for a rule whose scope the proposal is in (PLACEMENT_INPUT_ABSENT) - so a null is an honest 'not applicable here' and never a way past a rule. `typology` is NOT here: it is the candidate's own type, which S6 derived, and an answer that carried it would give that field two sources."
+    }
+  }
+}

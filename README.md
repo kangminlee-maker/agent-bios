@@ -5,30 +5,25 @@
 Build an instruction library you can inspect, edit, and reuse. Choose what each
 CLI session or Codex app task uses, while preserving your existing global instruction files.
 
-[0.19.4 release notes](docs/releases/0.19.4.md)
+[0.20.0 release notes](docs/releases/0.20.0.md)
 
 ## Purpose
 
 <!-- product-purpose:start -->
-agent-bios exists to let workers compose, share, and inherit team work environments
-from Instructions, Domain knowledge, and Decision memory, so they can perform
-their roles within the standards and context of their team, industry, and organization.
+agent-bios exists to let a worker keep one library of Instructions — rules,
+guides, and procedures for LLM agents — and choose what each Claude Code or
+Codex session uses, so the work follows the standards and context the worker
+has chosen.
 
-A team is the basic unit for selecting, adopting, and sharing a work environment.
+The goal is efficient work and continuity. Instructions are reusable defaults
+that the worker adapts to each repository and personal working need; they are
+not a mechanism for enforcing uniform working methods.
 
-The goal is efficient work and continuity. Shared environments provide reusable
-defaults that workers can adapt to their repository and personal working needs;
-they are not a mechanism for enforcing uniform working methods.
-
-Workers should be able to select an environment appropriate to their role and
-team, collaborate from shared standards and decision context, and continue
-the work when a worker, model, session, or device changes. Shared context does
-not require identical outputs or erase personal, team, and organizational boundaries.
+The worker should be able to read and edit what each instruction says, adopt
+instructions others publish as packages, and continue the work when the model,
+session, or host changes. Adopted instructions do not require identical outputs
+or erase personal and organizational boundaries.
 <!-- product-purpose:end -->
-
-The current service provides the Instructions library and host launch/delivery
-integration. Shared environment editions, Domain knowledge, and Decision memory
-are the design direction; this purpose statement does not claim they are shipped.
 
 [Quick start](#quick-start) · [Instructions Studio](#your-instruction-library) · [How it works](#how-sessions-work) · [Understand!](#understand-the-reasoning) · [Documentation](#documentation) · [한국어](ko/README.md)
 

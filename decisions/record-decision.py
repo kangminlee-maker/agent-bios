@@ -63,8 +63,9 @@ the ones with no other trace. A record with nothing closed is refused.
                 all controls hold.
 """
 import argparse
+import contextlib
 import glob
-import fcntl
+import io
 import hashlib
 import json
 import os
@@ -629,6 +630,26 @@ def render(records, path=None):
     return "\n".join(lines)
 
 
+def lock_platform():
+    """The package's OS boundary, which owns the shared bounded lock wait (D-20261102-49b466).
+    Author-side imports shipped, never the reverse; imported when a lock is taken, so a copy of this
+    file run outside the tree (the self-test's redirect control) still reaches its own refusals."""
+    if str(REPO / "compose") not in sys.path:
+        sys.path.insert(0, str(REPO / "compose"))
+    import host_platform as module
+    return module
+
+
+def lock_ledger(fh, path):
+    """Hold the ledger's exclusive lock on `fh`, waiting at most the shared bound; past it, refuse
+    naming the ledger. Every append and merge used to wait on it with no deadline."""
+    platform = lock_platform()
+    try:
+        platform.lock_within(fh.fileno(), f"the decision ledger lock ({path})")
+    except platform.LockWaitExpired as exc:
+        sys.exit(f"record-decision: {exc}; nothing was recorded")
+
+
 def self_test():
     now = datetime(2026, 8, 4, 15, 0, tzinfo=timezone.utc)
     git = {"branch": "b", "head": "abc1234", "dirty": False}
@@ -1165,6 +1186,36 @@ def self_test():
     check("a span with no actions is never reliable",
           lambda: timeline_rows([s1, s2], {"sess-a": []})[1]["unreliable"] is True)
 
+    # A ledger lock held past the bound is refused by name, not waited on forever. The bounds are
+    # scaled; the holder is a child that lets go after 8 s, so a wait without a bound returns late and
+    # fails here rather than hanging the suite.
+    bounds = lock_platform()
+    with tempfile.TemporaryDirectory() as held_dir:
+        held = pathlib.Path(held_dir) / "decisions.jsonl"
+        held.write_text("", encoding="utf-8")
+        saved = (bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S)
+        said = io.StringIO()
+        holder = subprocess.Popen([sys.executable, "-c", "import fcntl, sys, time; f = open(sys.argv[1], 'a'); "
+                                   "fcntl.flock(f, fcntl.LOCK_EX); print('held', flush=True); time.sleep(8)",
+                                   str(held)], stdout=subprocess.PIPE, text=True)
+        with held.open("a+", encoding="utf-8") as waiter:
+            holder.stdout.readline()
+            bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = 0.6, 0.2
+            try:
+                with contextlib.redirect_stderr(said):
+                    lock_ledger(waiter, held)
+                refused = None
+            except SystemExit as exc:
+                refused = str(exc.code)
+            finally:
+                bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = saved
+                holder.kill()
+                holder.wait()
+                holder.stdout.close()
+        check("a ledger lock held past the bound is refused naming the ledger",
+              lambda: refused is not None and f"the decision ledger lock ({held}) is still held after 0.6 s" in refused
+              and "waiting for the decision ledger lock" in said.getvalue())
+
     out = render([later, rec])
     check("render is chronological", lambda: out.index(rec["id"]) < out.index(later["id"]))
     check("render shows a derived interval", lambda: "+10m" in out)
@@ -1252,7 +1303,7 @@ def main():
         if other is not None and not other.is_file():
             sys.exit(f"record-decision: --merge {other} is not a file")
         with ledger.open("r+", encoding="utf-8") as fh:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            lock_ledger(fh, ledger)
             fh.seek(0)
             locked = [json.loads(l) for l in fh.read().splitlines() if l.strip()]
             if other is not None:
@@ -1323,7 +1374,7 @@ def main():
     git = git_facts()
     LEDGER.parent.mkdir(parents=True, exist_ok=True)
     with LEDGER.open("a+", encoding="utf-8") as fh:
-        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        lock_ledger(fh, LEDGER)
         fh.seek(0)
         current = [json.loads(l) for l in fh.read().splitlines() if l.strip()]
         try:

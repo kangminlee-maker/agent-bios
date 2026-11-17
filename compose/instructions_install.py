@@ -6,20 +6,73 @@ activation path: installed instructions are stored and verifiable, while a launc
 activation creates the per-session snapshot and pin.
 """
 from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+# The files this installer executes from its own tree, relative to that tree.  The set is
+# DECLARED rather than discovered because `launch/shell_integration.py` is loaded by path and
+# never enters `sys.modules`, so a `sys.modules` walk would miss code that ran.
+INSTALLER_CODE = ("compose/instructions_install.py", "compose/instructions_transaction.py",
+                  "compose/host_platform.py", "launch/shell_integration.py")
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _installer_code() -> dict[str, Any]:
+    """Hash, from disk, the files this process runs its installer from (not the package it installs)."""
+    root = Path(__file__).resolve().parent.parent
+    files = []
+    for relative in INSTALLER_CODE:
+        try:
+            files.append({"path": relative, "sha256": _sha256(root / relative)})
+        except OSError:
+            files.append({"path": relative, "sha256": None})  # a layout without the file must not stop the installer
+    return {"root": str(root), "files": files, "digest": hashlib.sha256(_canonical(files)).hexdigest()}
+
+
+def _installer_build() -> str | None:
+    """The version the installer's own tree declares, read at receipt time; None when it declares none.
+
+    The digest identifies the code; this names it the way a person reads a release.  A checkout
+    between releases declares the version it last published, so the digest remains the identity.
+    """
+    try:
+        manifest = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    version = manifest.get("version") if isinstance(manifest, dict) else None
+    return version if isinstance(version, str) and version else None
+
+
+# Taken at import and deliberately BEFORE the sibling imports below: a declared file replaced
+# after its own import (an npm or git update while a wizard is open) must read as a difference
+# instead of being hashed into the receipt as if the new bytes had run.
+_CODE_AT_START = _installer_code()
+
 try:
-    from host_platform import WINDOWS, runtime_environment
+    from host_platform import WINDOWS, jsonl_lines_for, runtime_environment
 except ImportError:
-    from .host_platform import WINDOWS, runtime_environment
+    from .host_platform import WINDOWS, jsonl_lines_for, runtime_environment
 
 import argparse
 import base64
 import contextlib
-import hashlib
 import importlib
 import importlib.util
-import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import shlex
 import shutil
@@ -28,7 +81,6 @@ import tempfile
 import time
 import tomllib
 import uuid
-from typing import Any
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
@@ -48,6 +100,11 @@ from instructions_transaction import (
 
 SCHEMA_VERSION = 1
 PRIVATE_RECORD = "private-install.json"
+RECEIPT_DIR = "receipts"
+RECEIPT_SCHEMA = "InstallationReceipt/v1"
+# A receipt's id is the sha256 of its canonical body and lives OUTSIDE the body — in the file name and
+# in what `installation_binding()` returns — so no field of the body may carry it.
+RECEIPT_RESERVED = ("receipt_id",)
 CENTRAL_START = "<!-- agent-bios:central:start -->"
 CENTRAL_END = "<!-- agent-bios:central:end -->"
 PERSONAL_START = "<!-- agent-bios:personal-learnings:start -->"
@@ -79,18 +136,6 @@ def _serialized(method):
                     raise InstallError("pending migration requires agent-bios migrate --apply --yes before other writes")
             return method(self, *args, **kwargs)
     return wrapped
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _canonical(value: Any) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def _atomic_bytes(path: Path, data: bytes, mode: int | None = None) -> None:
@@ -136,6 +181,55 @@ def _relative(value: str, label: str) -> str:
     if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
         raise InstallError(f"unsafe {label}: {value!r}")
     return path.as_posix()
+
+
+# The ONLY `files[]` negations this package supports, as literal spellings.
+#
+# A negation is npm's one honoured exclusion once `files[]` exists, and it excludes from the
+# TARBALL — not from this installer, which applies `_is_bytecode` below, and not from the gates,
+# which scan what the tarball carries. Review Y r2 #2 showed what that difference costs: adding
+# `!README.md` removed README from the content and endpoint scans while npm force-included the
+# file anyway, so a forbidden identifier and a live endpoint in it became invisible with no
+# payload disagreement to notice. A negation can only be safe where every path it can exclude is
+# bytecode, and whether an arbitrary pattern has that property is not decidable by inspection —
+# so the supported set is enumerated instead, and `gates/check-package.sh` refuses any other
+# (`FILES_NEGATION_UNSUPPORTED`). This tuple is the authority the gates import; nothing re-models it.
+SUPPORTED_NEGATIONS = (
+    "__pycache__", "__pycache__/", "__pycache__/**",
+    "**/__pycache__", "**/__pycache__/**",
+    "*.pyc", "**/*.pyc", "*.pyo", "**/*.pyo",
+)
+
+
+def negation_supported(entry: str) -> bool:
+    """Whether a `files[]` entry is a negation this package supports (bytecode, and nothing else)."""
+    if not isinstance(entry, str) or not entry.startswith("!"):
+        return False
+    return entry[1:].strip() in SUPPORTED_NEGATIONS
+
+
+def _is_bytecode(relative: str) -> bool:
+    """Compiled Python, which is the author's and never the package's.
+
+    One predicate for every way a path can enter the payload — an explicit `files[]` entry and a
+    child of a listed directory alike. It was only on the directory branch, so naming a `.pyc`
+    outright still put it in the release inventory and in the release digest (review Y #4).
+
+    Skipped rather than refused: the author cannot be asked to clear a cache before every install,
+    the source beside it is the payload, and a stale `.pyc` shadowing source it no longer matches is
+    the worst shape to hand a user.
+
+    `.pyo` is here because SUPPORTED_NEGATIONS already admits `!*.pyo` and `!**/*.pyo`: an
+    allowlist that accepts a spelling this predicate cannot recognise is a pair that disagrees, and
+    `gates/check-package.sh` asks npm whether the two agree.
+
+    Uppercase `.PYC` is NOT covered, deliberately. Nothing in this toolchain writes one — CPython
+    writes lowercase names into `__pycache__` — and npm matches a `files[]` pattern
+    case-sensitively, so `!**/*.pyc` would not exclude one either. Both sides therefore give the
+    same answer about it, which is what the npm leg checks; teaching one side alone would be the
+    divergence. The day something produces such a file, both sides learn it together."""
+    parts = PurePosixPath(relative).parts
+    return relative.endswith((".pyc", ".pyo")) or "__pycache__" in parts
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -264,10 +358,31 @@ class InstructionsInstaller:
         if not isinstance(listed, list) or not listed:
             raise InstallError("package.json files must declare the private runtime payload")
         paths: set[str] = {"package.json"}  # npm includes this manifest even when files[] omits it.
-        prohibited = ("gates/", "design/", "benchmarks/", "research/", "packages/", "session-distill/")
+        # NEGATED entries (`!pattern`) are npm's exclusions, and they are why they exist here at
+        # all: with `files[]` present npm-packlist nulls the root `.npmignore`, so the one place a
+        # cache can be excluded from the TARBALL is `files[]` itself (measured on npm 12.0.2:
+        # 226 entries with the caches, 224 without). This installer does not implement npm's
+        # pattern language — it applies its own cache rule below, and `gates/check-package.sh`
+        # holds the two expansions equal against `npm pack --dry-run --json`, so a negation that
+        # excludes anything else is a gate failure rather than a silent divergence.
+        listed = [entry for entry in listed
+                  if not (isinstance(entry, str) and entry.startswith("!"))]
+        if not listed:
+            raise InstallError("package.json files declares only exclusions, so it promises no payload")
+        # The driver (`session-distill/`) is runtime payload since WP-24: a private install stores it
+        # like `wrappers/` or `session-cost.py`, because a user who cannot run it cannot distill
+        # their own sessions. The author-side trees stay refused by name — a release carrying
+        # `gates/` would ship this repo's own judgement machinery to every adopter.
+        #
+        # Compared on the FIRST SEGMENT of the normalised path, not as a prefix with a slash.
+        # `_relative` strips the trailing slash, so `"gates/"` arrived here as `"gates"` and
+        # `startswith("gates/")` was false: the check fired only for an entry naming a file inside
+        # one of these trees, and never for the directory entry that packs the whole tree — the one
+        # shape npm actually uses. The refusal existed and could not fire where it mattered.
+        prohibited = ("gates", "design", "benchmarks", "research", "packages")
         for raw in listed:
             relative = _relative(raw, "package files entry")
-            if relative.startswith(prohibited):
+            if relative.split("/", 1)[0] in prohibited:
                 raise InstallError(f"author-only path is not a private runtime payload: {relative}")
             source = self.repo / relative
             # npm's prepack stamps this author-side provenance receipt.  A
@@ -278,6 +393,8 @@ class InstructionsInstaller:
             if source.is_symlink() or not source.exists():
                 raise InstallError(f"declared package file is missing or symlinked: {relative}")
             if source.is_file():
+                if _is_bytecode(relative):
+                    continue
                 paths.add(relative)
                 continue
             if not source.is_dir():
@@ -289,6 +406,8 @@ class InstructionsInstaller:
                     child_relative = child.relative_to(self.repo).as_posix()
                     if "/test_" in child_relative or child_relative.startswith("tests/"):
                         raise InstallError(f"test file is not a runtime payload: {child_relative}")
+                    if _is_bytecode(child_relative):
+                        continue
                     paths.add(child_relative)
         return sorted(paths)
 
@@ -817,8 +936,12 @@ class InstructionsInstaller:
         launcher = {"path": str(owned[0][0]), "sha256": hashlib.sha256(owned[0][1]).hexdigest()}
         config = [{"path": str(path), "sha256": hashlib.sha256(content).hexdigest()}
                   for path, content, _mode in owned[1:]]
+        # Derived before the record so the record can carry it: the receipt binds a snapshot to one
+        # transaction, and the store reaches the transaction through the record it installed.
+        transaction_id = str(candidate.get("transaction_id") or uuid.uuid4().hex)
         record = {
-            "schema_version": SCHEMA_VERSION, "package_root": str(release), "release_digest": digest,
+            "schema_version": SCHEMA_VERSION, "transaction_id": transaction_id,
+            "package_root": str(release), "release_digest": digest,
             "installed_files": entries, "selection": requested, "baseline_ref": baseline_ref,
             "launcher": launcher, "config_files": config, "created_at": int(time.time()),
             "mode": "private-session-scoped", "needs_action": [],
@@ -838,7 +961,6 @@ class InstructionsInstaller:
              "before": self._file_version(self.state_root / "corpus-status.json"),
              "after": self._planned_version(self._launcher_status_bytes(release, requested)), "mode": 0o600},
         ])
-        transaction_id = str(candidate.get("transaction_id") or uuid.uuid4().hex)
         journal = self._transaction_path(transaction_id)
         # Source candidates are persisted by InstructionsStore under the transaction
         # id.  Keep only hashes here: personal source text is free-form and
@@ -850,7 +972,7 @@ class InstructionsInstaller:
                        "source_after_sha256": hashlib.sha256(_canonical(candidate.get("after"))).hexdigest()}
         journal_data = {"schema_version": SCHEMA_VERSION, "owner": "installer", "kind": "install", "state": "PREPARED",
                         "phase": "preflight", "candidate": association, "paths": paths,
-                        "created_at": int(time.time())}
+                        "installer_digest": _CODE_AT_START["digest"], "created_at": int(time.time())}
         self._journal_write(journal, journal_data)
         try:
             with operation_scope(self.state_root):
@@ -891,8 +1013,81 @@ class InstructionsInstaller:
         # The record/status are included in paths and now exact.  Verify the
         # installed source and every owned projection before success is visible.
         self._verify_transaction_install(data)
+        # The receipt is written after verification and before the COMMITTED marker, so a receipt
+        # can exist without a commit (the install is then recovered) but never the reverse.
+        # An earlier attempt's receipt id is dropped FIRST: a recovery whose own receipt is refused
+        # must commit unbound, not carry forward a claim made by the installer that failed.
+        data.pop("receipt_id", None)
+        receipt_id = self._write_receipt(data)
+        if receipt_id:
+            data["receipt_id"] = receipt_id
         data["state"], data["phase"], data["committed_at"] = "COMMITTED", "complete", int(time.time())
         self._journal_write(journal, data)
+
+    def _loaded_package_modules(self, release: Path, hashes: dict[str, str]) -> list[dict[str, str]]:
+        """Package modules that ran inside this installer process (the store, catalog, assembler and so on).
+
+        An old installer runs the NEW package's store and catalog, so exposure to a store or catalog
+        change is read from here (or from the snapshot's digests), never from the installer digest.
+        """
+        found: dict[str, str] = {}
+        for module in list(sys.modules.values()):
+            location = getattr(module, "__file__", None)
+            if not location:
+                continue
+            with contextlib.suppress(ValueError, OSError):
+                relative = Path(location).resolve().relative_to(release.resolve()).as_posix()
+                found[relative] = hashes.get(relative, "<not in release inventory>")
+        return [{"path": path, "sha256": found[path]} for path in sorted(found)]
+
+    def _receipt_body(self, data: dict[str, Any], record: dict[str, Any], now: dict[str, Any]) -> dict[str, Any]:
+        """The canonical receipt body.  Its sha256 is the receipt id, which is why nothing here may carry one."""
+        release = Path(record["package_root"])
+        hashes = {entry["path"]: entry["sha256"] for entry in record["installed_files"]}
+        begun_by = data.get("installer_digest")
+        return {
+            "schema": RECEIPT_SCHEMA, "result": "success",
+            "transaction_id": data["candidate"]["transaction_id"],
+            "installer": {"digest_at_import": _CODE_AT_START["digest"], "digest": now["digest"],
+                          "build": _installer_build(), "root": now["root"], "files": now["files"],
+                          "package_modules_run": self._loaded_package_modules(release, hashes)},
+            # Only when a recovery was finished by a different installer than the one that began it;
+            # §11 judges installer exposure against both digests.
+            "begun_by_installer_digest": begun_by if begun_by != now["digest"] else None,
+            "release_digest": record["release_digest"], "baseline_ref": record["baseline_ref"],
+            "selection": record["selection"],
+            # One flat list, each row naming its role, so a consumer reads the artifacts without knowing
+            # how the install record groups them: `release` rows are the immutable release's files,
+            # `owned` rows the launcher and config files the install wrote into the user's own paths.
+            "artifacts": [{"path": entry["path"], "sha256": entry["sha256"], "role": "release"}
+                          for entry in record["installed_files"]]
+                         + [{"path": entry["path"], "sha256": entry["sha256"], "role": "owned"}
+                            for entry in [record.get("launcher"), *(record.get("config_files") or [])] if entry],
+            "at": int(time.time()),
+        }
+
+    def _write_receipt(self, data: dict[str, Any]) -> str | None:
+        """Called only after the transaction verified; a failed transaction never reaches it."""
+        now = _installer_code()
+        if now != _CODE_AT_START or any(entry["sha256"] is None for entry in now["files"]):
+            # The install itself is sound; only the claim about which code ran is not, so no receipt is
+            # written and the sessions this install serves stay unbound instead of the install failing.
+            print("instructions-install: installer code changed or is unreadable; no installation receipt written",
+                  file=sys.stderr)
+            return None
+        record = _read_json(self.record_path)
+        if record.get("transaction_id") is None:
+            return None  # planned by an installer that wrote no transaction id: it can finish, but cannot be bound
+        if record["transaction_id"] != data["candidate"]["transaction_id"]:
+            raise InstallError("install record does not belong to this transaction")
+        body = self._receipt_body(data, record, now)
+        carried = [key for key in RECEIPT_RESERVED if key in body]
+        if carried:
+            raise InstallError("installation receipt body must not carry its own id: " + ", ".join(carried))
+        raw = _canonical(body)
+        receipt_id = hashlib.sha256(raw).hexdigest()
+        _atomic_bytes(self.runtime / RECEIPT_DIR / f"{receipt_id}.json", raw, 0o600)
+        return receipt_id
 
     def _verify_transaction_install(self, data: dict[str, Any]) -> None:
         for entry in data["paths"]:
@@ -1347,7 +1542,7 @@ class InstructionsInstaller:
         events: list[dict[str, str]] = []
         seen: dict[str, str] = {}
         body = content.decode("utf-8")
-        for number, line in enumerate(body.splitlines(), 1):
+        for number, line in enumerate(jsonl_lines_for(__file__).split(body), 1):
             if not line.strip():
                 continue
             try:
@@ -1380,7 +1575,7 @@ class InstructionsInstaller:
             needs_action.append(f"unsafe private {host} learning event symlink: {target}")
             return
         existing: dict[str, str] = {}
-        for number, line in enumerate(target.read_text(encoding="utf-8").splitlines(), 1):
+        for number, line in enumerate(jsonl_lines_for(__file__).read(target), 1):
             if not line.strip():
                 continue
             try:
@@ -1648,7 +1843,7 @@ class InstructionsInstaller:
             self._event_destination_conflicts(host, events, conflicts)
             if conflicts:
                 raise InstallError("legacy learning transfer changed: " + "; ".join(conflicts))
-            lines = set(target.read_text(encoding="utf-8").splitlines())
+            lines = set(jsonl_lines_for(__file__).read(target))
             missing = [event["learning_id"] for event in events if event["raw"] not in lines]
             if missing:
                 raise InstallError(f"legacy learning transfer changed: {target}: " + ", ".join(missing))
@@ -1720,7 +1915,7 @@ class InstructionsInstaller:
                             raise InstallError("; ".join(conflicts))
                         target = self.user_root / "learnings" / host / "events.jsonl"
                         self._safe_owned_path(target, self.user_root)
-                        prior = target.read_text(encoding="utf-8").splitlines() if target.is_file() else []
+                        prior = jsonl_lines_for(__file__).read(target) if target.is_file() else []
                         known = {json.loads(line)["learning_id"] for line in prior if line.strip()}
                         additions = [event["raw"] for event in events if event["learning_id"] not in known]
                         if additions:

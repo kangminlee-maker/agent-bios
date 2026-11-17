@@ -3,25 +3,25 @@
 ## Product purpose — read before every task
 
 <!-- product-purpose:start -->
-agent-bios exists to let workers compose, share, and inherit team work environments
-from Instructions, Domain knowledge, and Decision memory, so they can perform
-their roles within the standards and context of their team, industry, and organization.
+agent-bios exists to let a worker keep one library of Instructions — rules,
+guides, and procedures for LLM agents — and choose what each Claude Code or
+Codex session uses, so the work follows the standards and context the worker
+has chosen.
 
-A team is the basic unit for selecting, adopting, and sharing a work environment.
+The goal is efficient work and continuity. Instructions are reusable defaults
+that the worker adapts to each repository and personal working need; they are
+not a mechanism for enforcing uniform working methods.
 
-The goal is efficient work and continuity. Shared environments provide reusable
-defaults that workers can adapt to their repository and personal working needs;
-they are not a mechanism for enforcing uniform working methods.
-
-Workers should be able to select an environment appropriate to their role and
-team, collaborate from shared standards and decision context, and continue
-the work when a worker, model, session, or device changes. Shared context does
-not require identical outputs or erase personal, team, and organizational boundaries.
+The worker should be able to read and edit what each instruction says, adopt
+instructions others publish as packages, and continue the work when the model,
+session, or host changes. Adopted instructions do not require identical outputs
+or erase personal and organizational boundaries.
 <!-- product-purpose:end -->
 
 Before designing, implementing, reviewing, or documenting a change, identify how
 it advances or preserves this purpose. Judge a proposed simplification by whether
-it preserves environment selection, sharing, continuity, and authority boundaries.
+it preserves instruction selection, package adoption, continuity, and authority
+boundaries.
 Record material exclusions with their reasons and revisit conditions in the
 decision ledger. The purpose is the decision criterion; future capabilities must
 not be described as already implemented.
@@ -31,12 +31,6 @@ This block is the canonical purpose text. `gates/check-product-purpose.py`
 import of this file; its self-test plants missing, empty, and divergent subjects.
 Purpose alignment and model attention remain **CONVENTION**, evaluated in review.
 Regenerate the README block with `python3 gates/check-product-purpose.py --emit`.
-
-For the broader Team work-environment design, start at
-[`design/knowledge-and-history/CURRENT.md`](design/knowledge-and-history/CURRENT.md).
-It resolves one dated design SSOT and its projections. Read that SSOT before
-changing this initiative; earlier design snapshots are rationale, not competing
-current rules. The target design does not establish implemented runtime behavior.
 
 **This repo's product is agent instructions. Do not confuse the product with your
 instructions.** `claude/CLAUDE.md`, `codex/AGENTS.md`, `claude/guides/`,
@@ -68,8 +62,8 @@ treating it as authority.
 | Work in flight — a design that must stay current until it lands | **`design/<initiative>/`** (isolated) |
 | Regenerable pipeline snapshots | **`session-distill/out/`** |
 | Deployed instruction text | **`claude/`**, **`codex/`**, **`ko/`** — payload, not docs; `claude/skills/` is one tree for both hosts, not mirrored |
-| Shipped machinery outside the instructions | **`learn/`**, **`wrappers/`**, **`compose/`**, **`launch/`**, `session-cost.py` — exact members in `package.json` `files[]` |
-| Author-side only, never shipped | **`gates/`**, **`ontology/`**, **`decisions/`**, **`design/`**, **`research/`**, **`benchmarks/`**, **`packages/`**, **`session-distill/`** — `gates/check-package.sh` holds the boundary |
+| Shipped machinery outside the instructions | **`learn/`**, **`wrappers/`**, **`compose/`**, **`launch/`**, `session-cost.py`, and the session-distill driver (`session-distill/distill.py`, `runlib/`, `schemas/`, `tables/`, `packets/` and its three json tables) — exact members in `package.json` `files[]` |
+| Author-side only, never shipped | **`gates/`**, **`ontology/`**, **`decisions/`**, **`design/`**, **`research/`**, **`benchmarks/`**, **`packages/`**, and within `session-distill/` the fixtures, the v1 curator stages and the ledger migrator — `gates/check-package.sh` holds the boundary, file by file where a directory rule cannot |
 
 ## 1. Active files describe the present — CONVENTION, partly enforced
 
@@ -130,12 +124,25 @@ git config core.hooksPath .githooks
 
 `.githooks/pre-commit` runs `gates/check-package.sh` and `gates/check-parity.sh`
 and aborts the commit on failure. Budget **minutes, not seconds** — on the author's
-machine the umbrella runs ~4.5 minutes (2026-08-31) — 267s, of which the install
-scenarios in `gates/test-install-guides.sh` are 42s and the umbrella's own other legs
-are the remaining ~217s; measure with `time`, and never
+machine the commit hook ran 293s at `9dadb8f` (2026-11-02, load about 10), bounded by the
+umbrella's longest leg, the inventory self-test (202s); `gates/check-package.sh` ran 0.7s. The umbrella
+records its external legs and `gates/run-legs.py` runs them `AGENT_BIOS_PARITY_JOBS` at a time
+(default 6), so a run is bounded by its longest legs, not their sum: the same day, on a clean clone
+with the real HOME and venv, the legs took 1370s one after another and 475s, 472s and 486s six at a
+time, before the dispatch and inventory self-tests stopped re-parsing unchanged files. No leg changes
+the tracked source tree, so none runs alone (`-a`); Python's bytecode caches (`__pycache__/`, which git
+ignores) are the one write a leg still makes there. Under the same conditions the umbrella took 260s at
+`d30268e`, when the install scenarios still ran alone first, and 192s without that (2026-11-02, load 3-8).
+Each leg runs with a TMPDIR of its own and fails for anything it leaves there. The
+runner's closing `LEGS longest:` line names each run's longest legs. Measure with `time`, and never
 `pkill -f check-parity` while a commit runs, because that kills your own commit.
 
-That figure was **50m26s** until 2026-08-31, and the cause was not the scenarios.
+The distill, inventory, dispatch and projection self-tests, run with
+`AGENT_BIOS_SELF_TEST_STOP_AT_FIRST_FAILURE=1`, leave right after their first failure, which is all a
+revert row or an audit asking whether one planted fault is caught needs. The umbrella and the hook
+unset the variable, so an inherited shell never shortens a gate.
+
+The umbrella took **50m26s** until 2026-08-31, and the cause was not the scenarios.
 Each of the suite's twelve `install`/`verify` runs ends in `install.sh`'s `cmd_verify`,
 which re-ran this umbrella on the tree the umbrella was already judging — the suite sets
 `REPO="$PWD"` and writes only into a sandbox HOME, so all twelve re-derived one unchanged
@@ -354,7 +361,7 @@ fetching in the umbrella would fail in a tunnel and teach people to route around
 
 Run `--online` when a model binding changes and before trusting either guide.
 
-## 8. The canonical always surface is a per-activated-session token budget — CONVENTION
+## 8. The canonical always surface is a per-activated-session token budget — CONVENTION, with its 20 KiB cap ENFORCED
 
 Selected rules from `claude/CLAUDE.md` reach explicitly activated sessions through
 `compose/instructions_catalog.py`, `compose/instructions_store.py`, and
@@ -370,10 +377,14 @@ guide pointer; moving the procedure must preserve that reachable trigger.
 Numbers live in the owning guide's `Evidence Base`; measure with
 `session-cost.py`. Do not scatter measured values into rule bodies.
 
-**The canonical always surface is frozen to reductions.** Edits that delete, merge, or move a
-rule out are open; additions are not. A rule that would have been added goes to a guide, a
-skill, or session-level injection instead, and if none of those can hold it, that is the
-case to bring — not a bullet.
+**The canonical always surface is capped.** `claude/CLAUDE.md` may not exceed `CEILING_BYTES` in
+`gates/check-global-file.py` — 20,480 bytes of UTF-8, counted on the staged file; the decision
+and its evidence are in
+`design/session-distill/2026-10-21T0634--9b42df2--global-file-ceiling.md`. Within the cap an
+edit is open, and room freed by deleting or merging a rule can be reused. A rule that does not
+fit goes to a guide, a skill, or session-level injection instead, and if none of those can hold
+it, that is the case to bring — not a bullet. The gate **ENFORCES** the cap, and only discloses
+the lines `HEAD` lacks, because whether a new line earns its place is a judgement.
 
 `SURFACES.md` owns the current delivery choices and their admission bars.
 
@@ -552,6 +563,28 @@ pass is the only independence the loop has. Re-measuring from inside the same co
 wrong repeatedly. Same-provider agreement is high-confidence but blind-spot-sharing: a shared
 "clean" from one reviewer kind is an absence of objection, not verification.
 
+## 12. A failure is ours when our code relied on what no contract promises — CONVENTION
+
+Before fixing or dismissing a failure, name the contract the failing code relied on. The
+contract sources are fixed in advance, so the answer is a lookup rather than a judgement made
+after the fact: for the operating system, POSIX and the macOS headers and man pages; for
+Python's wrappers, the standard library documentation; for a host CLI, its official
+documentation and its `--help`; for this repo's own code, its design record.
+
+- **Ours** — the code relied on behaviour no contract states, or broke one. Fix the code.
+- **The environment's** — the code stayed inside its contracts and the environment did not
+  deliver what they promise, or ran out of a resource (disk, pipe memory, network). Do not route
+  around it in code. What remains ours is that the code neither hangs nor corrupts state on it,
+  and that the failure names its cause.
+- **Both** — an environment fault exposed a defect of ours. Fix ours; record the environment's.
+- **No contract exists** — a host's transcript format, an undocumented cache. Relying on it is
+  itself outside contract, so validating that input and refusing a drift by name is ours.
+
+"It reproduces on a clean branch" shows only that the change under review did not cause the
+failure; it does not make the failure the environment's. Working at the OS level is not the risk
+this rule names: POSIX interfaces are the most standard ones available, and process boundaries
+are what give the code isolation and control. Leaning on what they do not promise is.
+
 ## Before you believe a green gate
 
 A green gate means "it ran", not "it checked your change".
@@ -676,6 +709,16 @@ repo. Only repo-specific working rules belong in this file.
   run is in flight shifts bash's offset into the middle of a line and the run dies with a
   syntax error that is not in the file. Copying it elsewhere does not help — it `cd`s to its
   own parent for `REPO`.
+- **A restored module can still run as its mutant**: Python's bytecode cache records the source mtime to the second, so a file copied back and re-imported within the same second keeps running the cached mutant, and `python3 -B` does not help (it stops writes, not reads). Delete `__pycache__` before and after every revert experiment; a file run as `__main__` is not cached.
+- **Machine-wide pipe memory runs out, and the failure names a test line**: XNU caps all pipe
+  buffers together at 16 MiB (`PIPE_KVAMAX`, a compile-time constant); every new pipe starts at
+  512 bytes and grows on write only below the cap. On 2026-10-25 a desktop app's long-lived child
+  processes held about 12 MiB, and five `codex_run` cases failed with `printf: write error: Broken
+  pipe` on every branch, because the gate's fake `codex` exited without reading a 1.5 KB prompt
+  (§12: ours, exposed by the environment's). When a hook fails with a broken pipe or a wait on a
+  child's output hangs, measure the headroom first — open up to 20 pipes non-blocking, write
+  64 KiB into each and count how many grow past 512 bytes — and never stress the cap: every
+  session on the machine shares it.
 
 ## Commits
 

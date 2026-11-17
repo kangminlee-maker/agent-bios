@@ -25,9 +25,6 @@ from typing import Any, Callable, NoReturn
 
 if os.name == "nt":
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "compose"))
-    from host_platform import file_locks as fcntl
-else:
-    import fcntl
 
 
 TIER_ORDER = ("frontier", "helm", "workhorse", "sweep")
@@ -4108,6 +4105,42 @@ class BackRequested(RuntimeError):
     pass
 
 
+_LOCK_PLATFORMS: dict[pathlib.Path, Any] = {}
+
+
+def lock_platform(config_path: pathlib.Path):
+    """compose/host_platform.py, which owns the shared bounded lock wait (D-20261102-49b466), loaded by
+    path under a private name: from the package this launcher runs in, or, for the compatibility
+    install's standalone copy in ~/.local/bin, from the copy deployed beside the launcher's config.
+    With neither, the launcher refuses naming both rather than waiting on a lock without a bound."""
+    import importlib.util
+
+    candidates = (pathlib.Path(__file__).resolve().parents[1] / "compose" / "host_platform.py",
+                  config_path.with_name("host_platform.py"))
+    for path in candidates:
+        if path in _LOCK_PLATFORMS:
+            return _LOCK_PLATFORMS[path]
+        if path.is_file():
+            spec = importlib.util.spec_from_file_location(
+                "agent_launch_host_platform_" + hashlib.sha256(str(path).encode()).hexdigest()[:12], path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            _LOCK_PLATFORMS[path] = module
+            return module
+    raise LaunchError("the launcher's lock helper is missing (looked for "
+                      + " and ".join(str(path) for path in candidates) + "); reinstall agent-bios")
+
+
+def lock_within(handle, name: str, config_path: pathlib.Path) -> None:
+    """Hold `handle`'s exclusive lock, waiting at most the shared bound; past it, a LaunchError names
+    the lock. The launcher's writers used to wait on their locks with no deadline."""
+    platform = lock_platform(config_path)
+    try:
+        platform.lock_within(handle, name)
+    except platform.LockWaitExpired as exc:
+        raise LaunchError(str(exc)) from exc
+
+
 def resolve_command(value: str) -> str:
     # Guarded here rather than at each call site because the callers disagree about what a
     # failure means: `resolve_backend` reports it and stops, while `host_dispatch_command`
@@ -5727,6 +5760,12 @@ def build_plan(config: dict[str, Any], host: str, preset_name: str) -> dict[str,
         raise LaunchError(f"invalid preset or host binding: {host}/{preset_name}") from exc
     if not isinstance(preset, dict) or not isinstance(tiers, dict):
         raise LaunchError(f"invalid preset or host binding: {host}/{preset_name}")
+    # The same verdict wherever a preset is named — a flag, a saved mode, a resume. The menu
+    # withholds it; this is what makes the withholding a rule rather than a screen.
+    if preset_withheld(preset):
+        raise LaunchError(
+            f"PRESET_AUTHOR_ONLY {preset_name}: the preset edits the agent-bios instructions "
+            f"themselves and names paths only a checkout has; this tree is a packaged install")
     validate_host_tiers(host, tiers)
     all_overrides = preset.get("tier_overrides", {})
     if not isinstance(all_overrides, dict):
@@ -6644,7 +6683,12 @@ def register_reviewer_wizard(
                 lock_path, os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600
             )
             with os.fdopen(lock_fd, "w") as lock_handle:
-                fcntl.flock(lock_handle, fcntl.LOCK_EX)
+                try:
+                    lock_within(lock_handle, f"the launcher methods lock ({lock_path})", config_path)
+                except LaunchError as exc:
+                    _instructions_info(ui, t("wizard.title"), [str(exc)],
+                                       back_hint=t("instructions.back.hint"))
+                    return False
                 # Existence is part of the snapshot: a file created (or removed)
                 # since the trial must read as a race even when its bytes happen
                 # to equal the header the wizard would have invented.
@@ -7692,7 +7736,7 @@ def save_preset(
         lock_path = target.with_name(target.name + ".lock")
         lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
         with os.fdopen(lock_fd, "w") as lock_handle:
-            fcntl.flock(lock_handle, fcntl.LOCK_EX)
+            lock_within(lock_handle, f"the launcher presets lock ({lock_path})", config_path)
             try:
                 kept = remove_preset_block(
                     target.read_text(encoding="utf-8"), name
@@ -8244,6 +8288,29 @@ def customize(
 
 
 DISTILL_PRESET = "session-distill"
+# An author-only preset instructs its agent to edit THIS repository's instructions, so its mission
+# names paths that exist only in a checkout. Offering it on a packaged install offers a route whose
+# first step fails, which is why `compose/assemble.py` already withholds an author-only GUIDE from a
+# packaged user; until now the preset's own `audience = "author"` was read by the payload gate and
+# by nothing else, so the route stayed open.
+#
+# The marker is `gates/`, which `gates/check-package.sh` forbids the payload from carrying in both
+# directions. Its presence therefore IS "this tree is a checkout", and no second declaration exists
+# to drift from it.
+AUTHOR_TREE_MARKER = "gates"
+
+
+def author_tree(root: Any = None) -> bool:
+    """Whether the tree this launcher runs from is an agent-bios checkout."""
+    base = pathlib.Path(root) if root is not None else pathlib.Path(__file__).resolve().parent.parent
+    return (base / AUTHOR_TREE_MARKER).is_dir()
+
+
+def preset_withheld(preset: dict[str, Any], root: Any = None) -> bool:
+    """Whether this preset must not be offered or launched from the tree we run in."""
+    return isinstance(preset, dict) and preset.get("audience") == "author" and not author_tree(root)
+
+
 INSTRUCTIONS_STATUS_PATH = pathlib.Path(
     _instructions_environment(
         "AGENT_BIOS_INSTRUCTIONS_STATUS", "AGENT_BIOS_CORPUS_STATUS",
@@ -9369,6 +9436,10 @@ def pick_mode_and_preset(
                     t("instructions.private.description") if private_instructions_enabled() else t("instructions.description"),
                 )
             )
+            if preset_withheld(presets.get(DISTILL_PRESET, {})):
+                # Withheld, not greyed out: a route whose first instruction names a path the
+                # reader does not have is worse than an absent route (WP-22a).
+                mode_options = [o for o in mode_options if o.value != DISTILL_MODE]
             if private_instructions_enabled():
                 mode_options.append(MenuOption(UNDERSTAND_OPTION, t("understand.title"), t("understand.description")))
                 mode_options.append(MenuOption(SHELL_CONNECTION_OPTION, t("shell.title"), t("shell.description")))
@@ -9446,6 +9517,13 @@ def pick_mode_and_preset(
             mode = None
             continue
         if mode == DISTILL_MODE:
+            # Reached by a resume, a flag or a stale saved mode rather than the menu: the same
+            # verdict, by name, instead of a hub whose first instruction cannot be followed.
+            if preset_withheld(presets.get(DISTILL_PRESET, {})):
+                raise LaunchError(
+                    f"PRESET_AUTHOR_ONLY {DISTILL_PRESET}: this preset edits the agent-bios "
+                    f"instructions themselves and needs a checkout; a packaged install has none, "
+                    f"so it is not offered here")
             if distill_hub(config, ui) != "start":
                 mode = None
                 continue
@@ -10711,26 +10789,79 @@ def _line_count(path: pathlib.Path) -> int:
         return 0
 
 
-def session_distill_nudge(config: dict[str, Any]) -> str | None:
-    """Nudge when enough sessions accumulated since the last mining window.
+def _transcript_file_count(home: pathlib.Path) -> int:
+    """Transcript files under the two hosts' roots: a directory listing, no parsing.
 
-    The baseline is written by session-distill/update-state.py at
-    window close; provider history line counts are a cheap proxy for new
-    sessions. No state file means no nudge.
-    """
+    Claude keeps one file per session directly inside each project directory; Codex keeps
+    rollouts, plain or compressed in place, anywhere below `sessions/` and `archived_sessions/`.
+    The window-close writer (session-distill/update-state.py) counts them the same way, and its
+    self-test holds the two counts to one answer."""
+    total = 0
+    try:
+        with os.scandir(home / ".claude" / "projects") as projects:
+            for project in projects:
+                if project.is_dir(follow_symlinks=False):
+                    with os.scandir(project.path) as files:
+                        total += sum(1 for f in files if f.name.endswith(".jsonl") and f.is_file(follow_symlinks=False))
+    except OSError:
+        pass
+    pending = [home / ".codex" / "sessions", home / ".codex" / "archived_sessions"]
+    while pending:
+        try:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    if entry.is_dir(follow_symlinks=False):
+                        pending.append(pathlib.Path(entry.path))
+                    elif entry.name.endswith((".jsonl", ".jsonl.zst")) and entry.is_file(follow_symlinks=False):
+                        total += 1
+        except OSError:
+            continue
+    return total
+
+
+def _nudge_setting(settings: Any, key: str, default: int) -> int:
+    """A positive integer setting of `[session_distill]`, or `default`.
+
+    A hand-edited "250" made the comparison a TypeError before the launcher drew anything — a
+    nudge is a hint, so an unusable value falls back to the default rather than taking the
+    launch down with it. `bool` is excluded because `True` is an int that means nothing here."""
+    value = settings.get(key, default) if isinstance(settings, dict) else default
+    return default if isinstance(value, bool) or not isinstance(value, int) or value < 1 else value
+
+
+def session_distill_nudge(config: dict[str, Any]) -> str | None:
+    """Nudge when a mining window is due.
+
+    The baseline is written by session-distill/update-state.py at window close. A state file that
+    carries `transcript_files_total` nudges when `cadence_days` have passed since its `window_end`
+    or the transcript files under the hosts' roots grew by `transcript_growth`; one without it
+    keeps the original rule, provider history line counts as a cheap proxy for new sessions. No
+    state file means no nudge. The launcher reads this file and the hosts' directories, nothing
+    in a checkout."""
     try:
         state = json.loads(SESSION_DISTILL_STATE.read_text(encoding="utf-8"))
         baseline = int(state["history_lines_total"])
     except (OSError, ValueError, KeyError, TypeError):
         return None
     settings = config.get("session_distill", {})
-    threshold = settings.get("nudge_after", 250) if isinstance(settings, dict) else 250
-    # `nudge_after` is compared against a line count, and a hand-edited "250" made that
-    # comparison a TypeError before the launcher drew anything — a nudge is a hint, so
-    # an unusable threshold falls back to the default rather than taking the launch
-    # down with it. `bool` is excluded because `True` is an int that means nothing here.
-    if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 1:
-        threshold = 250
+    files_then = state.get("transcript_files_total")
+    if isinstance(files_then, int) and not isinstance(files_then, bool):
+        cadence = _nudge_setting(settings, "cadence_days", 14)
+        growth = _nudge_setting(settings, "transcript_growth", 250)
+        reasons = []
+        try:
+            days = (datetime.date.today() - datetime.date.fromisoformat(state["window_end"])).days
+        except (KeyError, TypeError, ValueError):
+            days = None
+        if days is not None and days >= cadence:
+            reasons.append(f"{days} days since {state['window_end']} (cadence {cadence})")
+        grown = _transcript_file_count(pathlib.Path.home()) - files_then
+        if grown >= growth:
+            reasons.append(f"~{grown} new transcript files since {state.get('window_end', '?')} (threshold {growth})")
+        if not reasons:
+            return None
+        return "session-distill due: " + "; ".join(reasons) + " — launch the Session distill preset to run the next mining window"
+    threshold = _nudge_setting(settings, "nudge_after", 250)
     current = _line_count(pathlib.Path.home() / ".claude/history.jsonl") + _line_count(
         pathlib.Path.home() / ".codex/history.jsonl"
     )
@@ -11161,6 +11292,7 @@ def main(argv: list[str], *, bundled_ui: bool = False) -> int:
             raise LaunchError("an instruction-pinned resume requires a private installation")
         store = instructions_store()
         import instructions_session
+        instructions_session.raise_on_termination()
         return instructions_session.launch(command, [], store.state_root, args.host, {},
                                      resume_id=args.resume_session)
     nudge = session_distill_nudge(config)
@@ -11303,6 +11435,7 @@ def main(argv: list[str], *, bundled_ui: bool = False) -> int:
         projected += [understand_initial_prompt("<pinned-understand-session-prompt>")]
     if snapshot is not None and args.dry_run:
         import instructions_session
+        instructions_session.raise_on_termination()
         projected = instructions_session.compose_argv(
             command,
             projected,
@@ -11359,6 +11492,7 @@ def main(argv: list[str], *, bundled_ui: bool = False) -> int:
     summary_stream.flush()
     if snapshot is not None:
         import instructions_session
+        instructions_session.raise_on_termination()
         return instructions_session.launch(command, projected, store.state_root, args.host,
                                      snapshot, env=env,
                                      include_global_instructions=plan["include_global_instructions"])

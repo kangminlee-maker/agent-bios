@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import contextlib
 import base64
+import datetime
 try:
-    from host_platform import file_locks as fcntl, redirected
+    from host_platform import LockWaitExpired, file_locks as fcntl, lock_within, process_identity, redirected
 except ImportError:
-    from .host_platform import file_locks as fcntl, redirected
+    from .host_platform import LockWaitExpired, file_locks as fcntl, lock_within, process_identity, redirected
 import hashlib
 import json
 import os
@@ -82,6 +83,26 @@ def _depths(name: str) -> dict[str, int]:
     return value
 
 
+def _setup_holder(root: Path) -> str | None:
+    """The setup apply holding the transaction lock, if one does: the one writer that records itself, in
+    its receipt (written under the lock), so a waiter can name it. A receipt whose owner no longer runs,
+    or whose pid now belongs to another process, names nobody."""
+    for path in sorted((root / "setup" / "receipts").glob("*.json")):
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+            owner = receipt.get("owner") or {}
+            pid = owner.get("pid")
+            if receipt.get("state") != "running" or not isinstance(pid, int):
+                continue
+            if owner.get("process_identity") is None or process_identity(pid) != owner["process_identity"]:
+                continue
+            started = datetime.datetime.fromtimestamp(receipt["created_at"]).astimezone().isoformat(timespec="seconds")
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError):
+            continue
+        return f"setup apply {receipt.get('review_id')}, pid {pid}, started {started}"
+    return None
+
+
 @contextlib.contextmanager
 def _transaction_lock(state_root: Path, *, readonly: bool) -> Iterator[bool]:
     root = Path(state_root).expanduser()
@@ -115,12 +136,15 @@ def _transaction_lock(state_root: Path, *, readonly: bool) -> Iterator[bool]:
         if readonly and not stat.S_ISREG(os.fstat(descriptor).st_mode):
             raise TransactionError(f"unsafe instructions transaction lock: {lock}")
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | (fcntl.LOCK_NB if readonly else 0))
+            if readonly:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            else:
+                lock_within(descriptor, f"the instructions transaction lock ({lock})", holder=lambda: _setup_holder(root))
         except BlockingIOError:
-            if not readonly:
-                raise
             yield False
             return
+        except LockWaitExpired as exc:
+            raise TransactionError(str(exc)) from exc
         depths[key] = 1
         try:
             yield True

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Activation canary: proves the central bundle actually LOADS in a live
-# session — file presence cannot detect a declined @import approval or a
-# broken entry import line, so this asks a headless session to echo the
-# bundle's rev marker back.
+# session — file presence cannot show that the session reads what the entry
+# file imports, so this asks a headless session to echo the bundle's rev
+# marker back.
 #
 # Exit: 0 loading | 1 NOT loading | 3 nothing to probe / cannot probe.
 #
@@ -69,7 +69,7 @@ fi
 # the probe's own exit status. An empty reply was already treated as unprobed, but a
 # FAILED dispatch that printed anything at all — a network error, an unrecognised flag,
 # a CLI upgrade changing its error text — fell through to FAIL and sent the reader off
-# to re-approve imports for a bundle that was never asked about. stderr is discarded
+# to debug a bundle that was never asked about. stderr is discarded
 # above, so the message is quoted for whatever it is worth and the status decides.
 if [ "$probe_status" -ne 0 ]; then
   echo "CANARY SKIP: the probe command failed (exit $probe_status) — cannot tell activation"
@@ -81,6 +81,8 @@ fi
 echo "CANARY FAIL: central bundle is NOT loading in live sessions."
 echo "  expected marker: $expected"
 echo "  probe replied:   $(printf '%s' "$out" | head -c 200)"
-echo "  Likely causes: the CLAUDE.md import approval was declined (open a session and re-approve imports),"
-echo "  or the entry file lost its '@central/bundle.md' line. Diagnose with: agent-bios verify"
+# No approval cause is offered: the entry file is a user-scope memory file, and the vendor's memory page
+# says Claude Code loads a user-scope file's imports without the approval dialog.
+echo "  Likely cause: $CLAUDE_DIR/CLAUDE.md no longer imports the bundle with its '@central/bundle.md' line."
+echo "  Diagnose with: agent-bios verify"
 exit 1

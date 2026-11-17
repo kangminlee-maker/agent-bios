@@ -5,22 +5,28 @@ records and pins; no global instructions, auth, or discovery registration is cop
 """
 from __future__ import annotations
 try:
-    from host_platform import sync_directory, cli_argv
+    from host_platform import codex_protocol_for, sync_directory, cli_argv
 except ImportError:
-    from .host_platform import sync_directory, cli_argv
+    from .host_platform import codex_protocol_for, sync_directory, cli_argv
 
 import hashlib
 import json
 import os
 import pathlib
-import queue
 import re
+import shutil
+import sqlite3
 import subprocess
 import sys
-import threading
+import tempfile
 import time
 import uuid
 import unicodedata
+
+# What a Codex activation's `rollout_method` says when it tried to resolve the rollout the host
+# writes and could not. A pin that carries no rollout keys at all was written before this binding
+# existed, which is a different fact and must never share this name.
+ROLLOUT_UNRESOLVED = 'rollout_unresolved'
 
 
 class SessionError(RuntimeError):
@@ -160,77 +166,61 @@ def atomic_json(path, data):
         tmp.unlink(missing_ok=True)
 
 
-class CodexServer:
-    """One owned stdio server. No turn/start or model generation is used."""
+def raise_on_termination():
+    """For the launcher, before it composes or resumes a session: a SIGTERM or SIGHUP that arrives while
+    a CodexServer is open ends the server's process group before the launcher ends by that signal, and
+    one that arrives at any other time ends the launcher as before (codex_protocol.raise_on_termination)."""
+    codex_protocol_for(__file__).raise_on_termination()
 
-    def __init__(self, command, config_args=(), cwd=None, env=None):
+
+def _no_server_running():
+    """Refuse to open the user's session while a Codex app-server this process started is unreaped. The
+    launcher's SIGTERM and SIGHUP end the process at once only while it owns no such server, and the
+    session must see them so (codex_protocol.raise_on_termination): a server left open would turn them
+    into an exception that subprocess.call answers by killing the session."""
+    left = codex_protocol_for(__file__).unreaped()
+    if left:
+        raise SessionError(f"a Codex app-server this launch started is still running (process "
+                           f"{', '.join(str(pid) for pid in left)}), so the session does not start")
+
+
+class CodexServer:
+    """One owned stdio server. No turn/start or model generation is used.
+
+    Before it starts, the installed Codex's generated protocol schema must carry every name the
+    session code uses (wrappers/codex_protocol.py, D-20261102-d8310f); the verdict is kept under the
+    state root when the caller names one. Every result is checked for the shape its reader expects."""
+
+    def __init__(self, command, config_args=(), cwd=None, env=None, state_root=None):
         self.command, self.config_args, self.cwd, self.env = command, config_args, cwd, env
-        self.sequence = 0
-        self.events = queue.Queue()
+        self.state_root = state_root
+        self.protocol = codex_protocol_for(__file__)
 
     def __enter__(self):
-        self.proc = subprocess.Popen(
-            [self.command, *self.config_args, 'app-server', '--stdio'],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            cwd=self.cwd, env=self.env, text=True, encoding='utf-8',
-        )
-        self.reader = threading.Thread(target=self._read, daemon=True)
-        self.reader.start()
+        cache = pathlib.Path(self.state_root) / 'codex-protocol' if self.state_root is not None else None
+        try:
+            self.protocol.ensure_schema(self.command, self.env, cache)
+        except self.protocol.ProtocolError as exc:
+            raise SessionError(str(exc)) from exc
+        self.client = self.protocol.Client([self.command, *self.config_args, 'app-server', '--stdio'],
+                                           cwd=self.cwd, env=self.env)
         try:
             self.call('initialize', {'clientInfo': {'name': 'agent-bios', 'version': '1'},
                                      'capabilities': {'experimentalApi': True}})
-            self.proc.stdin.write('{"method":"initialized"}\n')
-            self.proc.stdin.flush()
+            self.client.notify('initialized')
             return self
         except BaseException:
             self.__exit__(None, None, None)
             raise
 
-    def _read(self):
-        try:
-            for line in self.proc.stdout:
-                try:
-                    self.events.put(json.loads(line))
-                except ValueError:
-                    self.events.put({'transport_error': 'invalid app-server JSON'})
-        finally:
-            self.events.put({'transport_error': 'app-server closed before its response'})
-
     def call(self, method, params, timeout=45):
-        self.sequence += 1
-        request_id = self.sequence
-        self.proc.stdin.write(json.dumps({'id': request_id, 'method': method, 'params': params}) + '\n')
-        self.proc.stdin.flush()
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            try:
-                message = self.events.get(timeout=max(0.01, deadline - time.monotonic()))
-            except queue.Empty as exc:
-                raise SessionError(f"app-server timed out: {method}") from exc
-            if 'transport_error' in message:
-                raise SessionError(message['transport_error'])
-            if message.get('id') != request_id:
-                continue
-            if 'error' in message:
-                raise SessionError(f"app-server {method}: {message['error'].get('message', 'refused')}")
-            return message['result']
-        raise SessionError(f"app-server timed out: {method}")
+        try:
+            return self.protocol.check_result(method, self.client.call(method, params, timeout))
+        except self.protocol.ProtocolError as exc:
+            raise SessionError(str(exc)) from exc
 
     def __exit__(self, *unused):
-        if self.proc.stdin:
-            self.proc.stdin.close()
-        try:
-            self.proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.wait(timeout=5)
-        if self.proc.stdout:
-            self.proc.stdout.close()
-        self.reader.join(timeout=2)
+        self.client.close()
 
 
 def config_flags(argv, exclude_developer=False):
@@ -409,14 +399,14 @@ def _with_codex_hooks(argv, hooks, config):
     return [*argv[:boundary], *flags, *argv[boundary:]]
 
 
-def validate_codex_hooks(command, snapshot, argv, cwd, env):
+def validate_codex_hooks(command, snapshot, argv, cwd, env, state_root=None):
     """Prove discovery on this runtime; preserve native enablement and trust."""
     hooks = _codex_hook_config(snapshot)
     if not hooks:
         return
     expected = {(event[0].lower() + event[1:], group['matcher'], handler['command'])
                 for event, groups in hooks.items() for group in groups for handler in group['hooks']}
-    with CodexServer(command, config_flags(argv), cwd, env) as server:
+    with CodexServer(command, config_flags(argv), cwd, env, state_root) as server:
         result = server.call('hooks/list', {'cwds': [str(cwd)]})
         config = server.call('config/read', {'cwd': str(cwd), 'includeLayers': False})
     rows = result.get('data')
@@ -471,7 +461,7 @@ def _verified_launch_snapshot(state_root, snapshot):
             'assets': verified['output'].get('assets', {})}
 
 
-def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_global_instructions=True):
+def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_global_instructions=True, state_root=None):
     """Preserve native instructions before the selected instructions and launch contract."""
     validate_working_directory_argv(host, argv)
     _global_instruction_choice(host, include_global_instructions)
@@ -499,11 +489,14 @@ def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_glob
                 'profile semantics'
             )
         hooks = _codex_hook_config(snapshot)
-        with CodexServer(command, config_flags(argv, exclude_developer=True), cwd, env) as server:
-            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': bool(hooks)})
-        native = config.get('config', {}).get('developer_instructions') or ''
-        if not isinstance(native, str):
-            raise SessionError('effective developer_instructions are not text')
+        with CodexServer(command, config_flags(argv, exclude_developer=True), cwd, env, state_root) as server:
+            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': True})
+        # Held to the layers that state it (D-20261102-efc529): null and "" are the user's none and
+        # empty value; an omitted key, or a value the layers do not give, refuses by name.
+        try:
+            native = server.protocol.developer_instructions(config)
+        except server.protocol.ProtocolError as exc:
+            raise SessionError(str(exc)) from exc
         result = replace_developer(argv, '\n\n'.join(x for x in (native, content, contract) if x))
         return _with_codex_hooks(result, hooks, config)
     boundary = argv.index('--') if '--' in argv else len(argv)
@@ -632,6 +625,179 @@ def recorded_cwd(record):
     return value
 
 
+def resolve_codex_rollout(state_root, host_id, thread, env):
+    """The rollout file the Codex CLI writes for this thread: `{'path', 'id', 'how'}`, or None.
+
+    Without this, a pin named only by the app-server's thread id names no transcript a reader can find,
+    and a session's selection and delivery can only ever be reported unknown — measured over the
+    owner's state on 2026-10-23: 15 pins, 2,631 rollouts, 0 joins.
+
+    Order (lead, 2026-11-11, from the measurement under a temporary CODEX_HOME): `thread.path` first,
+    because with the installed host it IS the rollout and no file has to be read to say so; the host's
+    thread index second, for a host that gives no usable path; `rollout_unresolved` last, naming both
+    attempts. A time-window or cwd match is ruled out at every step: a wrong join attributes one
+    session's delivered bytes to another, which is worse than unknown, and nothing in the data tells a
+    right guess from a wrong one.
+
+    `rollout_id` is taken from the file NAME, never by reading the rollout: an activation that read the
+    file would be reading the host's transcript to write its own pin. The census keeps its own rule
+    (the first record's `session_meta.id`, else the name), so a census id that differs from the pinned
+    one — a fork, a rename — is a named reason there rather than a silent miss here.
+    """
+    rejected = []
+    # (1) The path the thread itself returned, and (2) the host's index row for exactly this thread id.
+    # BOTH go through the same test, because the index gives a path and nothing more: a path alone is not
+    # an association (X r1 F2), and neither is a name inside a directory that only looks like the
+    # configured home (X r2 F6).
+    for step, candidate in (('thread.path', (thread or {}).get('path')),
+                            ('index', codex_index_rollout(env, host_id))):
+        accepted, why = _rollout_of_thread(candidate, host_id, env)
+        if accepted:
+            return {**accepted, 'how': step}
+        rejected.append(f'{step}: {why}')
+    print('agent-bios: no rollout resolved for this Codex thread; its pin records no transcript. '
+          + '; '.join(rejected), file=sys.stderr)
+    return None
+
+
+def _rollout_of_thread(path, host_id, env):
+    """`({'path', 'id'}, None)` when `path` is PROVABLY this thread's rollout inside the configured
+    home, else `(None, why not)`.
+
+    Four things are asked, and each was a way in that the first realization left open:
+    the file exists and is named as a rollout; it lies inside the *resolved* configured home's sessions
+    tree, reached through a sessions root that resolves to that home's own (a `sessions` symlink
+    otherwise makes any foreign tree the boundary); it has exactly one link, since a hard link makes one
+    file two threads' with nothing on disk to tell them apart; and its name carries exactly one id,
+    which is this thread's, compared without case because a uuid is the same id in either case.
+
+    The last check is applied to the index row too. The row IS an association, but it carries only a
+    path, so a row naming a fork-shaped file costs this resolution a miss — the safe direction, since a
+    wrong join attributes one session's delivered bytes to another.
+    """
+    found = rollout_identity(path)
+    if found is None:
+        return None, 'no existing rollout file was named'
+    resolved, ids = found
+    home = native_home('codex', env or {})
+    try:
+        sessions = (home / 'sessions')
+        anchored = sessions.resolve() == (home.resolve() / 'sessions')
+        links = pathlib.Path(resolved).stat().st_nlink
+    except OSError as problem:
+        return None, f'its home or the file could not be read ({type(problem).__name__})'
+    if not anchored:
+        return None, "the configured home's sessions root resolves elsewhere, so it bounds nothing"
+    if not _under(resolved, sessions):
+        return None, 'it resolves outside the configured home'
+    if links > 1:
+        return None, f'it has {links} links, so which thread it belongs to is not decided'
+    if len(ids) != 1:
+        return None, f'its name carries {len(ids)} ids, so which thread it belongs to is not decided'
+    if ids[0].lower() != str(host_id).lower():
+        return None, "its name is another thread's id"
+    return {'path': resolved, 'id': ids[0]}, None
+
+
+# A rollout as the host names it on disk.  Declared here and not imported: the reader that owns this
+# shape (session distill's `runlib/sources.py`) is author-side and the payload may not depend on it.
+ROLLOUT_NAME = re.compile(r'^rollout-.*\.jsonl(\.zst)?$')
+ROLLOUT_UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
+
+
+def rollout_identity(path):
+    """`(resolved path, [ids its name carries])` when `path` names an existing rollout file, else None.
+
+    Every id in the name is returned, not just one: a fork is written as two ids in one name, and
+    which thread such a file belongs to is for the caller to decide rather than for this to guess.
+    The comparison is by resolved path because a temporary or linked home answers through a symlink
+    (macOS `/var` is one), and an unresolved string compares unequal to the same file.
+    """
+    if not isinstance(path, str) or not path:
+        return None
+    try:
+        here = pathlib.Path(path).resolve()
+    except OSError:
+        return None
+    if not ROLLOUT_NAME.match(here.name) or not here.is_file():
+        return None
+    found = ROLLOUT_UUID.findall(here.name)
+    return (str(here), found) if found else None
+
+
+def _under(path, directory):
+    """Is `path` (already resolved) inside `directory`, comparing both as the filesystem resolves them?"""
+    try:
+        return pathlib.Path(path).resolve().is_relative_to(pathlib.Path(directory).resolve())
+    except OSError:
+        return False
+
+
+STATE_DATABASE = re.compile(r'^state_(\d+)\.sqlite$')
+
+
+def codex_state_databases(home):
+    """The host's thread databases, the highest version first.
+
+    The version is PARSED, not sorted as text: `state_9.sqlite` sorts after `state_10.sqlite`
+    lexically, which would have read provenance out of an older store (X r1 F7).
+    """
+    found = []
+    for path in home.glob('state_*.sqlite') if home.is_dir() else []:
+        match = STATE_DATABASE.match(path.name)
+        if match and path.is_file() and not path.is_symlink():
+            found.append((int(match.group(1)), path))
+    return [path for _version, path in sorted(found, key=lambda row: row[0], reverse=True)]
+
+
+def codex_index_rollout(env, host_id):
+    """The `rollout_path` the host's own thread index holds for this thread id, or None.
+
+    The index is read from a COPY. A read-only sqlite open of a live WAL database still moves the
+    host's `-shm` file, and this module writes nothing outside its own activation records and pins, so
+    the database and its sidecars are copied into a temporary directory and the copy is opened. A copy
+    taken while the host writes can be a moment old; that costs this resolution a miss, never a wrong
+    join, and the miss is reported as `rollout_unresolved`.
+    """
+    home = native_home('codex', env or {})
+    for database in codex_state_databases(home):
+        with tempfile.TemporaryDirectory(prefix='agent-bios-threads-') as scratch:
+            copy = pathlib.Path(scratch) / database.name
+            try:
+                for part in (database, *(database.with_name(database.name + suffix) for suffix in ('-wal', '-shm'))):
+                    if part.is_file() and not part.is_symlink():
+                        shutil.copy2(part, pathlib.Path(scratch) / part.name)
+                connection = sqlite3.connect(f'file:{copy}?mode=ro', uri=True, timeout=5)
+            except (OSError, sqlite3.Error):
+                continue              # a database this process cannot read says nothing, so the next is asked
+            try:
+                if not connection.execute("select name from sqlite_master where type='table' "
+                                          "and name='threads'").fetchone():
+                    continue
+                row = connection.execute('select rollout_path from threads where id = ?', (host_id,)).fetchone()
+            except sqlite3.Error:
+                continue
+            finally:
+                connection.close()
+            # The highest version this process could READ is the authority, whether or not it holds the
+            # thread: an older store's row for a thread the current one does not list is a stale
+            # association, and reading it resurrected one (X r2 F7).
+            return row[0] if row and isinstance(row[0], str) else None
+    return None
+
+
+def pin_codex_rollout(record, rollout):
+    """Record on the activation what rollout it resolved, and how — null fields when it resolved none.
+
+    The keys are always written for a Codex activation, because their ABSENCE is what tells a reader
+    that a pin predates this binding, and their presence with null values that the activation tried.
+    """
+    record['rollout_path'] = (rollout or {}).get('path')
+    record['rollout_id'] = (rollout or {}).get('id')
+    record['rollout_method'] = (rollout or {}).get('how') or ROLLOUT_UNRESOLVED
+    return record
+
+
 def observe_and_pin(state_root, record, host_id, evidence):
     if not isinstance(record.get('intent_id'), str) or not re.fullmatch('[0-9a-f]{32}', record['intent_id']):
         raise SessionError('invalid activation journal identity')
@@ -737,10 +903,14 @@ def recover_activations(state_root, command=None, host=None, env=None):
                 validate_session_id(requested)
                 try:
                     native_env = restore_environment(record, env)
-                    with CodexServer(command, config_flags(record['argv']), record['cwd'], native_env) as server:
+                    with CodexServer(command, config_flags(record['argv']), record['cwd'], native_env, state_root) as server:
                         observed = server.call('thread/read', {'threadId': requested, 'includeTurns': False})
                     if observed.get('thread', {}).get('id') == requested:
-                        evidence = {'method': 'recovered-thread/read'}
+                        # A recovered activation resolves the rollout too, or its pin would carry no
+                        # rollout keys and read as one written before this binding existed.
+                        pin_codex_rollout(record, resolve_codex_rollout(
+                            state_root, requested, observed.get('thread', {}), native_env))
+                        evidence = {'method': 'recovered-thread/read+' + record['rollout_method']}
                 except SessionError as exc:
                     print(f"agent-bios: activation {record['intent_id']} remains pending: {exc}", file=sys.stderr)
             if evidence:
@@ -753,7 +923,7 @@ def recover_activations(state_root, command=None, host=None, env=None):
 
 def create_codex_session(command, argv, state_root, record, cwd, env):
     validate_working_directory_argv('codex', argv)
-    with CodexServer(command, config_flags(argv), cwd, env) as server:
+    with CodexServer(command, config_flags(argv), cwd, env, state_root) as server:
         params = {'cwd': str(cwd), 'developerInstructions': instruction_value(argv, 'codex'),
                   'ephemeral': False, 'experimentalRawEvents': False}
         for index, token in enumerate(argv[:-1]):
@@ -771,12 +941,14 @@ def create_codex_session(command, argv, state_root, record, cwd, env):
         server.call('thread/inject_items', {'threadId': host_id, 'items': [
             {'type': 'message', 'role': 'developer', 'content': [
                 {'type': 'input_text', 'text': f"agent-bios session snapshot: {record['content_ref']}"}]}]})
-    with CodexServer(command, config_flags(argv), cwd, env) as server:
+    with CodexServer(command, config_flags(argv), cwd, env, state_root) as server:
         persisted = server.call('thread/read', {'threadId': host_id, 'includeTurns': False})
         if persisted.get('thread', {}).get('id') != host_id:
             raise SessionError('host did not persist the requested instructions session')
+    pin_codex_rollout(record, resolve_codex_rollout(state_root, host_id, thread, env))
     observe_and_pin(state_root, record, host_id,
-                    {'method': 'thread/start+inject_items+read', 'thread_path': thread.get('path')})
+                    {'method': 'thread/start+inject_items+read+' + record['rollout_method'],
+                     'thread_path': thread.get('path')})
     return host_id
 
 
@@ -808,14 +980,15 @@ def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume
         if host == 'claude':
             validate_claude_plugins(command, pinned, record['cwd'], env)
         else:
-            validate_codex_hooks(command, pinned, record['argv'], record['cwd'], env)
+            validate_codex_hooks(command, pinned, record['argv'], record['cwd'], env, state_root)
         argv = record['argv']
         native = ['resume', resume_id, *argv] if host == 'codex' else ['--resume', resume_id, *argv]
+        _no_server_running()
         return subprocess.call([command, *native], cwd=record['cwd'], env=env)
     snapshot = _verified_launch_snapshot(state_root, snapshot)
-    argv = compose_argv(command, argv, host, snapshot, cwd, env, include_global_instructions)
+    argv = compose_argv(command, argv, host, snapshot, cwd, env, include_global_instructions, state_root)
     if host == 'codex':
-        validate_codex_hooks(command, snapshot, argv, cwd, env)
+        validate_codex_hooks(command, snapshot, argv, cwd, env, state_root)
     if host == 'claude':
         validate_claude_plugins(command, snapshot, cwd, env)
     record = prepare(state_root, host, snapshot, argv, cwd, env, include_global_instructions)
@@ -824,12 +997,14 @@ def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume
         # id comes from the real host and is pinned before any user turn is possible.
         create_codex_session(command, argv, state_root, record, cwd, env)
         native = ['resume', record['session_id'], *argv]
+        _no_server_running()
         return subprocess.call([command, *native], cwd=cwd, env=env)
     requested_id = str(uuid.uuid4())
     record['requested_session_id'] = requested_id
     intents, _ = session_paths(state_root)
     atomic_json(intents / record['intent_id'] / 'journal.json', record)
     native = ['--session-id', requested_id, *argv]
+    _no_server_running()
     child = subprocess.Popen([command, *native], cwd=cwd, env=env)
     try:
         while True:

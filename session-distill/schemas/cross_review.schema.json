@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §6.2 (Judge B's review of an absence claim); plan WP-11 done-when 3 (F10): for one candidate the sweeps found no covering unit for, every unit either sweep marked as a partial match and fifty units both marked as none, sampled by code from the run id, each shown with both sweeps' marks and reasons. Every unit is named by the packet's own label (n); code turns labels back into stored ids and checks that every unit shown is judged exactly once (stage_judge.cross_problems). This schema holds the shape.",
+  "title": "S6 cross-review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdicts"],
+  "properties": {
+    "verdicts": {"type": "array", "items": {"$ref": "#/$defs/verdict"}}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "match": {"type": "string", "enum": ["yes", "no"]},
+    "verdict": {
+      "type": "object", "additionalProperties": false, "required": ["unit", "situation", "action", "reason"],
+      "properties": {
+        "unit": {"type": "string", "pattern": "^n[1-9][0-9]*(?![\\s\\S])"},
+        "situation": {"$ref": "#/$defs/match"},
+        "action": {"$ref": "#/$defs/match"},
+        "reason": {"$ref": "#/$defs/text"}
+      }
+    }
+  }
+}

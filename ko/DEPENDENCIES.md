@@ -26,9 +26,9 @@ JSON setup 프로토콜, 비대화형 지침 작업, import, 앱 context는 Pyth
 
 | 도구 | 사용 경로 | 필요한 기능 | 검증 버전 |
 | --- | --- | --- | --- |
-| `python3` | `compose/instructions*.py`, 앱 helper, 비용 측정, launcher | Python 3.12+의 `tomllib`과 표준 라이브러리. `jsonschema`·Textual은 각각의 선택 경로에서 요구한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
+| `python3` | `compose/instructions*.py`, 앱 helper, 비용 측정, launcher, session-distill 드라이버 | Python 3.12+의 `tomllib`과 표준 라이브러리. `jsonschema`·Textual은 각각의 선택 경로에서 요구한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | `bash` | `install.sh`, shell adapter, provisioner, 앱 helper | 배열과 인자 보존 실행; macOS system Bash 지원 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
-| `git` | 대화 설치의 소스 확보, clone 업데이트와 버전 관리 | 커밋을 고정하는 clone과 detached checkout; 개발에는 worktree와 revision 연산. 설치된 npm 패키지 사용에는 checkout이 필요 없다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
+| `git` | 대화 설치의 소스 확보, clone 업데이트, 버전 관리, 드라이버의 `gitread.py` | 커밋을 고정하는 clone과 detached checkout; 개발에는 worktree와 revision 연산. 설치된 npm 패키지 사용에는 checkout이 필요 없다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | `zsh` | `launch/agent-launch.zsh`, 선택적 shell connection | private 환경에서 명시적으로 연결한 셸과 호환 설치에 사용한다. 일반 private 저장·앱 context 사용에는 필요 없다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | `mktemp`, `cp` | wrapper의 임시 환경과 shell 도구 | BSD 또는 GNU 명령 인터페이스 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | `ioreg`, `ps` | macOS 대화형 setup의 머신·프로세스 식별 | 로컬 OS 정보를 확인한다. Linux는 machine-id와 `/proc`를 쓴다. 머신 식별에는 host/filesystem 대체 경로가 있으며 프로세스 근거가 없으면 실행 중인 시도를 확정하지 않는다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
@@ -39,7 +39,7 @@ JSON setup 프로토콜, 비대화형 지침 작업, import, 앱 context는 Pyth
 | 번들 Textual UI | 대화형 설치, 패키지·현재 checkout의 Instructions Studio TTY, private·현재 checkout의 rich 런처 | `compose/ui_runtime/`의 pure-Python wheel을 검증하고 임시로 사용한다. system·managed Textual, pip 설치, 실행 중 네트워크 접근은 필요 없다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | Managed Textual | 단독 호환 런처, 프로세스 내부 API, 저작 테스트 | 선택적인 `AGENT_LAUNCH_VENV` 환경. Pin은 `TEXTUAL_PIN`이며 현재 패키지 CLI UI는 번들을 사용한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | Rich | Textual 클라이언트 | 설치 UI 번들에 포함되며 다른 경로에서는 Textual이 가져오는 의존성이다. 별도 setup 선택이나 선택적 구문 강조 패키지가 필요하지 않다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
-| `jsonschema` | 사용자 `learn` 수집과 저작 검증 | Draft 2020-12 validator. 사용 가능한 system validator가 없으면 configured managed Python으로 실행한다. `JSONSCHEMA_PIN`과 `--learning-only` 경로가 설치를 소유한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
+| `jsonschema` | 사용자 `learn` 수집과 저작 검증, session-distill 드라이버의 문서 검증 | Draft 2020-12 validator. 사용 가능한 system validator가 없으면 configured managed Python으로 실행한다. `JSONSCHEMA_PIN`과 `--learning-only` 경로가 설치를 소유한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 
 `install`과 `onboard`는 `--non-interactive`를 명시하지 않으면 대화형이다.
 선택 옵션은 UI 초기값이며, non-TTY 기본 호출은 쓰기 전에 실패한다. Python 3.12+는
