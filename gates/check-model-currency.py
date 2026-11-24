@@ -262,7 +262,10 @@ def codex_catalogue(home: pathlib.Path) -> dict | None:
             "display": m.get("display_name"),
             # The vendor states the generation in prose. Reading that is reading what the
             # vendor said; ranking by version number would be this gate inventing an order.
-            "current": not re.search(r"\b(Older|Previous generation)\b", desc),
+            # "Legacy" is the vendor's word for the generations before the previous one
+            # (catalogue of 2026-11-24): without it, `gpt-5.6-sol` read as current, so a
+            # binding to it would have passed the publish guard.
+            "current": not re.search(r"\b(Older|Previous generation|Legacy)\b", desc),
             "judgeable": bool(desc),
             "listed": m.get("visibility") == "list",
             "priority": m.get("priority"),
@@ -378,11 +381,16 @@ def classify(sites: list[dict], rows: dict, catalogues: dict) -> list[dict]:
             out.append(verdict)
             continue
 
+        # In the vendor's own order: the catalogue's `priority` (lower is listed first), then
+        # the id. Sorting by id alone proposed `gpt-5.6-sol` over `gpt-6.2-sol` the day a
+        # role had more than one current-looking member (2026-11-24).
         successors = sorted(
-            k for k, e in entries.items()
-            if e["current"] and e["family"] == entry["family"] and k != found
-            and (host != "codex" or e.get("listed"))
-        )
+            (k for k, e in entries.items()
+             if e["current"] and e["family"] == entry["family"] and k != found
+             and (host != "codex" or e.get("listed"))),
+            key=lambda k: (not isinstance(entries[k].get("priority"), (int, float)),
+                           entries[k].get("priority") if isinstance(entries[k].get("priority"), (int, float)) else 0,
+                           k))
         if not successors:
             verdict["verdict"] = OLDER
             verdict["note"] = "the catalogue calls it old but names no same-role successor"
@@ -627,6 +635,20 @@ def self_test() -> int:
         v, _ = judge([{"where": "t.wh", "model": "gpt-5.6-terra", "effort": "max"}], {}, home)
         control("an old model with no same-role successor reads OLDER?, not SUPERSEDED",
                 v[0]["verdict"] == OLDER and v[0]["successor"] is None)
+
+        # The catalogue of 2026-11-24, in its own words: three generations of one role, the
+        # oldest called "Legacy", and a current member that sorts before the newest by id.
+        CX_LEGACY = [_cx("gpt-6.2-sol", "Fast, go-to model for coding and everyday work.", 1),
+                     _cx("gpt-6.1-sol", "Previous generation model for coding and everyday work.", 5),
+                     _cx("gpt-6-sol", "Model for coding and everyday work.", 7),
+                     _cx("gpt-5.6-sol", "Legacy model for coding and everyday work.", 9)]
+        legacy_home = _fixture_home(root / "legacy", MAIN, CX_LEGACY)
+        v, _ = judge([{"where": "t.helm", "model": "gpt-5.6-sol", "effort": "max"}], {}, legacy_home)
+        control("a model the vendor calls Legacy reads SUPERSEDED, never current",
+                v[0]["verdict"] == SUPERSEDED)
+        v, _ = judge([{"where": "t.helm", "model": "gpt-6.1-sol", "effort": "max"}], {}, legacy_home)
+        control("the successor is the role's current model the vendor lists first, not the first by id",
+                v[0]["verdict"] == SUPERSEDED and v[0]["successor"] == "gpt-6.2-sol")
 
         v, _ = judge([{"where": "t.x", "model": "llama-9", "effort": None}], {}, home)
         control("an id no catalogue answers for reads NOT JUDGED, never current",
