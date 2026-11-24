@@ -239,11 +239,11 @@ Binding (2026-10-21):
 
 | Slot | Binding | Notes |
 |---|---|---|
-| FRONTIER | Claude Fable 5.2 · GPT-6 Astra (read-only; max default; launcher may explicitly select Ultra) | bounded hardest decisions and verdicts |
-| HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra requires explicit selection; bounded FRONTIER Ultra allowed | standing main; Codex defaults bypass, explicit sandbox narrows |
-| WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation and per-item judgment; the Codex seat shares HELM's model, so it differs by effort alone and buys no cross-model perspective |
+| FRONTIER | Claude Fable 5.2 · GPT-6.2 Astra (read-only; max default; launcher may explicitly select Ultra) | bounded hardest decisions and verdicts |
+| HELM | Claude Opus 5.5 (high) · GPT-6.2 Sol (xhigh) — main Ultra requires explicit selection; bounded FRONTIER Ultra allowed | standing main; Codex defaults bypass, explicit sandbox narrows |
+| WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.2 Sol (high) | implementation and per-item judgment; the Codex seat shares HELM's model, so it differs by effort alone and buys no cross-model perspective |
 | SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | read-only; one explicit rule per item; not a rebind candidate |
-| VERIFIER-A | plain `codex exec` deep pass — GPT-6.1 Sol at ultra effort, packet on stdin (`-c service_tier="fast"` as explicit fast opt-in) | strongest single reader; cross-family from a Claude main |
+| VERIFIER-A | plain `codex exec` deep pass — GPT-6.2 Sol at ultra effort, packet on stdin (`-c service_tier="fast"` as explicit fast opt-in) | strongest single reader; cross-family from a Claude main |
 | VERIFIER-B | Claude Code ultracode workflow (keyword-opened, many-agent) | code/execution kind; fan-out counterpart |
 | INDEPENDENT-PR-REVIEWER | Codex CLI | adversarial `gh pr diff` review |
 | Claude relocation | EnterWorktree, `/cd`, `--worktree`; resume is directory-scoped | verified 2.1.207 |
@@ -254,7 +254,7 @@ Binding (2026-10-21):
 Codex direct-drive (verified 0.144.1, 2026-07-12):
 
 - `codex-helm` defaults the HELM main to `--dangerously-bypass-approvals-and-sandbox`; explicit `--sandbox` wins in any flag order. Non-Ultra defaults native multi-agent off; explicit main Ultra defaults it on.
-- HELM is instructed to dispatch tiers through internal `codex-run`, which pins model/effort/sandbox. FRONTIER uses a separate `gpt-6-astra`, read-only root: max by default, Ultra for divisible work, lower effort when cost/latency dominates. Nested multi-agent is enabled only for Ultra. Native `codex exec` spawn cannot pin role/effort.
+- HELM is instructed to dispatch tiers through internal `codex-run`, which pins model/effort/sandbox. FRONTIER uses a separate `gpt-6.2-astra`, read-only root: max by default, Ultra for divisible work, lower effort when cost/latency dominates. Nested multi-agent is enabled only for Ultra. Native `codex exec` spawn cannot pin role/effort.
 - This is an instruction-backed, live-E2E-verified default, not a security boundary: main bypass and arbitrary expert `-c` remain available by design. `frontier.toml` pins the direct native FRONTIER default to max; launcher projections overwrite it from the selected tier.
 - `codex-run` owns reach, stdin, schema, profiles, expert `-c`, channel preservation, and exit status. Keep it internal.
 - `claude-run` is its Claude-side twin and the command a composable review contract names for a panel dispatch on that host. Same shape: prompt on stdin, final message on stdout, exit status mirrored, `--model`/`--effort` pinning the seat, everything it does not recognise forwarded to `claude`. It denies the mutating tools by default, which is not the OS-level sandbox `codex-run` gets — do not read the two defaults as equivalent guarantees. Dispatch whatever command the contract names rather than the bare CLI: only the adapter can report what the dispatch actually did, and a review with no receipt stays PROPOSED.
@@ -264,7 +264,7 @@ Dispatch packets:
 
 | Target | Required packet / default |
 |---|---|
-| GPT-6 Astra FRONTIER | outcome, evidence, decision boundary, stop/verification; max default; read-only |
+| GPT-6.2 Astra FRONTIER | outcome, evidence, decision boundary, stop/verification; max default; read-only |
 | GPT-5.6 Terra WORKHORSE | outcome, frozen scope/inputs, authority, done-when, evidence/report, escalation; xhigh |
 | GPT-5.6 Luna SWEEP | exact search space, one rule per item, ambiguity behavior, stop, output; max; read-only; no architecture/debugging |
 | Claude Opus 5 HELM | xhigh for agentic work; high minimum for sensitive judgment; lower only when bounded/cost-led |

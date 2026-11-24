@@ -141,23 +141,25 @@ severity_map = { blocker = "blocker", high = "high", medium = "medium", low = "l
 # The model family this host speaks for. A review binding names a provider, and
 # the reverse map must be unique so it resolves to exactly one validatable seat.
 provider = "openai"
-models = ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]
+models = ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"]
 
 [hosts.codex.tiers.frontier]
-model = "gpt-6-astra"
+model = "gpt-6.2-astra"
 effort = "max"
 
 [hosts.codex.tiers.helm]
-model = "gpt-6.1-sol"
+model = "gpt-6.2-sol"
 effort = "xhigh"
 
 # Same model as HELM, one effort step down. The catalogue retired `terra` without a
 # same-role successor, so the tiers can no longer be three distinct models; effort is
 # what separates this seat from HELM, and a seat sharing HELM's model buys no
 # cross-model perspective — a review dispatched here is a lower-effort echo, not a
-# second reader.
+# second reader. `gpt-6.1-terra` returned on 2026-11-24, described as an efficient model
+# for visual understanding and computer use rather than for this seat's coding work, and
+# the owner kept the shared model (D-20261124-20922b).
 [hosts.codex.tiers.workhorse]
-model = "gpt-6.1-sol"
+model = "gpt-6.2-sol"
 effort = "high"
 
 [hosts.codex.tiers.sweep]
@@ -193,8 +195,8 @@ sweep = "${CODEX_HOME}/agents/sweep.toml"
 "claude-opus-5-5" = { display = "Claude Opus 5.5" }
 "claude-sonnet-5-5" = { display = "Claude Sonnet 5.5" }
 "claude-haiku-5-5" = { display = "Claude Haiku 5.5" }
-"gpt-6-astra" = { display = "GPT-6 Astra" }
-"gpt-6.1-sol" = { display = "GPT-6.1 Sol" }
+"gpt-6.2-astra" = { display = "GPT-6.2 Astra" }
+"gpt-6.2-sol" = { display = "GPT-6.2 Sol" }
 "gpt-6-luna" = { display = "GPT-6 Luna" }
 
 [hosts.claude]
@@ -315,7 +317,7 @@ tier = "frontier"
 
 [presets.deep-review.review.hosts.claude.methods."codex-exec"]
 provider = "openai"
-model = "gpt-6.1-sol"
+model = "gpt-6.2-sol"
 effort = "ultra"
 
 [presets.deep-review.review.hosts.codex.base]
@@ -340,7 +342,7 @@ tier = "frontier"
 
 [presets.session-distill.review.hosts.claude.methods."codex-exec"]
 provider = "openai"
-model = "gpt-6.1-sol"
+model = "gpt-6.2-sol"
 effort = "ultra"
 
 [presets.session-distill.review.hosts.codex.base]

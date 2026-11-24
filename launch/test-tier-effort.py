@@ -122,9 +122,9 @@ def run_checks() -> int:
             "sweep": ("claude-haiku-5-5", "medium"),
         },
         "codex": {
-            "frontier": ("gpt-6-astra", "max"),
-            "helm": ("gpt-6.1-sol", "xhigh"),
-            "workhorse": ("gpt-6.1-sol", "high"),
+            "frontier": ("gpt-6.2-astra", "max"),
+            "helm": ("gpt-6.2-sol", "xhigh"),
+            "workhorse": ("gpt-6.2-sol", "high"),
             "sweep": ("gpt-6-luna", "max"),
         },
     }

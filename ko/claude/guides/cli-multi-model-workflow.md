@@ -217,11 +217,11 @@ Binding (2026-10-21):
 
 | Slot | Binding | Notes |
 |---|---|---|
-| FRONTIER | Claude Fable 5.2 · GPT-6 Astra (read-only; max default, task-fit effort including Ultra) | bounded hardest decision/verdict |
-| HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra는 명시 선택 필요; bounded FRONTIER Ultra allowed | standing main; Codex 기본 bypass, explicit sandbox로 축소 |
-| WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation/per-item judgment; Codex seat은 HELM과 같은 model이므로 effort만으로 구분되고 cross-model perspective를 사지 않는다 |
+| FRONTIER | Claude Fable 5.2 · GPT-6.2 Astra (read-only; max default, task-fit effort including Ultra) | bounded hardest decision/verdict |
+| HELM | Claude Opus 5.5 (high) · GPT-6.2 Sol (xhigh) — main Ultra는 명시 선택 필요; bounded FRONTIER Ultra allowed | standing main; Codex 기본 bypass, explicit sandbox로 축소 |
+| WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.2 Sol (high) | implementation/per-item judgment; Codex seat은 HELM과 같은 model이므로 effort만으로 구분되고 cross-model perspective를 사지 않는다 |
 | SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | 읽기 전용; 항목마다 명시적 규칙 하나 적용; 리바인드 후보 아님 |
-| VERIFIER-A | plain `codex exec` deep pass — GPT-6.1 Sol, ultra effort, packet은 stdin(`-c service_tier="fast"`는 명시적 fast opt-in) | 가장 강한 single reader; Claude main에서 cross-family |
+| VERIFIER-A | plain `codex exec` deep pass — GPT-6.2 Sol, ultra effort, packet은 stdin(`-c service_tier="fast"`는 명시적 fast opt-in) | 가장 강한 single reader; Claude main에서 cross-family |
 | VERIFIER-B | Claude Code ultracode workflow (keyword로 열리는 many-agent) | code/execution kind; fan-out 대응물 |
 | INDEPENDENT-PR-REVIEWER | Codex CLI | adversarial `gh pr diff` review |
 | Claude relocation | EnterWorktree, `/cd`, `--worktree`; resume는 directory-scoped | verified 2.1.207 |
@@ -232,7 +232,7 @@ Binding (2026-10-21):
 Codex direct-drive(0.144.1, 2026-07-12 확인):
 
 - `codex-helm`은 HELM main을 기본 `--dangerously-bypass-approvals-and-sandbox`로 시작하며 explicit `--sandbox`는 flag 순서와 무관하게 우선한다. Non-Ultra는 native multi-agent 기본 off, explicit main Ultra는 기본 on이다.
-- HELM에게 내부 `codex-run`으로 tier를 dispatch하도록 지시하고 adapter가 model/effort/sandbox를 pin한다. FRONTIER는 별도 `gpt-6-astra`, read-only root이며 기본 max, 분할 가능 작업은 Ultra, 비용/latency 우선이면 낮은 effort다. Nested multi-agent는 Ultra에서만 켠다. Native `codex exec` spawn은 role/effort를 pin하지 못한다.
+- HELM에게 내부 `codex-run`으로 tier를 dispatch하도록 지시하고 adapter가 model/effort/sandbox를 pin한다. FRONTIER는 별도 `gpt-6.2-astra`, read-only root이며 기본 max, 분할 가능 작업은 Ultra, 비용/latency 우선이면 낮은 effort다. Nested multi-agent는 Ultra에서만 켠다. Native `codex exec` spawn은 role/effort를 pin하지 못한다.
 - 이는 security boundary가 아니라 instruction-backed, live-E2E-verified default다. Main bypass와 임의 expert `-c`는 의도적으로 남는다. `frontier.toml`은 direct native FRONTIER의 기본 effort를 max로 고정하고, launcher projection은 선택한 tier 값으로 덮어쓴다.
 - `codex-run`은 reach, stdin, schema, profile, expert `-c`, channel, exit status를 소유하는 internal adapter다.
 - `claude-run`은 그 Claude 쪽 쌍이며, composable review 계약이 그 host의 panel dispatch에 지목하는 명령이다. 형태가 같다: prompt는 stdin, 최종 메시지는 stdout, exit status 그대로, `--model`/`--effort`로 seat을 pin하고, 인식하지 못하는 인자는 전부 `claude`로 forward한다. 기본으로 mutating tool을 거부하지만 이는 `codex-run`이 받는 OS 수준 sandbox가 아니다 — 두 기본값을 동등한 보장으로 읽지 않는다. 맨 CLI가 아니라 **계약이 지목한 명령**을 dispatch한다: dispatch가 실제로 무엇을 했는지 보고할 수 있는 것은 adapter뿐이고, receipt 없는 review는 PROPOSED로 남는다.
@@ -242,7 +242,7 @@ Dispatch packet:
 
 | Target | Required packet / default |
 |---|---|
-| GPT-6 Astra FRONTIER | outcome, evidence, decision boundary, stop/verification; max default; read-only |
+| GPT-6.2 Astra FRONTIER | outcome, evidence, decision boundary, stop/verification; max default; read-only |
 | GPT-5.6 Terra WORKHORSE | outcome, frozen scope/input, authority, done-when, evidence/report, escalation; xhigh |
 | GPT-5.6 Luna SWEEP | exact search space, 항목마다 규칙 하나, ambiguity behavior, stop, output; max; 읽기 전용; architecture/debugging 제외 |
 | Claude Opus 5 HELM | agentic work xhigh; sensitive judgment high 이상; bounded/cost-led일 때만 낮춤 |
