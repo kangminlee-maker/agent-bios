@@ -799,7 +799,7 @@ AUTHOR_SIDE_FILES = {
         "the author-side ledger migration and its reader inventory; the checkout's ledger lives "
         "under design/, which never ships",
     "session-distill/REPIN.md":
-        "how to re-pin the driver's fixtures, which only a checkout has",
+        "how to re-pin the driver's hosts and move its seats, which only a checkout does",
     "session-distill/tables/ledger_readers.json":
         "the reader registry of the CHECKOUT's ledger: every row names an author-side path, and "
         "its one consumer is migrate-ledger.py, which does not ship (review Y #8)",

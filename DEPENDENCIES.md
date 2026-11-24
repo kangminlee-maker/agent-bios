@@ -231,8 +231,9 @@ Agent-bios does not install credentials or infer a model account from dependency
   It reads codex-cli's trace frames, which appear only under the caller's
   `RUST_LOG=tungstenite::protocol=trace,codex_otel.log_only=info,codex_core::responses_retry=warn`;
   the channel is unsupported and version-bound, so a capture without it attests no model. The
-  frame shape was verified on codex-cli 0.163.0; session distill pins 0.167.0 since 2026-11-12, and
-  its first 0.167.0 capture is what confirms the shape there. A capture refuses a codex whose
+  frame shape was verified on codex-cli 0.163.0 and seen again in 0.167.0's live captures; session
+  distill pins 0.171.0 since 2026-11-24, and its first 0.171.0 capture is what confirms the shape
+  there. A capture refuses a codex whose
   version is not `CODEX_RUN_VERSION` (`HOST_VERSION_MISMATCH`), and every exit the adapter takes
   before it starts codex names its code (`codex-run: CODE ...`), which the distill driver records
   as the call's `runner_refused`.
