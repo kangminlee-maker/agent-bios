@@ -187,9 +187,12 @@ An effort the catalogue does not list for the model is not a seat.
 - `host_allowance.hermetic`: until step 6 runs, `measured: false` and `allowance_tokens: null` (an unmeasured
   slot carries no number; dispatch's self-test refuses one that does), with the last measurement and its
   version in the basis. A run declares its own allowance, measured on its host (`HOST_ALLOWANCE_STALE`).
-  Until it is measured, dispatch refuses every view-window call on a Codex seat (`ALLOWANCE_UNMEASURED`).
+  Only the stage that reads view windows, S3, needs an allowance: a run declares one for its S3 seat
+  (`ALLOWANCE_UNDECLARED`), and dispatch refuses a view-window call on a host with none measured
+  (`ALLOWANCE_UNMEASURED`). While S3 sits on a Claude seat, an unmeasured Codex allowance holds no stage back.
 - `context.hermetic`, the built-in skills the host loads: until step 5 observes them, `carried: true` and a
-  basis saying since when. A capture that loads other skills is refused by name.
+  basis saying since when. A capture that loads a skill the manifest does not declare is refused by name
+  (`CONTEXT_UNDECLARED`).
 
 ### 5. The first capture on the new version (model call)
 
@@ -202,7 +205,7 @@ paragraph of `DEPENDENCIES.md`.
 ### 6. Measure the host allowance (model calls)
 
 The allowance is the largest observed main-request input of a call (input + cache read + cache creation),
-over hermetic calls dispatched through distill on the new pin, one or more per Codex seat. It includes the
+over hermetic calls dispatched through distill on the new pin; it is needed before a Codex seat takes S3. It includes the
 packet and the schema the call was handed, so it is an upper bound on the host's own share. Set `measured:
 true`, the count, `measured_version`, and a basis naming the calls, their seats and the commit.
 
@@ -237,8 +240,9 @@ refuses a binding that no prompting guide names.
    `seat_capacity` row for every newly seated seat — for Codex from the catalogue (Codex step 3), for Claude the
    host-reported window, which takes a call (Claude step 6).
 5. **The measurements (model calls, the owner's go).**
-   - Distill's host allowance for every host whose seated model changed (Codex step 6, Claude step 6): the
-     counts are in the serving model's tokens, so a new model re-measures it even on an unchanged host version.
+   - Distill's host allowance for the host of S3's seat, when S3's model changes (Codex step 6, Claude step 6):
+     the counts are in the serving model's tokens, so a new model re-measures it even on an unchanged host
+     version. No other stage reads view windows, so no other seat needs one.
    - The first capture through each newly seated model (Codex step 5): it shows the model answers through the
      strict structured-output projection the stage hands it.
    - The instruction-behavior benchmark (`benchmarks/README.md`, "Run this whenever a tier binding moves to a
