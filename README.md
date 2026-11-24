@@ -5,7 +5,7 @@
 Build an instruction library you can inspect, edit, and reuse. Choose what each
 CLI session or Codex app task uses, while preserving your existing global instruction files.
 
-[0.20.0 release notes](docs/releases/0.20.0.md)
+[0.20.1 release notes](docs/releases/0.20.1.md)
 
 ## Purpose
 

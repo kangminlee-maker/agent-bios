@@ -46,8 +46,8 @@
       }
     },
     "codex": {
-      "version": "0.167.0",
-      "path": "/opt/homebrew/Caskroom/codex/0.167.0/bin/codex",
+      "version": "0.171.0",
+      "path": "/opt/homebrew/Caskroom/codex/0.171.0/bin/codex",
       "profiles": {
         "hermetic": [
           "--ignore-user-config",
@@ -59,10 +59,9 @@
       "auxiliary": [],
       "host_allowance": {
         "hermetic": {
-          "allowance_tokens": 19167,
-          "measured": true,
-          "measured_version": "0.167.0",
-          "basis": "D13 re-pin 2026-11-12 from D7's live run at commit 6670341: observed main-request input tokens (input + cache read + cache creation), max over the 4 hermetic S6 calls through dispatch (codex-cli 0.167.0, structured output through the strict projection): gpt-6-astra/xhigh judge 19167 and 18829, gpt-6-astra/xhigh cross-review 16392, gpt-6-luna/medium sweep 15670; each call's warm-up request was 2 input tokens. Includes the packet and the handed schema (7.0 to 18.7 KB), so it overstates the host's share, as the Claude allowance does. It is the largest observed main-request input of a call, the packet and the schema it was handed included, so as an allowance it is an upper bound on the host's own share, not that share"
+          "allowance_tokens": null,
+          "measured": false,
+          "basis": "unmeasured at 0.171.0 (re-pin 2026-11-24, D-20261124-ebb701): D13 measured 19167 on codex-cli 0.167.0 (the maximum main-request input over D7's four hermetic S6 calls, gpt-6-astra/xhigh and gpt-6-luna/medium, commit 6670341), kept here in prose only as the order of size, not as the slot's number. A run declares its own allowance, measured on its host (declare.py HOST_ALLOWANCE_STALE); re-measure it on 0.171.0 by session-distill/REPIN.md before a Codex seat takes S3, the one stage that reads view windows"
         }
       },
       "context": {
@@ -74,13 +73,14 @@
             "skill-installer"
           ],
           "observed_version": "0.167.0",
-          "basis": "the four built-in skills codex-cli loads under this profile, as its capture names them: observed at 0.163.0 (WP-04) and again at 0.167.0 in each of D7's four live calls on 2026-11-12 (commit 6670341), the same four"
+          "basis": "the four built-in skills codex-cli loads under this profile, as its capture names them: observed at 0.163.0 (WP-04) and again at 0.167.0 in each of D7's four live calls on 2026-11-12 (commit 6670341), the same four; carried to 0.171.0 on 2026-11-24 without a capture, until the first 0.171.0 capture observes them (session-distill/REPIN.md): a capture that loads other skills is refused by the gate's effective-context check by name",
+          "carried": true
         }
       }
     }
   },
   "stage_seats": {
-    "$comment": "design §4: S3 claude-sonnet-5-5/high (plan amendment row 13, D-20261103-4b967e); S4 claude-opus-5-5/high; S6 A claude-opus-5-5/high, B gpt-6.1-sol/xhigh (owner, 2026-11-12, for the C3 run; the design named gpt-6-astra/xhigh), sweeps claude-sonnet-5-5/medium and gpt-6-luna/medium; S7 claude-opus-5-5/high; S7b gpt-6.1-sol/xhigh and S9b gpt-6.1-sol/high (owner, 2026-11-13, the same model as Judge B; the design named gpt-6-astra for both). S8 and S10b seat their actors from run.json actor_seats (design §8.4).",
+    "$comment": "design §4: S3 claude-sonnet-5-5/high (plan amendment row 13, D-20261103-4b967e); S4 claude-opus-5-5/high; S6 A claude-opus-5-5/high, B gpt-6.2-sol/xhigh (owner, 2026-11-12, gpt-6.1-sol for the C3 run, moved to gpt-6.2-sol 2026-11-24; the design named gpt-6-astra/xhigh), sweeps claude-sonnet-5-5/medium and gpt-6-luna/medium; S7 claude-opus-5-5/high; S7b gpt-6.2-sol/xhigh and S9b gpt-6.2-sol/high (owner, 2026-11-13, the same model as Judge B, moved with it 2026-11-24; the design named gpt-6-astra for both). S8 and S10b seat their actors from run.json actor_seats (design §8.4).",
     "S3": [
       "claude:claude-sonnet-5-5/high"
     ],
@@ -89,7 +89,7 @@
     ],
     "S6": [
       "claude:claude-opus-5-5/high",
-      "codex:gpt-6.1-sol/xhigh",
+      "codex:gpt-6.2-sol/xhigh",
       "claude:claude-sonnet-5-5/medium",
       "codex:gpt-6-luna/medium"
     ],
@@ -97,10 +97,10 @@
       "claude:claude-opus-5-5/high"
     ],
     "S7b": [
-      "codex:gpt-6.1-sol/xhigh"
+      "codex:gpt-6.2-sol/xhigh"
     ],
     "S9b": [
-      "codex:gpt-6.1-sol/high"
+      "codex:gpt-6.2-sol/high"
     ]
   },
   "seat_capacity": {
@@ -122,28 +122,28 @@
     },
     "codex:gpt-6-astra/xhigh": {
       "context_capacity": 272000,
-      "host_version": "0.167.0",
-      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the xhigh seat; bound to 0.167.0 and re-read from the binary on a re-pin"
-    },
-    "codex:gpt-6.1-sol/xhigh": {
-      "context_capacity": 272000,
-      "host_version": "0.167.0",
-      "basis": "host catalogue, read 2026-11-12: the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6.1-sol context_window 272000 and lists xhigh among its supported reasoning levels. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.167.0 and re-read from the binary on a re-pin"
-    },
-    "codex:gpt-6.1-sol/high": {
-      "context_capacity": 272000,
-      "host_version": "0.167.0",
-      "basis": "host catalogue, read 2026-11-13: the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6.1-sol context_window 272000 and lists high among its supported reasoning levels. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.167.0 and re-read from the binary on a re-pin"
+      "host_version": "0.171.0",
+      "basis": "host catalogue, read 2026-11-24 (re-pin D-20261124-ebb701): the model catalogue the pinned codex-cli 0.171.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.171.0 and re-read from the binary on a re-pin"
     },
     "codex:gpt-6-astra/high": {
       "context_capacity": 272000,
-      "host_version": "0.167.0",
-      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the high seat; bound to 0.167.0 and re-read from the binary on a re-pin"
+      "host_version": "0.171.0",
+      "basis": "host catalogue, read 2026-11-24 (re-pin D-20261124-ebb701): the model catalogue the pinned codex-cli 0.171.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-astra context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.171.0 and re-read from the binary on a re-pin"
     },
     "codex:gpt-6-luna/medium": {
       "context_capacity": 272000,
-      "host_version": "0.167.0",
-      "basis": "host catalogue, read 2026-11-12 (D13 follow-up): the model catalogue the pinned codex-cli 0.167.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-luna context_window 272000. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window. The window is the model's, so it holds for the medium seat; bound to 0.167.0 and re-read from the binary on a re-pin"
+      "host_version": "0.171.0",
+      "basis": "host catalogue, read 2026-11-24 (re-pin D-20261124-ebb701): the model catalogue the pinned codex-cli 0.171.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6-luna context_window 272000. The window is the model's, so it holds for the medium seat. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.171.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6.2-sol/xhigh": {
+      "context_capacity": 500000,
+      "host_version": "0.171.0",
+      "basis": "host catalogue, read 2026-11-24 (re-pin D-20261124-ebb701): the model catalogue the pinned codex-cli 0.171.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6.2-sol context_window 500000 and lists xhigh among its supported reasoning levels. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.171.0 and re-read from the binary on a re-pin"
+    },
+    "codex:gpt-6.2-sol/high": {
+      "context_capacity": 500000,
+      "host_version": "0.171.0",
+      "basis": "host catalogue, read 2026-11-24 (re-pin D-20261124-ebb701): the model catalogue the pinned codex-cli 0.171.0 binary bundles (the versioned file at hosts.codex.path, read as bytes for its models list; no owner data, no network, ~/.codex not read) gives gpt-6.2-sol context_window 500000 and lists high among its supported reasoning levels. The same entry carries max_context_window 872000, which is the entry's ceiling and is not what is declared. Codex captures report no context size (D7, codex-cli 0.167.0), so this is the host's catalogue, not a host-reported window; bound to 0.171.0 and re-read from the binary on a re-pin"
     }
   }
 }

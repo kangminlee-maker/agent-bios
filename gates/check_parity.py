@@ -164,9 +164,9 @@ except Exception as exc:
 helm = pathlib.Path("wrappers/codex-helm.sh")
 
 expected_launch_tiers = {
-    "frontier": ("gpt-6-astra", "max"),
-    "helm": ("gpt-6.1-sol", "xhigh"),
-    "workhorse": ("gpt-6.1-sol", "high"),
+    "frontier": ("gpt-6.2-astra", "max"),
+    "helm": ("gpt-6.2-sol", "xhigh"),
+    "workhorse": ("gpt-6.2-sol", "high"),
     "sweep": ("gpt-6-luna", "max"),
 }
 expected_claude_tiers = {
@@ -364,10 +364,10 @@ def launch_profile_tiers():
 @check
 def codex_agent_templates():
     expected_agents = {
-        "frontier.toml": ("frontier", "gpt-6-astra", "max"),
-        "workhorse.toml": ("workhorse", "gpt-6.1-sol", "high"),
+        "frontier.toml": ("frontier", "gpt-6.2-astra", "max"),
+        "workhorse.toml": ("workhorse", "gpt-6.2-sol", "high"),
         "sweep.toml": ("sweep", "gpt-6-luna", "max"),
-        "reviewer.toml": ("reviewer", "gpt-6.1-sol", "high"),
+        "reviewer.toml": ("reviewer", "gpt-6.2-sol", "high"),
     }
 
     missing_agents = sorted(set(expected_agents) - {path.name for path in agent_dir.glob("*.toml")}) if agent_dir.is_dir() else sorted(expected_agents)
@@ -611,7 +611,7 @@ def codex_helm():
             ):
                 continue
             match = re.search(rf"^mode={mode} reach=hermetic model=(\S+) effort=(\S+) sandbox=(\S+) ", result.stdout, re.MULTILINE)
-            if not match or match.groups() != ("gpt-6.1-sol", "xhigh", "dangerously-bypass-approvals-and-sandbox"):
+            if not match or match.groups() != ("gpt-6.2-sol", "xhigh", "dangerously-bypass-approvals-and-sandbox"):
                 mark_fail(f"codex-helm {mode} defaults are missing or incorrect")
             has_adapter = "Internal FRONTIER command base" in result.stdout
             if has_adapter != (mode != "single"):
@@ -681,13 +681,13 @@ def codex_helm():
             replacements.append((
                 "FRONTIER descriptive binding",
                 frontier_description,
-                frontier_description.replace("gpt-6-astra", "gpt-5.6-sol"),
+                frontier_description.replace("gpt-6.2-astra", "gpt-5.6-sol"),
             ))
         if frontier_command is not None:
             replacements.append((
                 "FRONTIER executable command",
                 frontier_command,
-                frontier_command.replace("gpt-6-astra", "gpt-5.6-sol"),
+                frontier_command.replace("gpt-6.2-astra", "gpt-5.6-sol"),
             ))
         additions = [
             (subject, expected, f"{expected}\n- {subject}: {reverted}")
@@ -15828,7 +15828,7 @@ def same_family(fx):
     expect_text(
         configured,
         "agent-launch FRONTIER main effort projection",
-        ('Main           FRONTIER · gpt-6-astra · ultra', 'main=frontier (gpt-6-astra/ultra)'),
+        ('Main           FRONTIER · gpt-6.2-astra · ultra', 'main=frontier (gpt-6.2-astra/ultra)'),
     )
 
     # A Claude main's same-family deep route is the host's own workflow, so it must NOT
